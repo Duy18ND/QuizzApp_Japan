@@ -4,6 +4,7 @@
   "description": "Japanese Vocabulary Learning App",
   "scripts": {
     "dev": "npm run dev --prefix server & npm run dev --prefix client",
-    "install:all": "npm install && npm install --prefix server && npm install --prefix client"
+    "install:all": "npm install && npm install --prefix server && npm install --prefix client",
+    "deploy": "git add . && git commit -m \"Auto update quiz app\" && git push -u origin main"
   }
 }
