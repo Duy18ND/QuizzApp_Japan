@@ -1,0 +1,76 @@
+Đọc danh sách từ vựng từ PDF được cung cấp. Lấy đúng phạm vi Unit/Lesson được chỉ định. Không tự thêm từ.
+
+Với mỗi từ, tạo đúng 1 câu hỏi.
+
+Sử dụng ngẫu nhiên 6 dạng:
+1. vi_to_hiragana (Việt → Hiragana)
+2. vi_to_kanji (Việt → Kanji)
+3. kanji_to_hiragana (Kanji → Hiragana)
+4. kanji_to_vi (Kanji → Việt)
+5. hiragana_to_kanji (Hiragana → Kanji)
+6. hiragana_to_vi (Hiragana → Việt)
+
+Mỗi câu có đúng 4 lựa chọn (A, B, C, D).
+Không tạo nhiều câu cho cùng một từ.
+
+Mỗi từ phải có đầy đủ:
+- Kanji
+- Hiragana
+- Nghĩa tiếng Việt
+
+Mỗi câu hỏi (question) phải có:
+- id
+- wordId
+- type
+- question
+- answers
+
+Mỗi đáp án (answer) phải có record tương ứng với question:
+- questionId
+- correctAnswerId
+- kanji
+- hiragana
+- meaning
+- hint
+- explanation
+
+Gợi ý (hint) phải là một object có chứa kanji, hiragana, meaning (tùy ý).
+Tuy nhiên, Hint KHÔNG ĐƯỢC trực tiếp tiết lộ đáp án của câu hỏi (frontend sẽ filter, nhưng data sinh ra cần tuân thủ cấu trúc).
+Explanation sau khi trả lời phải hiển thị đầy đủ:
+Kanji, Hiragana, Nghĩa tiếng Việt.
+
+Định dạng đầu ra:
+questions.txt (hoặc questions.json) và answers.txt (hoặc answers.json) phải là JSON hợp lệ với ROOT ARRAY.
+
+Ví dụ Output Question:
+[
+  {
+    "id": "U1-Q001",
+    "wordId": 1,
+    "type": "vi_to_hiragana",
+    "question": "đàn ông, nam giới",
+    "answers": [
+      { "id": "A", "text": "だんせい" },
+      { "id": "B", "text": "じょせい" },
+      { "id": "C", "text": "こうれい" },
+      { "id": "D", "text": "せんぱい" }
+    ]
+  }
+]
+
+Ví dụ Output Answer:
+[
+  {
+    "questionId": "U1-Q001",
+    "correctAnswerId": "A",
+    "kanji": "男性",
+    "hiragana": "だんせい",
+    "meaning": "đàn ông, nam giới",
+    "hint": {
+      "kanji": "男性",
+      "hiragana": "だんせい",
+      "meaning": "đàn ông, nam giới"
+    },
+    "explanation": "男性（だんせい）= đàn ông, nam giới"
+  }
+]

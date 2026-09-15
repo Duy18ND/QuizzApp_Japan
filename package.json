@@ -1,0 +1,9 @@
+{
+  "name": "quizz_app_nihon",
+  "version": "1.0.0",
+  "description": "Japanese Vocabulary Learning App",
+  "scripts": {
+    "dev": "npm run dev --prefix server & npm run dev --prefix client",
+    "install:all": "npm install && npm install --prefix server && npm install --prefix client"
+  }
+}
