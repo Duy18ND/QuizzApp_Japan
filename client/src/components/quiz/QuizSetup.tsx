@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Play } from 'lucide-react';
 import type { QuizConfig, JLPTLevel, QuizSource } from '../../types/quiz';
+import { CustomDataImport } from '../common/CustomDataImport';
 
 const UNIT_DATA: Record<JLPTLevel, { id: number, name: string, totalWords: number }[]> = {
   N5: [{ id: 1, name: 'Unit 1 (N5)', totalWords: 100 }],
@@ -29,9 +30,12 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
   });
 
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<'system' | 'custom'>('system');
+  const [customWords, setCustomWords] = useState<any[]>([]);
 
   const activeUnits = UNIT_DATA[config.level as JLPTLevel] || UNIT_DATA['N3'];
-  const totalWordsInUnit = activeUnits.find((u: any) => u.id === config.unitId)?.totalWords || 120;
+  const systemTotalWords = activeUnits.find((u: any) => u.id === config.unitId)?.totalWords || 120;
+  const currentTotalWords = tab === 'custom' ? customWords.length : systemTotalWords;
 
   const handleLevelChange = (newLevel: JLPTLevel) => {
     const defaultUnitId = UNIT_DATA[newLevel]?.[0]?.id || 1;
@@ -39,18 +43,25 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
   };
 
   const handleStart = () => {
-    if (config.rangeType === 'custom') {
-      if (config.customRange.start >= config.customRange.end) {
-        setError("STT Bắt đầu phải nhỏ hơn STT Kết thúc.");
+    if (tab === 'custom') {
+      if (customWords.length === 0) {
+        setError("Vui lòng nhập dữ liệu từ vựng trước khi bắt đầu Quiz.");
         return;
       }
-      if (config.customRange.start < 1 || config.customRange.end > totalWordsInUnit) {
-        setError(`Vui lòng chọn khoảng trong phạm vi từ 1 đến ${totalWordsInUnit}.`);
-        return;
+    } else {
+      if (config.rangeType === 'custom') {
+        if (config.customRange.start >= config.customRange.end) {
+          setError("STT Bắt đầu phải nhỏ hơn STT Kết thúc.");
+          return;
+        }
+        if (config.customRange.start < 1 || config.customRange.end > currentTotalWords) {
+          setError(`Vui lòng chọn khoảng trong phạm vi từ 1 đến ${currentTotalWords}.`);
+          return;
+        }
       }
     }
     setError(null);
-    onStart(config);
+    onStart({ ...config, isCustom: tab === 'custom', customData: customWords });
   };
 
   return (
@@ -62,8 +73,25 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
 
       <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-xl transition-colors">
         
-        {/* 1. Trình độ & Bài học */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div className="flex bg-gray-100 dark:bg-gray-950 p-1 rounded-xl mb-6 border border-gray-200 dark:border-gray-800">
+          <button
+            onClick={() => setTab('system')}
+            className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition-colors ${tab === 'system' ? 'bg-white text-indigo-600 shadow-sm dark:bg-indigo-600 dark:text-white dark:shadow-none' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
+          >
+            Chọn từ hệ thống
+          </button>
+          <button
+            onClick={() => { setTab('custom'); setConfig({ ...config, questionCount: 'all' }); }}
+            className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition-colors ${tab === 'custom' ? 'bg-white text-indigo-600 shadow-sm dark:bg-indigo-600 dark:text-white dark:shadow-none' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
+          >
+            Tạo danh sách tự do
+          </button>
+        </div>
+
+        {tab === 'system' ? (
+          <>
+            {/* 1. Trình độ & Bài học */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Trình độ (JLPT)</label>
             <select 
@@ -143,9 +171,23 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
             ))}
           </div>
         </div>
+          </>
+        ) : (
+          <div className="mb-8">
+            <CustomDataImport onDataImported={(data) => { setCustomWords(data); setError(null); }} />
+            {customWords.length > 0 && (
+              <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-center justify-between">
+                <span className="text-sm text-green-700 dark:text-green-400 font-medium">✅ Đã tải {customWords.length} từ vựng sẵn sàng cho bài Quiz!</span>
+                <button onClick={() => setCustomWords([])} className="px-3 py-1 bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50 rounded-md text-sm font-semibold transition-colors">Xóa dữ liệu</button>
+              </div>
+            )}
+            {error && <p className="text-red-500 dark:text-red-400 text-sm mt-3">{error}</p>}
+          </div>
+        )}
 
         {/* 3. Tùy chọn Phạm vi (Range) */}
-        <div className="mb-6">
+        {tab === 'system' && (
+          <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Phạm vi câu hỏi</label>
             <div className="flex bg-gray-100 dark:bg-gray-950 p-1 rounded-lg border border-gray-200 dark:border-gray-800">
@@ -187,7 +229,7 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
                 <input 
                   type="number" 
                   min={1} 
-                  max={totalWordsInUnit - 1}
+                  max={Math.max(1, currentTotalWords - 1)}
                   value={config.customRange.start}
                   onChange={(e) => setConfig({ ...config, customRange: { ...config.customRange, start: Number(e.target.value) } })}
                   className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg p-3 min-h-[48px] outline-none focus:border-indigo-500 text-sm transition-colors"
@@ -199,7 +241,7 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
                 <input 
                   type="number" 
                   min={2} 
-                  max={totalWordsInUnit}
+                  max={currentTotalWords}
                   value={config.customRange.end}
                   onChange={(e) => setConfig({ ...config, customRange: { ...config.customRange, end: Number(e.target.value) } })}
                   className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg p-3 min-h-[48px] outline-none focus:border-indigo-500 text-sm transition-colors"
@@ -210,6 +252,7 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
           
           {error && <p className="text-red-400 text-sm mt-2">{error}</p>}
         </div>
+        )}
 
         {/* 4. Toggles */}
         <div className="space-y-3 mb-8">

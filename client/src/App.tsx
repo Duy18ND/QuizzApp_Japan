@@ -1,6 +1,5 @@
-import { HashRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppLayout } from './components/layout/AppLayout';
-import { DashboardPage } from './pages/DashboardPage';
 import { VocabularyLevelsPage } from './pages/vocabulary/VocabularyLevelsPage';
 import { VocabularyUnitsPage } from './pages/vocabulary/VocabularyUnitsPage';
 import { VocabularyWordsPage } from './pages/vocabulary/VocabularyWordsPage';
@@ -18,7 +17,7 @@ function App() {
     <HashRouter>
       <Routes>
         <Route path="/" element={<AppLayout />}>
-          <Route index element={<DashboardPage />} />
+          <Route index element={<Navigate to="/vocabulary" replace />} />
           
           <Route path="vocabulary">
             <Route index element={<VocabularyLevelsPage />} />

@@ -11,8 +11,7 @@ import clsx from 'clsx';
 import { useTheme } from '../../hooks/useTheme';
 
 const navItems = [
-  { path: '/', label: 'Dashboard', icon: Home },
-  { path: '/vocabulary', label: 'Từ vựng', icon: BookOpen },
+  { path: '/vocabulary', label: 'Dashboard', icon: Home },
 ];
 
 export const AppLayout: React.FC = () => {
@@ -23,10 +22,10 @@ export const AppLayout: React.FC = () => {
     <div className="flex h-[100dvh] overflow-hidden bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 font-sans transition-colors duration-200">
       {/* Sidebar - Desktop */}
       <aside className="hidden md:flex flex-col w-64 bg-white border-r border-gray-200 dark:bg-gray-950 dark:border-gray-800 transition-colors duration-200">
-        <div className="p-6">
+        <Link to="/vocabulary" className="p-6 block hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
           <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Nihon<span className="text-indigo-500">Master</span></h1>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Mimi kara Oboeru N3</p>
-        </div>
+        </Link>
 
         <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
           {navItems.map((item) => {

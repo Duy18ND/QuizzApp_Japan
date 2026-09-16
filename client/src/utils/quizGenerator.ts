@@ -34,21 +34,31 @@ export function generateQuizSession(config: QuizConfig, starredWords: number[], 
     shuffleAnswers
   } = config;
 
-  const levelKey = level.toLowerCase();
-  const unitData = allVocabularyData[levelKey]?.[unitId.toString()];
+  let unitData;
+  if (config.isCustom && config.customData && config.customData.length > 0) {
+    unitData = config.customData.map((w: any, index: number) => ({
+      ...w,
+      id: w.id || (Date.now() + index)
+    }));
+  } else {
+    const levelKey = level.toLowerCase();
+    unitData = allVocabularyData[levelKey]?.[unitId.toString()];
+  }
 
-  if (!unitData) {
-    throw new Error(`No data found for level ${level} and unit ${unitId}`);
+  if (!unitData || unitData.length === 0) {
+    throw new Error(`Không có dữ liệu từ vựng để tạo bài kiểm tra.`);
   }
 
   // Bước 1: Lấy danh sách từ vựng gốc
   let words = [...unitData];
 
   // Lọc theo Nguồn (Đã lưu / Làm sai)
-  if (source === 'starred') {
-    words = words.filter(w => starredWords.includes(w.id));
-  } else if (source === 'wrong') {
-    words = words.filter(w => wrongWords.includes(w.id));
+  if (!config.isCustom) {
+    if (source === 'starred') {
+      words = words.filter(w => starredWords.includes(w.id));
+    } else if (source === 'wrong') {
+      words = words.filter(w => wrongWords.includes(w.id));
+    }
   }
 
   // Lọc theo Từ loại (wordType)
@@ -105,39 +115,39 @@ export function generateQuizSession(config: QuizConfig, starredWords: number[], 
     
     const mapOptionText = (w: typeof word, t: string) => {
       switch(t) {
-        case 'vi_to_hiragana': return w.hiragana;
-        case 'vi_to_kanji': return w.kanji;
-        case 'kanji_to_hiragana': return w.hiragana;
-        case 'kanji_to_vi': return w.meaning;
-        case 'hiragana_to_kanji': return w.kanji;
-        case 'hiragana_to_vi': return w.meaning;
-        default: return w.meaning;
+        case 'vi_to_hiragana': return w.hiragana || w.kanji || w.meaning;
+        case 'vi_to_kanji': return w.kanji || w.hiragana || w.meaning;
+        case 'kanji_to_hiragana': return w.hiragana || w.kanji || w.meaning;
+        case 'kanji_to_vi': return w.meaning || w.hiragana || w.kanji;
+        case 'hiragana_to_kanji': return w.kanji || w.hiragana || w.meaning;
+        case 'hiragana_to_vi': return w.meaning || w.hiragana || w.kanji;
+        default: return w.meaning || w.kanji || w.hiragana;
       }
     };
 
     switch (type) {
       case 'vi_to_hiragana':
-        questionText = word.meaning;
+        questionText = word.meaning || word.kanji;
         hint = { kanji: word.kanji, meaning: word.meaning };
         break;
       case 'vi_to_kanji':
-        questionText = word.meaning;
+        questionText = word.meaning || word.hiragana;
         hint = { hiragana: word.hiragana, meaning: word.meaning };
         break;
       case 'kanji_to_hiragana':
-        questionText = word.kanji;
+        questionText = word.kanji || word.meaning;
         hint = { meaning: word.meaning };
         break;
       case 'kanji_to_vi':
-        questionText = word.kanji;
+        questionText = word.kanji || word.hiragana;
         hint = { hiragana: word.hiragana };
         break;
       case 'hiragana_to_kanji':
-        questionText = word.hiragana;
+        questionText = word.hiragana || word.meaning;
         hint = { meaning: word.meaning };
         break;
       case 'hiragana_to_vi':
-        questionText = word.hiragana;
+        questionText = word.hiragana || word.kanji;
         hint = { kanji: word.kanji };
         break;
     }

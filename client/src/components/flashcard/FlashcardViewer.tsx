@@ -59,13 +59,24 @@ export const FlashcardViewer: React.FC = () => {
     setIsFlipped(false);
   }, []);
 
-  const speakText = (text: string) => {
+  const speakText = useCallback((text: string) => {
     if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel(); // Cancel any previous speech
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'ja-JP';
       window.speechSynthesis.speak(utterance);
     }
-  };
+  }, []);
+
+  // Auto-pronounce when switching cards
+  useEffect(() => {
+    if (currentWord) {
+      const timer = setTimeout(() => {
+        speakText(currentWord.kanji || currentWord.hiragana);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [currentIndex, currentWord, speakText]);
 
   // Keyboard shortcuts
   useEffect(() => {

@@ -26,6 +26,8 @@ export interface QuizConfig {
   shuffleQuestions: boolean;
   shuffleAnswers: boolean;
   showHanVietHint: boolean;
+  isCustom?: boolean;
+  customData?: any[];
 }
 
 export type WordType = 
