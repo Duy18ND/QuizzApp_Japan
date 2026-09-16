@@ -6,6 +6,10 @@ import flashcardReducer from './slices/flashcardSlice';
 import learningReducer from './slices/learningSlice';
 import reviewReducer from './slices/reviewSlice';
 import writingReducer from './slices/writingSlice';
+import grammarReducer from './slices/grammarSlice';
+import practiceReducer from './slices/practiceSlice';
+import grammarProgressReducer from './slices/grammarProgressSlice';
+import mistakeReducer from './slices/mistakeSlice';
 
 
 export const store = configureStore({
@@ -17,7 +21,10 @@ export const store = configureStore({
     learning: learningReducer,
     review: reviewReducer,
     writing: writingReducer,
-
+    grammar: grammarReducer,
+    practice: practiceReducer,
+    grammarProgress: grammarProgressReducer,
+    mistake: mistakeReducer,
   },
 });
 

@@ -10,6 +10,11 @@ import { WritingPage } from './pages/WritingPage';
 import { ReviewPage } from './pages/ReviewPage';
 import { UnmasteredPage } from './pages/UnmasteredPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { GrammarDashboard } from './pages/grammar/GrammarDashboard';
+import { GrammarDetail } from './pages/grammar/GrammarDetail';
+import { GrammarPractice } from './pages/grammar/GrammarPractice';
+import { MistakesReview } from './pages/grammar/MistakesReview';
+import { GrammarPDFModal } from './components/grammar/pdf/GrammarPDFModal';
 import './index.css';
 
 function App() {
@@ -28,6 +33,14 @@ function App() {
             <Route path="writing" element={<WritingPage />} />
             <Route path="review" element={<ReviewPage />} />
             <Route path="unmastered" element={<UnmasteredPage />} />
+          </Route>
+          
+          <Route path="grammar">
+            <Route index element={<GrammarDashboard />} />
+            <Route path="pdf" element={<GrammarPDFModal />} />
+            <Route path="mistakes" element={<MistakesReview />} />
+            <Route path=":id" element={<GrammarDetail />} />
+            <Route path=":id/practice" element={<GrammarPractice />} />
           </Route>
 
           <Route path="flashcard" element={<FlashcardPage />}>
