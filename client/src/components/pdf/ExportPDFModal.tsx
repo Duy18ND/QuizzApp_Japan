@@ -4,6 +4,7 @@ import { DraggableColumnList, type ColumnOption } from './DraggableColumnList';
 import { exportToPDF } from '../../utils/pdfExport';
 import { extractVocabularyWithGemini } from '../../utils/geminiApi';
 import { UNIT_DATA } from '../../data/unitData';
+import { allVocabularyData } from '../../data/index';
 import { useUserProgress } from '../../hooks/useUserProgress';
 import type { JLPTLevel, QuizSource, QuizRangeType } from '../../types/quiz';
 
@@ -116,32 +117,35 @@ export const ExportPDFModal: React.FC<ExportPDFModalProps> = ({ onClose }) => {
             ? Object.keys(progress.wrongWords).map(Number) 
             : [];
 
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-        const response = await fetch(`${apiUrl}/api/quiz/session`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            unitId: unitId,
-            source: source,
-            targetWordIds: targetWordIds,
-            rangeType: rangeType,
-            customRange: customRange,
-            count: 'all', 
-            types: ['all'],
-            shuffleQuestions: false, 
-            shuffleAnswers: false
-          })
-        });
-
-        if (!response.ok) throw new Error('Lỗi tải dữ liệu hệ thống.');
-        const data = await response.json();
+        const levelKey = level.toLowerCase();
+        const unitDataObj = allVocabularyData[levelKey];
         
-        exportWords = data.map((q: any) => ({
-          id: q.wordId.toString(),
-          kanji: q.answerData.kanji || '',
-          hanViet: q.answerData.hanViet || '',
-          hiragana: q.answerData.hiragana || '',
-          meaning: q.answerData.meaning || ''
+        if (!unitDataObj || !unitDataObj[unitId.toString()]) {
+          throw new Error(`Dữ liệu cho ${level} - Unit ${unitId} chưa được nạp sẵn offline.`);
+        }
+        
+        let words = unitDataObj[unitId.toString()];
+        
+        if (source !== 'all') {
+          if (targetWordIds.length > 0) {
+            words = words.filter((w: any) => targetWordIds.includes(w.id));
+          } else {
+            words = [];
+          }
+        }
+        
+        if (rangeType === 'custom') {
+          const startIdx = Math.max(0, customRange.start - 1);
+          const endIdx = customRange.end;
+          words = words.slice(startIdx, endIdx);
+        }
+
+        exportWords = words.map((w: any) => ({
+          id: w.id.toString(),
+          kanji: w.kanji || '',
+          hanViet: w.hanViet || '',
+          hiragana: w.hiragana || '',
+          meaning: w.meaning || ''
         }));
       } else {
         exportWords = manualWords.filter(w => w.kanji || w.hiragana || w.meaning);
