@@ -20,7 +20,7 @@ export const AppLayout: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
 
   return (
-    <div className="flex h-screen bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 font-sans transition-colors duration-200">
+    <div className="flex h-[100dvh] overflow-hidden bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 font-sans transition-colors duration-200">
       {/* Sidebar - Desktop */}
       <aside className="hidden md:flex flex-col w-64 bg-white border-r border-gray-200 dark:bg-gray-950 dark:border-gray-800 transition-colors duration-200">
         <div className="p-6">
@@ -62,9 +62,9 @@ export const AppLayout: React.FC = () => {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <main className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden relative">
         {/* Header */}
-        <header className="h-16 flex items-center justify-between px-6 bg-white border-b border-gray-200 dark:bg-gray-900 dark:border-gray-800 shrink-0 transition-colors duration-200">
+        <header className="h-16 flex items-center justify-between px-6 bg-white border-b border-gray-200 dark:bg-gray-900 dark:border-gray-800 shrink-0 transition-colors duration-200 z-10">
           <div className="flex-1">
             {/* Can add breadcrumbs or title here based on route */}
           </div>
@@ -83,7 +83,7 @@ export const AppLayout: React.FC = () => {
         </header>
 
         {/* Scrollable page content */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-24 md:p-8 md:pb-8 relative">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 pb-24 md:p-8 md:pb-8 relative">
           <div className="mx-auto max-w-7xl">
             <Outlet />
           </div>

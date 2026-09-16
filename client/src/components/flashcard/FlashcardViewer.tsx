@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Shuffle, Star, RotateCcw, Volume2, Home, Layers, ChevronRight as ChevronRightIcon } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Shuffle, Star, Volume2, Layers, ChevronRight as ChevronRightIcon } from 'lucide-react';
 import { allVocabularyData } from '../../data';
 import { useUserProgress } from '../../hooks/useUserProgress';
 
