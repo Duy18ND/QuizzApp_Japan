@@ -120,10 +120,10 @@ export const QuizPlay: React.FC<Props> = ({ config, onExit }) => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-900 text-white p-8 flex items-center justify-center">
-        <div className="bg-red-900/50 border border-red-500 p-8 rounded-xl max-w-lg w-full">
-          <h2 className="text-2xl font-bold text-red-400 mb-4">Quiz Data Error</h2>
-          <p className="text-gray-200 font-mono">{error}</p>
+      <div className="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-white p-8 flex items-center justify-center transition-colors">
+        <div className="bg-red-50 dark:bg-red-900/50 border border-red-200 dark:border-red-500 p-8 rounded-xl max-w-lg w-full">
+          <h2 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-4">Quiz Data Error</h2>
+          <p className="text-red-500 dark:text-gray-200 font-mono">{error}</p>
         </div>
       </div>
     );
@@ -131,8 +131,8 @@ export const QuizPlay: React.FC<Props> = ({ config, onExit }) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-900 text-white p-8 flex items-center justify-center">
-        <div className="text-xl text-gray-400">Đang tải dữ liệu...</div>
+      <div className="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-white p-8 flex items-center justify-center transition-colors">
+        <div className="text-xl text-gray-500 dark:text-gray-400">Đang tải dữ liệu...</div>
       </div>
     );
   }
@@ -143,7 +143,7 @@ export const QuizPlay: React.FC<Props> = ({ config, onExit }) => {
 
   if (state.isFinished) {
     return (
-      <div className="min-h-screen bg-gray-900 p-4 md:p-8">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-8 transition-colors">
         <QuizResult 
           score={state.score} 
           total={quizQuestions.length} 
@@ -187,7 +187,7 @@ export const QuizPlay: React.FC<Props> = ({ config, onExit }) => {
   const correctAnswerText = currentQ.answers.find((a: any) => a.id === currentQ.answerData.correctAnswerId)?.text;
 
   return (
-    <div className="min-h-screen bg-gray-900 p-4 md:p-8 flex justify-center">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-8 flex justify-center transition-colors">
       <div className="w-full max-w-4xl">
         <ProgressBar current={state.currentIndex} total={quizQuestions.length} />
         

@@ -3,9 +3,12 @@ import { Outlet, Link, useLocation } from 'react-router-dom';
 import { 
   Home, 
   BookOpen, 
-  Settings
+  Settings,
+  Sun,
+  Moon
 } from 'lucide-react';
 import clsx from 'clsx';
+import { useTheme } from '../../hooks/useTheme';
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: Home },
@@ -14,14 +17,15 @@ const navItems = [
 
 export const AppLayout: React.FC = () => {
   const location = useLocation();
+  const { theme, toggleTheme } = useTheme();
 
   return (
-    <div className="flex h-screen bg-gray-900 text-gray-100 font-sans">
+    <div className="flex h-screen bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 font-sans transition-colors duration-200">
       {/* Sidebar - Desktop */}
-      <aside className="hidden md:flex flex-col w-64 bg-gray-950 border-r border-gray-800">
+      <aside className="hidden md:flex flex-col w-64 bg-white border-r border-gray-200 dark:bg-gray-950 dark:border-gray-800 transition-colors duration-200">
         <div className="p-6">
-          <h1 className="text-xl font-bold text-white tracking-tight">Nihon<span className="text-indigo-500">Master</span></h1>
-          <p className="text-xs text-gray-400 mt-1">Mimi kara Oboeru N3</p>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Nihon<span className="text-indigo-500">Master</span></h1>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Mimi kara Oboeru N3</p>
         </div>
 
         <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
@@ -35,8 +39,8 @@ export const AppLayout: React.FC = () => {
                 className={clsx(
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
                   isActive 
-                    ? "bg-indigo-500/10 text-indigo-400" 
-                    : "text-gray-400 hover:bg-gray-800/50 hover:text-gray-200"
+                    ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400" 
+                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800/50 dark:hover:text-gray-200"
                 )}
               >
                 <item.icon className="w-5 h-5" />
@@ -46,10 +50,10 @@ export const AppLayout: React.FC = () => {
           })}
         </nav>
 
-        <div className="p-4 border-t border-gray-800">
+        <div className="p-4 border-t border-gray-200 dark:border-gray-800 transition-colors duration-200">
           <Link
             to="/settings"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:bg-gray-800/50 hover:text-gray-200 transition-colors"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800/50 dark:hover:text-gray-200 transition-colors"
           >
             <Settings className="w-5 h-5" />
             Cài đặt
@@ -60,12 +64,19 @@ export const AppLayout: React.FC = () => {
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Header */}
-        <header className="h-16 flex items-center justify-between px-6 bg-gray-900 border-b border-gray-800 shrink-0">
+        <header className="h-16 flex items-center justify-between px-6 bg-white border-b border-gray-200 dark:bg-gray-900 dark:border-gray-800 shrink-0 transition-colors duration-200">
           <div className="flex-1">
             {/* Can add breadcrumbs or title here based on route */}
           </div>
           <div className="flex items-center gap-4">
-            <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-sm font-bold shadow-sm">
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              aria-label="Toggle theme"
+            >
+              {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
+            <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-sm font-bold text-white shadow-sm">
               N3
             </div>
           </div>
@@ -80,7 +91,7 @@ export const AppLayout: React.FC = () => {
       </main>
       
       {/* Mobile Bottom Nav */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-gray-950 border-t border-gray-800 flex justify-around p-2 z-50 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.5)]">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 dark:bg-gray-950 dark:border-gray-800 flex justify-around p-2 z-50 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)] dark:shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.5)] transition-colors duration-200">
         {navItems.slice(0, 5).map((item) => {
           const isActive = location.pathname === item.path || 
                            (item.path !== '/' && location.pathname.startsWith(item.path));
@@ -90,7 +101,7 @@ export const AppLayout: React.FC = () => {
               to={item.path}
               className={clsx(
                 "flex flex-col items-center gap-1 p-2 rounded-lg transition-colors",
-                isActive ? "text-indigo-400" : "text-gray-500"
+                isActive ? "text-indigo-600 dark:text-indigo-400" : "text-gray-500 dark:text-gray-500 hover:text-gray-900 dark:hover:text-gray-300"
               )}
             >
               <item.icon className="w-6 h-6 mb-1" />

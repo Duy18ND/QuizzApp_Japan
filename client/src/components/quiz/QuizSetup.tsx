@@ -56,18 +56,18 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
   return (
     <div className="max-w-2xl mx-auto">
       <div className="mb-8 text-center">
-        <h1 className="text-3xl font-bold text-white tracking-tight">Cài đặt Quiz</h1>
-        <p className="text-gray-400 mt-2">Tùy chỉnh bài test trước khi bắt đầu</p>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">Cài đặt Quiz</h1>
+        <p className="text-gray-600 dark:text-gray-400 mt-2">Tùy chỉnh bài test trước khi bắt đầu</p>
       </div>
 
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-xl">
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-xl transition-colors">
         
         {/* 1. Trình độ & Bài học */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Trình độ (JLPT)</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Trình độ (JLPT)</label>
             <select 
-              className="w-full bg-gray-950 border border-gray-700 text-white rounded-lg p-3 min-h-[48px] outline-none focus:border-indigo-500 transition-colors"
+              className="w-full bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg p-3 min-h-[48px] outline-none focus:border-indigo-500 transition-colors"
               value={config.level}
               onChange={(e) => handleLevelChange(e.target.value as JLPTLevel)}
             >
@@ -77,9 +77,9 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Bài Học (Unit)</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Bài Học (Unit)</label>
             <select 
-              className="w-full bg-gray-950 border border-gray-700 text-white rounded-lg p-3 min-h-[48px] outline-none focus:border-indigo-500 transition-colors"
+              className="w-full bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg p-3 min-h-[48px] outline-none focus:border-indigo-500 transition-colors"
               value={config.unitId}
               onChange={(e) => setConfig({ ...config, unitId: e.target.value === 'all' ? 'all' : Number(e.target.value) })}
             >
@@ -93,7 +93,7 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
 
         {/* 2. Nguồn từ vựng */}
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-300 mb-2">Nguồn từ vựng</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nguồn từ vựng</label>
           <div className="grid grid-cols-3 gap-3">
             {[
               { id: 'all', label: 'Tất cả' },
@@ -105,8 +105,8 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
                 onClick={() => setConfig({ ...config, source: src.id as QuizSource })}
                 className={`py-3 px-2 rounded-lg border text-sm font-medium transition-colors min-h-[48px] ${
                   config.source === src.id
-                    ? 'bg-indigo-500/20 border-indigo-500 text-indigo-300' 
-                    : 'bg-gray-950 border-gray-700 text-gray-400 hover:border-gray-500'
+                    ? 'bg-indigo-50 border-indigo-500 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300' 
+                    : 'bg-white border-gray-200 text-gray-600 hover:border-gray-400 dark:bg-gray-950 dark:border-gray-700 dark:text-gray-400 dark:hover:border-gray-500'
                 }`}
               >
                 {src.label}
@@ -117,7 +117,7 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
 
         {/* 2.5. Từ loại */}
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-300 mb-2">Từ loại</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Từ loại</label>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
               { id: 'all', label: 'Tất cả' },
@@ -134,8 +134,8 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
                 onClick={() => setConfig({ ...config, wordType: wt.id })}
                 className={`py-3 px-2 rounded-lg border text-sm font-medium transition-colors min-h-[48px] ${
                   config.wordType === wt.id
-                    ? 'bg-indigo-500/20 border-indigo-500 text-indigo-300' 
-                    : 'bg-gray-950 border-gray-700 text-gray-400 hover:border-gray-500'
+                    ? 'bg-indigo-50 border-indigo-500 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300' 
+                    : 'bg-white border-gray-200 text-gray-600 hover:border-gray-400 dark:bg-gray-950 dark:border-gray-700 dark:text-gray-400 dark:hover:border-gray-500'
                 }`}
               >
                 {wt.label}
@@ -147,16 +147,16 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
         {/* 3. Tùy chọn Phạm vi (Range) */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
-            <label className="block text-sm font-medium text-gray-300">Phạm vi câu hỏi</label>
-            <div className="flex bg-gray-950 p-1 rounded-lg border border-gray-800">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Phạm vi câu hỏi</label>
+            <div className="flex bg-gray-100 dark:bg-gray-950 p-1 rounded-lg border border-gray-200 dark:border-gray-800">
               <button 
-                className={`px-4 py-2 text-sm font-medium rounded-md min-h-[40px] ${config.rangeType === 'fixed' ? 'bg-gray-700 text-white' : 'text-gray-400'}`}
+                className={`px-4 py-2 text-sm font-medium rounded-md min-h-[40px] transition-colors ${config.rangeType === 'fixed' ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-700 dark:text-white dark:shadow-none' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
                 onClick={() => setConfig({ ...config, rangeType: 'fixed' })}
               >
                 Cố định
               </button>
               <button 
-                className={`px-4 py-2 text-sm font-medium rounded-md min-h-[40px] ${config.rangeType === 'custom' ? 'bg-gray-700 text-white' : 'text-gray-400'}`}
+                className={`px-4 py-2 text-sm font-medium rounded-md min-h-[40px] transition-colors ${config.rangeType === 'custom' ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-700 dark:text-white dark:shadow-none' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
                 onClick={() => setConfig({ ...config, rangeType: 'custom' })}
               >
                 Tùy chỉnh
@@ -172,8 +172,8 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
                   onClick={() => setConfig({ ...config, questionCount: count as any })}
                   className={`py-3 px-4 rounded-lg border text-sm font-medium transition-colors min-h-[48px] ${
                     config.questionCount === count 
-                      ? 'bg-indigo-500/20 border-indigo-500 text-indigo-300' 
-                      : 'bg-gray-950 border-gray-700 text-gray-400 hover:border-gray-500'
+                      ? 'bg-indigo-50 border-indigo-500 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300' 
+                      : 'bg-white border-gray-200 text-gray-600 hover:border-gray-400 dark:bg-gray-950 dark:border-gray-700 dark:text-gray-400 dark:hover:border-gray-500'
                   }`}
                 >
                   {count === 'all' ? 'Tất cả' : count}
@@ -181,28 +181,28 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
               ))}
             </div>
           ) : (
-            <div className="flex items-center gap-4 bg-gray-950 p-3 rounded-xl border border-gray-800">
+            <div className="flex items-center gap-4 bg-gray-50 dark:bg-gray-950 p-3 rounded-xl border border-gray-200 dark:border-gray-800 transition-colors">
               <div className="flex-1">
-                <label className="block text-xs text-gray-400 mb-1">STT Bắt đầu</label>
+                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">STT Bắt đầu</label>
                 <input 
                   type="number" 
                   min={1} 
                   max={totalWordsInUnit - 1}
                   value={config.customRange.start}
                   onChange={(e) => setConfig({ ...config, customRange: { ...config.customRange, start: Number(e.target.value) } })}
-                  className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-3 min-h-[48px] outline-none focus:border-indigo-500 text-sm"
+                  className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg p-3 min-h-[48px] outline-none focus:border-indigo-500 text-sm transition-colors"
                 />
               </div>
               <div className="pt-5 text-gray-500">đến</div>
               <div className="flex-1">
-                <label className="block text-xs text-gray-400 mb-1">STT Kết thúc</label>
+                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">STT Kết thúc</label>
                 <input 
                   type="number" 
                   min={2} 
                   max={totalWordsInUnit}
                   value={config.customRange.end}
                   onChange={(e) => setConfig({ ...config, customRange: { ...config.customRange, end: Number(e.target.value) } })}
-                  className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-3 min-h-[48px] outline-none focus:border-indigo-500 text-sm"
+                  className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg p-3 min-h-[48px] outline-none focus:border-indigo-500 text-sm transition-colors"
                 />
               </div>
             </div>
@@ -213,9 +213,9 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
 
         {/* 4. Toggles */}
         <div className="space-y-3 mb-8">
-          <label className="flex items-center justify-between cursor-pointer p-4 md:p-3 rounded-xl border border-gray-800 bg-gray-950/50 hover:bg-gray-800 transition-colors min-h-[60px] md:min-h-0">
+          <label className="flex items-center justify-between cursor-pointer p-4 md:p-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors min-h-[60px] md:min-h-0">
             <div>
-              <span className="block text-base md:text-sm font-medium text-gray-200">Đảo vị trí câu hỏi</span>
+              <span className="block text-base md:text-sm font-medium text-gray-800 dark:text-gray-200">Đảo vị trí câu hỏi</span>
             </div>
             <div className="relative inline-block w-10 h-5 rounded-full transition-colors duration-200 ease-in-out">
               <input 
@@ -224,14 +224,14 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
                 checked={config.shuffleQuestions}
                 onChange={(e) => setConfig({ ...config, shuffleQuestions: e.target.checked })}
               />
-              <span className={`block w-10 h-5 rounded-full transition-colors ${config.shuffleQuestions ? 'bg-indigo-500' : 'bg-gray-700'}`}></span>
+              <span className={`block w-10 h-5 rounded-full transition-colors ${config.shuffleQuestions ? 'bg-indigo-500' : 'bg-gray-300 dark:bg-gray-700'}`}></span>
               <span className={`absolute left-1 top-0.5 bg-white w-4 h-4 rounded-full transition-transform ${config.shuffleQuestions ? 'translate-x-5' : 'translate-x-0'}`}></span>
             </div>
           </label>
 
-          <label className="flex items-center justify-between cursor-pointer p-4 md:p-3 rounded-xl border border-gray-800 bg-gray-950/50 hover:bg-gray-800 transition-colors min-h-[60px] md:min-h-0">
+          <label className="flex items-center justify-between cursor-pointer p-4 md:p-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors min-h-[60px] md:min-h-0">
             <div>
-              <span className="block text-base md:text-sm font-medium text-gray-200">Đảo vị trí đáp án</span>
+              <span className="block text-base md:text-sm font-medium text-gray-800 dark:text-gray-200">Đảo vị trí đáp án</span>
             </div>
             <div className="relative inline-block w-10 h-5 rounded-full transition-colors duration-200 ease-in-out">
               <input 
@@ -240,14 +240,14 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
                 checked={config.shuffleAnswers}
                 onChange={(e) => setConfig({ ...config, shuffleAnswers: e.target.checked })}
               />
-              <span className={`block w-10 h-5 rounded-full transition-colors ${config.shuffleAnswers ? 'bg-indigo-500' : 'bg-gray-700'}`}></span>
+              <span className={`block w-10 h-5 rounded-full transition-colors ${config.shuffleAnswers ? 'bg-indigo-500' : 'bg-gray-300 dark:bg-gray-700'}`}></span>
               <span className={`absolute left-1 top-0.5 bg-white w-4 h-4 rounded-full transition-transform ${config.shuffleAnswers ? 'translate-x-5' : 'translate-x-0'}`}></span>
             </div>
           </label>
 
-          <label className="flex items-center justify-between cursor-pointer p-4 md:p-3 rounded-xl border border-gray-800 bg-gray-950/50 hover:bg-gray-800 transition-colors min-h-[60px] md:min-h-0">
+          <label className="flex items-center justify-between cursor-pointer p-4 md:p-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors min-h-[60px] md:min-h-0">
             <div>
-              <span className="block text-base md:text-sm font-medium text-gray-200">Hiển thị gợi ý Hán Việt</span>
+              <span className="block text-base md:text-sm font-medium text-gray-800 dark:text-gray-200">Hiển thị gợi ý Hán Việt</span>
               <span className="block text-xs md:text-xs text-gray-500 mt-0.5">Sẽ hiện dưới câu hỏi Kanji</span>
             </div>
             <div className="relative inline-block w-10 h-5 rounded-full transition-colors duration-200 ease-in-out">
@@ -257,7 +257,7 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
                 checked={config.showHanVietHint}
                 onChange={(e) => setConfig({ ...config, showHanVietHint: e.target.checked })}
               />
-              <span className={`block w-10 h-5 rounded-full transition-colors ${config.showHanVietHint ? 'bg-indigo-500' : 'bg-gray-700'}`}></span>
+              <span className={`block w-10 h-5 rounded-full transition-colors ${config.showHanVietHint ? 'bg-indigo-500' : 'bg-gray-300 dark:bg-gray-700'}`}></span>
               <span className={`absolute left-1 top-0.5 bg-white w-4 h-4 rounded-full transition-transform ${config.showHanVietHint ? 'translate-x-5' : 'translate-x-0'}`}></span>
             </div>
           </label>

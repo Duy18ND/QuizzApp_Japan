@@ -108,21 +108,21 @@ export const VocabularyWordsPage: React.FC = () => {
       <VocabularyTabs onExportPDF={() => setIsExportOpen(true)} />
 
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-gray-400 mb-6">
-        <Link to="/vocabulary" className="hover:text-white transition-colors flex items-center gap-1">
+      <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-6">
+        <Link to="/vocabulary" className="hover:text-gray-900 dark:hover:text-white transition-colors flex items-center gap-1">
           <Home className="w-4 h-4" /> Từ vựng
         </Link>
         <ChevronRight className="w-4 h-4" />
-        <Link to={`/vocabulary/${level}`} className="hover:text-white transition-colors">
+        <Link to={`/vocabulary/${level}`} className="hover:text-gray-900 dark:hover:text-white transition-colors">
           Trình độ {levelKey}
         </Link>
         <ChevronRight className="w-4 h-4" />
-        <span className="text-indigo-400 font-medium">{unitInfo?.name || `Unit ${numericUnitId}`}</span>
+        <span className="text-indigo-600 dark:text-indigo-400 font-medium">{unitInfo?.name || `Unit ${numericUnitId}`}</span>
       </div>
 
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
-        <div className="p-4 border-b border-gray-800 bg-gray-900/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <h2 className="text-lg font-semibold text-white">
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             Danh sách từ vựng ({filteredWords.length} từ)
           </h2>
           
@@ -135,7 +135,7 @@ export const VocabularyWordsPage: React.FC = () => {
                 className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                   selectedType === opt.id 
                     ? 'bg-blue-600 text-white shadow-md' 
-                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white'
                 }`}
               >
                 {opt.label}
@@ -145,39 +145,39 @@ export const VocabularyWordsPage: React.FC = () => {
         </div>
 
         {loading ? (
-          <div className="p-12 text-center text-gray-400">Đang tải danh sách từ vựng...</div>
+          <div className="p-12 text-center text-gray-500 dark:text-gray-400">Đang tải danh sách từ vựng...</div>
         ) : words.length === 0 ? (
-          <div className="p-12 text-center text-gray-400">Không có dữ liệu từ vựng cho bài học này.</div>
+          <div className="p-12 text-center text-gray-500 dark:text-gray-400">Không có dữ liệu từ vựng cho bài học này.</div>
         ) : (
           <>
             {/* Mobile View: Cards */}
-            <div className="md:hidden flex flex-col divide-y divide-gray-800">
+            <div className="md:hidden flex flex-col divide-y divide-gray-200 dark:divide-gray-800">
               {filteredWords.map((word, index) => {
                 const isStarred = progress.starredWords.includes(word.id);
                 const badgeColor = wordTypeColors[word.wordType as WordType] || wordTypeColors.other;
 
                 return (
-                  <div key={word.id} className="p-4 flex flex-col gap-3 hover:bg-gray-800/30 transition-colors">
+                  <div key={word.id} className="p-4 flex flex-col gap-3 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
                     <div className="flex justify-between items-start">
                       <div className="flex items-center gap-3">
-                        <span className="text-gray-500 font-mono text-sm">{index + 1}.</span>
+                        <span className="text-gray-400 dark:text-gray-500 font-mono text-sm">{index + 1}.</span>
                         <div className="flex flex-col">
-                          <span className="text-2xl font-bold text-white">{word.kanji || word.hiragana}</span>
-                          {word.kanji && word.hanviet && <span className="text-xs text-gray-400 uppercase">{word.hanviet}</span>}
-                          {word.kanji && <span className="text-sm text-indigo-300">{word.hiragana}</span>}
+                          <span className="text-2xl font-bold text-gray-900 dark:text-white">{word.kanji || word.hiragana}</span>
+                          {word.kanji && word.hanviet && <span className="text-xs text-gray-500 dark:text-gray-400 uppercase">{word.hanviet}</span>}
+                          {word.kanji && <span className="text-sm text-indigo-500 dark:text-indigo-300">{word.hiragana}</span>}
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <button 
                           onClick={() => speakText(word.kanji || word.hiragana)}
-                          className="text-gray-500 hover:text-white transition-colors p-2"
+                          className="text-gray-400 hover:text-gray-900 dark:text-gray-500 dark:hover:text-white transition-colors p-2"
                           title="Phát âm"
                         >
                           <Volume2 className="w-5 h-5" />
                         </button>
                         <button 
                           onClick={() => toggleStar(word.id)}
-                          className={`transition-colors p-2 ${isStarred ? 'text-yellow-400' : 'text-gray-500 hover:text-yellow-400'}`}
+                          className={`transition-colors p-2 ${isStarred ? 'text-yellow-500 dark:text-yellow-400' : 'text-gray-400 hover:text-yellow-500 dark:text-gray-500 dark:hover:text-yellow-400'}`}
                           title={isStarred ? 'Bỏ lưu' : 'Lưu từ này'}
                         >
                           <Star className={`w-5 h-5 ${isStarred ? 'fill-current' : ''}`} />
@@ -188,7 +188,7 @@ export const VocabularyWordsPage: React.FC = () => {
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium mb-1 ${badgeColor}`}>
                         {formatWordType(word.wordType)}
                       </span>
-                      <p className="text-gray-300 text-sm leading-relaxed">{word.meaning}</p>
+                      <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">{word.meaning}</p>
                     </div>
                   </div>
                 );
@@ -197,8 +197,8 @@ export const VocabularyWordsPage: React.FC = () => {
 
             {/* Desktop View: Table */}
             <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-left text-sm text-gray-300">
-              <thead className="bg-gray-800/50 text-xs uppercase text-gray-400">
+              <table className="w-full text-left text-sm text-gray-700 dark:text-gray-300">
+              <thead className="bg-gray-50 dark:bg-gray-800/50 text-xs uppercase text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-800/50">
                 <tr>
                   <th className="px-6 py-4 font-medium rounded-tl-lg">STT</th>
                   <th className="px-6 py-4 font-medium">Từ vựng</th>
@@ -207,19 +207,19 @@ export const VocabularyWordsPage: React.FC = () => {
                   <th className="px-6 py-4 font-medium text-right rounded-tr-lg">Thao tác</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-800/50">
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-800/50">
                 {filteredWords.map((word, index) => {
                   const isStarred = progress.starredWords.includes(word.id);
                   const badgeColor = wordTypeColors[word.wordType as WordType] || wordTypeColors.other;
 
                   return (
-                    <tr key={word.id} className="hover:bg-gray-800/30 transition-colors group">
-                      <td className="px-6 py-4 text-gray-500 font-mono">{index + 1}</td>
+                    <tr key={word.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors group">
+                      <td className="px-6 py-4 text-gray-400 dark:text-gray-500 font-mono">{index + 1}</td>
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
-                          <span className="text-lg font-bold text-white">{word.kanji || word.hiragana}</span>
-                          {word.kanji && word.hanviet && <span className="text-sm text-gray-400 uppercase">{word.hanviet}</span>}
-                          {word.kanji && <span className="text-sm text-indigo-300">{word.hiragana}</span>}
+                          <span className="text-lg font-bold text-gray-900 dark:text-white">{word.kanji || word.hiragana}</span>
+                          {word.kanji && word.hanviet && <span className="text-sm text-gray-500 dark:text-gray-400 uppercase">{word.hanviet}</span>}
+                          {word.kanji && <span className="text-sm text-indigo-500 dark:text-indigo-300">{word.hiragana}</span>}
                         </div>
                       </td>
                       <td className="px-6 py-4">
@@ -227,21 +227,21 @@ export const VocabularyWordsPage: React.FC = () => {
                           {formatWordType(word.wordType)}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-gray-300">
+                      <td className="px-6 py-4 text-gray-700 dark:text-gray-300">
                         {word.meaning}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-3 transition-opacity">
                           <button 
                             onClick={() => speakText(word.kanji || word.hiragana)}
-                            className="text-gray-500 hover:text-white transition-colors p-1"
+                            className="text-gray-400 hover:text-gray-900 dark:text-gray-500 dark:hover:text-white transition-colors p-1"
                             title="Phát âm"
                           >
                             <Volume2 className="w-5 h-5" />
                           </button>
                           <button 
                             onClick={() => toggleStar(word.id)}
-                            className={`transition-colors p-1 ${isStarred ? 'text-yellow-400' : 'text-gray-500 hover:text-yellow-400'}`}
+                            className={`transition-colors p-1 ${isStarred ? 'text-yellow-500 dark:text-yellow-400' : 'text-gray-400 hover:text-yellow-500 dark:text-gray-500 dark:hover:text-yellow-400'}`}
                             title={isStarred ? 'Bỏ lưu' : 'Lưu từ này'}
                           >
                             <Star className={`w-5 h-5 ${isStarred ? 'fill-current' : ''}`} />

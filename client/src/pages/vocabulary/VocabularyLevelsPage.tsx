@@ -22,8 +22,8 @@ export const VocabularyLevelsPage: React.FC = () => {
       <VocabularyTabs onExportPDF={() => setIsExportOpen(true)} />
 
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white mb-2">Chọn Trình độ (JLPT Level)</h1>
-        <p className="text-gray-400">Vui lòng chọn trình độ bạn muốn học để xem danh sách bài học tương ứng.</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Chọn Trình độ (JLPT Level)</h1>
+        <p className="text-gray-600 dark:text-gray-400">Vui lòng chọn trình độ bạn muốn học để xem danh sách bài học tương ứng.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -31,18 +31,18 @@ export const VocabularyLevelsPage: React.FC = () => {
           <div 
             key={level.id}
             onClick={() => navigate(`/vocabulary/${level.id.toLowerCase()}`)}
-            className="bg-gray-900 border border-gray-800 rounded-2xl p-6 cursor-pointer hover:border-indigo-500/50 hover:bg-gray-800 transition-all group"
+            className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 cursor-pointer hover:border-indigo-500/50 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all group"
           >
             <div className="flex items-center gap-4 mb-4">
-              <div className="w-12 h-12 bg-gray-800 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+              <div className="w-12 h-12 bg-gray-50 dark:bg-gray-800 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
                 <GraduationCap className={`w-6 h-6 ${level.color}`} />
               </div>
               <div>
-                <h3 className="text-xl font-bold text-white">{level.id}</h3>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white">{level.id}</h3>
                 <p className={`text-sm font-medium ${level.color}`}>{level.title}</p>
               </div>
             </div>
-            <p className="text-gray-400 text-sm">{level.desc}</p>
+            <p className="text-gray-600 dark:text-gray-400 text-sm">{level.desc}</p>
           </div>
         ))}
       </div>
