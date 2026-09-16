@@ -18,8 +18,8 @@ export const VocabularyTabs: React.FC<Props> = ({ onExportPDF }) => {
   ];
 
   return (
-    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-4 sticky top-4 z-10 shadow-[0_4px_20px_rgba(0,0,0,0.05)] dark:shadow-lg mb-6 transition-colors">
-      <div className="flex overflow-x-auto hide-scrollbar gap-2">
+    <div className="sticky top-0 z-50 bg-gray-50 dark:bg-gray-900 -mt-4 md:-mt-8 pt-4 md:pt-8 pb-4 mb-6 border-b border-gray-200 dark:border-gray-800 transition-colors -mx-4 px-4 md:-mx-8 md:px-8">
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-3 shadow-sm flex overflow-x-auto hide-scrollbar gap-2">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = tab.path && location.pathname.startsWith(tab.path);
