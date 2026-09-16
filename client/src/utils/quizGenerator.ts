@@ -26,6 +26,7 @@ export function generateQuizSession(config: QuizConfig, starredWords: number[], 
     level,
     unitId,
     source,
+    wordType,
     rangeType,
     questionCount,
     customRange,
@@ -50,8 +51,19 @@ export function generateQuizSession(config: QuizConfig, starredWords: number[], 
     words = words.filter(w => wrongWords.includes(w.id));
   }
 
+  // Lọc theo Từ loại (wordType)
+  if (wordType && wordType !== 'all') {
+    words = words.filter(w => {
+      if (!w.wordType) return false;
+      if (wordType === 'Khác') {
+        return !['Danh từ', 'Động từ', 'Tính từ -na', 'Tính từ -i', 'Trạng từ', 'Đại từ', 'Liên từ', 'Trợ từ'].includes(w.wordType);
+      }
+      return w.wordType === wordType;
+    });
+  }
+
   if (words.length === 0) {
-    throw new Error('Không có từ vựng nào phù hợp với bộ lọc.');
+    throw new Error('Không có từ vựng nào phù hợp với bộ lọc hiện tại.');
   }
 
   // Bước 2: Xử lý theo Phạm vi (Cố định / Tùy chỉnh)

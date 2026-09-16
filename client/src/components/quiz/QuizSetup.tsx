@@ -19,6 +19,7 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
     level: 'N3',
     unitId: 1,
     source: 'all',
+    wordType: 'all',
     rangeType: 'fixed',
     questionCount: 10,
     customRange: { start: 1, end: 20 },
@@ -109,6 +110,35 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
                 }`}
               >
                 {src.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 2.5. Từ loại */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-300 mb-2">Từ loại</label>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[
+              { id: 'all', label: 'Tất cả' },
+              { id: 'Danh từ', label: 'Danh từ' },
+              { id: 'Động từ', label: 'Động từ' },
+              { id: 'Tính từ -i', label: 'Tính từ - い' },
+              { id: 'Tính từ -na', label: 'Tính từ - な' },
+              { id: 'Trạng từ', label: 'Trạng từ' },
+              { id: 'Đại từ', label: 'Đại từ' },
+              { id: 'Khác', label: 'Khác' },
+            ].map((wt) => (
+              <button
+                key={wt.id}
+                onClick={() => setConfig({ ...config, wordType: wt.id })}
+                className={`py-3 px-2 rounded-lg border text-sm font-medium transition-colors min-h-[48px] ${
+                  config.wordType === wt.id
+                    ? 'bg-indigo-500/20 border-indigo-500 text-indigo-300' 
+                    : 'bg-gray-950 border-gray-700 text-gray-400 hover:border-gray-500'
+                }`}
+              >
+                {wt.label}
               </button>
             ))}
           </div>

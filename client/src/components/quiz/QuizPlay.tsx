@@ -51,6 +51,10 @@ export const QuizPlay: React.FC<Props> = ({ config, onExit }) => {
         
         const data = generateQuizSession(config, starredList, wrongList);
         
+        if (config.rangeType === 'fixed' && typeof config.questionCount === 'number' && data.length < config.questionCount) {
+          alert(`Không đủ từ vựng thuộc loại này. Hiện có ${data.length} từ.`);
+        }
+        
         setQuizQuestions(data as MergedQuestion[]);
         setState({
           currentIndex: 0,

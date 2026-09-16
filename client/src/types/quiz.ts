@@ -19,6 +19,7 @@ export interface QuizConfig {
   level: JLPTLevel;
   unitId: number | 'all';
   source: QuizSource;
+  wordType: string;
   rangeType: QuizRangeType;
   questionCount: number | 'all';
   customRange: { start: number; end: number };

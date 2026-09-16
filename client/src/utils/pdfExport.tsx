@@ -2,10 +2,14 @@
 import { pdf, Document, Page, Text, View, StyleSheet, Font } from '@react-pdf/renderer';
 import type { ColumnOption } from '../components/pdf/DraggableColumnList';
 
-// Đăng ký Font Noto Sans JP (từ thư mục public) để hỗ trợ hoàn hảo Tiếng Nhật và Tiếng Việt
+// Lấy base URL từ Vite (xử lý sub-path khi deploy lên GitHub Pages)
+const baseUrl = import.meta.env.BASE_URL || '/';
+const fontUrl = `${baseUrl.endsWith('/') ? baseUrl : baseUrl + '/'}fonts/NotoSansCJKjp-Regular.otf`;
+
+// Đăng ký Font Noto Sans JP
 Font.register({
   family: 'NotoSansJP',
-  src: '/fonts/NotoSansCJKjp-Regular.otf'
+  src: fontUrl
 });
 
 const styles = StyleSheet.create({
@@ -56,14 +60,14 @@ const styles = StyleSheet.create({
   }
 });
 
-const PDFDocument = ({ words, columns }: { words: any[], columns: ColumnOption[] }) => {
+const PDFDocument = ({ words, columns, disableCustomFont = false }: { words: any[], columns: ColumnOption[], disableCustomFont?: boolean }) => {
   // Tính tỷ lệ % chiều rộng cho mỗi cột (STT chiếm ít, còn lại chia đều)
   const sttWidth = 8;
   const colWidth = (100 - sttWidth) / columns.length;
 
   return (
     <Document>
-      <Page size="A4" style={styles.page}>
+      <Page size="A4" style={[styles.page, disableCustomFont ? { fontFamily: 'Helvetica' } : {}]}>
         <Text style={styles.title}>Danh sách từ vựng luyện viết</Text>
 
         <View style={styles.table}>
@@ -113,22 +117,37 @@ const PDFDocument = ({ words, columns }: { words: any[], columns: ColumnOption[]
   );
 };
 
+// Hàm tiện ích để download file
+const downloadBlob = (blob: Blob, filename: string) => {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
+
 export const exportToPDF = async (words: any[], columns: ColumnOption[]) => {
   try {
+    // Thử tạo PDF với custom font (Tiếng Nhật)
     const blob = await pdf(<PDFDocument words={words} columns={columns} />).toBlob();
-    const url = URL.createObjectURL(blob);
-    
-    // Tự động tải file
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'tu-vung-luyen-viet.pdf';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    URL.revokeObjectURL(url);
+    downloadBlob(blob, 'tu-vung-luyen-viet.pdf');
   } catch (error) {
-    console.error('Lỗi khi tạo PDF với react-pdf:', error);
-    throw error;
+    console.error('Lỗi khi tạo PDF với custom font:', error);
+    
+    try {
+      // Fallback: Nếu không tải được font, báo lỗi và dùng font mặc định
+      console.warn('Đang thử tạo lại PDF bằng font mặc định...');
+      alert('Không thể tải font chữ tiếng Nhật (có thể do lỗi mạng hoặc cấu hình). Đang xuất PDF bằng font mặc định, một số ký tự có thể không hiển thị đúng.');
+      
+      const fallbackBlob = await pdf(<PDFDocument words={words} columns={columns} disableCustomFont={true} />).toBlob();
+      downloadBlob(fallbackBlob, 'tu-vung-luyen-viet-fallback.pdf');
+    } catch (fallbackError) {
+      console.error('Lỗi khi tạo PDF bằng font mặc định:', fallbackError);
+      alert('Đã xảy ra lỗi nghiêm trọng khi xuất PDF. Vui lòng thử lại sau.');
+      throw fallbackError;
+    }
   }
 };

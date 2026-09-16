@@ -1,6 +1,11 @@
 import { PrismaClient } from '@prisma/client';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+// ESM Fix: T?o l?i __dirname và __filename cho type: module
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const prisma = new PrismaClient();
 
@@ -41,3 +46,4 @@ async function main() {
 }
 
 main().catch(console.error);
+

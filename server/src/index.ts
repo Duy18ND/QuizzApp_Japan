@@ -22,7 +22,8 @@ function shuffle<T>(array: T[]): T[] {
   while (currentIndex !== 0) {
     randomIndex = Math.floor(Math.random() * currentIndex);
     currentIndex--;
-    [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+    // S?a l?i TS2322: Thêm toán t? ! d? kh?ng d?nh giá tr? không undefined
+    [array[currentIndex], array[randomIndex]] = [array[randomIndex]!, array[currentIndex]!];
   }
   return array;
 }
@@ -45,10 +46,10 @@ app.post('/api/quiz/session', async (req, res) => {
     const targetUnitId = unitId === 'all' ? undefined : (unitId || 1);
 
     // BÆ°á»›c 1: Láº¥y danh sÃ¡ch tá»« vá»±ng gá»‘c (Sáº¯p xáº¿p theo id/stt)
-    let words = await prisma.word.findMany({
-      where: targetUnitId ? { unitId: targetUnitId } : undefined,
-      orderBy: { id: 'asc' }
-    });
+    // S?a l?i TS2379: Không truy?n tr?c ti?p undefined vào where
+    const queryArgs: any = { orderBy: { id: 'asc' } };
+    if (targetUnitId) queryArgs.where = { unitId: targetUnitId };
+    let words = await prisma.word.findMany(queryArgs);
 
     if (words.length === 0) {
       res.status(404).json({ error: 'No words found for this unit.' });
@@ -184,3 +185,4 @@ const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
 });
+
