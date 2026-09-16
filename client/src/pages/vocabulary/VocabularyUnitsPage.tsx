@@ -1,7 +1,5 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { VocabularyTabs } from '../../components/vocabulary/VocabularyTabs';
-import { ExportPDFModal } from '../../components/pdf/ExportPDFModal';
 import { BookOpen, ChevronRight, Home, Layers } from 'lucide-react';
 import { UNIT_DATA } from '../../data/unitData';
 import type { JLPTLevel } from '../../types/quiz';
@@ -19,15 +17,12 @@ export const VocabularyUnitsPage: React.FC<Props> = ({
 }) => {
   const { level } = useParams<{ level: string }>();
   const navigate = useNavigate();
-  const [isExportOpen, setIsExportOpen] = useState(false);
 
   const levelKey = (level?.toUpperCase() || 'N3') as JLPTLevel;
   const units = UNIT_DATA[levelKey] || [];
 
   return (
     <div className="max-w-5xl mx-auto">
-      {!hideTabs && <VocabularyTabs onExportPDF={() => setIsExportOpen(true)} />}
-
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-6">
         <Link to={basePath} className="hover:text-gray-900 dark:hover:text-white transition-colors flex items-center gap-1">
@@ -69,7 +64,6 @@ export const VocabularyUnitsPage: React.FC<Props> = ({
         )}
       </div>
 
-      {isExportOpen && <ExportPDFModal onClose={() => setIsExportOpen(false)} />}
     </div>
   );
 };

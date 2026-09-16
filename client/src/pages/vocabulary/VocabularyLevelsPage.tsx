@@ -1,7 +1,5 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { VocabularyTabs } from '../../components/vocabulary/VocabularyTabs';
-import { ExportPDFModal } from '../../components/pdf/ExportPDFModal';
 import { GraduationCap } from 'lucide-react';
 import type { JLPTLevel } from '../../types/quiz';
 
@@ -25,11 +23,9 @@ export const VocabularyLevelsPage: React.FC<Props> = ({
   hideTabs = false
 }) => {
   const navigate = useNavigate();
-  const [isExportOpen, setIsExportOpen] = useState(false);
 
   return (
     <div className="max-w-5xl mx-auto">
-      {!hideTabs && <VocabularyTabs onExportPDF={() => setIsExportOpen(true)} />}
 
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
@@ -59,7 +55,6 @@ export const VocabularyLevelsPage: React.FC<Props> = ({
         ))}
       </div>
 
-      {isExportOpen && <ExportPDFModal onClose={() => setIsExportOpen(false)} />}
     </div>
   );
 };

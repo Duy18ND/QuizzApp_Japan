@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { VocabularyTabs } from '../../components/vocabulary/VocabularyTabs';
-import { ExportPDFModal } from '../../components/pdf/ExportPDFModal';
 import { ChevronRight, Home, Star, Volume2 } from 'lucide-react';
 import { UNIT_DATA } from '../../data/unitData';
 import { useUserProgress } from '../../hooks/useUserProgress';
@@ -45,7 +43,6 @@ const mapVietnameseWordTypeToEnglish = (viType?: string): WordType => {
 
 export const VocabularyWordsPage: React.FC = () => {
   const { level, unitId } = useParams<{ level: string; unitId: string }>();
-  const [isExportOpen, setIsExportOpen] = useState(false);
   const { progress, toggleStar } = useUserProgress();
   
   const [words, setWords] = useState<any[]>([]);
@@ -105,8 +102,6 @@ export const VocabularyWordsPage: React.FC = () => {
 
   return (
     <div className="w-full space-y-6">
-      <VocabularyTabs onExportPDF={() => setIsExportOpen(true)} />
-
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-6">
         <Link to="/vocabulary" className="hover:text-gray-900 dark:hover:text-white transition-colors flex items-center gap-1">
@@ -257,8 +252,6 @@ export const VocabularyWordsPage: React.FC = () => {
           </>
         )}
       </div>
-
-      {isExportOpen && <ExportPDFModal onClose={() => setIsExportOpen(false)} />}
     </div>
   );
 };
