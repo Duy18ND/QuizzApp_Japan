@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { X, FileDown, Sparkles, Plus, Trash2, Copy, Check, Download, Info } from 'lucide-react';
+import { X, FileDown } from 'lucide-react';
 import { DraggableColumnList, type ColumnOption } from './DraggableColumnList';
+import { CustomDataImport } from '../common/CustomDataImport';
 import { exportToPDF } from '../../utils/pdfExport';
 import { UNIT_DATA } from '../../data/unitData';
 import { allVocabularyData } from '../../data/index';
@@ -33,56 +34,12 @@ export const ExportPDFModal: React.FC<ExportPDFModalProps> = ({ onClose }) => {
 
   const activeUnits = UNIT_DATA[level] || UNIT_DATA['N3'];
 
-  // Tab 2: Free list (Manual Grid + AI Import)
-  const [aiText, setAiText] = useState('');
-  const [isCopied, setIsCopied] = useState(false);
   const [manualWords, setManualWords] = useState<any[]>([]);
 
   const handleLevelChange = (newLevel: JLPTLevel) => {
     const defaultUnitId = UNIT_DATA[newLevel]?.[0]?.id || 1;
     setLevel(newLevel);
     setUnitId(defaultUnitId);
-  };
-
-  const handleImportJSON = () => {
-    if (!aiText.trim()) return;
-
-    try {
-      const parsedData = JSON.parse(aiText);
-      if (!Array.isArray(parsedData)) {
-        throw new Error("Dữ liệu không phải là mảng JSON.");
-      }
-
-      const formattedWords = parsedData.map((w: any) => ({
-        id: Date.now().toString() + Math.random().toString(),
-        kanji: w.kanji || '',
-        hanviet: w.hanViet || w.hanviet || '',
-        hiragana: w.hiragana || '',
-        meaning: w.meaning || ''
-      }));
-
-      setManualWords(prev => {
-        const filtered = prev.filter(w => w.kanji || w.hiragana || w.meaning);
-        return [...filtered, ...formattedWords];
-      });
-
-      setAiText('');
-    } catch (error: any) {
-      console.error("Lỗi parse JSON:", error);
-      alert("Dữ liệu JSON không hợp lệ, vui lòng kiểm tra lại kết quả từ AI.");
-    }
-  };
-
-  const addManualRow = () => {
-    setManualWords([...manualWords, { id: Date.now().toString(), kanji: '', hanviet: '', hiragana: '', meaning: '' }]);
-  };
-
-  const removeManualRow = (id: string) => {
-    setManualWords(manualWords.filter(w => w.id !== id));
-  };
-
-  const updateManualRow = (id: string, field: string, value: string) => {
-    setManualWords(manualWords.map(w => w.id === id ? { ...w, [field]: value } : w));
   };
 
   const handleExport = async () => {
@@ -269,123 +226,11 @@ export const ExportPDFModal: React.FC<ExportPDFModalProps> = ({ onClose }) => {
                 </div>
               ) : (
                 <div className="flex flex-col h-full space-y-4">
-                  {/* AI Import Box */}
-                  <div className="bg-indigo-900/10 border border-indigo-500/20 rounded-xl p-4 mb-4">
-                    <div className="flex justify-between items-center mb-3">
-                      <label className="text-sm font-medium text-indigo-300 flex items-center gap-2">
-                        <Sparkles className="w-4 h-4" />
-                        Nhập dữ liệu bằng AI (Thủ công)
-                      </label>
-                    </div>
-
-                    <div className="flex flex-col gap-4">
-                      {/* Step 1 */}
-                      <div className="bg-gray-900/50 p-3.5 rounded-lg border border-gray-800 relative">
-                        <h4 className="text-xs font-semibold text-gray-300 mb-2">Bước 1: Lấy dữ liệu chuẩn hóa từ AI</h4>
-                        <div className="bg-gray-950 p-3 rounded border border-gray-800 text-[12px] leading-relaxed text-gray-400 font-mono relative pr-12">
-                          {'Hãy trích xuất và chuẩn hóa danh sách từ vựng tiếng Nhật lộn xộn dưới đây thành một mảng JSON với định dạng chính xác như sau: [{"kanji": "", "hanViet": "", "hiragana": "", "meaning": ""}]. Nếu từ nào không có Kanji, hãy để trống "". Chỉ trả về duy nhất mảng JSON, không giải thích thêm. \n\nDữ liệu của tôi: [DÁN TỪ VỰNG LỘN XỘN CỦA BẠN VÀO ĐÂY]'}
-
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText(`Hãy trích xuất và chuẩn hóa danh sách từ vựng tiếng Nhật lộn xộn dưới đây thành một mảng JSON với định dạng chính xác như sau: [{"kanji": "", "hanViet": "", "hiragana": "", "meaning": ""}]. Nếu từ nào không có Kanji, hãy để trống "". Chỉ trả về duy nhất mảng JSON, không giải thích thêm. \n\nDữ liệu của tôi: [DÁN TỪ VỰNG LỘN XỘN CỦA BẠN VÀO ĐÂY]`);
-                              setIsCopied(true);
-                              setTimeout(() => setIsCopied(false), 2000);
-                            }}
-                            className="absolute top-2 right-2 p-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-md transition-colors"
-                            title="Copy Prompt"
-                          >
-                            {isCopied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
-                          </button>
-                        </div>
-                        <p className="text-[11px] text-indigo-300/80 mt-2 italic flex items-center gap-1.5">
-                          <Info className="w-3.5 h-3.5" /> (Hãy dán dòng này vào ChatGPT hoặc Gemini, sau đó copy kết quả JSON nhận được)
-                        </p>
-                      </div>
-
-                      {/* Step 2 */}
-                      <div className="bg-gray-900/50 p-3.5 rounded-lg border border-gray-800">
-                        <h4 className="text-xs font-semibold text-gray-300 mb-2">Bước 2: Dán kết quả JSON vào đây</h4>
-                        <textarea
-                          className="w-full h-24 bg-gray-950 border border-indigo-500/30 rounded-lg p-3 text-sm text-gray-200 focus:border-indigo-500 outline-none resize-none placeholder-gray-500 font-mono"
-                          placeholder="Dán đoạn mã JSON mà AI đã trả về vào đây..."
-                          value={aiText}
-                          onChange={(e) => setAiText(e.target.value)}
-                        />
-                        <div className="mt-3 flex justify-end">
-                          <button
-                            onClick={handleImportJSON}
-                            disabled={!aiText.trim()}
-                            className="flex items-center gap-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            <Download className="w-4 h-4" /> ⬇️ Nhập dữ liệu
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-
-
-                  {/* Manual Grid */}
+                  <CustomDataImport onDataImported={(data) => setManualWords(data)} />
                   {manualWords.length > 0 && (
-                    <div className="flex-1 overflow-y-auto border border-gray-800 rounded-xl">
-                    <table className="w-full text-left text-sm text-gray-300">
-                      <thead className="bg-gray-900 text-xs text-gray-400 sticky top-0 z-10">
-                        <tr>
-                          <th className="p-2 w-1/4">Kanji</th>
-                          <th className="p-2 w-1/4">Hán Việt</th>
-                          <th className="p-2 w-1/4">Hiragana</th>
-                          <th className="p-2 w-1/4">Nghĩa</th>
-                          <th className="p-2 w-8"></th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-800">
-                        {manualWords.map((row) => (
-                          <tr key={row.id} className="bg-gray-950/50 hover:bg-gray-800/30">
-                            <td className="p-1">
-                              <input
-                                className="w-full bg-transparent border border-transparent hover:border-gray-700 focus:border-indigo-500 rounded p-1.5 outline-none"
-                                value={row.kanji}
-                                onChange={(e) => updateManualRow(row.id, 'kanji', e.target.value)}
-                                placeholder="Kanji"
-                              />
-                            </td>
-                            <td className="p-1">
-                              <input
-                                className="w-full bg-transparent border border-transparent hover:border-gray-700 focus:border-indigo-500 rounded p-1.5 outline-none"
-                                value={row.hanviet}
-                                onChange={(e) => updateManualRow(row.id, 'hanviet', e.target.value)}
-                                placeholder="Hán Việt"
-                              />
-                            </td>
-                            <td className="p-1">
-                              <input
-                                className="w-full bg-transparent border border-transparent hover:border-gray-700 focus:border-indigo-500 rounded p-1.5 outline-none"
-                                value={row.hiragana}
-                                onChange={(e) => updateManualRow(row.id, 'hiragana', e.target.value)}
-                                placeholder="Hiragana"
-                              />
-                            </td>
-                            <td className="p-1">
-                              <input
-                                className="w-full bg-transparent border border-transparent hover:border-gray-700 focus:border-indigo-500 rounded p-1.5 outline-none"
-                                value={row.meaning}
-                                onChange={(e) => updateManualRow(row.id, 'meaning', e.target.value)}
-                                placeholder="Nghĩa"
-                              />
-                            </td>
-                            <td className="p-1 text-center">
-                              <button
-                                onClick={() => removeManualRow(row.id)}
-                                className="text-gray-500 hover:text-red-400 p-1 rounded hover:bg-gray-800"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                    <div className="mt-2 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-center justify-between">
+                      <span className="text-sm text-green-700 dark:text-green-400 font-medium">✅ Đã tải {manualWords.length} từ vựng sẵn sàng xuất PDF!</span>
+                      <button onClick={() => setManualWords([])} className="px-3 py-1 bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50 rounded-md text-sm font-semibold transition-colors">Xóa dữ liệu</button>
                     </div>
                   )}
                 </div>
