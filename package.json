@@ -5,6 +5,11 @@
   "scripts": {
     "dev": "npm run dev --prefix server & npm run dev --prefix client",
     "install:all": "npm install && npm install --prefix server && npm install --prefix client",
-    "deploy": "git add . && git commit -m \"Auto update quiz app\" && git push -u origin main"
+    "git:push": "git add . && git commit -m \"Auto update quiz app\" && git push -u origin main",
+    "predeploy": "npm run build --prefix client",
+    "deploy": "gh-pages -d client/dist"
+  },
+  "devDependencies": {
+    "gh-pages": "^6.3.0"
   }
 }
