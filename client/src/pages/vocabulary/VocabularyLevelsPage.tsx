@@ -13,16 +13,28 @@ const LEVELS: { id: JLPTLevel; title: string; desc: string; color: string }[] = 
   { id: 'N1', title: 'Trình độ N1', desc: 'Cao cấp tiếng Nhật', color: 'text-rose-400' },
 ];
 
-export const VocabularyLevelsPage: React.FC = () => {
+interface Props {
+  basePath?: string;
+  title?: string;
+  hideTabs?: boolean;
+}
+
+export const VocabularyLevelsPage: React.FC<Props> = ({ 
+  basePath = '/vocabulary', 
+  title = 'Từ vựng',
+  hideTabs = false
+}) => {
   const navigate = useNavigate();
   const [isExportOpen, setIsExportOpen] = useState(false);
 
   return (
     <div className="max-w-5xl mx-auto">
-      <VocabularyTabs onExportPDF={() => setIsExportOpen(true)} />
+      {!hideTabs && <VocabularyTabs onExportPDF={() => setIsExportOpen(true)} />}
 
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Chọn Trình độ (JLPT Level)</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+          {hideTabs ? `Chọn Trình độ (${title})` : 'Chọn Trình độ (JLPT Level)'}
+        </h1>
         <p className="text-gray-600 dark:text-gray-400">Vui lòng chọn trình độ bạn muốn học để xem danh sách bài học tương ứng.</p>
       </div>
 
@@ -30,7 +42,7 @@ export const VocabularyLevelsPage: React.FC = () => {
         {LEVELS.map(level => (
           <div 
             key={level.id}
-            onClick={() => navigate(`/vocabulary/${level.id.toLowerCase()}`)}
+            onClick={() => navigate(`${basePath}/${level.id.toLowerCase()}`)}
             className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 cursor-pointer hover:border-indigo-500/50 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all group"
           >
             <div className="flex items-center gap-4 mb-4">

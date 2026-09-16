@@ -13,7 +13,7 @@ export const VocabularyTabs: React.FC<Props> = ({ onExportPDF }) => {
   const tabs = [
     { id: 'list', label: 'Danh sách', icon: List, path: '/vocabulary' },
     { id: 'quiz', label: 'Luyện Quiz', icon: BrainCircuit, path: '/vocabulary/quiz' },
-    { id: 'flashcards', label: 'Flashcard', icon: Layers, path: '/vocabulary/flashcards' },
+    { id: 'flashcards', label: 'Flashcard', icon: Layers, path: '/flashcard' },
     { id: 'pdf', label: 'Xuất PDF', icon: FileText, onClick: onExportPDF },
   ];
 

@@ -2,11 +2,21 @@ import React, { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { VocabularyTabs } from '../../components/vocabulary/VocabularyTabs';
 import { ExportPDFModal } from '../../components/pdf/ExportPDFModal';
-import { BookOpen, ChevronRight, Home } from 'lucide-react';
+import { BookOpen, ChevronRight, Home, Layers } from 'lucide-react';
 import { UNIT_DATA } from '../../data/unitData';
 import type { JLPTLevel } from '../../types/quiz';
 
-export const VocabularyUnitsPage: React.FC = () => {
+interface Props {
+  basePath?: string;
+  title?: string;
+  hideTabs?: boolean;
+}
+
+export const VocabularyUnitsPage: React.FC<Props> = ({
+  basePath = '/vocabulary',
+  title = 'Từ vựng',
+  hideTabs = false
+}) => {
   const { level } = useParams<{ level: string }>();
   const navigate = useNavigate();
   const [isExportOpen, setIsExportOpen] = useState(false);
@@ -16,12 +26,12 @@ export const VocabularyUnitsPage: React.FC = () => {
 
   return (
     <div className="max-w-5xl mx-auto">
-      <VocabularyTabs onExportPDF={() => setIsExportOpen(true)} />
+      {!hideTabs && <VocabularyTabs onExportPDF={() => setIsExportOpen(true)} />}
 
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-6">
-        <Link to="/vocabulary" className="hover:text-gray-900 dark:hover:text-white transition-colors flex items-center gap-1">
-          <Home className="w-4 h-4" /> Từ vựng
+        <Link to={basePath} className="hover:text-gray-900 dark:hover:text-white transition-colors flex items-center gap-1">
+          {hideTabs ? <Layers className="w-4 h-4" /> : <Home className="w-4 h-4" />} {title}
         </Link>
         <ChevronRight className="w-4 h-4" />
         <span className="text-indigo-400 font-medium">Trình độ {levelKey}</span>
@@ -41,7 +51,7 @@ export const VocabularyUnitsPage: React.FC = () => {
           units.map(unit => (
             <div 
               key={unit.id}
-              onClick={() => navigate(`/vocabulary/${level}/${unit.id}`)}
+              onClick={() => navigate(`${basePath}/${level}/${unit.id}`)}
               className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5 cursor-pointer hover:border-indigo-500/50 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all flex justify-between items-center group"
             >
               <div className="flex items-center gap-4">
