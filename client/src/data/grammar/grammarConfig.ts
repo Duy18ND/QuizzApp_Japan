@@ -107,6 +107,31 @@ export const verbCollocations: Record<string, string[]> = {
   // 卒業する (graduate)
   'そつぎょうする': ['学校', '大学'],
   '卒業する': ['学校', '大学'],
+
+  // 教える (teach)
+  'おしえる': ['日本語', 'にほんご', '英語', 'えいご', '数学', 'すうがく'],
+  '教える': ['日本語', 'にほんご', '英語', 'えいご', '数学', 'すうがく'],
+};
+
+// Verb - Subject Collocation Rules (Who can do this action?)
+export const subjectCollocations: Record<string, string[]> = {
+  '勉強する': ['私', 'わたし', '学生', 'がくせい', '子供', 'こども', '友達', 'ともだち'],
+  '教える': ['先生', 'せんせい'],
+  '働く': ['私', 'わたし', '親', 'おや', '先生', 'せんせい'],
+  '遊ぶ': ['子供', 'こども', '学生', 'がくせい', '友達', 'ともだち'],
+  '寝る': ['私', 'わたし', '子供', 'こども', '学生', 'がくせい', '赤ちゃん'],
+};
+
+// Verb - Place Collocation Rules (Where does this action usually happen?)
+export const placeCollocations: Record<string, string[]> = {
+  '勉強する': ['学校', 'がっこう', '図書館', 'としょかん', '家', 'いえ'],
+  '教える': ['学校', 'がっこう'],
+  '働く': ['会社', 'かいしゃ', '店', 'みせ', 'スーパー'],
+  '買う': ['店', 'みせ', 'スーパー', 'デパート'],
+  '乗る': ['駅', 'えき'],
+  '降りる': ['駅', 'えき'],
+  '読む': ['図書館', 'としょかん', '家', 'いえ', '電車', 'でんしゃ'],
+  '泊まる': ['ホテル', '旅館'],
 };
 
 export const verbTopics: Record<string, string[]> = {

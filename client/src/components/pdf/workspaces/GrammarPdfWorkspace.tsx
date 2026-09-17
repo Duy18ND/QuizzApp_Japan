@@ -13,7 +13,7 @@ export const GrammarPdfWorkspace: React.FC = () => {
   const initBookId = searchParams.get('bookId') || grammarBooks[0]?.id || '';
   const initChapterId = searchParams.get('chapterId') || grammarBooks.find(b => b.id === initBookId)?.chapters[0]?.id || '';
   const initGrammarId = searchParams.get('grammarId') || '';
-  const initSeed = parseInt(searchParams.get('seed') || '0', 10);
+
   const initCount = parseInt(searchParams.get('count') || '5', 10);
   const initMode = searchParams.get('mode') || 'mixed';
 
@@ -27,7 +27,6 @@ export const GrammarPdfWorkspace: React.FC = () => {
 
   const [selectedRules, setSelectedRules] = useState<string[]>(initGrammarId ? [initGrammarId] : []);
   const [questionCount, setQuestionCount] = useState(initCount);
-  const [pdfSeed] = useState<number>(initSeed || Date.now());
   const [generateAnswer, setGenerateAnswer] = useState(true);
   const [generatedSets, setGeneratedSets] = useState<any[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -44,6 +43,8 @@ export const GrammarPdfWorkspace: React.FC = () => {
     if (selectedRules.length === 0) return;
     setIsGenerating(true);
     
+    const nextSeed = Date.now();
+    
     setTimeout(() => {
       const topicScope = selectedTopic === 'current' ? [] : [];
       // Use URL mode if provided, otherwise the preset dropdown
@@ -55,7 +56,7 @@ export const GrammarPdfWorkspace: React.FC = () => {
         return generateSmartQuestionSet({
           grammarRule: rule,
           count: questionCount,
-          seed: pdfSeed,
+          seed: nextSeed,
           rawVocabulary: unit1Data as any[],
           topicScope,
           requestedPracticeTypes

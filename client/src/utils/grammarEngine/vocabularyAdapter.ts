@@ -10,6 +10,8 @@ export interface GrammarVocabulary {
   topics?: string[];
   compatibleVerbs?: string[];
   compatibleObjects?: string[];
+  compatibleSubjects?: string[];
+  compatiblePlaces?: string[];
   prerequisiteRoles?: string[];
   resultRoles?: string[];
 }
@@ -102,20 +104,43 @@ const assignTags = (item: any): string[] => {
   return tags;
 };
 
+import { verbCollocations, subjectCollocations, placeCollocations } from '../../data/grammar/grammarConfig';
+
 export const adaptVocabulary = (rawVocabulary: any[]): GrammarVocabulary[] => {
   return rawVocabulary.map(item => {
     const wordType = mapWordType(item.wordType);
+    const kanji = item.kanji || item.hiragana;
+    
+    // Auto-resolve compatible relations based on global dictionary
+    const autoCompatibleObjects: string[] = verbCollocations[kanji] || [];
+    const autoCompatibleSubjects: string[] = subjectCollocations[kanji] || [];
+    const autoCompatiblePlaces: string[] = placeCollocations[kanji] || [];
+    
+    const autoCompatibleVerbs: string[] = [];
+    
+    if (wordType === 'noun') {
+       // Reverse lookup: which verbs can take this noun as an object?
+       for (const [v, objects] of Object.entries(verbCollocations)) {
+          if (objects.includes(kanji) || objects.includes(item.hiragana)) {
+             autoCompatibleVerbs.push(v);
+          }
+       }
+       // Reverse lookup for subject and place can also be added if needed
+    }
+
     const adapted: GrammarVocabulary = {
-      id: item.id?.toString() || item.kanji || item.hiragana,
-      kanji: item.kanji || item.hiragana,
+      id: item.id?.toString() || kanji,
+      kanji,
       hiragana: item.hiragana,
       meaning: item.meaning,
       wordType,
       tags: Array.from(new Set([...assignTags(item), ...(item.tags || [])])),
       semanticRoles: item.semanticRoles || [],
       topics: item.topics || [],
-      compatibleVerbs: item.compatibleVerbs || [],
-      compatibleObjects: item.compatibleObjects || [],
+      compatibleVerbs: Array.from(new Set([...(item.compatibleVerbs || []), ...autoCompatibleVerbs])),
+      compatibleObjects: Array.from(new Set([...(item.compatibleObjects || []), ...autoCompatibleObjects])),
+      compatibleSubjects: Array.from(new Set([...(item.compatibleSubjects || []), ...autoCompatibleSubjects])),
+      compatiblePlaces: Array.from(new Set([...(item.compatiblePlaces || []), ...autoCompatiblePlaces])),
       prerequisiteRoles: item.prerequisiteRoles || [],
       resultRoles: item.resultRoles || []
     };

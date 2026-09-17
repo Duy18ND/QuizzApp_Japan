@@ -1,101 +1,122 @@
-import type { GrammarScenario, SemanticRelation, ValidationScore, SmartGrammarRule } from '../../types/grammarEngine';
+import type { GrammarScenario, SemanticRelation, SmartGrammarRule, SentenceValidationResult, SemanticSignature } from '../../types/grammarEngine';
 import type { GrammarVocabulary } from './vocabularyAdapter';
-import { verbCollocations, verbTopics } from '../../data/grammar/grammarConfig';
+import { verbTopics } from '../../data/grammar/grammarConfig';
 
 export class SemanticEngine {
   
-  static validateCollocation(verb: GrammarVocabulary, obj: GrammarVocabulary): boolean {
-    const verbName = verb.kanji || verb.hiragana;
-    const allowedObjects = verbCollocations[verbName] || [];
-    
-    // If no specific collocations are defined for this verb, we might be lenient or strict.
-    // For a semantic engine, if it's not defined, it might be safer to reject unless we have a fallback.
-    // Let's be somewhat strict: if it's not in the list, we reject if the list exists.
-    if (allowedObjects.length > 0) {
-      return allowedObjects.includes(obj.kanji) || allowedObjects.includes(obj.hiragana);
-    }
-    return true; // If no rule, allow by default to prevent blocking all unknown verbs
-  }
-
   static validateLogicalRelation(left: GrammarVocabulary, right: GrammarVocabulary, _relation: SemanticRelation): boolean {
-    // Check if the two vocabularies satisfy the semantic relation
-    // For example, if relation is prerequisite -> result
-    // We check if left has 'prerequisite_candidate' or specific topic matching right's topic
-    
-    // As a simple heuristic using our defined verbTopics:
     const leftName = left.kanji || left.hiragana;
     const rightName = right.kanji || right.hiragana;
     
     const leftTopics = verbTopics[leftName] || [];
     const rightTopics = verbTopics[rightName] || [];
     
-    // They should share at least one topic for a logical sequence in most scenarios
     const commonTopics = leftTopics.filter(t => rightTopics.includes(t));
-    
     if (commonTopics.length > 0) return true;
-    
-    // If no common topics, they might still be valid if left is generic 'preparation'
     if (left.semanticRoles?.includes('preparation')) return true;
     
-    // For strictness, if no logic aligns, we return false
-    // But since our dictionary is small, we'll allow it if both are defined but no explicit topic match
-    // ONLY if the scenario explicitly pairs them through roles.
+    // Fallback: If we have no metadata for these verbs, allow them to avoid blocking generation
+    if (leftTopics.length === 0 && rightTopics.length === 0) return true;
     
     return false;
   }
 
-  static evaluateCandidate(
-    vocabularies: Record<string, GrammarVocabulary>, 
-    scenario: GrammarScenario
-  ): ValidationScore {
-    
-    let collocationScore = 1.0;
-    let semanticScore = 1.0;
-    let topicScore = 1.0;
-    let grammarScore = 1.0; // Assume grammar is correct if it matched slot forms
-    let levelScore = 1.0;
-    let naturalnessScore = 1.0;
-    let diversityScore = 1.0; // Checked at the set level
+  static createSignature(vocabularies: Record<string, GrammarVocabulary>, grammarId: string, templateId: string): SemanticSignature {
+    // Try to heuristically find the main roles from slot names or vocabulary tags
+    const findVocab = (roleKeyword: string) => {
+      // First check if slot name contains keyword
+      for (const [slot, vocab] of Object.entries(vocabularies)) {
+        if (slot.toLowerCase().includes(roleKeyword)) return vocab.kanji;
+      }
+      // Then check if any vocab has the tag
+      for (const vocab of Object.values(vocabularies)) {
+        if (vocab.tags.includes(roleKeyword) || vocab.semanticRoles?.includes(roleKeyword)) return vocab.kanji;
+      }
+      return undefined;
+    };
 
-    // Check collocations (e.g. if we have a Verb and an Object)
-    // In our simplified slots, we usually just have A and B. 
-    // If A and B are both verbs, we check logical relation instead of collocation.
+    return {
+      grammarId,
+      templateId,
+      subject: findVocab('person') || findVocab('subject'),
+      verb: findVocab('verb') || findVocab('action') || vocabularies['A']?.kanji || vocabularies['B']?.kanji,
+      object: findVocab('object'),
+      place: findVocab('place')
+    };
+  }
+
+  static getSignatureString(sig: SemanticSignature): string {
+    return `${sig.grammarId}|${sig.templateId}|S:${sig.subject || ''}|V:${sig.verb || ''}|O:${sig.object || ''}|P:${sig.place || ''}`;
+  }
+
+  static validateSentence(
+    vocabularies: Record<string, GrammarVocabulary>, 
+    scenario?: GrammarScenario
+  ): SentenceValidationResult {
     
-    if (vocabularies['A'] && vocabularies['B']) {
-      const a = vocabularies['A'];
-      const b = vocabularies['B'];
-      
-      // If A is verb and B is verb, check logical relation according to scenario
-      if (a.wordType === 'verb' && b.wordType === 'verb') {
-        const relation = scenario.validRelations[0];
-        if (relation) {
-          const isValid = this.validateLogicalRelation(a, b, relation);
-          if (!isValid) semanticScore = 0;
+    const reasons: string[] = [];
+    const verbs = Object.values(vocabularies).filter(v => v.wordType === 'verb');
+
+    // 1. Strict Object-Verb Collocation Check
+    for (const [slotName, noun] of Object.entries(vocabularies)) {
+      if (noun.wordType === 'noun') {
+        const nounName = noun.kanji || noun.hiragana;
+        // Check if this noun acts as an object for any verb in the sentence
+        if (slotName.toLowerCase().includes('object') || noun.tags.includes('object') || noun.tags.includes('food')) {
+           for (const verb of verbs) {
+             if (verb.compatibleObjects && verb.compatibleObjects.length > 0) {
+               if (!verb.compatibleObjects.includes(nounName)) {
+                 reasons.push(`[Collocation Error] Noun '${nounName}' is not a compatible object for Verb '${verb.kanji || verb.hiragana}'`);
+               }
+             }
+           }
+        }
+        
+        // Subject-Verb Check
+        if (slotName.toLowerCase().includes('person') || slotName.toLowerCase().includes('subject')) {
+           for (const verb of verbs) {
+             if (verb.compatibleSubjects && verb.compatibleSubjects.length > 0) {
+               if (!verb.compatibleSubjects.includes(nounName)) {
+                 reasons.push(`[Collocation Error] Noun '${nounName}' is not a compatible subject for Verb '${verb.kanji || verb.hiragana}'`);
+               }
+             }
+           }
+        }
+
+        // Place-Verb Check
+        if (slotName.toLowerCase().includes('place')) {
+           for (const verb of verbs) {
+             if (verb.compatiblePlaces && verb.compatiblePlaces.length > 0) {
+               if (!verb.compatiblePlaces.includes(nounName)) {
+                 reasons.push(`[Collocation Error] Place '${nounName}' is not a compatible place for Verb '${verb.kanji || verb.hiragana}'`);
+               }
+             }
+           }
         }
       }
-      
-      // If A is noun and B is verb (e.g. object -> verb)
-      if (a.wordType === 'noun' && b.wordType === 'verb') {
-         const isValid = this.validateCollocation(b, a);
-         if (!isValid) collocationScore = 0;
+    }
+
+    // 2. Scenario Logical Relations (e.g. A てからでないと B)
+    if (scenario && scenario.validRelations.length > 0) {
+      if (vocabularies['A'] && vocabularies['B']) {
+        const a = vocabularies['A'];
+        const b = vocabularies['B'];
+        if (a.wordType === 'verb' && b.wordType === 'verb') {
+          const relation = scenario.validRelations[0];
+          if (!this.validateLogicalRelation(a, b, relation)) {
+             reasons.push(`[Semantic Error] Invalid logical relation between '${a.kanji}' and '${b.kanji}' for scenario '${scenario.id}'`);
+          }
+        }
       }
     }
 
     return {
-      grammarScore,
-      semanticScore,
-      collocationScore,
-      topicScore,
-      levelScore,
-      naturalnessScore,
-      diversityScore
+      valid: reasons.length === 0,
+      reasons
     };
   }
 
   static getValidScenarios(_rule: SmartGrammarRule, allScenarios: GrammarScenario[], topic?: string): GrammarScenario[] {
-    // If the grammar rule has a specific allowedRelationTypes, we could filter scenarios
-    // For now, we assume the scenarios passed are specifically for this grammar rule (e.g. tekaraDenaitoScenarios)
-    
     if (topic) {
        return allScenarios.filter(s => s.topic === topic || s.vocabularyTags.includes(topic));
     }

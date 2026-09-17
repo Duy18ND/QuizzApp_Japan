@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { FileDown, Settings } from 'lucide-react';
 import { DraggableColumnList, type ColumnOption } from '../DraggableColumnList';
 import { CustomDataImport } from '../../common/CustomDataImport';
-import { exportToPDF } from '../../../utils/pdfExport';
+import { createPortal } from 'react-dom';
+import { VocabularyPdfBuilder } from './VocabularyPdfBuilder';
 import { UNIT_DATA } from '../../../data/unitData';
 import { allVocabularyData } from '../../../data/index';
 import { useUserProgress } from '../../../hooks/useUserProgress';
@@ -19,6 +20,7 @@ export const VocabularyPdfWorkspace: React.FC = () => {
   const { progress } = useUserProgress();
   const [columns, setColumns] = useState<ColumnOption[]>(DEFAULT_COLUMNS);
   const [isExporting, setIsExporting] = useState(false);
+  const [exportWords, setExportWords] = useState<any[]>([]);
 
   // Tab 1: System Selection
   const [tab, setTab] = useState<'system' | 'custom'>('system');
@@ -46,7 +48,7 @@ export const VocabularyPdfWorkspace: React.FC = () => {
 
     setIsExporting(true);
     try {
-      let exportWords: any[] = [];
+      let exportWordsArr: any[] = [];
 
       if (tab === 'system') {
         const targetWordIds = source === 'starred'
@@ -78,7 +80,7 @@ export const VocabularyPdfWorkspace: React.FC = () => {
           words = words.slice(startIdx, endIdx);
         }
 
-        exportWords = words.map((w: any) => ({
+        exportWordsArr = words.map((w: any) => ({
           id: w.id.toString(),
           kanji: w.kanji || '',
           hanViet: w.hanViet || '',
@@ -86,20 +88,23 @@ export const VocabularyPdfWorkspace: React.FC = () => {
           meaning: w.meaning || ''
         }));
       } else {
-        exportWords = manualWords.filter(w => w.kanji || w.hiragana || w.meaning);
-        if (exportWords.length === 0) throw new Error('Vui lòng thêm ít nhất một từ vựng.');
+        exportWordsArr = manualWords.filter(w => w.kanji || w.hiragana || w.meaning);
+        if (exportWordsArr.length === 0) throw new Error('Vui lòng thêm ít nhất một từ vựng.');
 
-        exportWords = exportWords.map(w => ({
+        exportWordsArr = exportWordsArr.map(w => ({
           ...w,
           hanViet: w.hanviet
         }));
       }
 
-      await exportToPDF(exportWords, columns);
+      setExportWords(exportWordsArr);
+      setTimeout(() => {
+        setIsExporting(false);
+        window.print();
+      }, 500);
     } catch (error: any) {
       console.error('Lỗi khi xuất PDF:', error);
       alert(error.message || 'Có lỗi xảy ra khi xuất PDF. Vui lòng thử lại.');
-    } finally {
       setIsExporting(false);
     }
   };
@@ -243,8 +248,18 @@ export const VocabularyPdfWorkspace: React.FC = () => {
         className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-lg shadow-lg flex items-center justify-center gap-3 transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-4"
       >
         <FileDown className="w-6 h-6" />
-        {isExporting ? 'Đang xử lý...' : 'Xuất PDF'}
+        {isExporting ? 'Đang chuẩn bị trang in...' : 'Xuất PDF'}
       </button>
+
+      {/* Hidden Print Container via Portal */}
+      {createPortal(
+        <VocabularyPdfBuilder 
+          words={exportWords} 
+          columns={columns} 
+          isGenerating={true} 
+        />,
+        document.body
+      )}
     </div>
   );
 };

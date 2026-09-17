@@ -69,7 +69,13 @@ export const GrammarPdfBuilder: React.FC<PdfBuilderProps> = ({ bookId, generated
       {/* Print-only CSS style */}
       <style>{`
         @media print {
-          @page { size: A4; margin: 20mm; }
+          @page { size: A4; margin: 15mm; }
+          html, body {
+            height: max-content !important;
+            min-height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
           body, #print-workbook { 
             background: white; 
             -webkit-print-color-adjust: exact;
@@ -80,9 +86,20 @@ export const GrammarPdfBuilder: React.FC<PdfBuilderProps> = ({ bookId, generated
             display: block !important;
             position: relative !important;
             width: 100%;
+            padding: 0 !important; /* Remove the p-8 for print to save space */
           }
-          .page-break { page-break-before: always; }
-          .avoid-break { page-break-inside: avoid; }
+          .page-break { 
+            page-break-before: always; 
+            break-before: page; 
+          }
+          .avoid-break { 
+            page-break-inside: avoid; 
+            break-inside: avoid; 
+          }
+          h1, h2, h3, h4, hr {
+            page-break-after: avoid;
+            break-after: avoid;
+          }
         }
       `}</style>
       
@@ -99,9 +116,29 @@ export const GrammarPdfBuilder: React.FC<PdfBuilderProps> = ({ bookId, generated
 
         return (
           <div key={`set-${set.id}`} className={setIdx > 0 ? 'page-break' : ''}>
-            <div className="mb-6 flex justify-between items-end border-b border-black pb-2">
-              <h2 className="text-2xl font-bold">Bài tập: {rule?.name} {rule?.hiragana}</h2>
-              <span className="text-gray-500 italic">Level: {rule?.level}</span>
+            <div className="mb-6 border-b border-black pb-4">
+              <div className="flex justify-between items-end mb-2">
+                <h2 className="text-2xl font-bold">Bài tập: {rule?.name} {rule?.hiragana}</h2>
+                <span className="text-gray-500 italic font-medium">Level: {rule?.level}</span>
+              </div>
+              {(rule?.meaning || (rule?.patterns && rule.patterns.length > 0)) && (
+                <div className="text-base text-gray-800 bg-gray-100 p-4 rounded-lg border-l-4 border-indigo-500 mt-3 avoid-break">
+                  {rule?.meaning && (
+                    <div className="mb-2">
+                      <span className="font-bold mr-2">Ý nghĩa:</span> 
+                      <span>{rule.meaning}</span>
+                    </div>
+                  )}
+                  {rule?.patterns && rule.patterns.length > 0 && (
+                    <div>
+                      <span className="font-bold mr-2">Cấu trúc:</span>
+                      <span className="font-mono bg-white px-2 py-1 border border-gray-300 rounded text-sm">
+                        {rule.patterns.map(p => p.pattern).join(' / ')}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {Object.keys(grouped).length === 0 && (

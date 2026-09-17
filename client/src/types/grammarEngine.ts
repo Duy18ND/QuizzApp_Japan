@@ -26,7 +26,9 @@ export type SemanticRole =
   | 'travel_action'
   | 'result_action'
   | 'task'
-  | 'free_time';
+  | 'free_time'
+  | 'subject'
+  | 'agent';
 
 export type VerbForm = 'Vる' | 'Vている' | 'Vた' | 'Vない' | 'Vて' | 'Noun+の' | 'Noun' | 'Na-adj+な' | 'I-adj' | 'Vてきた' | 'Vようになった' | 'Vていた' | 'Vられない';
 
@@ -158,4 +160,19 @@ export interface ValidationScore {
   levelScore: number;
   naturalnessScore: number;
   diversityScore: number;
+}
+
+export interface SemanticSignature {
+  subject?: string;
+  verb?: string;
+  object?: string;
+  place?: string;
+  grammarId: string;
+  templateId: string;
+}
+
+export interface SentenceValidationResult {
+  valid: boolean;
+  reasons: string[];
+  signature?: SemanticSignature;
 }
