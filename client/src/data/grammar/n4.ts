@@ -18,13 +18,13 @@ export const n4GrammarData: GrammarRule[] = [
       }
     },
     practiceTypes: [
-      'recognition',
+      'multiple_choice',
       'conjugation',
       'sentence_transformation',
-      'word_order',
-      'translation',
+      'sentence_ordering',
+      'vi_to_ja',
       'free_writing',
-      'mix_review'
+      'mixed'
     ],
     example: '先生が私をほめました。 → 私は先生にほめられました。',
     exampleMeaning: 'Giáo viên đã khen tôi. → Tôi đã được giáo viên khen.'
@@ -44,11 +44,11 @@ export const n4GrammarData: GrammarRule[] = [
       }
     },
     practiceTypes: [
-      'recognition',
+      'multiple_choice',
       'conjugation',
-      'word_order',
+      'sentence_ordering',
       'fill_blank',
-      'translation',
+      'vi_to_ja',
       'free_writing'
     ],
     example: '音楽を聞きながら、勉強します。',
@@ -69,10 +69,10 @@ export const n4GrammarData: GrammarRule[] = [
       }
     },
     practiceTypes: [
-      'recognition',
+      'multiple_choice',
       'conjugation',
-      'word_order',
-      'translation',
+      'sentence_ordering',
+      'vi_to_ja',
       'free_writing'
     ],
     example: '休みの日は、本を読んだり、映画を見たりします。',

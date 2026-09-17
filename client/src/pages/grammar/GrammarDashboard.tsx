@@ -1,40 +1,18 @@
-import React, { useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import type { RootState } from '../../store';
-import { setGrammarRules, setSelectedLevel } from '../../store/slices/grammarSlice';
-import { n4GrammarData } from '../../data/grammar/n4';
-import { GrammarCard } from '../../components/grammar/GrammarCard';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import type { JLPTLevel } from '../../types/grammar';
-import { Filter, FileText } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Filter, FileText, Book, LayoutList, ChevronRight } from 'lucide-react';
+import { grammarBooks } from '../../data/grammar';
 
 export const GrammarDashboard: React.FC = () => {
-  const dispatch = useDispatch();
-  const { availableRules, selectedLevel } = useSelector((state: RootState) => state.grammar);
-  const progressRecords = useSelector((state: RootState) => state.grammarProgress.records);
-
-  useEffect(() => {
-    // In a real app, this would fetch from an API or load all local data
-    dispatch(setGrammarRules(n4GrammarData));
-  }, [dispatch]);
-
+  const navigate = useNavigate();
+  const [selectedLevel, setSelectedLevel] = useState<JLPTLevel | 'All'>('All');
+  
   const levels: (JLPTLevel | 'All')[] = ['All', 'N5', 'N4', 'N3', 'N2', 'N1'];
 
-  const filteredRules = availableRules.filter(
-    rule => selectedLevel === 'All' || rule.level === selectedLevel
+  const filteredBooks = grammarBooks.filter(
+    book => selectedLevel === 'All' || book.level === selectedLevel
   );
-
-  const calculateOverallProgress = (grammarId: string) => {
-    const record = progressRecords[grammarId];
-    if (!record) return 0;
-    // Simple average of all practice types
-    const scores = [
-      record.recognition, record.conjugation, record.sentence_transformation,
-      record.word_order, record.fill_blank, record.translation, record.free_writing, record.mix_review
-    ];
-    const sum = scores.reduce((a, b) => a + b, 0);
-    return sum / scores.length || 0;
-  };
 
   return (
     <div className="space-y-8">
@@ -44,7 +22,7 @@ export const GrammarDashboard: React.FC = () => {
             Ngữ pháp
           </h1>
           <p className="text-gray-500 dark:text-gray-400">
-            Học và luyện tập ngữ pháp theo từng cấp độ
+            Hệ thống học ngữ pháp theo giáo trình chuẩn
           </p>
         </div>
         
@@ -54,7 +32,7 @@ export const GrammarDashboard: React.FC = () => {
             className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-500 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold transition-all shadow-sm"
           >
             <FileText className="w-4 h-4" />
-            Tạo PDF
+            Xuất PDF
           </Link>
           <Link 
             to="/grammar/mistakes" 
@@ -75,7 +53,7 @@ export const GrammarDashboard: React.FC = () => {
           {levels.map((level) => (
             <button
               key={level}
-              onClick={() => dispatch(setSelectedLevel(level))}
+              onClick={() => setSelectedLevel(level)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 selectedLevel === level
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 dark:shadow-none'
@@ -88,18 +66,56 @@ export const GrammarDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredRules.map((rule) => (
-          <GrammarCard 
-            key={rule.id} 
-            rule={rule} 
-            progress={calculateOverallProgress(rule.id)}
-          />
+      {/* Books & Chapters List */}
+      <div className="space-y-6">
+        {filteredBooks.map((book) => (
+          <div key={book.id} className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex items-center gap-4">
+              <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl flex items-center justify-center shrink-0">
+                <Book className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="text-xl font-black text-gray-900 dark:text-white">
+                  {book.title}
+                </h2>
+                <p className="text-sm text-gray-500 font-medium mt-1">Level {book.level}</p>
+              </div>
+            </div>
+            
+            <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
+              {book.chapters.map(chapter => (
+                <div key={chapter.id} className="p-6 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors flex items-center justify-between group">
+                  <div className="flex items-start gap-4">
+                    <div className="mt-1 w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 font-bold text-sm">
+                      {chapter.chapterNumber}
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                        {chapter.title}
+                      </h3>
+                      <p className="text-sm text-gray-500 mt-1 flex items-center gap-2">
+                        <LayoutList className="w-4 h-4" />
+                        {chapter.grammars.length} ngữ pháp
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <button 
+                    onClick={() => navigate(`/grammar/${book.id}/${chapter.id}`)}
+                    className="flex items-center gap-2 px-4 py-2 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-lg text-sm font-semibold hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-colors"
+                  >
+                    Học ngay
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
         ))}
-        {filteredRules.length === 0 && (
-          <div className="col-span-full py-12 text-center text-gray-500 dark:text-gray-400">
-            Không có ngữ pháp nào cho cấp độ này.
+
+        {filteredBooks.length === 0 && (
+          <div className="py-12 text-center text-gray-500 dark:text-gray-400">
+            Chưa có giáo trình nào cho cấp độ này.
           </div>
         )}
       </div>

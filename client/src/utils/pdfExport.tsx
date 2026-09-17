@@ -2,9 +2,9 @@
 import { pdf, Document, Page, Text, View, StyleSheet, Font } from '@react-pdf/renderer';
 import type { ColumnOption } from '../components/pdf/DraggableColumnList';
 
-// Lấy base URL từ Vite (xử lý sub-path khi deploy lên GitHub Pages)
 const baseUrl = import.meta.env.BASE_URL || '/';
-const fontUrl = `${baseUrl.endsWith('/') ? baseUrl : baseUrl + '/'}fonts/NotoSansCJKjp-Regular.otf`;
+const fontPath = `${baseUrl.endsWith('/') ? baseUrl : baseUrl + '/'}fonts/NotoSansCJKjp-Regular.otf`;
+const fontUrl = new URL(fontPath, window.location.origin).href;
 
 // Đăng ký Font Noto Sans JP
 Font.register({

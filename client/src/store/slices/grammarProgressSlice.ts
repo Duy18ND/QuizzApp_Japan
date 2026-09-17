@@ -18,14 +18,17 @@ const grammarProgressSlice = createSlice({
       const { grammarId, type, score } = action.payload;
       if (!state.records[grammarId]) {
         state.records[grammarId] = {
-          recognition: 0,
-          conjugation: 0,
-          sentence_transformation: 0,
-          word_order: 0,
+          multiple_choice: 0,
           fill_blank: 0,
-          translation: 0,
+          conjugation: 0,
+          sentence_ordering: 0,
+          ja_to_vi: 0,
+          vi_to_ja: 0,
+          sentence_transformation: 0,
+          grammar_selection: 0,
+          text_input: 0,
           free_writing: 0,
-          mix_review: 0,
+          mixed: 0,
         };
       }
       

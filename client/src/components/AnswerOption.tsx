@@ -12,7 +12,7 @@ interface AnswerOptionProps {
 }
 
 export const AnswerOption: React.FC<AnswerOptionProps> = ({ label, text, status, onClick }) => {
-  const baseClasses = "flex items-center w-full min-h-[60px] p-4 md:p-6 rounded-xl border-2 transition-all duration-200 text-left text-lg md:text-xl font-medium";
+  const baseClasses = "flex items-center w-full min-h-[3rem] p-3 md:p-4 rounded-xl border-2 transition-all duration-200 text-left text-lg md:text-xl font-medium";
   
   const statusClasses = {
     default: "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:border-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 cursor-pointer",

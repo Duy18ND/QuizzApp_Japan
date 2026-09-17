@@ -13,7 +13,7 @@ interface ExplanationProps {
 
 export const Explanation: React.FC<ExplanationProps> = ({ isCorrect, correctAnswerText, title, kanji, hanViet, hiragana, meaning }) => {
   return (
-    <div className={`mt-6 p-5 rounded-xl border transition-colors ${isCorrect ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800' : 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800'}`}>
+    <div className={`mt-2 p-4 rounded-xl border transition-colors flex flex-col max-h-48 md:max-h-[30vh] overflow-y-auto ${isCorrect ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800' : 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800'}`}>
       <div className={`flex items-center font-bold mb-4 ${isCorrect ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
         {isCorrect ? (
           <>

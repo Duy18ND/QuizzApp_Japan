@@ -6,6 +6,12 @@ export interface GrammarVocabulary {
   wordType: 'verb' | 'noun' | 'i-adjective' | 'na-adjective' | 'adverb' | 'other';
   verbGroup?: 1 | 2 | 3;
   tags: string[];
+  semanticRoles?: string[];
+  topics?: string[];
+  compatibleVerbs?: string[];
+  compatibleObjects?: string[];
+  prerequisiteRoles?: string[];
+  resultRoles?: string[];
 }
 
 // Exception lists for verbs that look like group 2 (ends in る and sound before is i/e) but are actually group 1.
@@ -65,14 +71,26 @@ const assignTags = (item: any): string[] => {
   if (meaning.includes('người') || meaning.includes('nhân') || meaning.includes('bạn') || meaning.includes('sếp') || meaning.includes('đàn ông') || meaning.includes('phụ nữ')) {
     tags.push('person');
   }
-  if (meaning.includes('nhà') || meaning.includes('quê') || meaning.includes('trường') || meaning.includes('công ty')) {
+  if (meaning.includes('nhà') || meaning.includes('quê') || meaning.includes('công ty')) {
     tags.push('place');
+  }
+  if (meaning.includes('trường') || meaning.includes('giáo viên') || meaning.includes('học sinh') || meaning.includes('bài tập')) {
+    tags.push('place', 'school', 'study');
+  }
+  if (meaning.includes('bánh') || meaning.includes('cơm') || meaning.includes('đồ ăn') || meaning.includes('thịt')) {
+    tags.push('object', 'food');
+  }
+  if (meaning.includes('xe') || meaning.includes('tàu') || meaning.includes('máy bay')) {
+    tags.push('vehicle', 'transport');
   }
   if (meaning.includes('ngày') || meaning.includes('năm') || meaning.includes('tuổi') || meaning.includes('tháng') || meaning.includes('giờ')) {
     tags.push('time');
   }
-  if (meaning.includes('ăn') || meaning.includes('uống') || meaning.includes('mua') || meaning.includes('bán') || meaning.includes('viết') || meaning.includes('đọc')) {
-    tags.push('action');
+  if (meaning.includes('ăn') || meaning.includes('uống') || meaning.includes('nấu')) {
+    tags.push('action', 'food-action', 'task');
+  }
+  if (meaning.includes('mua') || meaning.includes('bán') || meaning.includes('viết') || meaning.includes('đọc')) {
+    tags.push('action', 'task');
   }
   if (mapWordType(item.wordType) === 'verb') {
     tags.push('verb');
@@ -93,7 +111,13 @@ export const adaptVocabulary = (rawVocabulary: any[]): GrammarVocabulary[] => {
       hiragana: item.hiragana,
       meaning: item.meaning,
       wordType,
-      tags: assignTags(item),
+      tags: Array.from(new Set([...assignTags(item), ...(item.tags || [])])),
+      semanticRoles: item.semanticRoles || [],
+      topics: item.topics || [],
+      compatibleVerbs: item.compatibleVerbs || [],
+      compatibleObjects: item.compatibleObjects || [],
+      prerequisiteRoles: item.prerequisiteRoles || [],
+      resultRoles: item.resultRoles || []
     };
 
     if (wordType === 'verb') {

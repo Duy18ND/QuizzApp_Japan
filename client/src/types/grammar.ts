@@ -1,14 +1,18 @@
 export type JLPTLevel = 'N5' | 'N4' | 'N3' | 'N2' | 'N1';
 
 export type PracticeType = 
-  | 'recognition'
-  | 'conjugation' 
-  | 'sentence_transformation'
-  | 'word_order'
+  | 'multiple_choice'
   | 'fill_blank'
-  | 'translation'
+  | 'conjugation' 
+  | 'sentence_ordering'
+  | 'ja_to_vi'
+  | 'vi_to_ja'
+  | 'sentence_transformation'
+  | 'grammar_selection'
+  | 'text_input'
   | 'free_writing'
-  | 'mix_review';
+  | 'example'
+  | 'mixed';
 
 export type GrammarCategory = 
   | 'conjugation'
@@ -47,21 +51,113 @@ export interface SentenceTemplate {
   contextTags?: string[];
 }
 
-export interface PracticeQuestion {
+export interface BasePracticeQuestion {
   id: string;
   grammarId: string;
-  type: PracticeType;
-  question: string;
-  correctAnswer: string | string[];
+  lessonId?: string;
+  japanese?: string;
+  hiragana?: string;
+  vietnamese?: string;
+  vocabularyIds?: string[];
+  topic?: string;
+  scenarioId?: string;
   explanation?: string;
+  seed?: number;
+  // Compatibility fields for the union
+  question?: string;
+  instruction?: string;
+  correctAnswer?: any;
+  answers?: string[];
+  parts?: string[];
+}
+
+export interface MultipleChoiceQuestion extends BasePracticeQuestion {
+  type: 'multiple_choice' | 'grammar_selection';
+  question: string;
+  instruction: string;
+  answers: string[];
+  correctAnswer: string;
+}
+
+export interface FillBlankQuestion extends BasePracticeQuestion {
+  type: 'fill_blank';
+  question: string;
+  instruction: string;
+  correctAnswer: string;
+}
+
+export interface ConjugationQuestion extends BasePracticeQuestion {
+  type: 'conjugation';
+  question: string;
+  instruction: string;
+  correctAnswer: string;
+}
+
+export interface WordOrderQuestion extends BasePracticeQuestion {
+  type: 'sentence_ordering';
+  question: string;
+  instruction: string;
+  parts: string[];
+  correctAnswer: string;
   metadata?: {
     originalSentence?: string;
-    targetGrammar?: string;
-    expectedStructure?: string;
-    tokens?: string[];
-    correctOrder?: number[];
+    tokens?: any[];
   };
 }
+
+export interface JaToViQuestion extends BasePracticeQuestion {
+  type: 'ja_to_vi';
+  question: string;
+  instruction: string;
+  correctAnswer: string | string[];
+}
+
+export interface ViToJaQuestion extends BasePracticeQuestion {
+  type: 'vi_to_ja';
+  question: string;
+  instruction: string;
+  correctAnswer: string | string[];
+}
+
+export interface TransformationQuestion extends BasePracticeQuestion {
+  type: 'sentence_transformation';
+  question: string;
+  instruction: string;
+  correctAnswer: string | string[];
+}
+
+export interface FreeWritingQuestion extends BasePracticeQuestion {
+  type: 'free_writing' | 'text_input';
+  question: string;
+  instruction: string;
+  correctAnswer: string | string[];
+}
+
+export interface ExampleQuestion extends BasePracticeQuestion {
+  type: 'example';
+  metadata?: {
+    japanese?: string;
+    hiragana?: string;
+    vietnamese?: string;
+    conjugation?: any;
+    pattern?: string;
+    slotValues?: any;
+    grammarName?: string;
+    grammarHiragana?: string;
+    vocabulary?: any[];
+  };
+}
+
+export type PracticeQuestion =
+  | MultipleChoiceQuestion
+  | FillBlankQuestion
+  | ConjugationQuestion
+  | WordOrderQuestion
+  | JaToViQuestion
+  | ViToJaQuestion
+  | TransformationQuestion
+  | FreeWritingQuestion
+  | ExampleQuestion;
 
 export interface PracticeResult {
   grammarId: string;
@@ -82,35 +178,18 @@ export interface GrammarMistake {
 }
 
 export interface GrammarProgress {
-  recognition: number;
-  conjugation: number;
-  sentence_transformation: number;
-  word_order: number;
-  fill_blank: number;
-  translation: number;
-  free_writing: number;
-  mix_review: number;
-}
-
-export interface PracticeQuestion {
-  id: string;
-  grammarId: string;
-  type: PracticeType;
-  question: string; // the prompt (e.g. "先生は私をほめました。")
-  instruction?: string; // e.g. "受身形に変えてください。"
-  answers?: string[]; // for multiple choice
-  correctAnswer: string | string[]; // can be multiple acceptable answers
-  explanation?: string;
-  hintWords?: string[];
-  parts?: string[]; // for word order
-}
-
-export interface PracticeResult {
-  questionId: string;
-  isCorrect: boolean;
-  userAnswer: string;
-  correctAnswer: string;
-  explanation?: string;
+  multiple_choice?: number;
+  fill_blank?: number;
+  conjugation?: number;
+  sentence_ordering?: number;
+  ja_to_vi?: number;
+  vi_to_ja?: number;
+  sentence_transformation?: number;
+  grammar_selection?: number;
+  text_input?: number;
+  free_writing?: number;
+  mixed?: number;
+  example?: number;
 }
 
 export interface PDFSettings {

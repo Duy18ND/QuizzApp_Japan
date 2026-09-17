@@ -12,9 +12,10 @@ import { UnmasteredPage } from './pages/UnmasteredPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { GrammarDashboard } from './pages/grammar/GrammarDashboard';
 import { GrammarDetail } from './pages/grammar/GrammarDetail';
+import { GrammarLesson } from './pages/grammar/GrammarLesson';
 import { GrammarPractice } from './pages/grammar/GrammarPractice';
 import { MistakesReview } from './pages/grammar/MistakesReview';
-import { GrammarPDFModal } from './components/grammar/pdf/GrammarPDFModal';
+import { PdfPage } from './pages/PdfPage';
 import './index.css';
 
 function App() {
@@ -37,10 +38,11 @@ function App() {
           
           <Route path="grammar">
             <Route index element={<GrammarDashboard />} />
-            <Route path="pdf" element={<GrammarPDFModal />} />
             <Route path="mistakes" element={<MistakesReview />} />
-            <Route path=":id" element={<GrammarDetail />} />
-            <Route path=":id/practice" element={<GrammarPractice />} />
+            <Route path=":bookId/:chapterId" element={<GrammarDetail />} />
+            <Route path=":bookId/:chapterId/lesson/:grammarId" element={<GrammarLesson />} />
+            <Route path=":bookId/:chapterId/practice" element={<GrammarPractice />} />
+            <Route path=":bookId/:chapterId/practice/:grammarId" element={<GrammarPractice />} />
           </Route>
 
           <Route path="flashcard" element={<FlashcardPage />}>
@@ -50,6 +52,7 @@ function App() {
           </Route>
 
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="pdf" element={<PdfPage />} />
         </Route>
       </Routes>
     </HashRouter>

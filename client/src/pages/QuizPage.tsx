@@ -7,7 +7,7 @@ export const QuizPage: React.FC = () => {
   const [config, setConfig] = useState<QuizConfig | null>(null);
 
   return (
-    <div className="w-full">
+    <div className="w-full h-full flex flex-col">
       {!config ? (
         <QuizSetup onStart={setConfig} />
       ) : (

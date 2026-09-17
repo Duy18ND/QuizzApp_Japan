@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { 
   Sun,
@@ -11,19 +11,18 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useTheme } from '../../hooks/useTheme';
-import { ExportPDFModal } from '../pdf/ExportPDFModal';
 
 const mainNavItems = [
   { id: 'list', path: '/vocabulary', label: 'Danh sách', icon: List },
   { id: 'grammar', path: '/grammar', label: 'Grammar', icon: BookOpen },
   { id: 'quiz', path: '/vocabulary/quiz', label: 'Luyện Quiz', icon: BrainCircuit },
   { id: 'flashcards', path: '/flashcard', label: 'Flashcard', icon: Layers },
+  { id: 'pdf', path: '/pdf', label: 'Xuất PDF', icon: FileText },
 ];
 
 export const AppLayout: React.FC = () => {
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
-  const [isExportOpen, setIsExportOpen] = useState(false);
 
   return (
     <div className="flex flex-col h-[100dvh] overflow-hidden bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 font-sans transition-colors duration-200">
@@ -59,7 +58,7 @@ export const AppLayout: React.FC = () => {
       </header>
 
       {/* Main Navigation (Centered) */}
-      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 shadow-sm z-10 shrink-0">
+      <div className="z-40 bg-white dark:bg-[#0f172a] border-b border-gray-200 dark:border-gray-800 shadow-sm shrink-0 relative">
         <div className="max-w-7xl mx-auto px-4 md:px-8 py-3">
           <nav className="flex items-center md:justify-center gap-2 overflow-x-auto hide-scrollbar">
             {mainNavItems.map((item) => {
@@ -84,27 +83,16 @@ export const AppLayout: React.FC = () => {
                 </Link>
               );
             })}
-            
-            <button
-              onClick={() => setIsExportOpen(true)}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all whitespace-nowrap bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
-            >
-              <FileText className="w-4 h-4" />
-              Xuất PDF
-            </button>
           </nav>
         </div>
       </div>
 
       {/* Main Content Area */}
-      <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden relative">
-        <div className="mx-auto max-w-7xl p-4 md:p-8">
+      <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden relative flex flex-col">
+        <div className="mx-auto w-full max-w-7xl p-4 md:p-8 flex-1 flex flex-col">
           <Outlet />
         </div>
       </main>
-
-      {/* Export PDF Modal */}
-      {isExportOpen && <ExportPDFModal onClose={() => setIsExportOpen(false)} />}
     </div>
   );
 };

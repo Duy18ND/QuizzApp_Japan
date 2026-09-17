@@ -187,8 +187,8 @@ export const QuizPlay: React.FC<Props> = ({ config, onExit }) => {
   const correctAnswerText = currentQ.answers.find((a: any) => a.id === currentQ.answerData.correctAnswerId)?.text;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-8 flex justify-center transition-colors">
-      <div className="w-full max-w-4xl">
+    <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors w-full h-full relative">
+      <div className="w-full max-w-4xl mx-auto flex-1 flex flex-col">
         <ProgressBar current={state.currentIndex} total={quizQuestions.length} />
         
         <QuizHeader 
@@ -206,10 +206,12 @@ export const QuizPlay: React.FC<Props> = ({ config, onExit }) => {
         />
         
         {quizConfig.showHint && currentQ.answerData.hint && (
-          <Hint {...getHintProps(currentQ.type, currentQ.answerData.hint)} />
+          <div className="relative z-20">
+            <Hint {...getHintProps(currentQ.type, currentQ.answerData.hint)} />
+          </div>
         )}
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mt-6">
           {currentQ.answers.map((ans: any, idx: number) => (
             <AnswerOption
               key={ans.id}
@@ -222,24 +224,28 @@ export const QuizPlay: React.FC<Props> = ({ config, onExit }) => {
         </div>
         
         {isAnswered && quizConfig.showExplanation && (
-          <Explanation 
-            isCorrect={isCorrect} 
-            correctAnswerText={correctAnswerText}
-            title={currentQ.answerData.kanji && currentQ.answerData.hiragana ? `${currentQ.answerData.kanji}（${currentQ.answerData.hiragana}）` : ''}
-            kanji={currentQ.answerData.kanji}
-            hanViet={currentQ.answerData.hanViet || currentQ.answerData.hanviet}
-            hiragana={currentQ.answerData.hiragana}
-            meaning={currentQ.answerData.meaning}
-          />
+          <div className="relative z-10 mt-4">
+            <Explanation 
+              isCorrect={isCorrect} 
+              correctAnswerText={correctAnswerText}
+              title={currentQ.answerData.kanji && currentQ.answerData.hiragana ? `${currentQ.answerData.kanji}（${currentQ.answerData.hiragana}）` : ''}
+              kanji={currentQ.answerData.kanji}
+              hanViet={currentQ.answerData.hanViet || currentQ.answerData.hanviet}
+              hiragana={currentQ.answerData.hiragana}
+              meaning={currentQ.answerData.meaning}
+            />
+          </div>
         )}
         
-        <QuizNavigation 
-          onBack={handleBack} 
-          onNext={handleNext} 
-          isFirst={state.currentIndex === 0} 
-          isLast={state.currentIndex === quizQuestions.length - 1} 
-          canGoNext={canGoNext} 
-        />
+        <div className="mt-auto pt-6 pb-2">
+          <QuizNavigation 
+            onBack={handleBack} 
+            onNext={handleNext} 
+            isFirst={state.currentIndex === 0} 
+            isLast={state.currentIndex === quizQuestions.length - 1} 
+            canGoNext={canGoNext} 
+          />
+        </div>
       </div>
     </div>
   );
