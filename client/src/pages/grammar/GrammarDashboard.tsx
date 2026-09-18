@@ -29,7 +29,7 @@ export const GrammarDashboard: React.FC = () => {
         <div className="flex items-center gap-3">
           <Link 
             to="/grammar/pdf" 
-            className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-500 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold transition-all shadow-sm"
+            className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-500 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold transition-all shadow-sm"
           >
             <FileText className="w-4 h-4" />
             Xuất PDF
@@ -56,7 +56,7 @@ export const GrammarDashboard: React.FC = () => {
               onClick={() => setSelectedLevel(level)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 selectedLevel === level
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 dark:shadow-none'
+                  ? 'bg-blue-600 text-gray-900 shadow-md shadow-blue-200 dark:shadow-none'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
               }`}
             >
@@ -71,7 +71,7 @@ export const GrammarDashboard: React.FC = () => {
         {filteredBooks.map((book) => (
           <div key={book.id} className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex items-center gap-4">
-              <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl flex items-center justify-center shrink-0">
+              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center shrink-0">
                 <Book className="w-6 h-6" />
               </div>
               <div>
@@ -90,7 +90,7 @@ export const GrammarDashboard: React.FC = () => {
                       {chapter.chapterNumber}
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                         {chapter.title}
                       </h3>
                       <p className="text-sm text-gray-500 mt-1 flex items-center gap-2">
@@ -102,7 +102,7 @@ export const GrammarDashboard: React.FC = () => {
                   
                   <button 
                     onClick={() => navigate(`/grammar/${book.id}/${chapter.id}`)}
-                    className="flex items-center gap-2 px-4 py-2 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-lg text-sm font-semibold hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-lg text-sm font-semibold hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors"
                   >
                     Học ngay
                     <ChevronRight className="w-4 h-4" />

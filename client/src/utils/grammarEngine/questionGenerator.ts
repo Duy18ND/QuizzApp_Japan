@@ -8,6 +8,7 @@ import {
   generateFillBlankQuestion,
   generateConjugationQuestion,
   generateWordOrderQuestion,
+  generateStarQuestion,
   generateJaToViQuestion,
   generateViToJaQuestion,
   generateTransformationQuestion,
@@ -69,13 +70,18 @@ export const generateSmartQuestionSet = (options: SmartGeneratorOptions): Questi
     return { id: `set-${seed}`, seed, grammarId: grammarRule.id, questions: [] };
   }
 
+  const ALLOWED_MIXED_TYPES: PracticeType[] = ['sentence_ordering', 'star_question'];
+  
   let typesToUse = requestedPracticeTypes && requestedPracticeTypes.length > 0 
       ? requestedPracticeTypes 
-      : grammarRule.practiceTypes.filter(t => t !== 'mixed' && t !== 'text_input');
+      : grammarRule.practiceTypes.filter(t => ALLOWED_MIXED_TYPES.includes(t));
 
   if (typesToUse.includes('mixed')) {
-    typesToUse = grammarRule.practiceTypes.filter(t => t !== 'mixed' && t !== 'text_input');
+    typesToUse = typesToUse.filter(t => t !== 'mixed');
   }
+  
+  // Fallback to grammar_selection if nothing matches
+  if (typesToUse.length === 0) typesToUse = ['grammar_selection'];
 
   const typeDistribution: PracticeType[] = [];
   const baseCount = Math.floor(count / typesToUse.length);
@@ -103,7 +109,15 @@ export const generateSmartQuestionSet = (options: SmartGeneratorOptions): Questi
     const baseQuestion = {
       id: `${sentenceRecord.id}-${seed}`,
       grammarId: grammarRule.id,
-      explanation: `Dịch: ${sentenceRecord.vietnamese}\nNgữ pháp: ${grammarRule.name}`
+      hint: grammarRule.meaning,
+      explanation: `Câu gốc: ${sentenceRecord.japanese}\nDịch: ${sentenceRecord.vietnamese}\nNgữ pháp: ${grammarRule.name} - ${grammarRule.meaning}\nGiải thích: ${grammarRule.explanation}`,
+      metadata: {
+        japanese: sentenceRecord.japanese,
+        vietnamese: sentenceRecord.vietnamese,
+        grammarName: grammarRule.name,
+        grammarMeaning: grammarRule.meaning,
+        grammarExplanation: grammarRule.explanation
+      }
     };
 
     const generatorCtx = {
@@ -125,6 +139,9 @@ export const generateSmartQuestionSet = (options: SmartGeneratorOptions): Questi
         break;
       case 'sentence_ordering':
         questions.push(generateWordOrderQuestion(generatorCtx));
+        break;
+      case 'star_question':
+        questions.push(generateStarQuestion(generatorCtx));
         break;
       case 'ja_to_vi':
         questions.push(generateJaToViQuestion(generatorCtx));

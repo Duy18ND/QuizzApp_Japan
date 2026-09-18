@@ -28,7 +28,7 @@ export const VocabularyPdfBuilder: React.FC<VocabularyPdfBuilderProps> = ({ word
           body, #print-vocabulary { 
             background: white; 
             -webkit-print-color-adjust: exact;
-            font-family: 'Inter', 'Noto Sans JP', Arial, sans-serif;
+            font-family: 'MPLUS1p', sans-serif;
           }
           #root { display: none !important; }
           #print-vocabulary {
@@ -42,8 +42,8 @@ export const VocabularyPdfBuilder: React.FC<VocabularyPdfBuilderProps> = ({ word
             break-inside: avoid; 
           }
           th {
-            background-color: #4f46e5 !important;
-            color: white !important;
+            background-color: #DDF4FC !important;
+            color: #24445F !important;
             -webkit-print-color-adjust: exact;
             color-adjust: exact;
           }
@@ -54,10 +54,10 @@ export const VocabularyPdfBuilder: React.FC<VocabularyPdfBuilderProps> = ({ word
       
       <table className="w-full border-collapse border border-gray-400 table-fixed">
         <thead>
-          <tr className="bg-indigo-600 text-white">
-            <th className="border border-gray-400 p-2 text-sm font-bold w-[8%] print:bg-indigo-600 print:text-white" style={{ WebkitPrintColorAdjust: 'exact', colorAdjust: 'exact' }}>STT</th>
+          <tr className="bg-blue-100 text-blue-900">
+            <th className="border border-gray-400 p-2 text-sm font-bold w-[8%] print:bg-[#DDF4FC] print:text-[#24445F]" style={{ WebkitPrintColorAdjust: 'exact', colorAdjust: 'exact' }}>STT</th>
             {columns.map((col) => (
-              <th key={col.id} className="border border-gray-400 p-2 text-sm font-bold print:bg-indigo-600 print:text-white" style={{ width: `${colWidth}%`, WebkitPrintColorAdjust: 'exact', colorAdjust: 'exact' }}>
+              <th key={col.id} className="border border-gray-400 p-2 text-sm font-bold print:bg-[#DDF4FC] print:text-[#24445F]" style={{ width: `${colWidth}%`, WebkitPrintColorAdjust: 'exact', colorAdjust: 'exact' }}>
                 {col.label}
               </th>
             ))}

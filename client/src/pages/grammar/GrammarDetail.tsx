@@ -30,21 +30,21 @@ export const GrammarDetail: React.FC = () => {
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-8">
         <div className="flex items-center gap-4 mb-4">
-          <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl flex items-center justify-center font-black text-xl">
+          <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center font-black text-xl">
             {chapter.chapterNumber}
           </div>
           <div>
             <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">
               {chapter.title}
             </h1>
-            <p className="text-indigo-600 dark:text-indigo-400 font-medium">{book.title}</p>
+            <p className="text-blue-600 dark:text-blue-400 font-medium">{book.title}</p>
           </div>
         </div>
 
         <div className="flex gap-4 mt-8">
           <button 
             onClick={() => navigate(`/grammar/${book.id}/${chapter.id}/practice`)}
-            className="flex-1 py-3 px-6 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-colors shadow-sm"
+            className="flex-1 py-3 px-6 bg-blue-600 hover:bg-blue-700 text-gray-900 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors shadow-sm"
           >
             <PlayCircle className="w-5 h-5" />
             Luyện tập toàn bộ bài
@@ -83,7 +83,7 @@ export const GrammarDetail: React.FC = () => {
                 <div className="flex gap-2 shrink-0">
                   <button 
                     onClick={() => navigate(`/grammar/${bookId}/${chapterId}/lesson/${grammar.id}`)}
-                    className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 rounded-xl font-semibold transition-colors whitespace-nowrap text-sm flex items-center gap-2"
+                    className="px-4 py-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-xl font-semibold transition-colors whitespace-nowrap text-sm flex items-center gap-2"
                   >
                     <BookOpen className="w-4 h-4" />
                     Học ngay

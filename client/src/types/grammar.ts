@@ -5,6 +5,7 @@ export type PracticeType =
   | 'fill_blank'
   | 'conjugation' 
   | 'sentence_ordering'
+  | 'star_question'
   | 'ja_to_vi'
   | 'vi_to_ja'
   | 'sentence_transformation'
@@ -97,6 +98,8 @@ export interface WordOrderQuestion extends BasePracticeQuestion {
   type: 'sentence_ordering';
   question: string;
   instruction: string;
+  contextBefore?: string;
+  contextAfter?: string;
   parts: string[];
   correctAnswer: string;
   metadata?: {
@@ -148,11 +151,35 @@ export interface ExampleQuestion extends BasePracticeQuestion {
   };
 }
 
+export interface StarQuestion extends BasePracticeQuestion {
+  type: 'star_question';
+  sentenceParts: {
+    prefix: string;
+    suffix: string;
+  };
+  chunks: {
+    id: string;
+    text: string;
+    originalIndex: number;
+  }[];
+  shuffledChunks: {
+    id: string;
+    text: string;
+    originalIndex: number;
+  }[];
+  starIndex: number;
+  correctAnswer: string;
+  metadata?: {
+    originalSentence?: string;
+  };
+}
+
 export type PracticeQuestion =
   | MultipleChoiceQuestion
   | FillBlankQuestion
   | ConjugationQuestion
   | WordOrderQuestion
+  | StarQuestion
   | JaToViQuestion
   | ViToJaQuestion
   | TransformationQuestion
@@ -180,6 +207,7 @@ export interface GrammarMistake {
 export interface GrammarProgress {
   multiple_choice?: number;
   fill_blank?: number;
+  star_question?: number;
   conjugation?: number;
   sentence_ordering?: number;
   ja_to_vi?: number;

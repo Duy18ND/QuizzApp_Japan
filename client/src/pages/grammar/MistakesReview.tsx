@@ -74,7 +74,7 @@ export const MistakesReview: React.FC = () => {
                     <div className="flex gap-2">
                       <Link 
                         to={`/grammar/${rule.id}/practice?mode=mix_review`}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium"
+                        className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-gray-900 rounded-lg text-sm font-medium"
                       >
                         <BookOpen className="w-4 h-4" />
                         Ôn lại ngữ pháp này

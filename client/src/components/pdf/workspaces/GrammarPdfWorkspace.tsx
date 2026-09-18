@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
 import { Download, RefreshCcw, Book, Layers } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { generateSmartQuestionSet } from '../../../utils/grammarEngine/questionGenerator';
@@ -6,6 +6,7 @@ import { grammarBooks } from '../../../data/grammar';
 import { unit1Data } from '../../../data/n3/unit1';
 import { useSearchParams } from 'react-router-dom';
 import { GrammarPdfBuilder } from './GrammarPdfBuilder';
+import { FontManager } from '../../../utils/fontManager';
 import type { PracticeType } from '../../../types/grammar';
 
 export const GrammarPdfWorkspace: React.FC = () => {
@@ -31,7 +32,22 @@ export const GrammarPdfWorkspace: React.FC = () => {
   const [generatedSets, setGeneratedSets] = useState<any[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedTopic, setSelectedTopic] = useState<string>('current');
-  const [selectedPreset, setSelectedPreset] = useState<string>('vi_to_ja');
+  const [selectedPreset, setSelectedPreset] = useState<string>('grammar_selection');
+
+  // === Cache & Lock ===
+  // Lưu fingerprint của config lần generate cuối cùng để biết có cần generate lại không
+  const lastConfigRef = useRef<string>('');
+  const isExportingRef = useRef(false); // Export lock - ngăn chạy song song
+
+  const getConfigFingerprint = useCallback(() => {
+    return JSON.stringify({
+      rules: [...selectedRules].sort(),
+      count: questionCount,
+      preset: selectedPreset,
+      topic: selectedTopic,
+      mode: initMode,
+    });
+  }, [selectedRules, questionCount, selectedPreset, selectedTopic, initMode]);
 
   const handleToggleRule = (id: string) => {
     setSelectedRules(prev => 
@@ -39,36 +55,54 @@ export const GrammarPdfWorkspace: React.FC = () => {
     );
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (selectedRules.length === 0) return;
+    
+    // Export lock: ngăn chạy song song
+    if (isExportingRef.current) return;
+    isExportingRef.current = true;
     setIsGenerating(true);
     
-    const nextSeed = Date.now();
-    
-    setTimeout(() => {
-      const topicScope = selectedTopic === 'current' ? [] : [];
-      // Use URL mode if provided, otherwise the preset dropdown
-      const requestedPracticeTypes: PracticeType[] | undefined = 
-        initMode === 'mixed' && selectedPreset === 'mixed' ? undefined : [(initMode && initMode !== 'mixed' ? initMode : selectedPreset) as PracticeType];
-      
-      const sets = selectedRules.map(id => {
-        const rule = rules.find((r) => r.id === id)!;
-        return generateSmartQuestionSet({
-          grammarRule: rule,
-          count: questionCount,
-          seed: nextSeed,
-          rawVocabulary: unit1Data as any[],
-          topicScope,
-          requestedPracticeTypes
+    try {
+      // Đảm bảo font sẵn sàng trước khi làm bất cứ điều gì
+      await FontManager.ensureReady();
+
+      const currentConfig = getConfigFingerprint();
+      const needsRegenerate = currentConfig !== lastConfigRef.current || generatedSets.length === 0;
+
+      if (needsRegenerate) {
+        const nextSeed = Date.now();
+        const topicScope = selectedTopic === 'current' ? [] : [];
+        const requestedPracticeTypes: PracticeType[] | undefined = 
+          initMode === 'mixed' && selectedPreset === 'mixed' ? undefined : [(initMode && initMode !== 'mixed' ? initMode : selectedPreset) as PracticeType];
+        
+        const sets = selectedRules.map(id => {
+          const rule = rules.find((r) => r.id === id)!;
+          return generateSmartQuestionSet({
+            grammarRule: rule,
+            count: questionCount,
+            seed: nextSeed,
+            rawVocabulary: unit1Data as any[],
+            topicScope,
+            requestedPracticeTypes
+          });
         });
-      });
-      setGeneratedSets(sets);
+        setGeneratedSets(sets);
+        lastConfigRef.current = currentConfig;
+
+        // Chờ DOM render xong (1 frame) rồi mới print
+        await new Promise<void>(resolve => {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => resolve());
+          });
+        });
+      }
       
-      setTimeout(() => {
-        setIsGenerating(false);
-        window.print();
-      }, 500); // allow time for the hidden print block to render
-    }, 100);
+      window.print();
+    } finally {
+      setIsGenerating(false);
+      isExportingRef.current = false;
+    }
   };
 
   return (
@@ -79,7 +113,7 @@ export const GrammarPdfWorkspace: React.FC = () => {
         {/* Book & Chapter Selection */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 space-y-4">
            <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
-            <Book className="w-5 h-5 text-indigo-500" />
+            <Book className="w-5 h-5 text-blue-500" />
             Chọn giáo trình
           </h3>
           <div>
@@ -87,7 +121,7 @@ export const GrammarPdfWorkspace: React.FC = () => {
             <select 
               value={selectedBookId}
               onChange={e => setSelectedBookId(e.target.value)}
-              className="w-full p-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full p-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
             >
               {grammarBooks.map(b => (
                  <option key={b.id} value={b.id}>{b.title} ({b.level})</option>
@@ -102,7 +136,7 @@ export const GrammarPdfWorkspace: React.FC = () => {
                 setSelectedChapterId(e.target.value);
                 setSelectedRules([]); // reset selections
               }}
-              className="w-full p-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full p-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
             >
               {selectedBook?.chapters.map(c => (
                  <option key={c.id} value={c.id}>{c.title}</option>
@@ -113,7 +147,7 @@ export const GrammarPdfWorkspace: React.FC = () => {
 
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
-            <Layers className="w-5 h-5 text-indigo-500" />
+            <Layers className="w-5 h-5 text-blue-500" />
             Chọn ngữ pháp ({rules.length})
           </h3>
           
@@ -124,7 +158,7 @@ export const GrammarPdfWorkspace: React.FC = () => {
                   type="checkbox"
                   checked={selectedRules.includes(rule.id)}
                   onChange={() => handleToggleRule(rule.id)}
-                  className="w-5 h-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                  className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
                 />
                 <div>
                   <div className="font-semibold text-gray-900 dark:text-white">{rule.name}</div>
@@ -135,7 +169,7 @@ export const GrammarPdfWorkspace: React.FC = () => {
           </div>
           <button 
             onClick={() => setSelectedRules(rules.map((r) => r.id))}
-            className="text-sm text-indigo-600 dark:text-indigo-400 font-medium hover:underline"
+            className="text-sm text-blue-600 dark:text-blue-400 font-medium hover:underline"
           >
             Chọn tất cả
           </button>
@@ -147,10 +181,12 @@ export const GrammarPdfWorkspace: React.FC = () => {
             <select 
               value={selectedPreset}
               onChange={e => setSelectedPreset(e.target.value)}
-              className="w-full p-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
+              className="w-full p-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-medium"
             >
-              <option value="vi_to_ja">Dịch Việt sang Nhật</option>
-              <option value="ja_to_vi">Dịch Nhật sang Việt</option>
+              <option value="grammar_selection">Chọn ngữ pháp</option>
+              <option value="conjugation">Chia thể</option>
+              <option value="sentence_ordering">Sắp xếp câu</option>
+              <option value="mixed">★ Luyện tổng hợp</option>
             </select>
           </div>
 
@@ -159,7 +195,7 @@ export const GrammarPdfWorkspace: React.FC = () => {
             <select 
               value={selectedTopic}
               onChange={e => setSelectedTopic(e.target.value)}
-              className="w-full p-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full p-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="current">Sử dụng từ vựng của bài hiện tại</option>
               <option value="unit1">Từ vựng Unit 1 (N3)</option>
@@ -176,7 +212,7 @@ export const GrammarPdfWorkspace: React.FC = () => {
                   onClick={() => setQuestionCount(num)}
                   className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
                     questionCount === num 
-                      ? 'bg-indigo-600 text-white shadow-sm' 
+                      ? 'bg-blue-600 text-gray-900 shadow-sm' 
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                   }`}
                 >
@@ -195,7 +231,7 @@ export const GrammarPdfWorkspace: React.FC = () => {
             type="checkbox"
             checked={generateAnswer}
             onChange={e => setGenerateAnswer(e.target.checked)}
-            className="w-5 h-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+            className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
           />
           <span className="font-semibold text-gray-900 dark:text-white text-sm">Tạo kèm Answer Key (Đáp án)</span>
         </label>
@@ -203,10 +239,10 @@ export const GrammarPdfWorkspace: React.FC = () => {
         <button 
           onClick={handleExport}
           disabled={selectedRules.length === 0 || isGenerating}
-          className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold text-lg shadow-lg flex items-center justify-center gap-3 transition-colors disabled:opacity-50"
+          className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-gray-900 rounded-2xl font-bold text-lg shadow-lg flex items-center justify-center gap-3 transition-colors disabled:opacity-50"
         >
           {isGenerating ? <RefreshCcw className="w-6 h-6 animate-spin" /> : <Download className="w-6 h-6" />}
-          {isGenerating ? 'Đang tạo...' : 'Xuất PDF'}
+          {isGenerating ? '⏳ Đang tạo PDF...' : 'Xuất PDF'}
         </button>
       </div>
 

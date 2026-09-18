@@ -62,18 +62,129 @@ export const generateConjugationQuestion = (ctx: GeneratorContext): PracticeQues
   } as PracticeQuestion;
 };
 
-export const generateWordOrderQuestion = (ctx: GeneratorContext): PracticeQuestion => {
-  const tokenObjects = tokenizeJapanese(ctx.sentenceRecord.japanese, {
-    grammarKeywords: [ctx.grammarRule.hiragana, ctx.grammarRule.name],
-    splitParticles: true,
+const getMergedTokens = (sentence: string, grammarKeywords: string[], splitParticles: boolean = false): string[] => {
+  const tokenObjects = tokenizeJapanese(sentence, {
+    grammarKeywords,
+    splitParticles,
     splitGrammarParticle: false
   });
-  const parts = tokenObjects.map(t => t.text);
+  
+  const merged: string[] = [];
+  for (const t of tokenObjects) {
+    if (t.type === 'punctuation' && merged.length > 0) {
+      merged[merged.length - 1] += t.text;
+    } else {
+      merged.push(t.text);
+    }
+  }
+  return merged;
+};
+
+const GRAMMAR_DISTRACTORS = [
+  'うちに', '間', 'ために', 'ところ', 'からには', '以上は', '上で', '最中に', 'ばかりに', 'からして', 'のみならず',
+  'に関して', 'について', 'に対して', 'にこたえて', 'をめぐって', 'をもとに', 'に基づいて', 'に沿って', 'のもとで'
+];
+
+export const generateStarQuestion = (ctx: GeneratorContext): PracticeQuestion => {
+  const sentence = ctx.sentenceRecord.japanese;
+  const keyword = ctx.grammarRule.hiragana;
+  
+  // 1. Get fine-grained tokens and remove punctuation to prevent awkward chunks
+  const rawObjs = tokenizeJapanese(sentence, { grammarKeywords: [keyword], splitParticles: true, splitGrammarParticle: false });
+  const cleanTokens = rawObjs.map(t => t.text).filter(t => !['、', '。', '？', '！', '「', '」'].includes(t));
+  
+  let keywordIdx = cleanTokens.findIndex(t => t.includes(keyword));
+  if (keywordIdx === -1) keywordIdx = Math.floor(cleanTokens.length / 2);
+  
+  const beforeTokens = cleanTokens.slice(0, keywordIdx);
+  const afterTokens = cleanTokens.slice(keywordIdx + 1);
+  
+  // 2. Decide how many chunks to take from before and after
+  let numBeforeChunks = Math.floor(ctx.rng.next() * 4); // 0, 1, 2, 3
+  if (numBeforeChunks > beforeTokens.length) numBeforeChunks = beforeTokens.length;
+  
+  let numAfterChunks = 3 - numBeforeChunks;
+  if (numAfterChunks > afterTokens.length) {
+    numAfterChunks = afterTokens.length;
+    numBeforeChunks = Math.min(3 - numAfterChunks, beforeTokens.length);
+  }
+  
+  // 3. Extract tokens for chunks (approx 2 tokens per chunk for good sizing)
+  const TOKENS_PER_CHUNK = 2;
+  const beforeTokensToUseCount = Math.min(beforeTokens.length, numBeforeChunks * TOKENS_PER_CHUNK);
+  const afterTokensToUseCount = Math.min(afterTokens.length, numAfterChunks * TOKENS_PER_CHUNK);
+  
+  const prefixTokens = beforeTokens.slice(0, beforeTokens.length - beforeTokensToUseCount);
+  const beforeTokensToUse = beforeTokens.slice(beforeTokens.length - beforeTokensToUseCount);
+  
+  const afterTokensToUse = afterTokens.slice(0, afterTokensToUseCount);
+  const suffixTokens = afterTokens.slice(afterTokensToUseCount);
+  
+  const prefix = prefixTokens.join('');
+  const suffix = suffixTokens.join('') + (sentence.endsWith('。') ? '。' : ''); // Restore trailing period if needed
+  
+  // 4. Group tokens into the exact number of chunks
+  const buildChunks = (tokens: string[], numChunks: number) => {
+    if (numChunks === 0) return [];
+    const res = Array(numChunks).fill('');
+    for(let i = 0; i < tokens.length; i++) {
+       const c = Math.floor((i * numChunks) / tokens.length);
+       res[c] += tokens[i];
+    }
+    return res;
+  };
+  
+  const beforeChunks = buildChunks(beforeTokensToUse, numBeforeChunks);
+  const afterChunks = buildChunks(afterTokensToUse, numAfterChunks);
+  
+  const rawSlots = [...beforeChunks, cleanTokens[keywordIdx], ...afterChunks];
+  
+  // Pad if we somehow have fewer than 4 slots (very short sentences)
+  while (rawSlots.length < 4) rawSlots.push('...');
+  
+  const chunks = rawSlots.map((text, idx) => ({
+    id: `chunk_${idx}`,
+    text,
+    originalIndex: idx
+  }));
+
+  const shuffledChunks = ctx.rng.shuffle([...chunks]);
+  const starIndex = numBeforeChunks; // The keyword is placed exactly after numBeforeChunks
+  const correctChunk = chunks[starIndex];
+
+  return {
+    ...ctx.baseQuestion,
+    type: 'star_question',
+    instruction: 'Sắp xếp các từ sau thành câu hoàn chỉnh và chọn đáp án cho vị trí có ngôi sao (★):',
+    question: '',
+    sentenceParts: {
+      prefix,
+      suffix
+    },
+    chunks,
+    shuffledChunks,
+    starIndex,
+    correctAnswer: correctChunk.text,
+    metadata: { 
+      originalSentence: sentence
+    }
+  } as PracticeQuestion;
+};
+
+export const generateWordOrderQuestion = (ctx: GeneratorContext): PracticeQuestion => {
+  const tokens = getMergedTokens(ctx.sentenceRecord.japanese, [ctx.grammarRule.hiragana, ctx.grammarRule.name], true);
+  
+  const targetChunks = Math.min(tokens.length, 6);
+  const parts: string[] = Array(targetChunks).fill('');
+  for (let i = 0; i < tokens.length; i++) {
+    const chunkIdx = Math.floor((i * targetChunks) / tokens.length);
+    parts[chunkIdx] += tokens[i];
+  }
   
   return {
     ...ctx.baseQuestion,
     type: 'sentence_ordering',
-    instruction: 'Sắp xếp các từ sau thành câu hoàn chỉnh:',
+    instruction: 'Sắp xếp các phần sau thành câu hoàn chỉnh:',
     question: '',
     parts: ctx.rng.shuffle(parts),
     correctAnswer: ctx.sentenceRecord.japanese,
@@ -138,6 +249,61 @@ export const generateFreeWritingQuestion = (ctx: GeneratorContext): PracticeQues
 };
 
 export const generateExampleQuestion = (ctx: GeneratorContext): PracticeQuestion => {
+  let analysis = ctx.sentenceRecord.analysis;
+  
+  if (!analysis) {
+    const target = ctx.sentenceRecord.target || ctx.grammarRule.hiragana;
+    const sentence = ctx.sentenceRecord.japanese;
+    const parts = sentence.split(target);
+    
+    if (parts.length >= 2) {
+      const before = parts[0];
+      const after = parts.slice(1).join(target);
+      
+      let type = 'Vる';
+      let rule = 'Vる';
+      let base = before;
+      
+      if (before.endsWith('な')) {
+        type = 'Aな';
+        base = before.slice(0, -1) + '（だ）';
+        rule = 'Aな + な';
+      } else if (before.endsWith('い')) {
+        type = 'Aい';
+        rule = 'Aい';
+      } else if (before.endsWith('の')) {
+        type = 'N';
+        base = before.slice(0, -1);
+        rule = 'N + の';
+      } else if (before.endsWith('ている')) {
+        type = 'Vている';
+        base = before.slice(0, -3) + 'る';
+        rule = 'Vている';
+      } else if (before.endsWith('ない')) {
+        type = 'Vない';
+        base = before.slice(0, -2) + 'る';
+        rule = 'Vない';
+      } else if (before.endsWith('た')) {
+        type = 'Vた';
+        base = before.slice(0, -1) + 'る';
+        rule = 'Vた';
+      }
+      
+      analysis = {
+        pattern: `{${type}}${target}{Clause}`,
+        slotValues: {
+          [type]: before,
+          "Clause": after
+        },
+        conjugation: {
+          base,
+          conjugated: before,
+          rule
+        }
+      };
+    }
+  }
+
   return {
     ...ctx.baseQuestion,
     type: 'example',
@@ -149,7 +315,10 @@ export const generateExampleQuestion = (ctx: GeneratorContext): PracticeQuestion
       hiragana: ctx.sentenceRecord.hiragana,
       vietnamese: ctx.sentenceRecord.vietnamese,
       grammarName: ctx.grammarRule.name,
-      grammarHiragana: ctx.grammarRule.hiragana
+      grammarHiragana: ctx.grammarRule.hiragana,
+      pattern: analysis?.pattern,
+      slotValues: analysis?.slotValues,
+      conjugation: analysis?.conjugation
     }
   } as PracticeQuestion;
 };

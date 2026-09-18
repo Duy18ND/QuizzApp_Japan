@@ -61,7 +61,7 @@ export const GrammarPractice: React.FC = () => {
           count: grammarId ? questionCount : Math.max(3, Math.floor(questionCount / rulesToPractice.length)), // distribute question count
           seed: currentSeed,
           rawVocabulary: unit1Data as any[],
-          requestedPracticeTypes: mode === 'mixed' ? undefined : [mode],
+          requestedPracticeTypes: mode === 'mixed' ? ['sentence_ordering', 'star_question'] : [mode],
         });
         allQuestions = [...allQuestions, ...questionSet.questions];
       });
@@ -168,40 +168,6 @@ export const GrammarPractice: React.FC = () => {
             Về bài học
           </button>
           
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Dạng bài đang luyện</label>
-            <select
-              value={mode}
-              onChange={(e) => {
-                dispatch(endPractice());
-                setSearchParams({ mode: e.target.value });
-              }}
-              className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none font-medium"
-            >
-              {practiceModes.map(m => (
-                <option key={m.id} value={m.id}>{m.label}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Số lượng câu hỏi</label>
-            <select
-              value={questionCount}
-              onChange={(e) => {
-                const newCount = parseInt(e.target.value, 10);
-                setQuestionCount(newCount);
-                dispatch(endPractice());
-                setSearchParams({ mode, count: newCount.toString() });
-              }}
-              className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none font-medium"
-            >
-              {[5, 10, 20, 30, 50].map(c => (
-                <option key={c} value={c}>{c} câu</option>
-              ))}
-            </select>
-          </div>
-          
           {/* Target rule info */}
           <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800/30">
             <p className="text-xs font-bold text-indigo-400 mb-1 uppercase tracking-wider">MỤC TIÊU</p>
@@ -211,15 +177,6 @@ export const GrammarPractice: React.FC = () => {
           </div>
           {/* Sidebar Actions */}
           <div className="space-y-3 pt-4 border-t border-gray-100 dark:border-gray-700/50">
-            <button
-              onClick={() => {
-                dispatch(endPractice());
-                setSearchParams({ mode: 'mixed', count: questionCount.toString() });
-              }}
-              className="w-full py-3 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-xl font-bold transition-all shadow-md flex items-center justify-center gap-2"
-            >
-              ★ Luyện tập tổng hợp
-            </button>
             <button
               onClick={() => navigate(`/pdf?tab=grammar&chapterId=${chapterId}${grammarId ? `&grammarId=${grammarId}` : ''}&seed=${currentSeed}&count=${questionCount}&mode=${mode}`)}
               className="w-full py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-900 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl font-semibold transition-all border border-gray-200 dark:border-gray-700 flex items-center justify-center gap-2"

@@ -8,6 +8,15 @@ export interface GrammarSentence {
   vietnamese: string;
   difficulty: 'easy' | 'normal' | 'hard';
   target?: string;
+  analysis?: {
+    pattern: string;
+    slotValues: Record<string, string>;
+    conjugation?: {
+      base: string;
+      conjugated: string;
+      rule: string;
+    };
+  };
 }
 
 export const lesson01Sentences: GrammarSentence[] = [

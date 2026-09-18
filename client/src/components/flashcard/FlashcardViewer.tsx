@@ -114,7 +114,7 @@ export const FlashcardViewer: React.FC = () => {
             {level?.toUpperCase()}
           </Link>
           <ChevronRightIcon className="w-4 h-4" />
-          <span className="text-indigo-600 dark:text-indigo-400 font-medium">Unit {unitKey}</span>
+          <span className="text-blue-600 dark:text-blue-400 font-medium">Unit {unitKey}</span>
         </div>
       </div>
 
@@ -130,7 +130,7 @@ export const FlashcardViewer: React.FC = () => {
             <div className="absolute top-6 right-6">
               <button 
                 onClick={(e) => { e.stopPropagation(); speakText(currentWord.kanji || currentWord.hiragana); }}
-                className="p-3 text-gray-400 hover:text-indigo-500 dark:text-gray-500 dark:hover:text-indigo-400 bg-gray-50 dark:bg-gray-900/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-full transition-all"
+                className="p-3 text-gray-400 hover:text-blue-500 dark:text-gray-500 dark:hover:text-blue-400 bg-gray-50 dark:bg-gray-900/50 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-full transition-all"
                 title="Phát âm"
               >
                 <Volume2 className="w-6 h-6" />
@@ -151,7 +151,7 @@ export const FlashcardViewer: React.FC = () => {
             
             <div className="flex flex-col items-center gap-4 text-center max-w-md">
               {currentWord.kanji && (
-                <div className="text-3xl md:text-4xl font-medium text-indigo-500 dark:text-indigo-400">
+                <div className="text-3xl md:text-4xl font-medium text-blue-500 dark:text-blue-400">
                   {currentWord.hiragana}
                 </div>
               )}
@@ -184,7 +184,7 @@ export const FlashcardViewer: React.FC = () => {
         <div className="flex items-center gap-2">
           <button
             onClick={handleShuffle}
-            className="p-3 text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-xl transition-all"
+            className="p-3 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-xl transition-all"
             title="Đảo trộn thẻ"
           >
             <Shuffle className="w-5 h-5" />
@@ -219,7 +219,7 @@ export const FlashcardViewer: React.FC = () => {
           <button 
             onClick={handleNext}
             disabled={currentIndex === words.length - 1}
-            className="p-3 bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-all shadow-md shadow-indigo-500/20"
+            className="p-3 bg-blue-600 hover:bg-blue-500 text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-all shadow-md shadow-blue-500/20"
           >
             <ChevronRight className="w-6 h-6" />
           </button>

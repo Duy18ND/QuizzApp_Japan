@@ -25,7 +25,7 @@ export const AppLayout: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
 
   return (
-    <div className="flex flex-col h-[100dvh] overflow-hidden bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 font-sans transition-colors duration-200">
+    <div className="flex flex-col h-[100dvh] overflow-hidden text-gray-900 dark:bg-gray-900 dark:text-gray-100 font-sans transition-colors duration-200" style={{ backgroundColor: 'var(--background)' }}>
       
       {/* Header */}
       <header className="flex-none bg-white border-b border-gray-200 dark:bg-gray-950 dark:border-gray-800 transition-colors duration-200 z-10">
@@ -34,7 +34,7 @@ export const AppLayout: React.FC = () => {
             
             {/* Logo */}
             <Link to="/vocabulary" className="flex-shrink-0 flex items-center hover:opacity-80 transition-opacity">
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Nihon<span className="text-indigo-500">Master</span></h1>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Nihon<span className="text-blue-500">Master</span></h1>
               <span className="ml-3 hidden sm:inline-block text-xs font-medium text-gray-500 dark:text-gray-400">
                 Mimi kara Oboeru N3
               </span>
@@ -44,12 +44,22 @@ export const AppLayout: React.FC = () => {
             <div className="flex-shrink-0 flex items-center gap-4">
               <button
                 onClick={toggleTheme}
-                className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="p-3 md:px-4 md:py-2.5 flex items-center gap-2 rounded-xl text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px] min-w-[44px]"
                 aria-label="Toggle theme"
               >
-                {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                {theme === 'dark' ? (
+                  <>
+                    <Moon className="w-5 h-5" />
+                    <span className="hidden md:inline font-medium text-sm">Midnight</span>
+                  </>
+                ) : (
+                  <>
+                    <Sun className="w-5 h-5" />
+                    <span className="hidden md:inline font-medium text-sm">Ice Blue</span>
+                  </>
+                )}
               </button>
-              <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-sm font-bold text-white shadow-sm">
+              <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-sm font-bold text-gray-900 shadow-sm">
                 N3
               </div>
             </div>
@@ -74,8 +84,8 @@ export const AppLayout: React.FC = () => {
                   className={clsx(
                     "flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all whitespace-nowrap",
                     isActive 
-                      ? "bg-indigo-600 text-white shadow-md" 
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
+                      ? "bg-blue-100 text-blue-900 shadow-md ring-1 ring-blue-400" 
+                      : "bg-white text-gray-600 hover:bg-blue-50 hover:text-blue-900 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
                   )}
                 >
                   <item.icon className="w-4 h-4" />

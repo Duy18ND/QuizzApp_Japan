@@ -2,8 +2,112 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* === Font Registration === */
+/* MPLUS1p: hỗ trợ đầy đủ Japanese (Kanji/Hiragana/Katakana) + Vietnamese có dấu */
+/* Font được load 1 lần duy nhất bởi browser, sau đó cache trong memory */
+/* Dùng đường dẫn tuyệt đối với base path cho GitHub Pages */
+@font-face {
+  font-family: 'MPLUS1p';
+  src: url('../public/fonts/MPLUS1p-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  /* Ice/Sky/Navy Blue Palette Override */
+  --color-blue-50: #F4FBFE;
+  --color-blue-100: #DDF4FC;
+  --color-blue-200: #C8E7F2;
+  --color-blue-300: #9DD6EA;
+  --color-blue-400: #82C9E5;
+  --color-blue-500: #82C9E5; /* Primary Sky Blue */
+  --color-blue-600: #70BCD9; /* Primary Hover */
+  --color-blue-700: #64B3D2; /* Primary Active */
+  --color-blue-800: #4B8FA8;
+  --color-blue-900: #24445F; /* Navy Blue */
+  --color-blue-950: #1B3347;
+
+  /* Blue-Gray Palette Override */
+  --color-gray-50: #F7FBFD;
+  --color-gray-100: #F4FBFE;
+  --color-gray-200: #E7EEF2; /* Blue Gray Border */
+  --color-gray-300: #D0DBE1;
+  --color-gray-400: #A8BCC8;
+  --color-gray-500: #647B8A; /* Secondary Text */
+  --color-gray-600: #4D6473;
+  --color-gray-700: #384D59;
+  --color-gray-800: #2C3C46;
+  --color-gray-900: #24445F; /* Navy Blue Text */
+  --color-gray-950: #152736;
+}
+
 @layer base {
+  :root {
+    --primary: #82C9E5;
+    --primary-hover: #70BCD9;
+    --primary-active: #64B3D2;
+    --primary-soft: #DDF4FC;
+    --primary-softer: #F4FBFE;
+    --background: #F7FBFD;
+    --surface: #FFFFFF;
+    --text: #24445F;
+    --text-secondary: #647B8A;
+    --border: #E7EEF2;
+    --border-strong: #C8E7F2;
+    --success: #22C55E;
+    --danger: #EF4444;
+    --warning: #F59E0B;
+  }
+
+  .dark {
+    /* Midnight Blue Theme Core Variables */
+    --background: #152536;
+    --surface: #1C3043;
+    --primary: #83C8E3;
+    --primary-hover: #9BD7EA;
+    --primary-active: #9BD7EA;
+    --primary-soft: #29465C;
+    --primary-softer: #1C3043;
+    --text: #E7F5FB;
+    --text-secondary: #AFC3D0;
+    --border: #355267;
+    --border-strong: #46677C;
+    
+    /* Override Tailwind Color Palette for dark:* classes */
+    --color-gray-50: #152536;
+    --color-gray-100: #152536;
+    --color-gray-200: #355267;
+    --color-gray-300: #E7F5FB;
+    --color-gray-400: #AFC3D0;
+    --color-gray-500: #AFC3D0;
+    --color-gray-600: #46677C;
+    --color-gray-700: #355267;
+    --color-gray-800: #1C3043;
+    --color-gray-900: #152536;
+    --color-gray-950: #152536;
+
+    --color-slate-700: #355267;
+    --color-slate-800: #1C3043;
+
+    --color-blue-50: #29465C;
+    --color-blue-100: #29465C;
+    --color-blue-200: #355267;
+    --color-blue-300: #E7F5FB;
+    --color-blue-400: #83C8E3;
+    --color-blue-500: #83C8E3;
+    --color-blue-600: #9BD7EA;
+    --color-blue-700: #46677C;
+    --color-blue-800: #29465C;
+    --color-blue-900: #1C3043;
+    
+    --color-white: #E7F5FB; /* Maps to text color in dark mode */
+    --color-black: #0B1622; /* No true black #000000 allowed */
+  }
+
   body {
-    @apply bg-gray-50 text-gray-900 min-h-screen font-sans transition-colors duration-200 dark:bg-gray-900 dark:text-gray-100;
+    @apply min-h-screen font-sans transition-colors duration-200 dark:bg-gray-900 dark:text-gray-100;
+    background-color: var(--background);
+    color: var(--text);
   }
 }

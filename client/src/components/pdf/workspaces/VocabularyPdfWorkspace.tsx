@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { FileDown, Settings } from 'lucide-react';
 import { DraggableColumnList, type ColumnOption } from '../DraggableColumnList';
 import { CustomDataImport } from '../../common/CustomDataImport';
@@ -7,6 +7,7 @@ import { VocabularyPdfBuilder } from './VocabularyPdfBuilder';
 import { UNIT_DATA } from '../../../data/unitData';
 import { allVocabularyData } from '../../../data/index';
 import { useUserProgress } from '../../../hooks/useUserProgress';
+import { FontManager } from '../../../utils/fontManager';
 import type { JLPTLevel, QuizSource, QuizRangeType } from '../../../types/quiz';
 
 const DEFAULT_COLUMNS: ColumnOption[] = [
@@ -21,6 +22,7 @@ export const VocabularyPdfWorkspace: React.FC = () => {
   const [columns, setColumns] = useState<ColumnOption[]>(DEFAULT_COLUMNS);
   const [isExporting, setIsExporting] = useState(false);
   const [exportWords, setExportWords] = useState<any[]>([]);
+  const isExportingRef = useRef(false); // Export lock
 
   // Tab 1: System Selection
   const [tab, setTab] = useState<'system' | 'custom'>('system');
@@ -46,8 +48,15 @@ export const VocabularyPdfWorkspace: React.FC = () => {
       return;
     }
 
+    // Export lock: ngăn chạy song song
+    if (isExportingRef.current) return;
+    isExportingRef.current = true;
     setIsExporting(true);
+
     try {
+      // Đảm bảo font sẵn sàng
+      await FontManager.ensureReady();
+
       let exportWordsArr: any[] = [];
 
       if (tab === 'system') {
@@ -98,14 +107,21 @@ export const VocabularyPdfWorkspace: React.FC = () => {
       }
 
       setExportWords(exportWordsArr);
-      setTimeout(() => {
-        setIsExporting(false);
-        window.print();
-      }, 500);
+
+      // Chờ DOM render xong (1 frame) rồi print
+      await new Promise<void>(resolve => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => resolve());
+        });
+      });
+
+      window.print();
     } catch (error: any) {
       console.error('Lỗi khi xuất PDF:', error);
       alert(error.message || 'Có lỗi xảy ra khi xuất PDF. Vui lòng thử lại.');
+    } finally {
       setIsExporting(false);
+      isExportingRef.current = false;
     }
   };
 
@@ -118,13 +134,13 @@ export const VocabularyPdfWorkspace: React.FC = () => {
         <div className="flex bg-gray-100 dark:bg-gray-900 p-1 rounded-xl mb-6">
           <button
             onClick={() => setTab('system')}
-            className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-colors ${tab === 'system' ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'}`}
+            className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-colors ${tab === 'system' ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'}`}
           >
             Hệ thống
           </button>
           <button
             onClick={() => setTab('custom')}
-            className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-colors ${tab === 'custom' ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'}`}
+            className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-colors ${tab === 'custom' ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'}`}
           >
             Tùy chỉnh
           </button>
@@ -136,7 +152,7 @@ export const VocabularyPdfWorkspace: React.FC = () => {
               <div>
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Trình độ</label>
                 <select
-                  className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-xl p-3 outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow"
+                  className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500 transition-shadow"
                   value={level}
                   onChange={(e) => handleLevelChange(e.target.value as JLPTLevel)}
                 >
@@ -148,7 +164,7 @@ export const VocabularyPdfWorkspace: React.FC = () => {
               <div>
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Bài học</label>
                 <select
-                  className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-xl p-3 outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow"
+                  className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500 transition-shadow"
                   value={unitId}
                   onChange={(e) => setUnitId(Number(e.target.value))}
                 >
@@ -162,7 +178,7 @@ export const VocabularyPdfWorkspace: React.FC = () => {
             <div>
               <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Phạm vi từ vựng</label>
               <select
-                className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-xl p-3 outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow"
+                className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500 transition-shadow"
                 value={source}
                 onChange={(e) => setSource(e.target.value as QuizSource)}
               >
@@ -176,7 +192,7 @@ export const VocabularyPdfWorkspace: React.FC = () => {
               <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">STT (Bắt đầu - Kết thúc)</label>
               <div className="flex flex-col sm:flex-row gap-4">
                 <select
-                  className="w-full sm:w-1/3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-xl p-3 outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow"
+                  className="w-full sm:w-1/3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500 transition-shadow"
                   value={rangeType}
                   onChange={(e) => setRangeType(e.target.value as QuizRangeType)}
                 >
@@ -189,7 +205,7 @@ export const VocabularyPdfWorkspace: React.FC = () => {
                     <input
                       type="number"
                       min="1"
-                      className="w-1/2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-xl p-3 text-center outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow"
+                      className="w-1/2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-xl p-3 text-center outline-none focus:ring-2 focus:ring-blue-500 transition-shadow"
                       value={customRange.start}
                       onChange={(e) => setCustomRange({ ...customRange, start: parseInt(e.target.value) || 1 })}
                     />
@@ -197,7 +213,7 @@ export const VocabularyPdfWorkspace: React.FC = () => {
                     <input
                       type="number"
                       min="1"
-                      className="w-1/2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-xl p-3 text-center outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow"
+                      className="w-1/2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-xl p-3 text-center outline-none focus:ring-2 focus:ring-blue-500 transition-shadow"
                       value={customRange.end}
                       onChange={(e) => setCustomRange({ ...customRange, end: parseInt(e.target.value) || 1 })}
                     />
@@ -233,7 +249,7 @@ export const VocabularyPdfWorkspace: React.FC = () => {
       {/* Cài đặt PDF */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
-          <Settings className="w-5 h-5 text-indigo-500" />
+          <Settings className="w-5 h-5 text-blue-500" />
           Cài đặt xuất PDF
         </h3>
         <div className="text-sm text-gray-500 dark:text-gray-400 italic">
@@ -245,10 +261,10 @@ export const VocabularyPdfWorkspace: React.FC = () => {
       <button
         onClick={handleExport}
         disabled={isExporting}
-        className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-lg shadow-lg flex items-center justify-center gap-3 transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-4"
+        className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-gray-900 rounded-2xl font-black text-lg shadow-lg flex items-center justify-center gap-3 transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-4"
       >
         <FileDown className="w-6 h-6" />
-        {isExporting ? 'Đang chuẩn bị trang in...' : 'Xuất PDF'}
+        {isExporting ? '⏳ Đang tạo PDF...' : 'Xuất PDF'}
       </button>
 
       {/* Hidden Print Container via Portal */}

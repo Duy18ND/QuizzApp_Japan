@@ -58,7 +58,7 @@ export const DraggableColumnList: React.FC<Props> = ({ columns, onColumnsChange 
                       ref={provided.innerRef}
                       {...provided.draggableProps}
                       className={`flex items-center justify-between p-3 bg-gray-900 border rounded-lg transition-colors ${
-                        snapshot.isDragging ? 'border-indigo-500 shadow-lg' : 'border-gray-700 hover:border-gray-600'
+                        snapshot.isDragging ? 'border-blue-500 shadow-lg' : 'border-gray-700 hover:border-gray-600'
                       }`}
                     >
                       <div className="flex items-center gap-3">
@@ -82,7 +82,7 @@ export const DraggableColumnList: React.FC<Props> = ({ columns, onColumnsChange 
                             newCols[index] = { ...col, showContent: e.target.checked };
                             onColumnsChange(newCols);
                           }}
-                          className="w-4 h-4 text-indigo-600 bg-gray-900 border-gray-600 rounded focus:ring-indigo-500 focus:ring-2 cursor-pointer"
+                          className="w-4 h-4 text-blue-600 bg-gray-900 border-gray-600 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
                         />
                       </label>
                     </div>

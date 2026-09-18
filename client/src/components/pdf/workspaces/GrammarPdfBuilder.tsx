@@ -79,7 +79,7 @@ export const GrammarPdfBuilder: React.FC<PdfBuilderProps> = ({ bookId, generated
           body, #print-workbook { 
             background: white; 
             -webkit-print-color-adjust: exact;
-            font-family: 'Inter', 'Noto Sans JP', Arial, sans-serif;
+            font-family: 'MPLUS1p', sans-serif;
           }
           #root { display: none !important; }
           #print-workbook {
@@ -122,7 +122,7 @@ export const GrammarPdfBuilder: React.FC<PdfBuilderProps> = ({ bookId, generated
                 <span className="text-gray-500 italic font-medium">Level: {rule?.level}</span>
               </div>
               {(rule?.meaning || (rule?.patterns && rule.patterns.length > 0)) && (
-                <div className="text-base text-gray-800 bg-gray-100 p-4 rounded-lg border-l-4 border-indigo-500 mt-3 avoid-break">
+                <div className="text-base text-[#1f2937] bg-[#f3f4f6] p-4 rounded-lg border-l-4 border-[#3b82f6] mt-3 avoid-break">
                   {rule?.meaning && (
                     <div className="mb-2">
                       <span className="font-bold mr-2">Ý nghĩa:</span> 
@@ -132,7 +132,7 @@ export const GrammarPdfBuilder: React.FC<PdfBuilderProps> = ({ bookId, generated
                   {rule?.patterns && rule.patterns.length > 0 && (
                     <div>
                       <span className="font-bold mr-2">Cấu trúc:</span>
-                      <span className="font-mono bg-white px-2 py-1 border border-gray-300 rounded text-sm">
+                      <span className="font-mono bg-white text-black px-2 py-1 border border-gray-300 rounded text-sm">
                         {rule.patterns.map(p => p.pattern).join(' / ')}
                       </span>
                     </div>
@@ -207,7 +207,7 @@ export const GrammarPdfBuilder: React.FC<PdfBuilderProps> = ({ bookId, generated
 
              return (
                <div key={`ans-set-${set.id}`} className="mb-10 avoid-break">
-                 <h2 className="text-xl font-bold mb-4 bg-gray-100 p-2 border-l-4 border-black">
+                 <h2 className="text-xl font-bold mb-4 bg-[#f3f4f6] text-black p-2 border-l-4 border-black">
                    {rule?.name} {rule?.hiragana}
                  </h2>
                  <div className="pl-4 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">

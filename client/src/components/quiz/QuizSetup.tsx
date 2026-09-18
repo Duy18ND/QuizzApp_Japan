@@ -76,13 +76,13 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
         <div className="flex bg-gray-100 dark:bg-gray-950 p-1 rounded-xl mb-6 border border-gray-200 dark:border-gray-800">
           <button
             onClick={() => setTab('system')}
-            className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition-colors ${tab === 'system' ? 'bg-white text-indigo-600 shadow-sm dark:bg-indigo-600 dark:text-white dark:shadow-none' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
+            className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition-colors ${tab === 'system' ? 'bg-white text-blue-600 shadow-sm dark:bg-blue-600 dark:text-gray-900 dark:shadow-none' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
           >
             Chọn từ hệ thống
           </button>
           <button
             onClick={() => { setTab('custom'); setConfig({ ...config, questionCount: 'all' }); }}
-            className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition-colors ${tab === 'custom' ? 'bg-white text-indigo-600 shadow-sm dark:bg-indigo-600 dark:text-white dark:shadow-none' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
+            className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition-colors ${tab === 'custom' ? 'bg-white text-blue-600 shadow-sm dark:bg-blue-600 dark:text-gray-900 dark:shadow-none' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
           >
             Tạo danh sách tự do
           </button>
@@ -95,7 +95,7 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Trình độ (JLPT)</label>
             <select 
-              className="w-full bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg p-3 min-h-[48px] outline-none focus:border-indigo-500 transition-colors"
+              className="w-full bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg p-3 min-h-[48px] outline-none focus:border-blue-500 transition-colors"
               value={config.level}
               onChange={(e) => handleLevelChange(e.target.value as JLPTLevel)}
             >
@@ -107,7 +107,7 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Bài Học (Unit)</label>
             <select 
-              className="w-full bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg p-3 min-h-[48px] outline-none focus:border-indigo-500 transition-colors"
+              className="w-full bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg p-3 min-h-[48px] outline-none focus:border-blue-500 transition-colors"
               value={config.unitId}
               onChange={(e) => setConfig({ ...config, unitId: e.target.value === 'all' ? 'all' : Number(e.target.value) })}
             >
@@ -133,7 +133,7 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
                 onClick={() => setConfig({ ...config, source: src.id as QuizSource })}
                 className={`py-3 px-2 rounded-lg border text-sm font-medium transition-colors min-h-[48px] ${
                   config.source === src.id
-                    ? 'bg-indigo-50 border-indigo-500 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300' 
+                    ? 'bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300' 
                     : 'bg-white border-gray-200 text-gray-600 hover:border-gray-400 dark:bg-gray-950 dark:border-gray-700 dark:text-gray-400 dark:hover:border-gray-500'
                 }`}
               >
@@ -162,7 +162,7 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
                 onClick={() => setConfig({ ...config, wordType: wt.id })}
                 className={`py-3 px-2 rounded-lg border text-sm font-medium transition-colors min-h-[48px] ${
                   config.wordType === wt.id
-                    ? 'bg-indigo-50 border-indigo-500 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300' 
+                    ? 'bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300' 
                     : 'bg-white border-gray-200 text-gray-600 hover:border-gray-400 dark:bg-gray-950 dark:border-gray-700 dark:text-gray-400 dark:hover:border-gray-500'
                 }`}
               >
@@ -214,7 +214,7 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
                   onClick={() => setConfig({ ...config, questionCount: count as any })}
                   className={`py-3 px-4 rounded-lg border text-sm font-medium transition-colors min-h-[48px] ${
                     config.questionCount === count 
-                      ? 'bg-indigo-50 border-indigo-500 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300' 
+                      ? 'bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300' 
                       : 'bg-white border-gray-200 text-gray-600 hover:border-gray-400 dark:bg-gray-950 dark:border-gray-700 dark:text-gray-400 dark:hover:border-gray-500'
                   }`}
                 >
@@ -232,7 +232,7 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
                   max={Math.max(1, currentTotalWords - 1)}
                   value={config.customRange.start}
                   onChange={(e) => setConfig({ ...config, customRange: { ...config.customRange, start: Number(e.target.value) } })}
-                  className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg p-3 min-h-[48px] outline-none focus:border-indigo-500 text-sm transition-colors"
+                  className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg p-3 min-h-[48px] outline-none focus:border-blue-500 text-sm transition-colors"
                 />
               </div>
               <div className="pt-5 text-gray-500">đến</div>
@@ -244,7 +244,7 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
                   max={currentTotalWords}
                   value={config.customRange.end}
                   onChange={(e) => setConfig({ ...config, customRange: { ...config.customRange, end: Number(e.target.value) } })}
-                  className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg p-3 min-h-[48px] outline-none focus:border-indigo-500 text-sm transition-colors"
+                  className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg p-3 min-h-[48px] outline-none focus:border-blue-500 text-sm transition-colors"
                 />
               </div>
             </div>
@@ -267,7 +267,7 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
                 checked={config.shuffleQuestions}
                 onChange={(e) => setConfig({ ...config, shuffleQuestions: e.target.checked })}
               />
-              <span className={`block w-10 h-5 rounded-full transition-colors ${config.shuffleQuestions ? 'bg-indigo-500' : 'bg-gray-300 dark:bg-gray-700'}`}></span>
+              <span className={`block w-10 h-5 rounded-full transition-colors ${config.shuffleQuestions ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-700'}`}></span>
               <span className={`absolute left-1 top-0.5 bg-white w-4 h-4 rounded-full transition-transform ${config.shuffleQuestions ? 'translate-x-5' : 'translate-x-0'}`}></span>
             </div>
           </label>
@@ -283,7 +283,7 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
                 checked={config.shuffleAnswers}
                 onChange={(e) => setConfig({ ...config, shuffleAnswers: e.target.checked })}
               />
-              <span className={`block w-10 h-5 rounded-full transition-colors ${config.shuffleAnswers ? 'bg-indigo-500' : 'bg-gray-300 dark:bg-gray-700'}`}></span>
+              <span className={`block w-10 h-5 rounded-full transition-colors ${config.shuffleAnswers ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-700'}`}></span>
               <span className={`absolute left-1 top-0.5 bg-white w-4 h-4 rounded-full transition-transform ${config.shuffleAnswers ? 'translate-x-5' : 'translate-x-0'}`}></span>
             </div>
           </label>
@@ -300,7 +300,7 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
                 checked={config.showHanVietHint}
                 onChange={(e) => setConfig({ ...config, showHanVietHint: e.target.checked })}
               />
-              <span className={`block w-10 h-5 rounded-full transition-colors ${config.showHanVietHint ? 'bg-indigo-500' : 'bg-gray-300 dark:bg-gray-700'}`}></span>
+              <span className={`block w-10 h-5 rounded-full transition-colors ${config.showHanVietHint ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-700'}`}></span>
               <span className={`absolute left-1 top-0.5 bg-white w-4 h-4 rounded-full transition-transform ${config.showHanVietHint ? 'translate-x-5' : 'translate-x-0'}`}></span>
             </div>
           </label>
@@ -308,7 +308,7 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
 
         <button
           onClick={handleStart}
-          className="w-full py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold flex items-center justify-center gap-2 transition-colors shadow-lg shadow-indigo-500/20"
+          className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-gray-900 font-bold flex items-center justify-center gap-2 transition-colors shadow-lg shadow-blue-500/20"
         >
           <Play className="w-5 h-5 fill-current" />
           Bắt đầu Quiz

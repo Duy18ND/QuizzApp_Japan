@@ -20,6 +20,7 @@ const grammarProgressSlice = createSlice({
         state.records[grammarId] = {
           multiple_choice: 0,
           fill_blank: 0,
+          star_question: 0,
           conjugation: 0,
           sentence_ordering: 0,
           ja_to_vi: 0,

@@ -18,7 +18,6 @@ export const GrammarLesson: React.FC = () => {
 
   const [examples, setExamples] = useState<any[]>([]);
   const [expandedExample, setExpandedExample] = useState<number | null>(null);
-  const [selectedPracticeMode, setSelectedPracticeMode] = useState<PracticeType>('multiple_choice');
 
   // Generate initial examples
   useMemo(() => {
@@ -51,16 +50,9 @@ export const GrammarLesson: React.FC = () => {
   }
 
   const practiceModes: { id: PracticeType; label: string; icon: any }[] = [
-    { id: 'multiple_choice', label: 'Chọn đáp án', icon: <PenTool className="w-5 h-5" /> },
-    { id: 'fill_blank', label: 'Điền từ', icon: <PenTool className="w-5 h-5" /> },
-    { id: 'conjugation', label: 'Chia từ', icon: <PenTool className="w-5 h-5" /> },
+    { id: 'conjugation', label: 'Chia thể', icon: <PenTool className="w-5 h-5" /> },
     { id: 'sentence_ordering', label: 'Sắp xếp câu', icon: <Shuffle className="w-5 h-5" /> },
-    { id: 'ja_to_vi', label: 'Nhật → Việt', icon: <BookOpen className="w-5 h-5" /> },
-    { id: 'vi_to_ja', label: 'Việt → Nhật', icon: <BookOpen className="w-5 h-5" /> },
-    { id: 'sentence_transformation', label: 'Biến đổi câu', icon: <Shuffle className="w-5 h-5" /> },
-    { id: 'grammar_selection', label: 'Chọn ngữ pháp', icon: <PenTool className="w-5 h-5" /> },
-    { id: 'free_writing', label: 'Nhập câu', icon: <PenTool className="w-5 h-5" /> },
-    { id: 'mixed', label: 'Luyện ngẫu nhiên (Bài này)', icon: <Shuffle className="w-5 h-5 text-indigo-500" /> },
+    { id: 'mixed', label: '★ Luyện tổng hợp', icon: <Shuffle className="w-5 h-5 text-blue-500" /> },
   ];
 
   return (
@@ -88,8 +80,8 @@ export const GrammarLesson: React.FC = () => {
         <div className="lg:col-span-2 space-y-8">
           
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div className="p-6 border-b border-gray-100 dark:border-gray-700 bg-indigo-50 dark:bg-indigo-900/20">
-              <h2 className="text-xl font-bold text-indigo-900 dark:text-indigo-100">1. Ý nghĩa</h2>
+            <div className="p-6 border-b border-gray-100 dark:border-gray-700 bg-blue-50 dark:bg-blue-900/20">
+              <h2 className="text-xl font-bold text-blue-900 dark:text-blue-100">1. Ý nghĩa</h2>
               <p className="mt-2 text-lg text-gray-800 dark:text-gray-200">{rule.meaning}</p>
               {rule.explanation && (
                 <p className="mt-2 text-gray-600 dark:text-gray-400">{rule.explanation}</p>
@@ -108,7 +100,7 @@ export const GrammarLesson: React.FC = () => {
               <div className="space-y-3">
                 {rule.templates.map(t => (
                   <div key={t.id} className="bg-gray-50 dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
-                    <p className="font-bold text-lg text-indigo-600 dark:text-indigo-400 font-mono">{t.pattern}</p>
+                    <p className="font-bold text-lg text-blue-600 dark:text-blue-400 font-mono">{t.pattern}</p>
                     <p className="text-sm text-gray-500 mt-2">{t.vietnamesePattern}</p>
                   </div>
                 ))}
@@ -121,7 +113,7 @@ export const GrammarLesson: React.FC = () => {
                 <div className="space-y-2">
                   {rule.patterns.map((p, i) => (
                     <div key={i} className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
-                      <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
+                      <div className="w-2 h-2 rounded-full bg-blue-500"></div>
                       <span className="font-mono text-gray-900 dark:text-white font-medium">{p.pattern}</span>
                     </div>
                   ))}
@@ -143,7 +135,7 @@ export const GrammarLesson: React.FC = () => {
               <h2 className="text-xl font-bold text-gray-900 dark:text-white">Ví dụ</h2>
               <button 
                 onClick={handleGenerateExamples}
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 rounded-xl font-semibold transition-colors text-sm"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-xl font-semibold transition-colors text-sm"
               >
                 <RefreshCw className="w-4 h-4" />
                 Tạo ví dụ khác
@@ -160,7 +152,7 @@ export const GrammarLesson: React.FC = () => {
                   <div key={idx} className="bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
                     <div className="p-5">
                       <div className="flex items-start gap-3">
-                        <span className="font-bold text-indigo-600 dark:text-indigo-400 mt-1">【{idx + 1}】</span>
+                        <span className="font-bold text-blue-600 dark:text-blue-400 mt-1">【{idx + 1}】</span>
                         <div className="flex-1">
                           <p className="text-xl text-gray-900 dark:text-white font-medium leading-loose">
                             {meta.pattern && meta.slotValues ? (
@@ -169,9 +161,9 @@ export const GrammarLesson: React.FC = () => {
                                   if (part.startsWith('{') && part.endsWith('}')) {
                                     const slotName = part.slice(1, -1);
                                     return (
-                                      <span key={i} className="text-indigo-600 dark:text-indigo-400 font-bold px-1.5 py-0.5 mx-0.5 bg-indigo-50 dark:bg-indigo-900/30 rounded border border-indigo-100 dark:border-indigo-800/50 relative group">
+                                      <span key={i} className="text-blue-600 dark:text-blue-400 font-bold px-1.5 py-0.5 mx-0.5 bg-blue-50 dark:bg-blue-900/30 rounded border border-blue-100 dark:border-blue-800/50 relative group">
                                         {meta.slotValues[slotName]}
-                                        <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                                        <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
                                           {slotName}
                                         </span>
                                       </span>
@@ -210,7 +202,7 @@ export const GrammarLesson: React.FC = () => {
                             <div className="flex flex-wrap items-center gap-3 text-gray-700 dark:text-gray-300 font-mono text-sm bg-gray-50 dark:bg-gray-900 p-3 rounded-lg border border-gray-100 dark:border-gray-700">
                               <span>{meta.conjugation?.base}</span>
                               <span className="text-gray-400">→</span>
-                              <span className="font-semibold text-indigo-600 dark:text-indigo-400">{meta.conjugation?.conjugated}</span>
+                              <span className="font-semibold text-blue-600 dark:text-blue-400">{meta.conjugation?.conjugated}</span>
                               <span className="text-gray-400">→</span>
                               <span>{meta.conjugation?.rule}</span>
                             </div>
@@ -245,41 +237,25 @@ export const GrammarLesson: React.FC = () => {
         <div className="space-y-6">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-6 sticky top-6">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              <Play className="w-5 h-5 text-indigo-500" />
+              <Play className="w-5 h-5 text-blue-500" />
               Luyện tập
             </h2>
             
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Chọn dạng bài</label>
-              <select 
-                value={selectedPracticeMode}
-                onChange={(e) => setSelectedPracticeMode(e.target.value as PracticeType)}
-                className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none font-medium"
-              >
-                {practiceModes.filter(m => m.id !== 'mixed').map(mode => (
-                  <option key={mode.id} value={mode.id}>{mode.label}</option>
-                ))}
-              </select>
-            </div>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Luyện tập tổng hợp ngẫu nhiên 10 câu liên quan đến cấu trúc này.
+            </p>
 
             <button 
-              onClick={() => navigate(`/grammar/${bookId}/${chapterId}/practice/${grammarId}?mode=${selectedPracticeMode}`)}
-              className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-colors shadow-sm"
+              onClick={() => navigate(`/grammar/${bookId}/${chapterId}/practice/${grammarId}?mode=mixed&count=10`)}
+              className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-gray-900 rounded-xl font-bold transition-colors shadow-sm"
             >
               Bắt đầu luyện
             </button>
 
             <div className="border-t border-gray-100 dark:border-gray-700 pt-6 space-y-3">
               <button 
-                onClick={() => navigate(`/grammar/${bookId}/${chapterId}/practice?mode=mixed`)}
-                className="w-full flex items-center justify-center gap-2 p-4 bg-orange-100 hover:bg-orange-200 dark:bg-orange-900/30 dark:hover:bg-orange-900/50 text-orange-700 dark:text-orange-400 rounded-xl font-bold transition-colors shadow-sm"
-              >
-                ★ Luyện tập tổng hợp
-              </button>
-
-              <button 
-                onClick={() => navigate(`/pdf?tab=grammar&bookId=${bookId}&chapterId=${chapterId}`)}
-                className="w-full flex items-center justify-center gap-2 p-4 bg-gray-900 hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 rounded-xl font-bold transition-colors shadow-sm"
+                onClick={() => navigate(`/pdf?tab=grammar&bookId=${bookId}&chapterId=${chapterId}&grammarId=${grammarId}`)}
+                className="w-full flex items-center justify-center gap-2 p-4 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600 rounded-xl font-bold transition-colors shadow-sm"
               >
                 <FileDown className="w-5 h-5" />
                 Tạo PDF bài này

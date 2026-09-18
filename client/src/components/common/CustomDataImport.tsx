@@ -70,7 +70,7 @@ export const CustomDataImport: React.FC<CustomDataImportProps> = ({ onDataImport
       <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
         <textarea
           rows={6}
-          className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-3 text-sm text-gray-900 dark:text-gray-100 focus:border-indigo-500 outline-none resize-none placeholder-gray-400 dark:placeholder-gray-500 font-mono"
+          className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-3 text-sm text-gray-900 dark:text-gray-100 focus:border-blue-500 outline-none resize-none placeholder-gray-400 dark:placeholder-gray-500 font-mono"
           placeholder="Sau khi AI trả kết quả, hãy copy và dán đoạn mã JSON vào đây..."
           value={aiText}
           onChange={(e) => setAiText(e.target.value)}
@@ -84,7 +84,7 @@ export const CustomDataImport: React.FC<CustomDataImportProps> = ({ onDataImport
           <button
             onClick={handleImport}
             disabled={!aiText.trim()}
-            className="flex items-center gap-2 text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+            className="flex items-center gap-2 text-sm font-semibold bg-blue-600 hover:bg-blue-500 text-gray-900 px-5 py-2.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
           >
             <Download className="w-4 h-4" /> Nhập dữ liệu
           </button>

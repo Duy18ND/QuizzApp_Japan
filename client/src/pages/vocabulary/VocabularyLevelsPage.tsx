@@ -6,8 +6,8 @@ import type { JLPTLevel } from '../../types/quiz';
 const LEVELS: { id: JLPTLevel; title: string; desc: string; color: string }[] = [
   { id: 'N5', title: 'Trình độ N5', desc: 'Nhập môn tiếng Nhật', color: 'text-blue-400' },
   { id: 'N4', title: 'Trình độ N4', desc: 'Sơ cấp tiếng Nhật', color: 'text-emerald-400' },
-  { id: 'N3', title: 'Trình độ N3', desc: 'Trung cấp tiếng Nhật (Mimi kara Oboeru)', color: 'text-indigo-400' },
-  { id: 'N2', title: 'Trình độ N2', desc: 'Thượng cấp tiếng Nhật', color: 'text-purple-400' },
+  { id: 'N3', title: 'Trình độ N3', desc: 'Trung cấp tiếng Nhật (Mimi kara Oboeru)', color: 'text-blue-400' },
+  { id: 'N2', title: 'Trình độ N2', desc: 'Thượng cấp tiếng Nhật', color: 'text-blue-400' },
   { id: 'N1', title: 'Trình độ N1', desc: 'Cao cấp tiếng Nhật', color: 'text-rose-400' },
 ];
 
@@ -39,7 +39,7 @@ export const VocabularyLevelsPage: React.FC<Props> = ({
           <div 
             key={level.id}
             onClick={() => navigate(`${basePath}/${level.id.toLowerCase()}`)}
-            className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 cursor-pointer hover:border-indigo-500/50 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all group"
+            className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 cursor-pointer hover:border-blue-500/50 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all group"
           >
             <div className="flex items-center gap-4 mb-4">
               <div className="w-12 h-12 bg-gray-50 dark:bg-gray-800 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">

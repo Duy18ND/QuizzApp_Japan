@@ -28,7 +28,7 @@ export const PdfPage: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-black text-gray-900 dark:text-white flex items-center gap-3">
-          <FileText className="w-8 h-8 text-indigo-500" />
+          <FileText className="w-8 h-8 text-blue-500" />
           Xuất tài liệu PDF
         </h1>
         <p className="text-gray-500 dark:text-gray-400">
@@ -46,11 +46,11 @@ export const PdfPage: React.FC = () => {
               onClick={() => setActiveType(t.id as PdfType)}
               className={`flex items-center gap-3 px-5 py-3 rounded-2xl border transition-all ${
                 isActive
-                  ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 shadow-sm'
-                  : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:border-indigo-200 dark:hover:border-indigo-800'
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 shadow-sm'
+                  : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:border-blue-200 dark:hover:border-blue-800'
               }`}
             >
-              <t.icon className={`w-5 h-5 ${isActive ? 'text-indigo-500' : ''}`} />
+              <t.icon className={`w-5 h-5 ${isActive ? 'text-blue-500' : ''}`} />
               <div className="text-left">
                 <div className="font-bold text-sm">{t.label}</div>
                 <div className="text-xs opacity-70 hidden sm:block">{t.desc}</div>
@@ -68,8 +68,8 @@ export const PdfPage: React.FC = () => {
         {/* Placeholders for unimplemented features */}
         {(activeType === 'kanji' || activeType === 'flashcard') && (
           <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
-            <div className="w-20 h-20 bg-indigo-50 dark:bg-indigo-900/20 rounded-full flex items-center justify-center">
-              <Hammer className="w-10 h-10 text-indigo-500" />
+            <div className="w-20 h-20 bg-blue-50 dark:bg-blue-900/20 rounded-full flex items-center justify-center">
+              <Hammer className="w-10 h-10 text-blue-500" />
             </div>
             <div>
               <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Đang phát triển</h3>

@@ -29,7 +29,7 @@ export const VocabularyUnitsPage: React.FC<Props> = ({
           {hideTabs ? <Layers className="w-4 h-4" /> : <Home className="w-4 h-4" />} {title}
         </Link>
         <ChevronRight className="w-4 h-4" />
-        <span className="text-indigo-400 font-medium">Trình độ {levelKey}</span>
+        <span className="text-blue-400 font-medium">Trình độ {levelKey}</span>
       </div>
 
       <div className="mb-6">
@@ -47,10 +47,10 @@ export const VocabularyUnitsPage: React.FC<Props> = ({
             <div 
               key={unit.id}
               onClick={() => navigate(`${basePath}/${level}/${unit.id}`)}
-              className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5 cursor-pointer hover:border-indigo-500/50 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all flex justify-between items-center group"
+              className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5 cursor-pointer hover:border-blue-500/50 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all flex justify-between items-center group"
             >
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-blue-50 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-lg flex items-center justify-center">
                   <BookOpen className="w-5 h-5" />
                 </div>
                 <div>
@@ -58,7 +58,7 @@ export const VocabularyUnitsPage: React.FC<Props> = ({
                   <p className="text-sm text-gray-500 dark:text-gray-400">{unit.totalWords} từ vựng</p>
                 </div>
               </div>
-              <ChevronRight className="w-5 h-5 text-gray-400 dark:text-gray-600 group-hover:text-indigo-500 dark:group-hover:text-indigo-400 transition-colors" />
+              <ChevronRight className="w-5 h-5 text-gray-400 dark:text-gray-600 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors" />
             </div>
           ))
         )}

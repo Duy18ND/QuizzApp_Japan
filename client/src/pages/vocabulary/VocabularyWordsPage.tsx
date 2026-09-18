@@ -13,7 +13,7 @@ const wordTypeColors: Record<WordType, string> = {
   vt: 'bg-orange-500/20 text-orange-400 border border-orange-500/30',
   i_adj: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
   na_adj: 'bg-teal-500/20 text-teal-400 border border-teal-500/30',
-  adv: 'bg-purple-500/20 text-purple-400 border border-purple-500/30',
+  adv: 'bg-blue-500/20 text-blue-400 border border-blue-500/30',
   other: 'bg-gray-500/20 text-gray-400 border border-gray-500/30',
 };
 
@@ -112,7 +112,7 @@ export const VocabularyWordsPage: React.FC = () => {
           Trình độ {levelKey}
         </Link>
         <ChevronRight className="w-4 h-4" />
-        <span className="text-indigo-600 dark:text-indigo-400 font-medium">{unitInfo?.name || `Unit ${numericUnitId}`}</span>
+        <span className="text-blue-600 dark:text-blue-400 font-medium">{unitInfo?.name || `Unit ${numericUnitId}`}</span>
       </div>
 
       <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden">
@@ -129,7 +129,7 @@ export const VocabularyWordsPage: React.FC = () => {
                 onClick={() => setSelectedType(opt.id)}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                   selectedType === opt.id 
-                    ? 'bg-blue-600 text-white shadow-md' 
+                    ? 'bg-blue-600 text-gray-900 shadow-md' 
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white'
                 }`}
               >
@@ -159,7 +159,7 @@ export const VocabularyWordsPage: React.FC = () => {
                         <div className="flex flex-col">
                           <span className="text-2xl font-bold text-gray-900 dark:text-white">{word.kanji || word.hiragana}</span>
                           {word.kanji && word.hanviet && <span className="text-xs text-gray-500 dark:text-gray-400 uppercase">{word.hanviet}</span>}
-                          {word.kanji && <span className="text-sm text-indigo-500 dark:text-indigo-300">{word.hiragana}</span>}
+                          {word.kanji && <span className="text-sm text-blue-500 dark:text-blue-300">{word.hiragana}</span>}
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -193,7 +193,7 @@ export const VocabularyWordsPage: React.FC = () => {
             {/* Desktop View: Table */}
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left text-sm text-gray-700 dark:text-gray-300">
-              <thead className="bg-gray-50 dark:bg-gray-800/50 text-xs uppercase text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-800/50">
+              <thead className="bg-blue-100 dark:bg-gray-800/50 text-xs uppercase text-blue-900 dark:text-gray-400 border-b border-blue-200 dark:border-gray-800/50">
                 <tr>
                   <th className="px-6 py-4 font-medium rounded-tl-lg">STT</th>
                   <th className="px-6 py-4 font-medium">Từ vựng</th>
@@ -214,7 +214,7 @@ export const VocabularyWordsPage: React.FC = () => {
                         <div className="flex flex-col">
                           <span className="text-lg font-bold text-gray-900 dark:text-white">{word.kanji || word.hiragana}</span>
                           {word.kanji && word.hanviet && <span className="text-sm text-gray-500 dark:text-gray-400 uppercase">{word.hanviet}</span>}
-                          {word.kanji && <span className="text-sm text-indigo-500 dark:text-indigo-300">{word.hiragana}</span>}
+                          {word.kanji && <span className="text-sm text-blue-500 dark:text-blue-300">{word.hiragana}</span>}
                         </div>
                       </td>
                       <td className="px-6 py-4">

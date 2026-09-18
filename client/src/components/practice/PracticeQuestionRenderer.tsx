@@ -2,6 +2,7 @@ import React from 'react';
 import type { PracticeQuestion, PracticeType } from '../../types/grammar';
 import { MultipleChoiceQuestionComp } from './MultipleChoiceQuestion';
 import { WordOrderQuestionComp } from './WordOrderQuestion';
+import { StarQuestionComp } from './StarQuestionComp';
 import { TextEntryQuestion } from './TextEntryQuestion';
 
 interface Props {
@@ -30,6 +31,15 @@ export const PracticeQuestionRenderer: React.FC<Props> = ({ mode, question, onSu
     case 'sentence_ordering':
       return (
         <WordOrderQuestionComp 
+          mode={mode} 
+          question={question as any} 
+          onSubmit={onSubmit} 
+        />
+      );
+
+    case 'star_question':
+      return (
+        <StarQuestionComp 
           mode={mode} 
           question={question as any} 
           onSubmit={onSubmit} 

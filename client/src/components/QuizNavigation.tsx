@@ -28,7 +28,7 @@ export const QuizNavigation: React.FC<QuizNavigationProps> = ({
       <button
         onClick={onNext}
         disabled={!canGoNext}
-        className="flex-1 md:flex-none px-8 py-4 md:py-3 rounded-xl md:rounded-lg font-bold transition-colors bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-center shadow-lg shadow-blue-200 dark:shadow-blue-900/20"
+        className="flex-1 md:flex-none px-8 py-4 md:py-3 rounded-xl md:rounded-lg font-bold transition-colors bg-blue-600 text-gray-900 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-center shadow-lg shadow-blue-200 dark:shadow-blue-900/20"
       >
         {isLast ? "Hoàn thành" : "Tiếp theo"}
       </button>
