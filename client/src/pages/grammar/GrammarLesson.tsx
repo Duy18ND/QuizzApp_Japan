@@ -1,10 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { grammarBooks } from '../../data/grammar';
-import { ArrowLeft, BookOpen, PenTool, Shuffle, FileDown, RefreshCw, ChevronDown, ChevronUp, Play } from 'lucide-react';
+import { ArrowLeft, FileDown, RefreshCw, ChevronDown, ChevronUp, Play } from 'lucide-react';
 import { generateSmartQuestionSet } from '../../utils/grammarEngine/questionGenerator';
 import { unit1Data } from '../../data/n3/unit1'; // Mocking vocab data source
-import type { PracticeType } from '../../types/grammar';
 
 export const GrammarLesson: React.FC = () => {
   const { bookId, chapterId, grammarId } = useParams<{ bookId: string; chapterId: string; grammarId: string }>();
@@ -49,11 +48,6 @@ export const GrammarLesson: React.FC = () => {
     return <div className="p-8 text-center">Không tìm thấy bài học ngữ pháp.</div>;
   }
 
-  const practiceModes: { id: PracticeType; label: string; icon: any }[] = [
-    { id: 'conjugation', label: 'Chia thể', icon: <PenTool className="w-5 h-5" /> },
-    { id: 'sentence_ordering', label: 'Sắp xếp câu', icon: <Shuffle className="w-5 h-5" /> },
-    { id: 'mixed', label: '★ Luyện tổng hợp', icon: <Shuffle className="w-5 h-5 text-blue-500" /> },
-  ];
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-16">

@@ -10,7 +10,7 @@ interface Props {
 
 const NUMBER_CIRCLES = ['①', '②', '③', '④'];
 
-export const StarQuestionComp: React.FC<Props> = ({ mode, question, onSubmit }) => {
+export const StarQuestionComp: React.FC<Props> = ({ question, onSubmit }) => {
   const [selectedChunkIds, setSelectedChunkIds] = useState<string[]>([]);
 
   useEffect(() => {

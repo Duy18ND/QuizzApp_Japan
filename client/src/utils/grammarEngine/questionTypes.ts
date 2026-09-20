@@ -80,10 +80,6 @@ const getMergedTokens = (sentence: string, grammarKeywords: string[], splitParti
   return merged;
 };
 
-const GRAMMAR_DISTRACTORS = [
-  'うちに', '間', 'ために', 'ところ', 'からには', '以上は', '上で', '最中に', 'ばかりに', 'からして', 'のみならず',
-  'に関して', 'について', 'に対して', 'にこたえて', 'をめぐって', 'をもとに', 'に基づいて', 'に沿って', 'のもとで'
-];
 
 export const generateStarQuestion = (ctx: GeneratorContext): PracticeQuestion => {
   const sentence = ctx.sentenceRecord.japanese;

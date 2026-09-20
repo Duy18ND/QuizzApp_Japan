@@ -14,26 +14,14 @@ import { grammarBooks } from '../../data/grammar';
 
 export const GrammarPractice: React.FC = () => {
   const { bookId, chapterId, grammarId } = useParams<{ bookId: string; chapterId: string; grammarId?: string }>();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const mode = (searchParams.get('mode') as PracticeType) || 'fill_blank';
   const countParam = parseInt(searchParams.get('count') || '10', 10);
-  const [questionCount, setQuestionCount] = useState<number>(isNaN(countParam) ? 10 : countParam);
+  const [questionCount] = useState<number>(isNaN(countParam) ? 10 : countParam);
   const [currentSeed] = useState<number>(Date.now());
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  const practiceModes: { id: PracticeType; label: string }[] = [
-    { id: 'multiple_choice', label: 'Chọn đáp án' },
-    { id: 'fill_blank', label: 'Điền từ' },
-    { id: 'conjugation', label: 'Chia từ' },
-    { id: 'sentence_ordering', label: 'Sắp xếp câu' },
-    { id: 'ja_to_vi', label: 'Nhật → Việt' },
-    { id: 'vi_to_ja', label: 'Việt → Nhật' },
-    { id: 'sentence_transformation', label: 'Biến đổi câu' },
-    { id: 'grammar_selection', label: 'Chọn ngữ pháp' },
-    { id: 'free_writing', label: 'Nhập câu' },
-    { id: 'mixed', label: '★ Luyện tổng hợp' },
-  ];
 
   const practice = useSelector((state: RootState) => state.practice);
 
