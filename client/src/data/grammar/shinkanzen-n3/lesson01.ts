@@ -270,18 +270,3 @@ export const shinkanzenN3Lesson01: SmartGrammarRule[] = [
   }
 ];
 
-export const shinkanzenN3Book: GrammarBook = {
-  id: 'SHINKANZEN_N3',
-  title: '新完全マスター 文法 N3',
-  level: 'N3',
-  chapters: [
-    {
-      id: 'L01',
-      bookId: 'SHINKANZEN_N3',
-      chapterNumber: 1,
-      title: '第1課 ～とき',
-      topics: ['time', 'condition'],
-      grammars: shinkanzenN3Lesson01
-    }
-  ]
-};

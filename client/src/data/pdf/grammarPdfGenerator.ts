@@ -1,5 +1,8 @@
 import { lesson01Sentences } from '../grammar/shinkanzen-n3/lesson01Sentences';
+import { lesson02Sentences } from '../grammar/shinkanzen-n3/lesson02Sentences';
 import { shuffleArray } from '../../utils/shuffle';
+
+const allGrammarSentences = [...lesson01Sentences, ...lesson02Sentences];
 
 export type PdfMode = 'vi_to_ja' | 'ja_to_vi';
 export type PdfScope = 'grammar' | 'lesson';
@@ -28,7 +31,7 @@ export interface GrammarPdfSet {
 export const generateGrammarPdfDataset = (config: GrammarPdfConfig): GrammarPdfSet[] => {
   // Use lesson01Sentences as the central bank for now. 
   // In a real scenario with more books, this would dynamically load based on bookId/chapterId.
-  const allSentences = lesson01Sentences;
+  const allSentences = allGrammarSentences;
   
   if (config.scope === 'lesson') {
     // Collect sentences for all requested grammars

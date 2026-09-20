@@ -1,7 +1,9 @@
 import type { SmartGrammarRule } from '../../types/grammarEngine';
 import type { PracticeType } from '../../types/grammar';
 import { lesson01Sentences } from '../../data/grammar/shinkanzen-n3/lesson01Sentences';
+import { lesson02Sentences } from '../../data/grammar/shinkanzen-n3/lesson02Sentences';
 
+const allGrammarSentences = [...lesson01Sentences, ...lesson02Sentences];
 
 import {
   generateMultipleChoiceQuestion,
@@ -63,7 +65,7 @@ export const generateSmartQuestionSet = (options: SmartGeneratorOptions): Questi
   const usedFingerprints = new Set<string>();
   
   // Lấy các câu cố định cho grammar hiện tại từ Sentence Bank
-  const availableSentences = lesson01Sentences.filter(s => s.grammarId === grammarRule.id);
+  const availableSentences = allGrammarSentences.filter(s => s.grammarId === grammarRule.id);
   const shuffledSentences = rng.shuffle(availableSentences);
   
   if (shuffledSentences.length === 0) {
