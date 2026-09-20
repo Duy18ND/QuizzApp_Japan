@@ -11,6 +11,7 @@ import { generateSmartQuestionSet } from '../../utils/grammarEngine/questionGene
 import { ArrowLeft, CheckCircle, XCircle } from 'lucide-react';
 import { unit1Data } from '../../data/n3/unit1'; // Mocking vocab data source
 import { grammarBooks } from '../../data/grammar';
+import { shuffleArray } from '../../utils/shuffle';
 
 export const GrammarPractice: React.FC = () => {
   const { bookId, chapterId, grammarId } = useParams<{ bookId: string; chapterId: string; grammarId?: string }>();
@@ -55,7 +56,7 @@ export const GrammarPractice: React.FC = () => {
       });
 
       // Shuffle all questions
-      const shuffled = [...allQuestions].sort(() => Math.random() - 0.5);
+      const shuffled = shuffleArray([...allQuestions]);
 
       if (shuffled.length === 0) {
         shuffled.push({

@@ -15,7 +15,7 @@ export const AnswerOption: React.FC<AnswerOptionProps> = ({ label, text, status,
   const baseClasses = "flex items-center w-full min-h-[3rem] p-3 md:p-4 rounded-xl border-2 transition-all duration-200 text-left text-lg md:text-xl font-medium";
   
   const statusClasses = {
-    default: "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:border-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 cursor-pointer",
+    default: "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:border-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:hover:bg-gray-700 cursor-pointer",
     correct: "border-green-500 bg-green-600 text-white shadow-lg shadow-green-200 dark:shadow-green-900/50",
     wrong: "border-red-500 bg-red-600 text-white shadow-lg shadow-red-200 dark:shadow-red-900/50",
     disabled: "border-gray-200 bg-gray-50 text-gray-400 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-500 opacity-60 cursor-not-allowed",

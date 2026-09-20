@@ -22,8 +22,12 @@ export const GrammarPdfWorkspace: React.FC = () => {
   
   const rules = useMemo(() => selectedChapter?.grammars || [], [selectedChapter]);
 
-  const [selectedRules, setSelectedRules] = useState<string[]>(initGrammarId ? [initGrammarId] : []);
-  
+  const [selectedRules, setSelectedRules] = useState<string[]>(() => {
+    if (initGrammarId) return [initGrammarId];
+    const initialBook = grammarBooks.find(b => b.id === initBookId);
+    const initialChapter = initialBook?.chapters.find(c => c.id === initChapterId);
+    return initialChapter ? initialChapter.grammars.map(g => g.id) : [];
+  });  
   // New PDF Config States
   const [pdfMode, setPdfMode] = useState<PdfMode>('vi_to_ja');
   
