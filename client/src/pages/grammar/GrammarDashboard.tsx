@@ -1,13 +1,24 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { JLPTLevel } from '../../types/grammar';
-import { Filter, FileText, Book, LayoutList, ChevronRight } from 'lucide-react';
+import { Filter, FileText, Book, LayoutList, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
 import { grammarBooks } from '../../data/grammar';
 
 export const GrammarDashboard: React.FC = () => {
   const navigate = useNavigate();
   const [selectedLevel, setSelectedLevel] = useState<JLPTLevel | 'All'>('All');
-  
+  const [expandedBooks, setExpandedBooks] = useState<Record<string, boolean>>({});
+
+  const isExpanded = (bookId: string) => {
+    return expandedBooks[bookId] !== false; // defaults to true
+  };
+
+  const toggleBook = (bookId: string) => {
+    setExpandedBooks(prev => ({
+      ...prev,
+      [bookId]: !isExpanded(bookId)
+    }));
+  };
   const levels: (JLPTLevel | 'All')[] = ['All', 'N5', 'N4', 'N3', 'N2', 'N1'];
 
   const filteredBooks = grammarBooks.filter(
@@ -70,19 +81,28 @@ export const GrammarDashboard: React.FC = () => {
       <div className="space-y-6">
         {filteredBooks.map((book) => (
           <div key={book.id} className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex items-center gap-4">
-              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center shrink-0">
-                <Book className="w-6 h-6" />
+            <div 
+              className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex items-center justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800/80 transition-colors"
+              onClick={() => toggleBook(book.id)}
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center shrink-0">
+                  <Book className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black text-gray-900 dark:text-white">
+                    {book.title}
+                  </h2>
+                  <p className="text-sm text-gray-500 font-medium mt-1">Level {book.level}</p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-xl font-black text-gray-900 dark:text-white">
-                  {book.title}
-                </h2>
-                <p className="text-sm text-gray-500 font-medium mt-1">Level {book.level}</p>
+              <div className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
+                {isExpanded(book.id) ? <ChevronUp className="w-6 h-6" /> : <ChevronDown className="w-6 h-6" />}
               </div>
             </div>
             
-            <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
+            {isExpanded(book.id) && (
+              <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
               {book.chapters.map(chapter => (
                 <div key={chapter.id} className="p-6 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors flex items-center justify-between group">
                   <div className="flex items-start gap-4">
@@ -110,6 +130,7 @@ export const GrammarDashboard: React.FC = () => {
                 </div>
               ))}
             </div>
+            )}
           </div>
         ))}
 

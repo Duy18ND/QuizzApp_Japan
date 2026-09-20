@@ -44,19 +44,25 @@ export const GrammarPractice: React.FC = () => {
       let allQuestions: any[] = [];
       
       // Generate questions for all targeted rules
-      rulesToPractice.forEach(rule => {
+      rulesToPractice.forEach((rule, index) => {
+        const countPerRule = grammarId ? questionCount : Math.max(4, Math.ceil(questionCount / rulesToPractice.length));
         const questionSet = generateSmartQuestionSet({
           grammarRule: rule,
-          count: grammarId ? questionCount : Math.max(3, Math.floor(questionCount / rulesToPractice.length)), // distribute question count
-          seed: currentSeed,
+          count: countPerRule,
+          seed: currentSeed + index, // Add index to seed to ensure variety across rules
           rawVocabulary: unit1Data as any[],
-          requestedPracticeTypes: mode === 'mixed' ? ['sentence_ordering', 'star_question'] : [mode],
+          requestedPracticeTypes: mode === 'mixed' ? ['sentence_ordering', 'star_question', 'fill_blank', 'multiple_choice'] : [mode],
         });
         allQuestions = [...allQuestions, ...questionSet.questions];
       });
 
       // Shuffle all questions
-      const shuffled = shuffleArray([...allQuestions]);
+      let shuffled = shuffleArray([...allQuestions]);
+      
+      // If practicing the whole chapter, cap exactly at questionCount
+      if (!grammarId && shuffled.length > questionCount) {
+        shuffled = shuffled.slice(0, questionCount);
+      }
 
       if (shuffled.length === 0) {
         shuffled.push({
@@ -228,17 +234,45 @@ export const GrammarPractice: React.FC = () => {
               )}
 
               {!feedback.isCorrect && (
+                <div className="bg-rose-50 dark:bg-rose-900/20 p-5 rounded-xl border border-rose-100 dark:border-rose-800/30 mt-6 text-left">
+                  <p className="text-sm font-bold text-rose-500 mb-1 uppercase tracking-wider">Đáp án đúng</p>
+                  <p className="font-bold text-xl text-gray-900 dark:text-white">
+                    {Array.isArray(feedback.correctAnswer) ? feedback.correctAnswer.join(' / ') : feedback.correctAnswer}
+                  </p>
+                </div>
+              )}
+
+              {feedback.explanation && (
                 <div className="bg-gray-50 dark:bg-gray-900/50 p-6 rounded-xl border border-gray-200 dark:border-gray-700 mt-6 text-left space-y-4">
-                  <div>
-                    <p className="text-sm font-bold text-gray-500 mb-1 uppercase tracking-wider">Đáp án đúng</p>
-                    <p className="font-bold text-xl text-gray-900 dark:text-white">
-                      {Array.isArray(feedback.correctAnswer) ? feedback.correctAnswer.join(' / ') : feedback.correctAnswer}
-                    </p>
-                  </div>
-                  {feedback.explanation && (
-                    <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                      <p className="text-sm font-bold text-indigo-500 mb-1 uppercase tracking-wider">Gợi ý</p>
-                      <p className="font-medium text-gray-700 dark:text-gray-300 leading-relaxed">
+                  {(currentQ as any).metadata?.japanese ? (
+                    <>
+                      <div>
+                        <p className="text-sm font-bold text-indigo-500 mb-2 uppercase tracking-wider">Câu gốc & Dịch nghĩa</p>
+                        <p className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                          {(currentQ as any).metadata.japanese}
+                        </p>
+                        <p className="text-gray-600 dark:text-gray-400">
+                          {(currentQ as any).metadata.vietnamese}
+                        </p>
+                      </div>
+                      <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                        <p className="text-sm font-bold text-indigo-500 mb-2 uppercase tracking-wider">
+                          Ngữ pháp: {(currentQ as any).metadata.grammarName}
+                        </p>
+                        <p className="font-medium text-gray-700 dark:text-gray-300 leading-relaxed">
+                          Ý nghĩa: {(currentQ as any).metadata.grammarMeaning}
+                        </p>
+                        {(currentQ as any).metadata.grammarExplanation && (
+                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                            {(currentQ as any).metadata.grammarExplanation}
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <div>
+                      <p className="text-sm font-bold text-indigo-500 mb-1 uppercase tracking-wider">Giải thích chi tiết</p>
+                      <p className="font-medium text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
                         {feedback.explanation}
                       </p>
                     </div>

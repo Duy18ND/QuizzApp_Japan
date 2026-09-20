@@ -14,7 +14,7 @@ import { useTheme } from '../../hooks/useTheme';
 
 const mainNavItems = [
   { id: 'list', path: '/vocabulary', label: 'Danh sách', icon: List },
-  { id: 'grammar', path: '/grammar', label: 'Grammar', icon: BookOpen },
+  { id: 'grammar', path: '/grammar', label: 'Ngữ pháp', icon: BookOpen },
   { id: 'quiz', path: '/vocabulary/quiz', label: 'Luyện Quiz', icon: BrainCircuit },
   { id: 'flashcards', path: '/flashcard', label: 'Flashcard', icon: Layers },
   { id: 'pdf', path: '/pdf', label: 'Xuất PDF', icon: FileText },

@@ -43,7 +43,7 @@ export const GrammarDetail: React.FC = () => {
 
         <div className="flex gap-4 mt-8">
           <button 
-            onClick={() => navigate(`/grammar/${book.id}/${chapter.id}/practice`)}
+            onClick={() => navigate(`/grammar/${book.id}/${chapter.id}/practice?count=20&mode=mixed`)}
             className="flex-1 py-3 px-6 bg-blue-600 hover:bg-blue-700 text-gray-900 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors shadow-sm"
           >
             <PlayCircle className="w-5 h-5" />
@@ -71,9 +71,14 @@ export const GrammarDetail: React.FC = () => {
             <div key={grammar.id} className="p-6 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
               <div className="flex justify-between items-start">
                 <div>
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2 flex-wrap">
                     <span className="text-gray-400 text-base">{index + 1}.</span>
                     {grammar.name}
+                    {grammar.hiragana && (
+                      <span className="text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-md ml-1">
+                        {grammar.hiragana}
+                      </span>
+                    )}
                   </h3>
                   <p className="text-gray-600 dark:text-gray-400 mt-2">
                     Ý nghĩa: <span className="font-semibold text-gray-800 dark:text-gray-200">{grammar.meaning}</span>
