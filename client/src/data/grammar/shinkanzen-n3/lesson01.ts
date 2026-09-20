@@ -1,4 +1,4 @@
-import type { SmartGrammarRule, GrammarBook } from '../../../types/grammarEngine';
+import type { SmartGrammarRule } from '../../../types/grammarEngine';
 
 const ALL_PRACTICE_TYPES = [
   'multiple_choice', 'fill_blank', 'conjugation', 'sentence_ordering', 

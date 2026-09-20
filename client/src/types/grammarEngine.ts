@@ -30,7 +30,7 @@ export type SemanticRole =
   | 'subject'
   | 'agent';
 
-export type VerbForm = 'Vる' | 'Vている' | 'Vた' | 'Vない' | 'Vて' | 'Noun+の' | 'Noun' | 'Na-adj+な' | 'I-adj' | 'Vてきた' | 'Vようになった' | 'Vていた' | 'Vられない';
+export type VerbForm = 'Vる' | 'Vている' | 'Vた' | 'Vない' | 'Vて' | 'Noun+の' | 'Noun' | 'Na-adj+な' | 'I-adj' | 'Vてきた' | 'Vようになった' | 'Vていた' | 'Vられない' | 'Nの' | 'Vてください' | 'N' | 'Nが' | 'Vるかどうかが' | 'Vば' | 'Aければ' | 'Naなら' | 'Aい' | 'Naだ' | 'Vよう';
 
 export interface GrammarSlotConstraint {
   name: string;
