@@ -1,22 +1,18 @@
 import React, { useState, useMemo, useRef, useCallback } from 'react';
-import { Download, RefreshCcw, Book, Layers } from 'lucide-react';
+import { Download, RefreshCcw, Book } from 'lucide-react';
 import { createPortal } from 'react-dom';
-import { generateSmartQuestionSet } from '../../../utils/grammarEngine/questionGenerator';
 import { grammarBooks } from '../../../data/grammar';
-import { unit1Data } from '../../../data/n3/unit1';
 import { useSearchParams } from 'react-router-dom';
 import { GrammarPdfBuilder } from './GrammarPdfBuilder';
 import { FontManager } from '../../../utils/fontManager';
-import type { PracticeType } from '../../../types/grammar';
+import { generateGrammarPdfDataset } from '../../../data/pdf/grammarPdfGenerator';
+import type { GrammarPdfConfig, PdfMode, GrammarPdfSet } from '../../../data/pdf/grammarPdfGenerator';
 
 export const GrammarPdfWorkspace: React.FC = () => {
   const [searchParams] = useSearchParams();
   const initBookId = searchParams.get('bookId') || grammarBooks[0]?.id || '';
   const initChapterId = searchParams.get('chapterId') || grammarBooks.find(b => b.id === initBookId)?.chapters[0]?.id || '';
   const initGrammarId = searchParams.get('grammarId') || '';
-
-  const initCount = parseInt(searchParams.get('count') || '5', 10);
-  const initMode = searchParams.get('mode') || 'mixed';
 
   const [selectedBookId, setSelectedBookId] = useState<string>(initBookId);
   const [selectedChapterId, setSelectedChapterId] = useState<string>(initChapterId);
@@ -27,27 +23,33 @@ export const GrammarPdfWorkspace: React.FC = () => {
   const rules = useMemo(() => selectedChapter?.grammars || [], [selectedChapter]);
 
   const [selectedRules, setSelectedRules] = useState<string[]>(initGrammarId ? [initGrammarId] : []);
-  const [questionCount, setQuestionCount] = useState(initCount);
+  
+  // New PDF Config States
+  const [pdfMode, setPdfMode] = useState<PdfMode>('vi_to_ja');
+  
+  type CountOption = number | 'all' | 'custom';
+  const [questionCount, setQuestionCount] = useState<CountOption>(5);
+  const [customCount, setCustomCount] = useState<number | ''>('');
+  
+
+  const [showHiragana, setShowHiragana] = useState<boolean>(false);
   const [generateAnswer, setGenerateAnswer] = useState(true);
-  const [generatedSets, setGeneratedSets] = useState<any[]>([]);
+
+  const [generatedSets, setGeneratedSets] = useState<GrammarPdfSet[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [selectedTopic, setSelectedTopic] = useState<string>('current');
-  const [selectedPreset, setSelectedPreset] = useState<string>('grammar_selection');
 
   // === Cache & Lock ===
-  // Lưu fingerprint của config lần generate cuối cùng để biết có cần generate lại không
   const lastConfigRef = useRef<string>('');
-  const isExportingRef = useRef(false); // Export lock - ngăn chạy song song
+  const isExportingRef = useRef(false);
 
   const getConfigFingerprint = useCallback(() => {
     return JSON.stringify({
       rules: [...selectedRules].sort(),
-      count: questionCount,
-      preset: selectedPreset,
-      topic: selectedTopic,
-      mode: initMode,
+      mode: pdfMode,
+      count: questionCount === 'custom' ? customCount : questionCount,
+      showHiragana: showHiragana
     });
-  }, [selectedRules, questionCount, selectedPreset, selectedTopic, initMode]);
+  }, [selectedRules, pdfMode, questionCount, customCount, showHiragana]);
 
   const handleToggleRule = (id: string) => {
     setSelectedRules(prev => 
@@ -58,39 +60,34 @@ export const GrammarPdfWorkspace: React.FC = () => {
   const handleExport = async () => {
     if (selectedRules.length === 0) return;
     
-    // Export lock: ngăn chạy song song
     if (isExportingRef.current) return;
     isExportingRef.current = true;
     setIsGenerating(true);
     
     try {
-      // Đảm bảo font sẵn sàng trước khi làm bất cứ điều gì
       await FontManager.ensureReady();
 
       const currentConfig = getConfigFingerprint();
       const needsRegenerate = currentConfig !== lastConfigRef.current || generatedSets.length === 0;
 
       if (needsRegenerate) {
-        const nextSeed = Date.now();
-        const topicScope = selectedTopic === 'current' ? [] : [];
-        const requestedPracticeTypes: PracticeType[] | undefined = 
-          initMode === 'mixed' && selectedPreset === 'mixed' ? undefined : [(initMode && initMode !== 'mixed' ? initMode : selectedPreset) as PracticeType];
+        let finalCount: number | 'all' = 10;
+        if (questionCount === 'all') finalCount = 'all';
+        else if (questionCount === 'custom') finalCount = customCount === '' ? 10 : customCount;
+        else finalCount = questionCount;
+
+        const config: GrammarPdfConfig = {
+          mode: pdfMode,
+          scope: 'grammar',
+          count: finalCount,
+          grammarIds: selectedRules,
+          showHiragana,
+        };
         
-        const sets = selectedRules.map(id => {
-          const rule = rules.find((r) => r.id === id)!;
-          return generateSmartQuestionSet({
-            grammarRule: rule,
-            count: questionCount,
-            seed: nextSeed,
-            rawVocabulary: unit1Data as any[],
-            topicScope,
-            requestedPracticeTypes
-          });
-        });
+        const sets = generateGrammarPdfDataset(config);
         setGeneratedSets(sets);
         lastConfigRef.current = currentConfig;
 
-        // Chờ DOM render xong (1 frame) rồi mới print
         await new Promise<void>(resolve => {
           requestAnimationFrame(() => {
             requestAnimationFrame(() => resolve());
@@ -134,7 +131,7 @@ export const GrammarPdfWorkspace: React.FC = () => {
               value={selectedChapterId}
               onChange={e => {
                 setSelectedChapterId(e.target.value);
-                setSelectedRules([]); // reset selections
+                setSelectedRules([]); 
               }}
               className="w-full p-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
             >
@@ -145,81 +142,131 @@ export const GrammarPdfWorkspace: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
-            <Layers className="w-5 h-5 text-blue-500" />
-            Chọn ngữ pháp ({rules.length})
-          </h3>
-          
-          <div className="max-h-64 overflow-y-auto space-y-2 border border-gray-200 dark:border-gray-700 rounded-xl p-3 bg-gray-50 dark:bg-gray-900/50 mb-3">
-            {rules.map((rule) => (
-              <label key={rule.id} className="flex items-center gap-3 p-2 hover:bg-white dark:hover:bg-gray-800 rounded-lg cursor-pointer">
-                <input 
-                  type="checkbox"
-                  checked={selectedRules.includes(rule.id)}
-                  onChange={() => handleToggleRule(rule.id)}
-                  className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                />
-                <div>
-                  <div className="font-semibold text-gray-900 dark:text-white">{rule.name}</div>
-                  <div className="text-xs text-gray-500">{rule.meaning}</div>
-                </div>
-              </label>
-            ))}
-          </div>
-          <button 
-            onClick={() => setSelectedRules(rules.map((r) => r.id))}
-            className="text-sm text-blue-600 dark:text-blue-400 font-medium hover:underline"
-          >
-            Chọn tất cả
-          </button>
-        </div>
-
+        {/* Cấu hình PDF */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 space-y-6">
-           <div>
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Preset (Loại bài tập)</label>
-            <select 
-              value={selectedPreset}
-              onChange={e => setSelectedPreset(e.target.value)}
-              className="w-full p-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-medium"
-            >
-              <option value="grammar_selection">Chọn ngữ pháp</option>
-              <option value="conjugation">Chia thể</option>
-              <option value="sentence_ordering">Sắp xếp câu</option>
-              <option value="mixed">★ Luyện tổng hợp</option>
-            </select>
-          </div>
-
-           <div>
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Nguồn từ vựng</label>
-            <select 
-              value={selectedTopic}
-              onChange={e => setSelectedTopic(e.target.value)}
-              className="w-full p-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="current">Sử dụng từ vựng của bài hiện tại</option>
-              <option value="unit1">Từ vựng Unit 1 (N3)</option>
-            </select>
+          
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Loại PDF</label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input 
+                  type="radio" 
+                  name="pdfMode" 
+                  value="vi_to_ja" 
+                  checked={pdfMode === 'vi_to_ja'} 
+                  onChange={() => setPdfMode('vi_to_ja')}
+                  className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-gray-900 dark:text-white">Việt → Nhật</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input 
+                  type="radio" 
+                  name="pdfMode" 
+                  value="ja_to_vi" 
+                  checked={pdfMode === 'ja_to_vi'} 
+                  onChange={() => setPdfMode('ja_to_vi')}
+                  className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-gray-900 dark:text-white">Nhật → Việt</span>
+              </label>
+            </div>
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Số lượng câu (mỗi ngữ pháp)</label>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 italic">Lưu ý: Chọn số lượng nhỏ (2-5) để PDF không quá dài.</p>
-            <div className="flex gap-2">
-              {[2, 3, 5, 10].map(num => (
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Chọn ngữ pháp</label>
+            <div className="max-h-64 overflow-y-auto space-y-2 border border-gray-200 dark:border-gray-700 rounded-xl p-3 bg-gray-50 dark:bg-gray-900/50">
+              {rules.map((rule) => (
+                <label key={rule.id} className="flex items-center gap-3 p-2 hover:bg-white dark:hover:bg-gray-800 rounded-lg cursor-pointer">
+                  <input 
+                    type="checkbox"
+                    checked={selectedRules.includes(rule.id)}
+                    onChange={() => handleToggleRule(rule.id)}
+                    className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                  />
+                  <div>
+                    <div className="font-semibold text-gray-900 dark:text-white">{rule.name}</div>
+                    <div className="text-xs text-gray-500">{rule.meaning}</div>
+                  </div>
+                </label>
+              ))}
+              <div className="mt-2">
+                <button 
+                  onClick={() => setSelectedRules(rules.map((r) => r.id))}
+                  className="text-sm text-blue-600 dark:text-blue-400 font-medium hover:underline mr-4"
+                >
+                  Chọn tất cả
+                </button>
+                <button 
+                  onClick={() => setSelectedRules([])}
+                  className="text-sm text-red-600 dark:text-red-400 font-medium hover:underline"
+                >
+                  Bỏ chọn
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              Số câu hỏi (mỗi ngữ pháp)
+            </label>
+            <div className="flex flex-wrap gap-2 items-center">
+              {[2, 3, 5, 10, 'all'].map(num => (
                 <button
                   key={num}
-                  onClick={() => setQuestionCount(num)}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  onClick={() => {
+                    setQuestionCount(num as any);
+                    if (num !== 'custom') setCustomCount('');
+                  }}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                     questionCount === num 
-                      ? 'bg-blue-600 text-gray-900 shadow-sm' 
+                      ? 'bg-blue-600 text-white shadow-sm' 
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                   }`}
                 >
-                  {num}
+                  {num === 'all' ? 'Tất cả' : num}
                 </button>
               ))}
+              
+              <div className="flex items-center ml-2">
+                <button
+                  onClick={() => setQuestionCount('custom')}
+                  className={`px-4 py-2 rounded-l-lg text-sm font-medium transition-colors ${
+                    questionCount === 'custom'
+                      ? 'bg-blue-600 text-white shadow-sm' 
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  Tự nhập
+                </button>
+                {questionCount === 'custom' && (
+                  <input
+                    type="number"
+                    min="1"
+                    value={customCount}
+                    onChange={(e) => setCustomCount(e.target.value ? parseInt(e.target.value, 10) : '')}
+                    placeholder="VD: 15"
+                    className="w-20 px-3 py-2 border-y border-r border-gray-200 dark:border-gray-700 rounded-r-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                )}
+              </div>
             </div>
+          </div>
+
+
+
+          <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+             <label className="flex items-center gap-3 py-2 cursor-pointer">
+              <input 
+                type="checkbox"
+                checked={showHiragana}
+                onChange={e => setShowHiragana(e.target.checked)}
+                className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+              />
+              <span className="font-semibold text-gray-900 dark:text-white text-sm">Hiển thị Hiragana hỗ trợ</span>
+            </label>
+            <p className="text-xs text-gray-500 pl-8">In thêm dòng Hiragana gợi ý (chỉ áp dụng cho loại Việt → Nhật).</p>
           </div>
         </div>
       </div>
@@ -239,18 +286,23 @@ export const GrammarPdfWorkspace: React.FC = () => {
         <button 
           onClick={handleExport}
           disabled={selectedRules.length === 0 || isGenerating}
-          className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-gray-900 rounded-2xl font-bold text-lg shadow-lg flex items-center justify-center gap-3 transition-colors disabled:opacity-50"
+          className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold text-lg shadow-lg flex items-center justify-center gap-3 transition-colors disabled:opacity-50"
         >
           {isGenerating ? <RefreshCcw className="w-6 h-6 animate-spin" /> : <Download className="w-6 h-6" />}
-          {isGenerating ? '⏳ Đang tạo PDF...' : 'Xuất PDF'}
+          {isGenerating ? '⏳ Đang tạo PDF...' : 'Xuất PDF Worksheet'}
         </button>
       </div>
 
-
-
-      {/* Hidden Print Container via Portal to avoid overflow:hidden clipping */}
+      {/* Hidden Print Container via Portal */}
       {createPortal(
-        <GrammarPdfBuilder bookId={selectedBookId} generatedSets={generatedSets} generateAnswer={generateAnswer} />,
+        <GrammarPdfBuilder 
+          bookId={selectedBookId} 
+          chapterId={selectedChapterId}
+          generatedSets={generatedSets} 
+          generateAnswer={generateAnswer} 
+          linesCount={1}
+          pdfMode={pdfMode}
+        />,
         document.body
       )}
     </div>
