@@ -51,7 +51,8 @@ export type QuestionType =
   | "kanji_to_hiragana"
   | "kanji_to_vi"
   | "hiragana_to_kanji"
-  | "hiragana_to_vi";
+  | "hiragana_to_vi"
+  | "vi_to_kanji";
 
 export interface Question {
   id: string;

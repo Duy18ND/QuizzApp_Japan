@@ -224,7 +224,7 @@ export const VocabularyPdfWorkspace: React.FC = () => {
           </div>
         ) : (
           <div className="flex flex-col space-y-4">
-            <CustomDataImport onDataImported={(data) => setManualWords(data)} />
+            <CustomDataImport onDataImported={(data) => setManualWords(data.vocabularies)} />
             {manualWords.length > 0 && (
               <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl flex items-center justify-between shadow-sm">
                 <span className="text-sm text-green-700 dark:text-green-400 font-bold">✅ Đã tải {manualWords.length} từ vựng</span>

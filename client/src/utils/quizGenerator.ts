@@ -121,7 +121,7 @@ export function generateQuizSession(config: QuizConfig, starredWords: number[], 
     const word = qObj.word;
     const type = qObj.type as QuestionType;
     
-    let answers = [];
+    let answers: { id: string; text: string }[] = [];
     let correctAnswerId = "A";
     let hint: any = {};
     let questionText = '';
