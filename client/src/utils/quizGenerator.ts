@@ -3,7 +3,6 @@ import type { QuizConfig, QuestionType } from '../types/quiz';
 
 const QUESTION_TYPES: QuestionType[] = [
   "vi_to_hiragana",
-  "vi_to_kanji",
   "kanji_to_hiragana",
   "kanji_to_vi",
   "hiragana_to_kanji",
@@ -31,28 +30,29 @@ export function generateQuizSession(config: QuizConfig, starredWords: number[], 
     questionCount,
     customRange,
     shuffleQuestions,
-    shuffleAnswers
+    shuffleAnswers,
+    customData
   } = config;
 
-  let unitData;
-  if (config.isCustom && config.customData && config.customData.length > 0) {
-    unitData = config.customData.map((w: any, index: number) => ({
+  // 1. Lấy dữ liệu gốc
+  let unitData: any[] = [];
+  if (config.isCustom && customData && customData.length > 0) {
+    unitData = customData.map((w: any, index: number) => ({
       ...w,
-      id: w.id || (Date.now() + index)
+      id: w.id || `C-${Date.now()}-${index}`
     }));
   } else {
     const levelKey = level.toLowerCase();
-    unitData = allVocabularyData[levelKey]?.[unitId.toString()];
+    unitData = allVocabularyData[levelKey]?.[unitId.toString()] || [];
   }
 
   if (!unitData || unitData.length === 0) {
     throw new Error(`Không có dữ liệu từ vựng để tạo bài kiểm tra.`);
   }
 
-  // Bước 1: Lấy danh sách từ vựng gốc
+  // 2. Lọc danh sách từ vựng gốc (Nguồn, Từ loại)
   let words = [...unitData];
 
-  // Lọc theo Nguồn (Đã lưu / Làm sai)
   if (!config.isCustom) {
     if (source === 'starred') {
       words = words.filter(w => starredWords.includes(w.id));
@@ -61,7 +61,6 @@ export function generateQuizSession(config: QuizConfig, starredWords: number[], 
     }
   }
 
-  // Lọc theo Từ loại (wordType)
   if (wordType && wordType !== 'all') {
     words = words.filter(w => {
       if (!w.wordType) return false;
@@ -76,47 +75,60 @@ export function generateQuizSession(config: QuizConfig, starredWords: number[], 
     throw new Error('Không có từ vựng nào phù hợp với bộ lọc hiện tại.');
   }
 
-  // Bước 2: Xử lý theo Phạm vi (Cố định / Tùy chỉnh)
-  if (rangeType === 'fixed') {
-    if (questionCount === 'all') {
-      if (shuffleQuestions) {
-        words = shuffle(words);
-      }
-    } else if (typeof questionCount === 'number') {
-      // Luôn xáo trộn toàn bộ mảng gốc trước khi lấy cố định số lượng
-      words = shuffle(words);
-      words = words.slice(0, questionCount);
-    }
-  } else if (rangeType === 'custom' && customRange) {
-    // Cắt theo STT (giữ nguyên tính tuần tự)
+  // 3. Xử lý Custom Range cho Vocabulary (nếu có)
+  if (rangeType === 'custom' && customRange) {
     const startIdx = Math.max(0, customRange.start - 1);
     const endIdx = customRange.end;
     words = words.slice(startIdx, endIdx);
-    
-    if (shuffleQuestions) {
-      words = shuffle(words);
-    }
   }
 
-  // Bước 3: Đóng gói thành Question Format
-  const sessionQuestions = words.map((word, index) => {
-    const type = QUESTION_TYPES[Math.floor(Math.random() * QUESTION_TYPES.length)];
-    
-    // Select 3 random other words for wrong answers
-    const otherWords = shuffle(unitData.filter(w => w.id !== word.id)).slice(0, 3);
-    let allOptions = [word, ...otherWords];
-    
-    if (shuffleAnswers) {
-      allOptions = shuffle(allOptions);
+  // 4. Sinh Pool Câu Hỏi
+  let poolOfQuestions: any[] = [];
+  const allowedTypes = (config.questionType && config.questionType !== 'all') 
+    ? [config.questionType as QuestionType] 
+    : QUESTION_TYPES;
+
+  words.forEach((word) => {
+    // Nếu trong word đã có thuộc tính quiz[] (import từ file JSON có sẵn quiz)
+    if (word.quiz && Array.isArray(word.quiz) && word.quiz.length > 0) {
+      const filteredQuizzes = word.quiz.filter((q: any) => 
+        !config.questionType || config.questionType === 'all' || q.type === config.questionType
+      );
+      poolOfQuestions.push(...filteredQuizzes.map((q: any) => ({ ...q, word })));
+    } else {
+      // Tự sinh dựa trên allowedTypes
+      allowedTypes.forEach(type => {
+        poolOfQuestions.push({ type, word, isGenerated: true });
+      });
     }
+  });
+
+  if (poolOfQuestions.length === 0) {
+    throw new Error('Không có câu hỏi nào được tạo ra. Vui lòng kiểm tra lại bộ lọc.');
+  }
+
+  // 5. Xử lý Fixed Range & Shuffle
+  if (shuffleQuestions) {
+    poolOfQuestions = shuffle(poolOfQuestions);
+  }
+
+  if (rangeType === 'fixed' && typeof questionCount === 'number') {
+    poolOfQuestions = poolOfQuestions.slice(0, questionCount);
+  }
+
+  // 6. Map to Final Question Format
+  return poolOfQuestions.map((qObj, index) => {
+    const word = qObj.word;
+    const type = qObj.type as QuestionType;
     
-    let questionText = '';
+    let answers = [];
+    let correctAnswerId = "A";
     let hint: any = {};
-    
-    const mapOptionText = (w: typeof word, t: string) => {
+    let questionText = '';
+
+    const mapOptionText = (w: any, t: string) => {
       switch(t) {
         case 'vi_to_hiragana': return w.hiragana || w.kanji || w.meaning;
-        case 'vi_to_kanji': return w.kanji || w.hiragana || w.meaning;
         case 'kanji_to_hiragana': return w.hiragana || w.kanji || w.meaning;
         case 'kanji_to_vi': return w.meaning || w.hiragana || w.kanji;
         case 'hiragana_to_kanji': return w.kanji || w.hiragana || w.meaning;
@@ -125,42 +137,82 @@ export function generateQuizSession(config: QuizConfig, starredWords: number[], 
       }
     };
 
-    switch (type) {
-      case 'vi_to_hiragana':
-        questionText = word.meaning || word.kanji;
-        hint = { kanji: word.kanji, meaning: word.meaning };
-        break;
-      case 'vi_to_kanji':
-        questionText = word.meaning || word.hiragana;
-        hint = { hiragana: word.hiragana, meaning: word.meaning };
-        break;
-      case 'kanji_to_hiragana':
-        questionText = word.kanji || word.meaning;
-        hint = { meaning: word.meaning };
-        break;
-      case 'kanji_to_vi':
-        questionText = word.kanji || word.hiragana;
-        hint = { hiragana: word.hiragana };
-        break;
-      case 'hiragana_to_kanji':
-        questionText = word.hiragana || word.meaning;
-        hint = { meaning: word.meaning };
-        break;
-      case 'hiragana_to_vi':
-        questionText = word.hiragana || word.kanji;
-        hint = { kanji: word.kanji };
-        break;
+    // Nếu câu hỏi được định nghĩa sẵn trong JSON (có mảng options)
+    if (qObj.options && Array.isArray(qObj.options)) {
+      questionText = qObj.question || '';
+      answers = qObj.options.map((optText: string, i: number) => {
+        const id = String.fromCharCode(65 + i); // A, B, C, D
+        if (qObj.answer === i || qObj.answer === id || qObj.answer === i + 1 || qObj.answer === optText) {
+            correctAnswerId = id;
+        }
+        return { id, text: optText };
+      });
+      if (shuffleAnswers) {
+        const correctAnsObj = answers.find(a => a.id === correctAnswerId);
+        answers = shuffle(answers);
+        answers = answers.map((a, i) => {
+            const newId = String.fromCharCode(65 + i);
+            if (correctAnsObj && a.text === correctAnsObj.text) {
+              correctAnswerId = newId;
+            }
+            return { id: newId, text: a.text };
+        });
+      }
+    } else {
+      // Sinh câu hỏi tự động
+      switch (type) {
+        case 'vi_to_hiragana':
+          questionText = word.meaning || word.kanji;
+          hint = { kanji: word.kanji, meaning: word.meaning };
+          break;
+        case 'kanji_to_hiragana':
+          questionText = word.kanji || word.meaning;
+          hint = { meaning: word.meaning };
+          break;
+        case 'kanji_to_vi':
+          questionText = word.kanji || word.hiragana;
+          hint = { hiragana: word.hiragana };
+          break;
+        case 'hiragana_to_kanji':
+          questionText = word.hiragana || word.meaning;
+          hint = { meaning: word.meaning };
+          break;
+        case 'hiragana_to_vi':
+          questionText = word.hiragana || word.kanji;
+          hint = { kanji: word.kanji };
+          break;
+      }
+
+      // Tạo random options
+      const otherWords = shuffle(unitData.filter((w: any) => w.id !== word.id)).slice(0, 3);
+      let allOptions = [word, ...otherWords];
+      if (shuffleAnswers) {
+        allOptions = shuffle(allOptions);
+      }
+      
+      answers = allOptions.map((opt, i) => {
+        const id = String.fromCharCode(65 + i);
+        const text = mapOptionText(opt, type);
+        if (opt.id === word.id) correctAnswerId = id;
+        return { id, text };
+      });
     }
 
-    let correctAnswerId = '';
-    const answers = allOptions.map((opt, i) => {
-      const id = String.fromCharCode(65 + i); // A, B, C, D
-      const text = mapOptionText(opt, type);
-      if (opt.id === word.id) correctAnswerId = id;
-      return { id, text };
-    });
+    // Fix hints if not generated automatically above
+    if (qObj.options) {
+      switch (type as string) {
+        case 'vi_to_hiragana': hint = { kanji: word.kanji, meaning: word.meaning }; break;
+        case 'vi_to_kanji': hint = { hiragana: word.hiragana, meaning: word.meaning }; break;
+        case 'kanji_to_hiragana': hint = { meaning: word.meaning }; break;
+        case 'kanji_to_vi':
+        case 'kanji_to_vietnamese': hint = { hiragana: word.hiragana }; break;
+        case 'hiragana_to_kanji': hint = { meaning: word.meaning }; break;
+        case 'hiragana_to_vi':
+        case 'hiragana_to_vietnamese': hint = { kanji: word.kanji }; break;
+      }
+    }
 
-    const qId = `Q-${Date.now()}-${index}`;
+    const qId = qObj.questionId || `Q-${Date.now()}-${index}`;
 
     return {
       id: qId,
@@ -177,10 +229,8 @@ export function generateQuizSession(config: QuizConfig, starredWords: number[], 
         meaning: word.meaning,
         wordType: word.wordType,
         hint,
-        explanation: `${word.kanji}（${word.hiragana}）= ${word.meaning}`
+        explanation: `${word.kanji || ''}（${word.hiragana || ''}）= ${word.meaning || ''}`
       }
     };
   });
-
-  return sessionQuestions;
 }

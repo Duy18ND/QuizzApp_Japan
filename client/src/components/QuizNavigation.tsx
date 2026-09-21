@@ -16,7 +16,7 @@ export const QuizNavigation: React.FC<QuizNavigationProps> = ({
   canGoNext 
 }) => {
   return (
-    <div className="flex justify-between items-center mt-8 gap-4">
+    <div className="flex justify-between items-center gap-4">
       <button
         onClick={onBack}
         disabled={isFirst}

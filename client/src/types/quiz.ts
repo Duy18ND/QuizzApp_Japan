@@ -28,6 +28,7 @@ export interface QuizConfig {
   showHanVietHint: boolean;
   isCustom?: boolean;
   customData?: any[];
+  questionType?: string;
 }
 
 export type WordType = 
@@ -47,7 +48,6 @@ export interface AnswerOption {
 
 export type QuestionType =
   | "vi_to_hiragana"
-  | "vi_to_kanji"
   | "kanji_to_hiragana"
   | "kanji_to_vi"
   | "hiragana_to_kanji"

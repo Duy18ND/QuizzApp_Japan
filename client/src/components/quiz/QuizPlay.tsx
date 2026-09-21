@@ -224,7 +224,7 @@ export const QuizPlay: React.FC<Props> = ({ config, onExit }) => {
         </div>
         
         {isAnswered && quizConfig.showExplanation && (
-          <div className="relative z-10 mt-4">
+          <div className="relative z-10 mt-4 mb-24">
             <Explanation 
               isCorrect={isCorrect} 
               correctAnswerText={correctAnswerText}
@@ -237,7 +237,14 @@ export const QuizPlay: React.FC<Props> = ({ config, onExit }) => {
           </div>
         )}
         
-        <div className="mt-auto pt-6 pb-2">
+        {/* We use mb-24 on the last visible element or pb-24 here to ensure we can scroll past the fixed footer */}
+        {!isAnswered || !quizConfig.showExplanation ? <div className="h-24"></div> : null}
+        
+      </div>
+
+      {/* Fixed bottom navigation */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-sm py-4 border-t border-gray-200 dark:border-gray-800 shadow-[0_-4px_10px_-1px_rgba(0,0,0,0.1)]">
+        <div className="w-full max-w-4xl mx-auto px-4 md:px-8">
           <QuizNavigation 
             onBack={handleBack} 
             onNext={handleNext} 

@@ -1,15 +1,19 @@
 import React, { useState } from 'react';
 import { Copy, Check, Download } from 'lucide-react';
 
+export interface ImportedData {
+  vocabularies: any[];
+}
+
 interface CustomDataImportProps {
-  onDataImported: (parsedData: any[]) => void;
+  onDataImported: (data: ImportedData) => void;
 }
 
 export const CustomDataImport: React.FC<CustomDataImportProps> = ({ onDataImported }) => {
   const [aiText, setAiText] = useState('');
   const [isCopied, setIsCopied] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [successMsg, setSuccessMsg] = useState<{ vocabCount: number } | null>(null);
 
   const promptText = `Hãy trích xuất và chuẩn hóa danh sách từ vựng tiếng Nhật lộn xộn dưới đây thành một mảng JSON.\nCấu trúc bắt buộc: [{"kanji": "", "hiragana": "", "hanViet": "", "meaning": "", "wordType": ""}].\nNếu không có Kanji thì để rỗng. Chỉ trả về duy nhất mảng JSON, không giải thích.\nDữ liệu của tôi: [DÁN TỪ VỰNG VÀO ĐÂY]`;
 
@@ -21,7 +25,7 @@ export const CustomDataImport: React.FC<CustomDataImportProps> = ({ onDataImport
 
   const handleImport = () => {
     setError('');
-    setSuccess('');
+    setSuccessMsg(null);
     
     if (!aiText.trim()) return;
 
@@ -31,12 +35,16 @@ export const CustomDataImport: React.FC<CustomDataImportProps> = ({ onDataImport
         throw new Error("Dữ liệu không phải là mảng JSON.");
       }
       
-      onDataImported(parsedData);
-      setSuccess('Nhập dữ liệu thành công!');
-      setAiText('');
+      const vocabularies = parsedData.map((w: any, index: number) => ({
+        ...w,
+        id: w.id || `V${Date.now()}_${index}`
+      }));
       
-      // Hide success message after 3 seconds
-      setTimeout(() => setSuccess(''), 3000);
+      onDataImported({ vocabularies });
+      setSuccessMsg({ 
+        vocabCount: vocabularies.length
+      });
+      setAiText('');
     } catch (err) {
       console.error("Lỗi parse JSON:", err);
       setError('Dữ liệu JSON không hợp lệ, vui lòng kiểm tra lại!');
@@ -78,7 +86,16 @@ export const CustomDataImport: React.FC<CustomDataImportProps> = ({ onDataImport
         
         {/* Messages */}
         {error && <p className="text-sm text-red-500 dark:text-red-400 mt-2">{error}</p>}
-        {success && <p className="text-sm text-green-600 dark:text-green-400 mt-2">{success}</p>}
+        {successMsg && (
+          <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+            <h4 className="font-semibold text-green-800 dark:text-green-400 mb-2">
+              ✅ Import thành công
+            </h4>
+            <div className="text-sm text-green-700 dark:text-green-300 space-y-1">
+              <p>{successMsg.vocabCount} từ vựng</p>
+            </div>
+          </div>
+        )}
         
         <div className="mt-4 flex justify-end">
           <button
@@ -93,3 +110,4 @@ export const CustomDataImport: React.FC<CustomDataImportProps> = ({ onDataImport
     </div>
   );
 };
+
