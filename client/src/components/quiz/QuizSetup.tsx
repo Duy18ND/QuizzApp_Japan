@@ -77,7 +77,7 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
   const [customWords, setCustomWords] = useState<Record<string, unknown>[]>([]);
 
   const activeUnits = UNIT_DATA[config.level] || UNIT_DATA.N3;
-  const systemTotalWords = activeUnits.find((u) => u.id === config.unitId)?.totalWords || 120;
+  const systemTotalWords = activeUnits.find((u) => u.id === config.unitId)?.totalWords ?? 0;
   const currentTotalWords = tab === 'custom' ? customWords.length : systemTotalWords;
 
   const handleLevelChange = (newLevel: JLPTLevel) => {
@@ -96,6 +96,11 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
   const handleStart = () => {
     if (tab === 'custom' && customWords.length === 0) {
       setError('Vui lòng nhập dữ liệu từ vựng trước khi bắt đầu Quiz.');
+      return;
+    }
+
+    if (tab === 'system' && systemTotalWords === 0) {
+      setError('Unit này hiện chưa có dữ liệu từ vựng (Sắp ra mắt). Vui lòng chọn N3 Unit 1.');
       return;
     }
 
@@ -188,8 +193,8 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
                   }
                 >
                   {activeUnits.map((unit) => (
-                    <option key={unit.id} value={unit.id}>
-                      {unit.name} ({unit.totalWords} từ)
+                    <option key={unit.id} value={unit.id} disabled={unit.totalWords === 0}>
+                      {unit.name} ({unit.totalWords > 0 ? `${unit.totalWords} từ` : 'Sắp ra mắt'})
                     </option>
                   ))}
                   <option value="all" disabled>

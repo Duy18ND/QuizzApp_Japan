@@ -105,7 +105,7 @@ export const VocabularyPdfWorkspace: React.FC = () => {
         exportWordsArr = words.map((w) => ({
           id: String(w.id),
           kanji: String(w.kanji || ''),
-          hanViet: String(w.hanViet || w.hanviet || ''),
+          hanViet: String(w.hanViet || ''),
           hiragana: String(w.hiragana || ''),
           meaning: String(w.meaning || ''),
         }));
@@ -190,8 +190,8 @@ export const VocabularyPdfWorkspace: React.FC = () => {
                     onChange={(e) => setUnitId(Number(e.target.value))}
                   >
                     {activeUnits.map((unit) => (
-                      <option key={unit.id} value={unit.id}>
-                        {unit.name}
+                      <option key={unit.id} value={unit.id} disabled={unit.totalWords === 0}>
+                        {unit.name} ({unit.totalWords > 0 ? `${unit.totalWords} từ` : 'Sắp ra mắt'})
                       </option>
                     ))}
                   </Select>

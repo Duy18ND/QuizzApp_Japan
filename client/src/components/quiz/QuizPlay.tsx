@@ -1,6 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { quizConfig } from '../../config/quizConfig';
+import { useAuth } from '../../context/auth-context';
+import { recordQuizAttempt } from '../../services/quizHistoryService';
 import type {
   AnswerOption as AnswerOptionType,
   Question,
@@ -34,10 +36,17 @@ interface Props {
 
 export const QuizPlay: React.FC<Props> = ({ config, onExit }) => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [quizSessionKey] = useState<number>(0);
   const { progress, addWrongWord } = useUserProgress();
+  const sessionStartRef = useRef<number>(0);
+  const recordedSessionRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    sessionStartRef.current = Date.now();
+  }, []);
 
   const [quizQuestions, setQuizQuestions] = useState<MergedQuestion[]>([]);
   const [state, setState] = useState<QuizState>({
@@ -137,6 +146,8 @@ export const QuizPlay: React.FC<Props> = ({ config, onExit }) => {
   }, []);
 
   const handleRetry = () => {
+    sessionStartRef.current = Date.now();
+    recordedSessionRef.current = false;
     setState({
       currentIndex: 0,
       userAnswers: {},
@@ -144,6 +155,47 @@ export const QuizPlay: React.FC<Props> = ({ config, onExit }) => {
       isFinished: false,
     });
   };
+
+  useEffect(() => {
+    if (!state.isFinished || quizQuestions.length === 0 || recordedSessionRef.current) return;
+    recordedSessionRef.current = true;
+
+    const durationSeconds =
+      sessionStartRef.current > 0
+        ? Math.max(1, Math.round((Date.now() - sessionStartRef.current) / 1000))
+        : 0;
+    const mistakes = quizQuestions
+      .map((q, idx) => {
+        const chosen = state.userAnswers[idx];
+        if (!chosen || chosen === q.answerData.correctAnswerId) return null;
+        return {
+          questionId: q.id,
+          wordId: q.wordId,
+          chosen,
+          correct: q.answerData.correctAnswerId,
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null);
+
+    void recordQuizAttempt(
+      {
+        quizType: 'vocabulary',
+        level: config.level,
+        score: state.score.correct,
+        totalQuestions: quizQuestions.length,
+        durationSeconds,
+        mistakesJson: mistakes,
+      },
+      user?.id,
+    );
+  }, [
+    state.isFinished,
+    state.score.correct,
+    state.userAnswers,
+    quizQuestions,
+    config.level,
+    user?.id,
+  ]);
 
   useEffect(() => {
     if (loading || error || state.isFinished || quizQuestions.length === 0) return;

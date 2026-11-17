@@ -1,40 +1,90 @@
+import { Suspense, lazy } from 'react';
 import { HashRouter, Routes, Route, Link } from 'react-router-dom';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { AppLayout } from './components/layout/AppLayout';
-import { EmptyState, buttonStyles } from './components/ui';
+import { EmptyState, LoadingState, PageContainer, buttonStyles } from './components/ui';
 import { ToastProvider } from './components/ui/Toast';
-import { HomePage } from './pages/HomePage';
-import { VocabularyLevelsPage } from './pages/vocabulary/VocabularyLevelsPage';
-import { VocabularyUnitsPage } from './pages/vocabulary/VocabularyUnitsPage';
-import { VocabularyWordsPage } from './pages/vocabulary/VocabularyWordsPage';
-import { QuizPage } from './pages/QuizPage';
-import { FlashcardPage } from './pages/FlashcardPage';
-import { FlashcardViewer } from './components/flashcard/FlashcardViewer';
-import { WritingPage } from './pages/WritingPage';
-import { ReviewPage } from './pages/ReviewPage';
-import { UnmasteredPage } from './pages/UnmasteredPage';
-import { SettingsPage } from './pages/SettingsPage';
-import { GrammarDashboard } from './pages/grammar/GrammarDashboard';
-import { GrammarDetail } from './pages/grammar/GrammarDetail';
-import { GrammarLesson } from './pages/grammar/GrammarLesson';
-import { GrammarPractice } from './pages/grammar/GrammarPractice';
-import { MistakesReview } from './pages/grammar/MistakesReview';
-import { PdfPage } from './pages/PdfPage';
-import { KanjiDashboard } from './pages/kanji/KanjiDashboard';
-import { KanjiDetail } from './pages/kanji/KanjiDetail';
-import { KanjiPractice } from './pages/kanji/KanjiPractice';
-import { JLPTModulePage } from './pages/jlpt/JLPTModulePage';
-import { validateGrammarPracticeBanks } from './data/grammar/shinkanzen-n3/lesson01PracticeBank';
 import './index.css';
 
-validateGrammarPracticeBanks();
+const HomePage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m.HomePage })));
+const LoginPage = lazy(() => import('./pages/auth/LoginPage').then((m) => ({ default: m.LoginPage })));
+const RegisterPage = lazy(() => import('./pages/auth/RegisterPage').then((m) => ({ default: m.RegisterPage })));
+const ProfilePage = lazy(() => import('./pages/ProfilePage').then((m) => ({ default: m.ProfilePage })));
+const AdminDashboardPage = lazy(() =>
+  import('./pages/admin/AdminDashboardPage').then((m) => ({ default: m.AdminDashboardPage })),
+);
+const VocabularyLevelsPage = lazy(() =>
+  import('./pages/vocabulary/VocabularyLevelsPage').then((m) => ({ default: m.VocabularyLevelsPage })),
+);
+const VocabularyUnitsPage = lazy(() =>
+  import('./pages/vocabulary/VocabularyUnitsPage').then((m) => ({ default: m.VocabularyUnitsPage })),
+);
+const VocabularyWordsPage = lazy(() =>
+  import('./pages/vocabulary/VocabularyWordsPage').then((m) => ({ default: m.VocabularyWordsPage })),
+);
+const QuizPage = lazy(() => import('./pages/QuizPage').then((m) => ({ default: m.QuizPage })));
+const FlashcardPage = lazy(() =>
+  import('./pages/FlashcardPage').then((m) => ({ default: m.FlashcardPage })),
+);
+const FlashcardViewer = lazy(() =>
+  import('./components/flashcard/FlashcardViewer').then((m) => ({ default: m.FlashcardViewer })),
+);
+const WritingPage = lazy(() =>
+  import('./pages/WritingPage').then((m) => ({ default: m.WritingPage })),
+);
+const ReviewPage = lazy(() =>
+  import('./pages/ReviewPage').then((m) => ({ default: m.ReviewPage })),
+);
+const UnmasteredPage = lazy(() =>
+  import('./pages/UnmasteredPage').then((m) => ({ default: m.UnmasteredPage })),
+);
+const SettingsPage = lazy(() =>
+  import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage })),
+);
+const GrammarDashboard = lazy(() =>
+  import('./pages/grammar/GrammarDashboard').then((m) => ({ default: m.GrammarDashboard })),
+);
+const GrammarDetail = lazy(() =>
+  import('./pages/grammar/GrammarDetail').then((m) => ({ default: m.GrammarDetail })),
+);
+const GrammarLesson = lazy(() =>
+  import('./pages/grammar/GrammarLesson').then((m) => ({ default: m.GrammarLesson })),
+);
+const GrammarPractice = lazy(() =>
+  import('./pages/grammar/GrammarPractice').then((m) => ({ default: m.GrammarPractice })),
+);
+const MistakesReview = lazy(() =>
+  import('./pages/grammar/MistakesReview').then((m) => ({ default: m.MistakesReview })),
+);
+const PdfPage = lazy(() => import('./pages/PdfPage').then((m) => ({ default: m.PdfPage })));
+const KanjiDashboard = lazy(() =>
+  import('./pages/kanji/KanjiDashboard').then((m) => ({ default: m.KanjiDashboard })),
+);
+const KanjiDetail = lazy(() =>
+  import('./pages/kanji/KanjiDetail').then((m) => ({ default: m.KanjiDetail })),
+);
+const KanjiPractice = lazy(() =>
+  import('./pages/kanji/KanjiPractice').then((m) => ({ default: m.KanjiPractice })),
+);
+const JLPTModulePage = lazy(() =>
+  import('./pages/jlpt/JLPTModulePage').then((m) => ({ default: m.JLPTModulePage })),
+);
+
+function RouteFallback() {
+  return (
+    <PageContainer size="md" className="py-12">
+      <LoadingState label="Đang tải trang..." />
+    </PageContainer>
+  );
+}
 
 function App() {
-
   return (
     <ToastProvider>
       <HashRouter>
-        <Routes>
-          <Route path="/" element={<AppLayout />}>
+        <Suspense fallback={<RouteFallback />}>
+          <Routes>
+            <Route path="/" element={<AppLayout />}>
             <Route index element={<HomePage />} />
           
             <Route path="vocabulary">
@@ -70,6 +120,17 @@ function App() {
             </Route>
 
             <Route path="jlpt/:moduleId" element={<JLPTModulePage />} />
+            <Route path="login" element={<LoginPage />} />
+            <Route path="register" element={<RegisterPage />} />
+            <Route path="profile" element={<ProfilePage />} />
+            <Route
+              path="admin"
+              element={
+                <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+                  <AdminDashboardPage />
+                </ProtectedRoute>
+              }
+            />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="pdf" element={<PdfPage />} />
             <Route
@@ -89,8 +150,9 @@ function App() {
                 </div>
               }
             />
-          </Route>
-        </Routes>
+            </Route>
+          </Routes>
+        </Suspense>
       </HashRouter>
     </ToastProvider>
   );

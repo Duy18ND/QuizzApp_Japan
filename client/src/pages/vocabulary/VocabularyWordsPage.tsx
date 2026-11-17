@@ -1,10 +1,13 @@
-import React, { useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
 import { Star, Volume2 } from 'lucide-react';
 import { UNIT_DATA } from '../../data/unitData';
+import { useAppSettings } from '../../hooks/useAppSettings';
 import { useUserProgress } from '../../hooks/useUserProgress';
 import type { JLPTLevel, WordType } from '../../types/quiz';
 import { allVocabularyData } from '../../data';
+import { speakJapanese, stopJapaneseSpeech } from '../../utils/tts';
+import { getVocabularyDisplay } from '../../utils/vocabularyHelpers';
 import {
   Badge,
   Button,
@@ -15,6 +18,7 @@ import {
   PageContainer,
   PageHeader,
   SearchInput,
+  buttonStyles,
 } from '../../components/ui';
 import { cn } from '../../lib/cn';
 
@@ -26,18 +30,6 @@ interface VocabRow {
   meaning: string;
   wordType: WordType;
 }
-
-const getWordDisplay = (word: VocabRow) => {
-  const trimmedKanji = word.kanji?.trim() || '';
-  const trimmedHiragana = word.hiragana?.trim() || '';
-  const hasKanji = Boolean(trimmedKanji && trimmedKanji !== trimmedHiragana);
-  return {
-    primaryText: hasKanji ? trimmedKanji : trimmedHiragana,
-    hasKanji,
-    hiragana: trimmedHiragana,
-    hanviet: word.hanviet,
-  };
-};
 
 const formatWordType = (type?: WordType): string => {
   switch (type) {
@@ -83,6 +75,7 @@ const FILTER_OPTIONS = [
 export const VocabularyWordsPage: React.FC = () => {
   const { level, unitId } = useParams<{ level: string; unitId: string }>();
   const { progress, toggleStar } = useUserProgress();
+  const { settings } = useAppSettings();
 
   const [selectedType, setSelectedType] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -97,7 +90,7 @@ export const VocabularyWordsPage: React.FC = () => {
     return data.map((w) => ({
       id: Number(w.id),
       kanji: w.kanji || '',
-      hanviet: w.hanViet || w.hanviet || '',
+      hanviet: w.hanViet || '',
       hiragana: w.hiragana || '',
       meaning: w.meaning || '',
       wordType: mapVietnameseWordTypeToEnglish(w.wordType),
@@ -126,13 +119,12 @@ export const VocabularyWordsPage: React.FC = () => {
   }, [words, selectedType, searchQuery]);
 
   const speakText = (text: string) => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'ja-JP';
-      window.speechSynthesis.speak(utterance);
-    }
+    speakJapanese(text, settings.ttsRate);
   };
+
+  useEffect(() => {
+    return () => stopJapaneseSpeech();
+  }, []);
 
   return (
     <PageContainer>
@@ -144,6 +136,19 @@ export const VocabularyWordsPage: React.FC = () => {
         ]}
         title={unitInfo?.name || `Unit ${numericUnitId}`}
         description={`Danh sách ${filteredWords.length} / ${words.length} từ vựng`}
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <Link to="/vocabulary/writing" className={buttonStyles({ variant: 'secondary', size: 'sm' })}>
+              Luyện gõ từ
+            </Link>
+            <Link to="/vocabulary/review" className={buttonStyles({ variant: 'secondary', size: 'sm' })}>
+              Ôn tập ★ & sai
+            </Link>
+            <Link to="/vocabulary/unmastered" className={buttonStyles({ variant: 'ghost', size: 'sm' })}>
+              Chưa thuộc
+            </Link>
+          </div>
+        }
       />
 
       <Card padding="none" className="overflow-hidden">
@@ -212,7 +217,11 @@ export const VocabularyWordsPage: React.FC = () => {
                         <span className="tabular text-xs font-medium text-subtle">{index + 1}.</span>
                         <div className="min-w-0">
                           {(() => {
-                            const display = getWordDisplay(word);
+                            const display = getVocabularyDisplay({
+                              kanji: word.kanji,
+                              hiragana: word.hiragana,
+                              hanViet: word.hanviet,
+                            });
                             return (
                               <>
                                 <p lang="ja" className="text-xl font-bold text-fg">
@@ -224,9 +233,9 @@ export const VocabularyWordsPage: React.FC = () => {
                                       {display.hiragana}
                                     </span>
                                   )}
-                                  {display.hasKanji && display.hanviet && (
+                                  {display.hasKanji && display.hanViet && (
                                     <span className="text-xs font-medium text-muted uppercase">
-                                      {display.hanviet}
+                                      {display.hanViet}
                                     </span>
                                   )}
                                 </div>
@@ -293,7 +302,11 @@ export const VocabularyWordsPage: React.FC = () => {
                         <td className="tabular px-5 py-4 text-muted">{index + 1}</td>
                         <td className="px-5 py-4">
                           {(() => {
-                            const display = getWordDisplay(word);
+                            const display = getVocabularyDisplay({
+                              kanji: word.kanji,
+                              hiragana: word.hiragana,
+                              hanViet: word.hanviet,
+                            });
                             return (
                               <div className="flex flex-col">
                                 <span lang="ja" className="text-lg font-bold text-fg">
@@ -304,9 +317,9 @@ export const VocabularyWordsPage: React.FC = () => {
                                     {display.hiragana}
                                   </span>
                                 )}
-                                {display.hasKanji && display.hanviet && (
+                                {display.hasKanji && display.hanViet && (
                                   <span className="text-xs font-medium text-muted uppercase">
-                                    {display.hanviet}
+                                    {display.hanViet}
                                   </span>
                                 )}
                               </div>

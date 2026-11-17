@@ -1,1682 +1,1896 @@
-export const unit1Data = [
+import type { VocabularyItem } from '../../types/vocabulary';
+
+export const unit1Data: VocabularyItem[] = [
   {
     "id": 1,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 1,
     "kanji": "男性",
     "hiragana": "だんせい",
     "hanViet": "NAM TÍNH",
     "meaning": "đàn ông, nam giới",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 2,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 2,
     "kanji": "女性",
     "hiragana": "じょせい",
     "hanViet": "NỮ TÍNH",
     "meaning": "phụ nữ, nữ giới",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 3,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 3,
     "kanji": "高齢",
     "hiragana": "こうれい",
     "hanViet": "CAO LINH",
     "meaning": "tuổi cao, cao tuổi",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 4,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 4,
     "kanji": "年上",
     "hiragana": "としうえ",
     "hanViet": "NIÊN THƯỢNG",
     "meaning": "lớn tuổi hơn",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 5,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 5,
     "kanji": "目上",
     "hiragana": "めうえ",
     "hanViet": "MỤC THƯỢNG",
     "meaning": "cấp trên, bề trên",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 6,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 6,
     "kanji": "先輩",
     "hiragana": "せんぱい",
     "hanViet": "TIỀN BỐI",
     "meaning": "tiền bối, người đi trước",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 7,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 7,
     "kanji": "後輩",
     "hiragana": "こうはい",
     "hanViet": "HẬU BỐI",
     "meaning": "hậu bối, người đi sau",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 8,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 8,
     "kanji": "上司",
     "hiragana": "じょうし",
     "hanViet": "THƯỢNG TƯ",
     "meaning": "cấp trên, sếp",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 9,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 9,
     "kanji": "相手",
     "hiragana": "あいて",
     "hanViet": "TƯƠNG THỦ",
     "meaning": "đối phương, đối thủ",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 10,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 10,
     "kanji": "知り合い",
     "hiragana": "しりあい",
     "hanViet": "TRI HỢP",
     "meaning": "người quen",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 11,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 11,
     "kanji": "友人",
     "hiragana": "ゆうじん",
     "hanViet": "HỮU NHÂN",
     "meaning": "bạn bè",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 12,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 12,
     "kanji": "仲",
     "hiragana": "なか",
     "hanViet": "TRỌNG",
     "meaning": "mối quan hệ",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 13,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 13,
     "kanji": "生年月日",
     "hiragana": "せいねんがっぴ",
     "hanViet": "SINH NIÊN NGUYỆT NHẬT",
     "meaning": "ngày tháng năm sinh",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 14,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 14,
     "kanji": "誕生",
     "hiragana": "たんじょう",
     "hanViet": "ĐẢN SINH",
     "meaning": "sự ra đời",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 15,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 15,
     "kanji": "年",
     "hiragana": "とし",
     "hanViet": "NIÊN",
     "meaning": "năm, tuổi",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 16,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 16,
     "kanji": "出身",
     "hiragana": "しゅっしん",
     "hanViet": "XUẤT THÂN",
     "meaning": "xuất thân",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 17,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 17,
     "kanji": "故郷",
     "hiragana": "こきょう",
     "hanViet": "CỐ HƯƠNG",
     "meaning": "quê hương",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 18,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 18,
     "kanji": "成長",
     "hiragana": "せいちょう",
     "hanViet": "THÀNH TRƯỞNG",
     "meaning": "trưởng thành, phát triển",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 19,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 19,
     "kanji": "成人",
     "hiragana": "せいじん",
     "hanViet": "THÀNH NHÂN",
     "meaning": "người trưởng thành",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 20,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 20,
     "kanji": "合格",
     "hiragana": "ごうかく",
     "hanViet": "HỢP CÁCH",
     "meaning": "thi đỗ, trúng tuyển",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 21,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 21,
     "kanji": "進学",
     "hiragana": "しんがく",
     "hanViet": "TIẾN HỌC",
     "meaning": "học lên cao hơn",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 22,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 22,
     "kanji": "退学",
     "hiragana": "たいがく",
     "hanViet": "THỐI HỌC",
     "meaning": "thôi học, bỏ học",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 23,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 23,
     "kanji": "就職",
     "hiragana": "しゅうしょく",
     "hanViet": "TỰU CHỨC",
     "meaning": "tìm việc, nhận việc",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 24,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 24,
     "kanji": "退職",
     "hiragana": "たいしょく",
     "hanViet": "THỐI CHỨC",
     "meaning": "nghỉ việc, từ chức",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 25,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 25,
     "kanji": "失業",
     "hiragana": "しつぎょう",
     "hanViet": "THẤT NGHIỆP",
     "meaning": "thất nghiệp",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 26,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 26,
     "kanji": "残業",
     "hiragana": "ざんぎょう",
     "hanViet": "TÀN NGHIỆP",
     "meaning": "làm thêm giờ",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 27,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 27,
     "kanji": "生活",
     "hiragana": "せいかつ",
     "hanViet": "SINH HOẠT",
     "meaning": "sinh hoạt, cuộc sống",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 28,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 28,
     "kanji": "通勤",
     "hiragana": "つうきん",
     "hanViet": "THÔNG CẦN",
     "meaning": "đi làm",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 29,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 29,
     "kanji": "学歴",
     "hiragana": "がくれき",
     "hanViet": "HỌC LỊCH",
     "meaning": "quá trình học tập, bằng cấp",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 30,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 30,
     "kanji": "給料",
     "hiragana": "きゅうりょう",
     "hanViet": "CẤP LIỆU",
     "meaning": "tiền lương",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 31,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 31,
     "kanji": "面接",
     "hiragana": "めんせつ",
     "hanViet": "DIỆN TIẾP",
     "meaning": "phỏng vấn",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 32,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 32,
     "kanji": "休憩",
     "hiragana": "きゅうけい",
     "hanViet": "HƯU KHẾ",
     "meaning": "nghỉ ngơi",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 33,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 33,
     "kanji": "観光",
     "hiragana": "かんこう",
     "hanViet": "QUAN QUANG",
     "meaning": "tham quan, du lịch",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 34,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 34,
     "kanji": "帰国",
     "hiragana": "きこく",
     "hanViet": "QUY QUỐC",
     "meaning": "về nước",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 35,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 35,
     "kanji": "帰省",
     "hiragana": "きせい",
     "hanViet": "QUY TỈNH",
     "meaning": "về quê",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 36,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 36,
     "kanji": "帰宅",
     "hiragana": "きたく",
     "hanViet": "QUY TRẠCH",
     "meaning": "về nhà",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 37,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 37,
     "kanji": "参加",
     "hiragana": "さんか",
     "hanViet": "THAM GIA",
     "meaning": "tham gia",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 38,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 38,
     "kanji": "出席",
     "hiragana": "しゅっせき",
     "hanViet": "XUẤT TỊCH",
     "meaning": "có mặt, tham dự",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 39,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 39,
     "kanji": "欠席",
     "hiragana": "けっせき",
     "hanViet": "KHIẾM TỊCH",
     "meaning": "vắng mặt",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 40,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 40,
     "kanji": "遅刻",
     "hiragana": "ちこく",
     "hanViet": "TRÌ KHẮC",
     "meaning": "đến muộn",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 41,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 41,
     "kanji": "化粧",
     "hiragana": "けしょう",
     "hanViet": "HÓA TRANG",
     "meaning": "trang điểm",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 42,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 42,
     "kanji": "計算",
     "hiragana": "けいさん",
     "hanViet": "KẾ TOÁN",
     "meaning": "tính toán",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 43,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 43,
     "kanji": "計画",
     "hiragana": "けいかく",
     "hanViet": "KẾ HOẠCH",
     "meaning": "kế hoạch",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 44,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 44,
     "kanji": "成功",
     "hiragana": "せいこう",
     "hanViet": "THÀNH CÔNG",
     "meaning": "thành công",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 45,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 45,
     "kanji": "失敗",
     "hiragana": "しっぱい",
     "hanViet": "THẤT BẠI",
     "meaning": "thất bại",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 46,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 46,
     "kanji": "準備",
     "hiragana": "じゅんび",
     "hanViet": "CHUẨN BỊ",
     "meaning": "chuẩn bị",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 47,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 47,
     "kanji": "整理",
     "hiragana": "せいり",
     "hanViet": "CHỈNH LÝ",
     "meaning": "sắp xếp, dọn dẹp",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 48,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 48,
     "kanji": "注文",
     "hiragana": "ちゅうもん",
     "hanViet": "CHÚ VĂN",
     "meaning": "gọi món, đặt hàng",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 49,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 49,
     "kanji": "貯金",
     "hiragana": "ちょきん",
     "hanViet": "TRỮ KIM",
     "meaning": "tiết kiệm, gửi tiền",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 50,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 50,
     "kanji": "徹夜",
     "hiragana": "てつや",
     "hanViet": "TRIỆT DẠ",
     "meaning": "thức trắng đêm",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 51,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 51,
     "kanji": "引っ越し",
     "hiragana": "ひっこし",
     "hanViet": "DẪN VIỆT",
     "meaning": "chuyển nhà",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 52,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 52,
     "kanji": "身長",
     "hiragana": "しんちょう",
     "hanViet": "THÂN TRƯỜNG",
     "meaning": "chiều cao",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 53,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 53,
     "kanji": "体重",
     "hiragana": "たいじゅう",
     "hanViet": "THỂ TRỌNG",
     "meaning": "cân nặng",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 54,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 54,
-    "kanji": "けが",
+    "kanji": null,
     "hiragana": "けが",
     "hanViet": null,
     "meaning": "vết thương, chấn thương",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 55,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 55,
     "kanji": "会",
     "hiragana": "かい",
     "hanViet": "HỘI",
     "meaning": "tiệc, buổi họp",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 56,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 56,
     "kanji": "趣味",
     "hiragana": "しゅみ",
     "hanViet": "THÚ VỊ",
     "meaning": "sở thích",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 57,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 57,
     "kanji": "興味",
     "hiragana": "きょうみ",
     "hanViet": "HƯNG VỊ",
     "meaning": "hứng thú",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 58,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 58,
     "kanji": "思い出",
     "hiragana": "おもいで",
     "hanViet": "TƯ XUẤT",
     "meaning": "kỷ niệm",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 59,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 59,
     "kanji": "冗談",
     "hiragana": "じょうだん",
     "hanViet": "NHŨNG ĐÀM",
     "meaning": "nói đùa",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 60,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 60,
     "kanji": "目的",
     "hiragana": "もくてき",
     "hanViet": "MỤC ĐÍCH",
     "meaning": "mục đích",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 61,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 61,
     "kanji": "約束",
     "hiragana": "やくそく",
     "hanViet": "ƯỚC THÚC",
     "meaning": "lời hứa, cuộc hẹn",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 62,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 62,
-    "kanji": "おしゃべり",
+    "kanji": null,
     "hiragana": "おしゃべり",
     "hanViet": null,
     "meaning": "nói chuyện, tán gẫu",
+    "wordType": "Tính từ -na",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Tính từ -na"
+    "notes": null
   },
   {
     "id": 63,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 63,
     "kanji": "遠慮",
     "hiragana": "えんりょ",
     "hanViet": "VIỄN LỰ",
     "meaning": "ngại ngùng, khách khí",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 64,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 64,
     "kanji": "我慢",
     "hiragana": "がまん",
     "hanViet": "NGÃ MẠN",
     "meaning": "chịu đựng, nhẫn nhịn",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 65,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 65,
     "kanji": "迷惑",
     "hiragana": "めいわく",
     "hanViet": "MÊ HOẶC",
     "meaning": "làm phiền, phiền phức",
+    "wordType": "Tính từ -na",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Tính từ -na"
+    "notes": null
   },
   {
     "id": 66,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 66,
     "kanji": "希望",
     "hiragana": "きぼう",
     "hanViet": "HI VỌNG",
     "meaning": "hy vọng, mong muốn",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 67,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 67,
     "kanji": "夢",
     "hiragana": "ゆめ",
     "hanViet": "MỘNG",
     "meaning": "giấc mơ, ước mơ",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 68,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 68,
     "kanji": "賛成",
     "hiragana": "さんせい",
     "hanViet": "TÁN THÀNH",
     "meaning": "tán thành, đồng ý",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 69,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 69,
     "kanji": "反対",
     "hiragana": "はんたい",
     "hanViet": "PHẢN ĐỐI",
     "meaning": "phản đối, ngược lại",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 70,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 70,
     "kanji": "想像",
     "hiragana": "そうぞう",
     "hanViet": "TƯỞNG TƯỢNG",
     "meaning": "tưởng tượng",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 71,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 71,
     "kanji": "努力",
     "hiragana": "どりょく",
     "hanViet": "NỖ LỰC",
     "meaning": "nỗ lực",
+    "wordType": "Động từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Động từ"
+    "notes": null
   },
   {
     "id": 72,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 72,
     "kanji": "太陽",
     "hiragana": "たいよう",
     "hanViet": "THÁI DƯƠNG",
     "meaning": "mặt trời",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 73,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 73,
     "kanji": "地球",
     "hiragana": "ちきゅう",
     "hanViet": "ĐỊA CẦU",
     "meaning": "trái đất",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 74,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 74,
     "kanji": "温度",
     "hiragana": "おんど",
     "hanViet": "ÔN ĐỘ",
     "meaning": "nhiệt độ",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 75,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 75,
     "kanji": "湿度",
     "hiragana": "しつど",
     "hanViet": "THẤP ĐỘ",
     "meaning": "độ ẩm",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 76,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 76,
     "kanji": "湿気",
     "hiragana": "しっけ",
     "hanViet": "THẤP KHÍ",
     "meaning": "hơi ẩm",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 77,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 77,
     "kanji": "梅雨",
     "hiragana": "つゆ",
     "hanViet": "MAI VŨ",
     "meaning": "mùa mưa",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 78,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 78,
-    "kanji": "かび",
+    "kanji": null,
     "hiragana": "かび",
     "hanViet": null,
     "meaning": "nấm mốc",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 79,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 79,
     "kanji": "暖房",
     "hiragana": "だんぼう",
     "hanViet": "NOÃN PHÒNG",
     "meaning": "máy sưởi, lò sưởi",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 80,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 80,
     "kanji": "皮",
     "hiragana": "かわ",
     "hanViet": "BÌ",
     "meaning": "vỏ, da",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 81,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 81,
     "kanji": "缶",
     "hiragana": "かん",
     "hanViet": "PHỮU",
     "meaning": "cái lon, hộp kim loại",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 82,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 82,
     "kanji": "画面",
     "hiragana": "がめん",
     "hanViet": "HỌA DIỆN",
     "meaning": "màn hình",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 83,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 83,
     "kanji": "番組",
     "hiragana": "ばんぐみ",
     "hanViet": "PHIÊN TỔ",
     "meaning": "chương trình tivi, radio",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 84,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 84,
     "kanji": "記事",
     "hiragana": "きじ",
     "hanViet": "KÝ SỰ",
     "meaning": "bài báo, phóng sự",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 85,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 85,
     "kanji": "近所",
     "hiragana": "きんじょ",
     "hanViet": "CẬN SỞ",
     "meaning": "hàng xóm, khu vực lân cận",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 86,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 86,
     "kanji": "警察",
     "hiragana": "けいさつ",
     "hanViet": "CẢNH SÁT",
     "meaning": "cảnh sát",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 87,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 87,
     "kanji": "犯人",
     "hiragana": "はんにん",
     "hanViet": "PHẠM NHÂN",
     "meaning": "tội phạm, hung thủ",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 88,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 88,
     "kanji": "小銭",
     "hiragana": "こぜに",
     "hanViet": "TIỂU TIỀN",
     "meaning": "tiền lẻ",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 89,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 89,
-    "kanji": "ごちそう",
+    "kanji": null,
     "hiragana": "ごちそう",
     "hanViet": null,
     "meaning": "bữa ăn ngon, thết đãi",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 90,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 90,
     "kanji": "作者",
     "hiragana": "さくしゃ",
     "hanViet": "TÁC GIẢ",
     "meaning": "tác giả",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 91,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 91,
     "kanji": "作品",
     "hiragana": "さくひん",
     "hanViet": "TÁC PHẨM",
     "meaning": "tác phẩm",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 92,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 92,
     "kanji": "制服",
     "hiragana": "せいふく",
     "hanViet": "CHẾ PHỤC",
     "meaning": "đồng phục",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 93,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 93,
     "kanji": "洗剤",
     "hiragana": "せんざい",
     "hanViet": "TẨY TỄ",
     "meaning": "bột giặt, chất tẩy rửa",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 94,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 94,
     "kanji": "底",
     "hiragana": "そこ",
     "hanViet": "ĐỂ",
     "meaning": "đáy, phần dưới cùng",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 95,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 95,
     "kanji": "地下",
     "hiragana": "ちか",
     "hanViet": "ĐỊA HẠ",
     "meaning": "dưới mặt đất, tầng hầm",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 96,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 96,
     "kanji": "寺",
     "hiragana": "てら",
     "hanViet": "TỰ",
     "meaning": "chùa",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 97,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 97,
     "kanji": "道路",
     "hiragana": "どうろ",
     "hanViet": "ĐẠO LỘ",
     "meaning": "con đường, đường phố",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 98,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 98,
     "kanji": "坂",
     "hiragana": "さか",
     "hanViet": "PHẢN",
     "meaning": "dốc, con dốc",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 99,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 99,
     "kanji": "煙",
     "hiragana": "けむり",
     "hanViet": "YÊN",
     "meaning": "khói",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 100,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 100,
     "kanji": "灰",
     "hiragana": "はい",
     "hanViet": "HÔI",
     "meaning": "tro",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 101,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 101,
     "kanji": "判",
     "hiragana": "はん",
     "hanViet": "PHÁN",
     "meaning": "con dấu",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 102,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 102,
     "kanji": "名刺",
     "hiragana": "めいし",
     "hanViet": "DANH THỨ",
     "meaning": "danh thiếp",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 103,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 103,
     "kanji": "免許",
     "hiragana": "めんきょ",
     "hanViet": "MIỄN HỨA",
     "meaning": "giấy phép, bằng lái",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 104,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 104,
     "kanji": "多く",
     "hiragana": "おおく",
     "hanViet": "ĐA",
     "meaning": "nhiều",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 105,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 105,
     "kanji": "前半",
     "hiragana": "ぜんはん",
     "hanViet": "TIỀN BÁN",
     "meaning": "nửa đầu",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 106,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 106,
     "kanji": "後半",
     "hiragana": "こうはん",
     "hanViet": "HẬU BÁN",
     "meaning": "nửa sau",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 107,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 107,
     "kanji": "最高",
     "hiragana": "さいこう",
     "hanViet": "TỐI CAO",
     "meaning": "cao nhất, tuyệt vời nhất",
+    "wordType": "Tính từ -na",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Tính từ -na"
+    "notes": null
   },
   {
     "id": 108,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 108,
     "kanji": "最低",
     "hiragana": "さいてい",
     "hanViet": "TỐI ĐÊ",
     "meaning": "thấp nhất, tồi tệ nhất",
+    "wordType": "Tính từ -na",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Tính từ -na"
+    "notes": null
   },
   {
     "id": 109,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 109,
     "kanji": "最初",
     "hiragana": "さいしょ",
     "hanViet": "TỐI SƠ",
     "meaning": "đầu tiên, lúc đầu",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 110,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 110,
     "kanji": "最後",
     "hiragana": "さいご",
     "hanViet": "TỐI HẬU",
     "meaning": "cuối cùng",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 111,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 111,
     "kanji": "自動",
     "hiragana": "じどう",
     "hanViet": "TỰ ĐỘNG",
     "meaning": "tự động",
+    "wordType": "Tính từ -na",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Tính từ -na"
+    "notes": null
   },
   {
     "id": 112,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 112,
     "kanji": "種類",
     "hiragana": "しゅるい",
     "hanViet": "CHỦNG LOẠI",
     "meaning": "chủng loại, loại",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 113,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 113,
     "kanji": "性格",
     "hiragana": "せいかく",
     "hanViet": "TÍNH CÁCH",
     "meaning": "tính cách",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 114,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 114,
     "kanji": "性質",
     "hiragana": "せいしつ",
     "hanViet": "TÍNH CHẤT",
     "meaning": "tính chất, đặc tính",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 115,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 115,
     "kanji": "順番",
     "hiragana": "じゅんばん",
     "hanViet": "THUẬN PHIÊN",
     "meaning": "thứ tự, lần lượt",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 116,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 116,
     "kanji": "番",
     "hiragana": "ばん",
     "hanViet": "PHIÊN",
     "meaning": "lượt, phiên",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 117,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 117,
     "kanji": "方法",
     "hiragana": "ほうほう",
     "hanViet": "PHƯƠNG PHÁP",
     "meaning": "phương pháp, cách thức",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 118,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 118,
     "kanji": "製品",
     "hiragana": "せいひん",
     "hanViet": "CHẾ PHẨM",
     "meaning": "sản phẩm, hàng hóa",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 119,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 119,
     "kanji": "値上がり",
     "hiragana": "ねあがり",
     "hanViet": "TRỊ THƯỢNG",
     "meaning": "tăng giá",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 120,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 120,
     "kanji": "生",
     "hiragana": "なま",
     "hanViet": "SINH",
     "meaning": "tươi, sống",
+    "wordType": "Danh từ",
     "exampleSentence": null,
     "exampleMeaning": null,
-    "notes": null,
-    "wordType": "Danh từ"
+    "notes": null
   },
   {
     "id": 200,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 200,
     "kanji": "食べる",
     "hiragana": "たべる",
     "hanViet": "THỰC",
     "meaning": "ăn",
     "wordType": "Động từ",
-    "tags": ["food", "task", "restaurant"],
-    "semanticRoles": ["task"]
+    "exampleSentence": null,
+    "exampleMeaning": null,
+    "notes": null,
+    "tags": [
+      "food",
+      "task",
+      "restaurant"
+    ],
+    "semanticRoles": [
+      "task"
+    ]
   },
   {
     "id": 201,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 201,
     "kanji": "遊ぶ",
     "hiragana": "あそぶ",
     "hanViet": "DU",
     "meaning": "chơi",
     "wordType": "Động từ",
-    "tags": ["free_time"],
-    "semanticRoles": ["free_time"]
+    "exampleSentence": null,
+    "exampleMeaning": null,
+    "notes": null,
+    "tags": [
+      "free_time"
+    ],
+    "semanticRoles": [
+      "free_time"
+    ]
   },
   {
     "id": 202,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 202,
     "kanji": "宿題をする",
     "hiragana": "しゅくだいをする",
     "hanViet": "TÚC ĐỀ",
     "meaning": "làm bài tập",
     "wordType": "Động từ",
-    "tags": ["school", "task", "study"],
-    "semanticRoles": ["task"]
+    "exampleSentence": null,
+    "exampleMeaning": null,
+    "notes": null,
+    "tags": [
+      "school",
+      "task",
+      "study"
+    ],
+    "semanticRoles": [
+      "task"
+    ]
   },
   {
     "id": 203,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 203,
     "kanji": "熱い",
     "hiragana": "あつい",
     "hanViet": "NHIỆT",
     "meaning": "nóng",
     "wordType": "Tính từ đuôi i",
-    "tags": ["food", "weather"],
-    "semanticRoles": ["food", "weather"]
+    "exampleSentence": null,
+    "exampleMeaning": null,
+    "notes": null,
+    "tags": [
+      "food",
+      "weather"
+    ],
+    "semanticRoles": [
+      "food",
+      "weather"
+    ]
   },
   {
     "id": 204,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 204,
     "kanji": "降る",
     "hiragana": "ふる",
     "hanViet": "GIÁNG",
     "meaning": "rơi (mưa, tuyết)",
     "wordType": "Động từ",
-    "tags": ["weather"],
-    "semanticRoles": ["weather"]
+    "exampleSentence": null,
+    "exampleMeaning": null,
+    "notes": null,
+    "tags": [
+      "weather"
+    ],
+    "semanticRoles": [
+      "weather"
+    ]
   },
   {
     "id": 205,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 205,
     "kanji": "帰る",
     "hiragana": "かえる",
     "hanViet": "QUY",
     "meaning": "về",
     "wordType": "Động từ",
-    "tags": ["travel_action", "daily_life"],
-    "semanticRoles": ["travel_action"]
+    "exampleSentence": null,
+    "exampleMeaning": null,
+    "notes": null,
+    "tags": [
+      "travel_action",
+      "daily_life"
+    ],
+    "semanticRoles": [
+      "travel_action"
+    ]
   },
   {
     "id": 206,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 206,
     "kanji": "練習する",
     "hiragana": "れんしゅうする",
     "hanViet": "LUYỆN TẬP",
     "meaning": "luyện tập",
     "wordType": "Động từ",
-    "tags": ["activity", "study", "school"],
-    "semanticRoles": ["activity"]
+    "exampleSentence": null,
+    "exampleMeaning": null,
+    "notes": null,
+    "tags": [
+      "activity",
+      "study",
+      "school"
+    ],
+    "semanticRoles": [
+      "activity"
+    ]
   },
   {
     "id": 207,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 207,
     "kanji": "上手になる",
     "hiragana": "じょうずになる",
     "hanViet": "THƯỢNG THỦ",
     "meaning": "trở nên giỏi",
     "wordType": "Động từ",
-    "tags": ["result_action", "study"],
-    "semanticRoles": ["result_action"]
+    "exampleSentence": null,
+    "exampleMeaning": null,
+    "notes": null,
+    "tags": [
+      "result_action",
+      "study"
+    ],
+    "semanticRoles": [
+      "result_action"
+    ]
   },
   {
     "id": 208,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 208,
     "kanji": "予約する",
     "hiragana": "よやくする",
     "hanViet": "DỰ ƯỚC",
     "meaning": "đặt trước",
     "wordType": "Động từ",
-    "tags": ["preparation", "travel"],
-    "semanticRoles": ["preparation"]
+    "exampleSentence": null,
+    "exampleMeaning": null,
+    "notes": null,
+    "tags": [
+      "preparation",
+      "travel"
+    ],
+    "semanticRoles": [
+      "preparation"
+    ]
   },
   {
     "id": 209,
     "unitId": 1,
+    "level": "N3",
     "wordNumber": 209,
     "kanji": "泊まる",
     "hiragana": "とまる",
     "hanViet": "BẠC",
     "meaning": "trọ lại",
     "wordType": "Động từ",
-    "tags": ["travel_action", "travel"],
-    "semanticRoles": ["travel_action"]
+    "exampleSentence": null,
+    "exampleMeaning": null,
+    "notes": null,
+    "tags": [
+      "travel_action",
+      "travel"
+    ],
+    "semanticRoles": [
+      "travel_action"
+    ]
   }
 ];

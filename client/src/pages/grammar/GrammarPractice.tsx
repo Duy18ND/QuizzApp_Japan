@@ -1,7 +1,9 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { ArrowLeft, ArrowRight, CheckCircle2, FileText, RefreshCw, XCircle } from 'lucide-react';
+import { useAuth } from '../../context/auth-context';
+import { recordQuizAttempt } from '../../services/quizHistoryService';
 import type { RootState } from '../../store';
 import {
   nextQuestion,
@@ -15,7 +17,12 @@ import { PracticeQuestionRenderer } from '../../components/practice/PracticeQues
 import type { PracticeQuestion, PracticeType } from '../../types/grammar';
 import { grammarBooks } from '../../data/grammar';
 import { shuffleArray } from '../../utils/shuffle';
-import { lesson01PracticeBank } from '../../data/grammar/shinkanzen-n3/lesson01PracticeBank';
+import {
+  lesson01PracticeBank,
+  validateGrammarPracticeBanks,
+} from '../../data/grammar/shinkanzen-n3/lesson01PracticeBank';
+
+validateGrammarPracticeBanks();
 import { generateSmartQuestionSet } from '../../utils/grammarEngine/questionGenerator';
 import {
   Badge,
@@ -64,6 +71,9 @@ export const GrammarPractice: React.FC = () => {
   const [currentSeed] = useState<number>(() => Date.now());
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const { user } = useAuth();
+  const sessionStartRef = useRef<number>(0);
+  const sessionMistakesRef = useRef<Array<Record<string, string>>>([]);
 
   const practice = useSelector((state: RootState) => state.practice);
 
@@ -143,6 +153,8 @@ export const GrammarPractice: React.FC = () => {
         });
       }
 
+      sessionStartRef.current = Date.now();
+      sessionMistakesRef.current = [];
       dispatch(startPractice({ mode, questions: shuffled }));
     }
   }, [rulesToPractice, mode, questionCount, currentSeed, practice.isActive, practice.isFinished, dispatch, grammarId]);
@@ -159,6 +171,11 @@ export const GrammarPractice: React.FC = () => {
     dispatch(submitAnswer({ questionId: currentQ.id, answer, isCorrect }));
 
     if (!isCorrect) {
+      sessionMistakesRef.current.push({
+        grammarId: currentQ.grammarId,
+        questionId: currentQ.id,
+        userAnswer: answer,
+      });
       dispatch(
         addMistake({
           id: Date.now().toString(),
@@ -180,12 +197,28 @@ export const GrammarPractice: React.FC = () => {
   const handleNext = useCallback(() => {
     setFeedback(null);
     if (practice.currentQuestionIndex >= practice.questions.length - 1) {
-      const total = practice.score.correct + practice.score.wrong;
-      const progress = total > 0 ? Math.round((practice.score.correct / total) * 100) : 0;
+      const total = Math.max(1, practice.score.correct + practice.score.wrong);
+      const progress = Math.round((practice.score.correct / total) * 100);
+      const durationSeconds =
+        sessionStartRef.current > 0
+          ? Math.max(1, Math.round((Date.now() - sessionStartRef.current) / 1000))
+          : 0;
+      const level = rulesToPractice[0]?.level || 'N3';
 
       if (grammarId) {
         dispatch(updateProgress({ grammarId, type: mode, score: progress }));
       }
+      void recordQuizAttempt(
+        {
+          quizType: 'grammar',
+          level,
+          score: practice.score.correct,
+          totalQuestions: total,
+          durationSeconds,
+          mistakesJson: sessionMistakesRef.current,
+        },
+        user?.id,
+      );
       dispatch(nextQuestion());
     } else {
       dispatch(nextQuestion());
@@ -197,6 +230,8 @@ export const GrammarPractice: React.FC = () => {
     practice.score.wrong,
     grammarId,
     mode,
+    rulesToPractice,
+    user?.id,
     dispatch,
   ]);
 

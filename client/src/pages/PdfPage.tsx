@@ -1,10 +1,11 @@
 import React from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { BookOpen, FileText, Hammer, Layers, Type } from 'lucide-react';
+import { BookOpen, FileText, Layers, Type } from 'lucide-react';
 import { VocabularyPdfWorkspace } from '../components/pdf/workspaces/VocabularyPdfWorkspace';
 import { GrammarPdfWorkspace } from '../components/pdf/workspaces/GrammarPdfWorkspace';
 import { KanjiPdfWorkspace } from '../components/pdf/workspaces/KanjiPdfWorkspace';
-import { Card, EmptyState, PageContainer, PageHeader, Tabs, type TabItem } from '../components/ui';
+import { FlashcardPdfWorkspace } from '../components/pdf/workspaces/FlashcardPdfWorkspace';
+import { PageContainer, PageHeader, Tabs, type TabItem } from '../components/ui';
 
 type PdfType = 'vocabulary' | 'grammar' | 'kanji' | 'flashcard';
 
@@ -49,15 +50,7 @@ export const PdfPage: React.FC = () => {
         {activeType === 'vocabulary' && <VocabularyPdfWorkspace />}
         {activeType === 'grammar' && <GrammarPdfWorkspace />}
         {activeType === 'kanji' && <KanjiPdfWorkspace />}
-        {activeType === 'flashcard' && (
-          <Card padding="lg">
-            <EmptyState
-              icon={<Hammer className="size-6" aria-hidden />}
-              title="Đang phát triển"
-              description="Tính năng xuất PDF cho Flashcard hiện đang được xây dựng và sẽ sớm ra mắt trong phiên bản tới."
-            />
-          </Card>
-        )}
+        {activeType === 'flashcard' && <FlashcardPdfWorkspace />}
       </div>
     </PageContainer>
   );

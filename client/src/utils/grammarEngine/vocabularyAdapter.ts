@@ -146,7 +146,7 @@ export const adaptVocabulary = (rawVocabulary: any[]): GrammarVocabulary[] => {
     };
 
     if (wordType === 'verb') {
-      adapted.verbGroup = guessVerbGroup(item.hiragana, item.kanji);
+      adapted.verbGroup = guessVerbGroup(item.hiragana, kanji);
     }
 
     return adapted;

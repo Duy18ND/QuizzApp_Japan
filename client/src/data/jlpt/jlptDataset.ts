@@ -1921,7 +1921,10 @@ function buildDatasetKanjiMcqs(): JLPTMcqItem[] {
 }
 
 function buildDatasetVocabMcqs(): JLPTMcqItem[] {
-  const validWords = unit1Data.filter((w) => w.kanji && w.hiragana && w.meaning);
+  const validWords = unit1Data.filter(
+    (w): w is (typeof unit1Data)[number] & { kanji: string } =>
+      Boolean(w.kanji && w.hiragana && w.meaning),
+  );
   const allMeanings = Array.from(new Set(validWords.map((w) => w.meaning)));
 
   return validWords.slice(0, 16).map((word, idx) => {
