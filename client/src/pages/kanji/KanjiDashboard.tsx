@@ -48,7 +48,7 @@ export const KanjiDashboard: React.FC = () => {
         title="Học Kanji"
         description="Luyện tập thứ tự nét, ghi nhớ âm đọc và từ vựng liên quan."
         actions={
-          <div className="flex min-w-44 flex-col gap-1.5 rounded-xl border border-line bg-surface px-4 py-2.5 shadow-card">
+          <div className="flex min-w-44 flex-col gap-1.5 rounded-xl border border-line bg-glass px-4 py-2.5 shadow-card">
             <div className="flex items-center justify-between gap-3 text-xs font-medium text-muted">
               <span>Đã thuộc</span>
               <span className="tabular font-semibold text-fg">

@@ -48,6 +48,13 @@
   --primary-fg: #0369A1;
   --focus-ring: #0284C7;
 
+  /* Translucent Glass Surfaces (No Blur) & Subtle Contrast Scrim */
+  --glass: rgba(255, 255, 255, 0.72);
+  --glass-hover: rgba(224, 242, 254, 0.86);
+  --glass-soft: rgba(240, 249, 255, 0.60);
+  --glass-header: rgba(255, 255, 255, 0.78);
+  --scrim-bg: rgba(242, 249, 255, 0.04);
+
   /* Japanese Decorative Accents */
   --sakura: #F472B6;
   --sakura-soft: #FDF2F8;
@@ -108,10 +115,17 @@
   --primary-fg: #7DD3FC;
   --focus-ring: #38BDF8;
 
+  /* Translucent Navy Glass Surfaces (No Blur) & Subtle Scrim */
+  --glass: rgba(5, 15, 35, 0.50);
+  --glass-hover: rgba(12, 42, 74, 0.68);
+  --glass-soft: rgba(5, 15, 35, 0.36);
+  --glass-header: rgba(5, 15, 35, 0.56);
+  --scrim-bg: rgba(5, 15, 35, 0.18);
+
   /* Japanese Decorative Accents */
   --sakura: #FB7185;
   --sakura-soft: rgba(244, 114, 182, 0.14);
-  --sun-disc: #FDE68A;
+  --sun-disc: #FDE047;
   --cyan-glow: rgba(56, 189, 248, 0.16);
   --wave: #38BDF8;
   --wave-ink: #7DD3FC;
@@ -166,6 +180,11 @@
   --color-primary-soft-hover: var(--primary-soft-hover);
   --color-primary-fg: var(--primary-fg);
   --color-focus: var(--focus-ring);
+  --color-glass: var(--glass);
+  --color-glass-hover: var(--glass-hover);
+  --color-glass-soft: var(--glass-soft);
+  --color-glass-header: var(--glass-header);
+  --color-scrim-bg: var(--scrim-bg);
 
   --color-sakura: var(--sakura);
   --color-sakura-soft: var(--sakura-soft);
@@ -259,66 +278,85 @@
 }
 @keyframes sakuraFall3D {
   0% {
-    transform: translate3d(0, -12vh, 0) rotateX(0deg) rotateY(0deg) rotateZ(0deg);
+    transform: translate3d(0, -10vh, 0) rotateX(0deg) rotateY(0deg) rotateZ(0deg);
+    opacity: 0;
   }
-  25% {
-    transform: translate3d(34px, 22vh, 18px) rotateX(110deg) rotateY(70deg) rotateZ(85deg);
+  12% {
+    opacity: 0.85;
   }
-  50% {
-    transform: translate3d(-18px, 52vh, -12px) rotateX(220deg) rotateY(155deg) rotateZ(175deg);
+  35% {
+    transform: translate3d(-14vw, 28vh, 18px) rotateX(120deg) rotateY(80deg) rotateZ(95deg);
   }
-  75% {
-    transform: translate3d(42px, 80vh, 14px) rotateX(300deg) rotateY(240deg) rotateZ(265deg);
-  }
-  100% {
-    transform: translate3d(12px, 112vh, 0) rotateX(360deg) rotateY(360deg) rotateZ(360deg);
-  }
-}
-@keyframes craneGlide {
-  0% {
-    transform: translate3d(-4vw, 6px, 0) rotate(-1.5deg);
-  }
-  50% {
-    transform: translate3d(2vw, -8px, 0) rotate(1deg);
+  68% {
+    transform: translate3d(-28vw, 62vh, -14px) rotateX(240deg) rotateY(180deg) rotateZ(210deg);
+    opacity: 0.75;
   }
   100% {
-    transform: translate3d(8vw, -2px, 0) rotate(-1deg);
+    transform: translate3d(-44vw, 105vh, 0) rotateX(360deg) rotateY(360deg) rotateZ(340deg);
+    opacity: 0;
   }
 }
-@keyframes craneWing {
+@keyframes sunPulse {
   0%, 100% {
+    transform: scale(1);
+    opacity: 0.38;
+  }
+  50% {
+    transform: scale(1.14);
+    opacity: 0.62;
+  }
+}
+@keyframes birdFlyAcross {
+  0% {
+    transform: translate3d(-12vw, 8px, 0);
+  }
+  50% {
+    transform: translate3d(50vw, -14px, 0);
+  }
+  100% {
+    transform: translate3d(112vw, 4px, 0);
+  }
+}
+@keyframes wingFlap {
+  0% {
     transform: scaleY(1);
   }
-  50% {
-    transform: scaleY(0.55);
+  100% {
+    transform: scaleY(0.42);
   }
 }
 @keyframes starTwinkle {
   0%, 100% {
-    opacity: 0.25;
-    transform: scale(0.85);
+    opacity: 0.2;
+    transform: scale(0.8);
   }
   50% {
     opacity: 0.95;
-    transform: scale(1.2);
+    transform: scale(1.25);
   }
 }
-@keyframes shootingStar {
+@keyframes fireflyFloat {
   0% {
-    transform: translate3d(0, 0, 0) rotate(-28deg) scaleX(0);
-    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(0.85);
+    opacity: 0.35;
   }
-  8% {
-    transform: translate3d(-40px, 22px, 0) rotate(-28deg) scaleX(1);
+  50% {
+    transform: translate3d(-12px, -18px, 0) scale(1.2);
     opacity: 0.95;
   }
-  28% {
-    transform: translate3d(-320px, 175px, 0) rotate(-28deg) scaleX(0.6);
-    opacity: 0;
+  100% {
+    transform: translate3d(10px, -32px, 0) scale(0.9);
+    opacity: 0.4;
+  }
+}
+@keyframes waterShimmer {
+  0% {
+    transform: translate3d(-18px, 0, 0) scaleX(0.96);
+    opacity: 0.35;
   }
   100% {
-    transform: translate3d(-320px, 175px, 0) rotate(-28deg) scaleX(0);
-    opacity: 0;
+    transform: translate3d(18px, 0, 0) scaleX(1.04);
+    opacity: 0.7;
   }
 }
 @keyframes clickRipple {
@@ -370,11 +408,6 @@
   body {
     min-height: 100vh;
     background-color: var(--bg);
-    background-image:
-      radial-gradient(circle at 14% 8%, var(--sakura-soft), transparent 38%),
-      radial-gradient(circle at 86% 12%, var(--cyan-glow), transparent 42%),
-      radial-gradient(circle at 50% 96%, var(--cyan-glow), transparent 48%);
-    background-attachment: fixed;
     color: var(--fg);
     font-family: var(--font-sans);
     line-height: 1.6;
@@ -432,7 +465,7 @@
     animation: waveFlow 8s ease-in-out infinite alternate;
   }
   .animate-cloud-drift {
-    animation: cloudDrift 25s linear infinite alternate;
+    animation: cloudDrift 35s linear infinite alternate;
   }
   .animate-sakura-flutter {
     animation: sakuraFlutter 14s linear infinite;
@@ -442,18 +475,27 @@
     transform-style: preserve-3d;
     will-change: transform;
   }
-  .animate-crane-glide {
-    animation: craneGlide 22s ease-in-out infinite alternate;
+  .animate-sun-pulse {
+    animation: sunPulse 4s ease-in-out infinite;
+    transform-origin: center;
   }
-  .animate-crane-wing {
-    animation: craneWing 2.6s ease-in-out infinite;
+  .animate-bird-fly {
+    animation: birdFlyAcross 22s linear infinite;
+    will-change: transform;
+  }
+  .animate-wing-flap {
+    animation: wingFlap 0.7s ease-in-out infinite alternate;
     transform-origin: center;
   }
   .animate-star-twinkle {
     animation: starTwinkle 3.6s ease-in-out infinite;
+    transform-origin: center;
   }
-  .animate-shooting-star {
-    animation: shootingStar 7s ease-out infinite;
+  .animate-firefly {
+    animation: fireflyFloat 6s ease-in-out infinite alternate;
+  }
+  .animate-water-shimmer {
+    animation: waterShimmer 9s ease-in-out infinite alternate;
   }
   .animate-click-ripple {
     animation: clickRipple 550ms var(--ease-out-soft) forwards;
@@ -464,17 +506,43 @@
   .animate-petal-burst {
     animation: petalBurst 700ms var(--ease-out-soft) forwards;
   }
-  .day-scene {
-    display: block;
+  .bg-day-layer,
+  .sky-day-layer {
+    opacity: 1;
+    transition: opacity 700ms ease-in-out !important;
   }
-  .night-scene {
-    display: none;
+  html.dark .bg-day-layer,
+  html.dark .sky-day-layer {
+    opacity: 0;
   }
-  html.dark .day-scene {
-    display: none;
+  .bg-night-layer,
+  .sky-night-layer {
+    opacity: 0;
+    transition: opacity 700ms ease-in-out !important;
   }
-  html.dark .night-scene {
-    display: block;
+  html.dark .bg-night-layer,
+  html.dark .sky-night-layer {
+    opacity: 1;
+  }
+  .celestial-sun {
+    transform: translateY(0px) scale(1);
+    opacity: 1;
+    transform-origin: center;
+    transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.7s ease !important;
+  }
+  html.dark .celestial-sun {
+    transform: translateY(180px) scale(0.65);
+    opacity: 0;
+  }
+  .celestial-moon {
+    transform: translateY(180px) rotate(-35deg) scale(0.65);
+    opacity: 0;
+    transform-origin: center;
+    transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.7s ease !important;
+  }
+  html.dark .celestial-moon {
+    transform: translateY(0px) rotate(0deg) scale(1);
+    opacity: 1;
   }
   .animate-fade-up {
     animation: fadeUp 200ms var(--ease-out-soft) both;
@@ -482,9 +550,9 @@
 }
 
 /* Short colour cross-fade only while the theme is being toggled (set from JS),
-   so ordinary hover/transition behaviour is never slowed down. */
+   excluding landscape/celestial transition layers so cross-fade (700ms) and rise/set (900ms) run smoothly. */
 html.theme-transition,
-html.theme-transition *,
+html.theme-transition *:not(.bg-day-layer):not(.bg-night-layer):not(.sky-day-layer):not(.sky-night-layer):not(.celestial-sun):not(.celestial-moon),
 html.theme-transition *::before,
 html.theme-transition *::after {
   transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease, fill 180ms ease, stroke 180ms ease !important;

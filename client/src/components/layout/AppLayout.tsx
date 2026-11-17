@@ -21,16 +21,12 @@ export const AppLayout: React.FC = () => {
         Bỏ qua điều hướng
       </a>
 
-      <header className="relative z-40 flex-none overflow-hidden border-b border-line bg-surface/85 backdrop-blur-md">
+      <header className="relative z-40 flex-none overflow-hidden border-b border-line bg-glass-header">
         <div
           aria-hidden
-          className="seigaiha-mask pointer-events-none absolute inset-0 bg-wave opacity-[0.14]"
+          className="seigaiha-mask pointer-events-none absolute inset-0 bg-wave opacity-[0.08]"
         />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-y-0 right-0 w-2/3 bg-gradient-to-l from-sakura-soft via-primary-soft/50 to-transparent"
-        />
-        <div className="relative mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 md:h-16 md:px-8">
+        <div className="relative mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 md:h-15 md:px-6">
           <Link to="/" className="group flex shrink-0 items-center gap-2.5 rounded-lg" aria-label="Nihongo 問 — Trang chủ">
             <span
               lang="ja"
@@ -63,7 +59,7 @@ export const AppLayout: React.FC = () => {
         tabIndex={-1}
         className="relative z-10 flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto focus:outline-none"
       >
-        <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-6 md:px-8 md:py-10">
+        <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-4 md:px-6 md:py-6">
           <Outlet />
         </div>
       </main>

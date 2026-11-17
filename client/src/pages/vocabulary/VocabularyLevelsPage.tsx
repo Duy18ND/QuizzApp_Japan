@@ -23,7 +23,7 @@ export const VocabularyLevelsPage: React.FC<Props> = ({
   hideTabs = false,
 }) => {
   return (
-    <PageContainer>
+    <PageContainer size="md">
       <PageHeader
         title={hideTabs ? `Chọn trình độ (${title})` : 'Chọn trình độ (JLPT)'}
         description="Chọn trình độ bạn muốn học để xem danh sách bài học tương ứng."
@@ -34,14 +34,15 @@ export const VocabularyLevelsPage: React.FC<Props> = ({
           <li key={level.id}>
             <CardLink
               to={`${basePath}/${level.id.toLowerCase()}`}
-              className="group flex h-full items-center gap-4"
+              padding="sm"
+              className="group flex h-full items-center gap-3 p-3.5"
             >
-              <span className="grid size-12 shrink-0 place-items-center rounded-lg bg-primary-soft text-lg font-bold text-primary-fg">
+              <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary-soft text-base font-bold text-primary-fg">
                 {level.id}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-base font-semibold text-fg">{level.title}</span>
-                <span className="mt-0.5 block text-sm text-muted">{level.desc}</span>
+                <span className="block text-sm font-semibold text-fg md:text-base">{level.title}</span>
+                <span className="mt-0.5 block text-xs text-muted">{level.desc}</span>
               </span>
               <ArrowRight
                 className="size-4 shrink-0 text-subtle transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-primary-fg"

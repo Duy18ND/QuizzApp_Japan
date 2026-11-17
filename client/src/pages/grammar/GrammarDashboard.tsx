@@ -86,7 +86,7 @@ export const GrammarDashboard: React.FC = () => {
                   type="button"
                   aria-expanded={expanded}
                   onClick={() => toggleBook(book.id)}
-                  className="flex w-full items-center justify-between gap-4 bg-surface-2 px-5 py-4 text-left transition-colors hover:bg-primary-soft md:px-6"
+                  className="flex w-full items-center justify-between gap-4 bg-glass-soft px-5 py-3.5 text-left transition-colors hover:bg-glass-hover md:px-6"
                 >
                   <div className="flex min-w-0 items-center gap-3.5">
                     <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary-fg">

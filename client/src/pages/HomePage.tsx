@@ -94,21 +94,21 @@ function FeatureNavCard({ area }: { area: Area }) {
     <Link
       to={area.to}
       className={cn(
-        'animate-fade-up group relative flex h-full cursor-pointer items-start gap-4 overflow-hidden rounded-2xl border p-5 shadow-card backdrop-blur-[2px] transition-[border-color,background-color,transform] duration-150 ease-out-soft hover:-translate-y-0.5 active:scale-[0.99]',
+        'animate-fade-up group relative flex h-full cursor-pointer items-start gap-3.5 overflow-hidden rounded-xl border p-3.5 shadow-card transition-[border-color,background-color,transform] duration-150 ease-out-soft hover:-translate-y-0.5 active:scale-[0.99]',
         area.featured
-          ? 'border-sakura/45 bg-sakura-soft hover:border-sakura hover:bg-primary-soft'
-          : 'border-line bg-surface/92 hover:border-primary hover:bg-surface-2',
+          ? 'border-sakura/50 bg-glass-soft hover:border-sakura hover:bg-glass-hover'
+          : 'border-line bg-glass hover:border-primary hover:bg-glass-hover',
       )}
     >
       <span
         aria-hidden
-        className="seigaiha-mask pointer-events-none absolute -right-2 -bottom-2 h-10 w-24 bg-wave opacity-0 transition-opacity duration-150 group-hover:opacity-35"
+        className="seigaiha-mask pointer-events-none absolute -right-2 -bottom-2 h-8 w-20 bg-wave opacity-0 transition-opacity duration-150 group-hover:opacity-30"
       />
       <span
         lang="ja"
         aria-hidden
         className={cn(
-          'relative flex size-11 shrink-0 items-center justify-center rounded-xl text-lg font-bold transition-colors duration-150',
+          'relative flex size-10 shrink-0 items-center justify-center rounded-lg text-base font-bold transition-colors duration-150',
           area.featured
             ? 'bg-sakura text-on-primary ring-2 ring-sakura/30 group-hover:bg-primary'
             : 'bg-primary-soft text-primary-fg ring-1 ring-primary/20 group-hover:bg-primary group-hover:text-on-primary group-hover:ring-sakura/45',
@@ -118,14 +118,14 @@ function FeatureNavCard({ area }: { area: Area }) {
       </span>
       <span className="relative min-w-0 flex-1">
         <span className="flex items-center justify-between gap-2">
-          <span className="block text-base font-semibold text-fg">{area.title}</span>
+          <span className="block text-sm font-semibold text-fg md:text-base">{area.title}</span>
           {area.featured && (
-            <span className="rounded-full border border-sakura/35 bg-surface/80 px-2 py-0.5 text-[11px] font-semibold text-sakura">
+            <span className="rounded-full border border-sakura/35 bg-glass-soft px-2 py-0.5 text-[11px] font-semibold text-sakura">
               JLPT Mock
             </span>
           )}
         </span>
-        <span className="mt-1 block text-sm leading-relaxed text-muted">{area.description}</span>
+        <span className="mt-0.5 block text-xs leading-relaxed text-muted md:text-sm">{area.description}</span>
       </span>
     </Link>
   );
@@ -145,51 +145,40 @@ export const HomePage: React.FC = () => {
     <PageContainer>
       <section
         aria-label="Giới thiệu"
-        className="relative mb-6 overflow-hidden rounded-2xl bg-gradient-to-br from-hero-from to-hero-to p-6 text-on-hero md:mb-8 md:p-10"
+        className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-glass px-4 py-3 shadow-card md:mb-5 md:px-5"
       >
-        <div aria-hidden className="seigaiha-mask pointer-events-none absolute inset-0 bg-on-hero opacity-[0.12]" />
-        <svg
-          aria-hidden
-          viewBox="0 0 400 160"
-          className="pointer-events-none absolute right-0 bottom-0 h-40 w-auto text-on-hero opacity-25 md:h-56"
-          fill="currentColor"
-        >
-          <circle cx="300" cy="46" r="26" opacity="0.7" />
-          <path d="M120 160 L230 62 L252 80 L270 66 L400 160 Z" opacity="0.55" />
-          <path d="M214 76 L230 62 L246 76 L238 74 L230 82 L222 74 Z" opacity="0.9" />
-          {/* Graceful Cranes flying past Mount Fuji */}
-          <path d="M256 44 Q246 34 234 38 Q244 42 254 46 Q264 36 276 40 Q266 44 256 44 Z" opacity="0.85" />
-          <path d="M282 32 Q274 24 265 27 Q273 30 280 34 Q288 26 297 29 Q289 32 282 32 Z" opacity="0.75" />
-          <path d="M0 160 Q50 120 100 150 T200 150 T300 150 T400 150 V160 Z" />
-        </svg>
-        <div className="relative max-w-xl">
-          <p lang="ja" className="text-sm font-medium tracking-[0.3em] text-on-hero/80">
-            日本語道場
-          </p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight md:text-4xl">Học tiếng Nhật mỗi ngày</h1>
-          <p className="mt-2 text-base text-on-hero/85">
-            Như sóng biển, từng chút một rồi sẽ thành đại dương. Tiến độ được lưu ngay trên thiết bị của bạn.
+        <div className="min-w-0">
+          <div className="flex items-center gap-2.5">
+            <span lang="ja" className="rounded-md bg-primary-soft px-2 py-0.5 text-xs font-semibold tracking-widest text-primary-fg">
+              日本語道場
+            </span>
+            <h1 className="text-xl font-bold tracking-tight text-fg md:text-2xl">
+              Học tiếng Nhật mỗi ngày
+            </h1>
+          </div>
+          <p className="mt-1 text-sm text-muted">
+            Chọn một mục để tiếp tục. Tiến độ được lưu ngay trên thiết bị của bạn.
           </p>
         </div>
       </section>
 
-      <Card as="section" aria-label="Tiến độ học tập" className="mb-8" padding="lg">
-        <div className="mb-5 flex items-center gap-2.5">
+      <Card as="section" aria-label="Tiến độ học tập" className="mb-5 md:mb-6" padding="md">
+        <div className="mb-3.5 flex items-center gap-2">
           <span
             lang="ja"
             aria-hidden
-            className="grid size-8 place-items-center rounded-md bg-primary text-sm font-bold text-on-primary"
+            className="grid size-7 place-items-center rounded-md bg-primary text-xs font-bold text-on-primary"
           >
             進
           </span>
-          <h2 className="text-sm font-semibold tracking-wide text-muted uppercase">Tiến độ học tập</h2>
+          <h2 className="text-xs font-semibold tracking-wide text-muted uppercase">Tiến độ học tập</h2>
         </div>
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="flex flex-col gap-2">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="flex flex-col gap-1.5">
             <Stat label="Kanji đã thuộc" value={`${kanjiLearned}/${kanjiTotal}`} />
             <ProgressBar value={kanjiLearned} max={kanjiTotal} label="Kanji đã thuộc" size="sm" />
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1.5">
             <Stat label="Ngữ pháp đã luyện" value={`${grammarPracticed}/${grammarTotal}`} />
             <ProgressBar value={grammarPracticed} max={grammarTotal} label="Ngữ pháp đã luyện" size="sm" />
           </div>
@@ -198,7 +187,7 @@ export const HomePage: React.FC = () => {
             <CardLink
               to="/grammar/mistakes"
               padding="sm"
-              className="flex w-full items-center justify-between gap-2 border-sakura/40 bg-sakura-soft text-sm font-semibold text-fg hover:border-sakura hover:bg-primary-soft"
+              className="flex w-full items-center justify-between gap-2 border-sakura/40 bg-sakura-soft text-sm font-semibold text-fg hover:border-sakura hover:bg-glass-hover"
             >
               <span className="flex items-center gap-2">
                 <span aria-hidden className="size-2 rounded-full bg-sakura" />
@@ -220,15 +209,15 @@ export const HomePage: React.FC = () => {
           first: true,
         },
       ].map((section) => (
-        <section key={section.id} aria-labelledby={section.id} className={section.first ? 'mt-8 md:mt-10' : undefined}>
-          <div className="mb-4">
-            <h2 id={section.id} className="flex items-center gap-2 text-lg font-semibold text-fg">
-              <span aria-hidden className="h-5 w-1 rounded-full bg-wave" />
+        <section key={section.id} aria-labelledby={section.id} className={section.first ? 'mt-6 md:mt-7' : undefined}>
+          <div className="mb-3 inline-flex flex-col rounded-lg border border-line bg-glass-soft px-3 py-1.5">
+            <h2 id={section.id} className="flex items-center gap-2 text-base font-semibold text-fg md:text-lg">
+              <span aria-hidden className="h-4 w-1 rounded-full bg-wave" />
               {section.title}
             </h2>
-            {section.note && <p className="mt-1 text-sm text-muted">{section.note}</p>}
+            {section.note && <p className="mt-0.5 text-xs text-muted md:text-sm">{section.note}</p>}
           </div>
-          <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
             {section.list.map((area) => (
               <li key={area.to}>
                 <FeatureNavCard area={area} />

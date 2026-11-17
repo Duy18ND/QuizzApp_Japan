@@ -9,9 +9,9 @@ type CardPadding = 'none' | 'sm' | 'md' | 'lg';
 
 const paddingClasses: Record<CardPadding, string> = {
   none: '',
-  sm: 'p-3',
-  md: 'p-4 md:p-5',
-  lg: 'p-5 md:p-7',
+  sm: 'p-2.5',
+  md: 'p-3.5 md:p-4',
+  lg: 'p-4 md:p-5',
 };
 
 interface CardProps extends HTMLAttributes<HTMLElement> {
@@ -26,7 +26,7 @@ export function Card({ as: Tag = 'div', padding = 'md', tone = 'default', classN
     <Tag
       className={cn(
         'animate-fade-up rounded-xl border border-line',
-        tone === 'default' ? 'bg-surface/92 shadow-card backdrop-blur-[2px]' : 'bg-surface-2/90',
+        tone === 'default' ? 'bg-glass shadow-card' : 'bg-glass-soft',
         paddingClasses[padding],
         className,
       )}
@@ -36,9 +36,9 @@ export function Card({ as: Tag = 'div', padding = 'md', tone = 'default', classN
 }
 
 const interactiveCard =
-  'animate-fade-up block rounded-xl border border-line bg-surface/92 shadow-card backdrop-blur-[2px] ' +
+  'animate-fade-up block rounded-xl border border-line bg-glass shadow-card ' +
   'transition-[border-color,background-color,transform] duration-150 ease-out-soft ' +
-  'hover:-translate-y-0.5 hover:border-primary hover:bg-surface-2 active:scale-[0.99]';
+  'hover:-translate-y-0.5 hover:border-primary hover:bg-glass-hover active:scale-[0.99]';
 
 /** A whole card that navigates. Use instead of onClick on a div. */
 export function CardLink({ className, padding = 'md', ...rest }: LinkProps & { padding?: CardPadding }) {
@@ -128,7 +128,7 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, description, breadcrumbs, actions, className }: PageHeaderProps) {
   return (
-    <header className={cn('relative mb-6 md:mb-8', className)}>
+    <header className={cn('relative mb-4 md:mb-5', className)}>
       {breadcrumbs && <Breadcrumbs items={breadcrumbs} />}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
