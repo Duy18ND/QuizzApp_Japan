@@ -150,9 +150,36 @@ const kanjiSlice = createSlice({
         };
       }
       saveKanjiState(state);
-    }
+    },
+    hydrateKanjiState(state, action: PayloadAction<unknown>) {
+      const incoming = action.payload;
+      if (!isPlainObject(incoming)) return;
+      const progress: Record<string, KanjiProgress> = {};
+      if (isPlainObject(incoming.progress)) {
+        for (const [key, entry] of Object.entries(incoming.progress)) {
+          if (UNSAFE_KEYS.has(key)) continue;
+          const clean = sanitizeKanjiProgress(key, entry);
+          if (clean) progress[key] = clean;
+        }
+      }
+      state.progress = progress;
+      state.tutorialSeen = typeof incoming.tutorialSeen === 'boolean' ? incoming.tutorialSeen : false;
+      saveKanjiState(state);
+    },
+    resetAllKanjiProgress(state) {
+      state.progress = {};
+      state.tutorialSeen = false;
+      saveKanjiState(state);
+    },
   },
 });
 
-export const { markTutorialSeen, updateKanjiProgress, markKanjiLearned, resetKanjiProgress } = kanjiSlice.actions;
+export const {
+  markTutorialSeen,
+  updateKanjiProgress,
+  markKanjiLearned,
+  resetKanjiProgress,
+  hydrateKanjiState,
+  resetAllKanjiProgress,
+} = kanjiSlice.actions;
 export default kanjiSlice.reducer;

@@ -5,6 +5,8 @@ const STORAGE_KEY = 'nihonmaster_user_progress';
 const PROGRESS_SYNC_EVENT = 'nihonmaster:user-progress-sync';
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
+export const USER_PROGRESS_STORAGE_KEY = STORAGE_KEY;
+
 const defaultProgress: UserProgress = {
   starredWords: [],
   wrongWords: {},
@@ -13,7 +15,7 @@ const defaultProgress: UserProgress = {
 const isPlainObject = (val: unknown): val is Record<string, unknown> =>
   Boolean(val) && typeof val === 'object' && !Array.isArray(val);
 
-const sanitizeProgress = (parsed: unknown): UserProgress => {
+export const sanitizeUserProgress = (parsed: unknown): UserProgress => {
   if (!isPlainObject(parsed)) return defaultProgress;
 
   const starredSet = new Set<number>();
@@ -47,43 +49,47 @@ const sanitizeProgress = (parsed: unknown): UserProgress => {
   };
 };
 
-const loadProgress = (): UserProgress => {
+export const loadUserProgress = (): UserProgress => {
   if (typeof window === 'undefined') return defaultProgress;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return defaultProgress;
-    return sanitizeProgress(JSON.parse(raw));
+    return sanitizeUserProgress(JSON.parse(raw));
   } catch (error) {
     console.warn('Error reading localStorage', error);
     return defaultProgress;
   }
 };
 
-const saveProgress = (next: UserProgress) => {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-  } catch (error) {
-    console.warn('Error setting localStorage', error);
+export const commitUserProgress = (next: UserProgress): UserProgress => {
+  const clean = sanitizeUserProgress(next);
+  if (typeof window !== 'undefined') {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(clean));
+    } catch (error) {
+      console.warn('Error setting localStorage', error);
+    }
+    window.dispatchEvent(new CustomEvent<UserProgress>(PROGRESS_SYNC_EVENT, { detail: clean }));
   }
+  return clean;
 };
 
 export const useUserProgress = () => {
-  const [progress, setProgress] = useState<UserProgress>(() => loadProgress());
+  const [progress, setProgress] = useState<UserProgress>(() => loadUserProgress());
 
   useEffect(() => {
     const onSync = (event: Event) => {
       const custom = event as CustomEvent<UserProgress>;
       if (custom.detail) {
-        setProgress(sanitizeProgress(custom.detail));
+        setProgress(sanitizeUserProgress(custom.detail));
       } else {
-        setProgress(loadProgress());
+        setProgress(loadUserProgress());
       }
     };
 
     const onStorage = (event: StorageEvent) => {
       if (event.key === STORAGE_KEY) {
-        setProgress(loadProgress());
+        setProgress(loadUserProgress());
       }
     };
 
@@ -96,16 +102,13 @@ export const useUserProgress = () => {
   }, []);
 
   const commitProgress = useCallback((next: UserProgress) => {
-    saveProgress(next);
-    setProgress(next);
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent<UserProgress>(PROGRESS_SYNC_EVENT, { detail: next }));
-    }
+    const clean = commitUserProgress(next);
+    setProgress(clean);
   }, []);
 
   const toggleStar = useCallback(
     (wordId: number) => {
-      const latest = loadProgress();
+      const latest = loadUserProgress();
       const isStarred = latest.starredWords.includes(wordId);
       const newStarredWords = isStarred
         ? latest.starredWords.filter((id) => id !== wordId)
@@ -121,7 +124,7 @@ export const useUserProgress = () => {
 
   const addWrongWord = useCallback(
     (wordId: number) => {
-      const latest = loadProgress();
+      const latest = loadUserProgress();
       const currentCount = latest.wrongWords[wordId] || 0;
       commitProgress({
         ...latest,
@@ -134,9 +137,29 @@ export const useUserProgress = () => {
     [commitProgress],
   );
 
+  const clearWrongWord = useCallback(
+    (wordId: number) => {
+      const latest = loadUserProgress();
+      if (!(wordId in latest.wrongWords)) return;
+      const nextWrong = { ...latest.wrongWords };
+      delete nextWrong[wordId];
+      commitProgress({
+        ...latest,
+        wrongWords: nextWrong,
+      });
+    },
+    [commitProgress],
+  );
+
+  const resetProgress = useCallback(() => {
+    commitProgress(defaultProgress);
+  }, [commitProgress]);
+
   return {
     progress,
     toggleStar,
     addWrongWord,
+    clearWrongWord,
+    resetProgress,
   };
 };

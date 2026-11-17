@@ -1,6 +1,7 @@
 export { Button, IconButton } from './Button';
 export { Field, Input, Textarea, Select, SearchInput, Switch, Checkbox, Chip } from './Fields';
 export { Card, CardLink, Badge, PageContainer, PageHeader, Breadcrumbs, Kbd, Stat, type Crumb } from './Layout';
+export { QuizHistoryCard } from './QuizHistoryCard';
 export {
   ProgressBar,
   Tooltip,

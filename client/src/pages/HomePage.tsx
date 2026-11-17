@@ -1,7 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
-import { CardLink, Card, PageContainer, ProgressBar, Stat } from '../components/ui';
+import { CardLink, Card, PageContainer, ProgressBar, QuizHistoryCard, Stat } from '../components/ui';
+import { useAuth } from '../context/auth-context';
 import { grammarBooks } from '../data/grammar';
 import kanjiDataRaw from '../data/kanji/kanjiDataset.json';
 import { cn } from '../lib/cn';
@@ -132,6 +133,7 @@ function FeatureNavCard({ area }: { area: Area }) {
 }
 
 export const HomePage: React.FC = () => {
+  const { user } = useAuth();
   const kanjiProgress = useAppSelector((state) => state.kanji.progress);
   const grammarRecords = useAppSelector((state) => state.grammarProgress.records);
   const mistakes = useAppSelector((state) => state.mistake.mistakes);
@@ -157,7 +159,9 @@ export const HomePage: React.FC = () => {
             </h1>
           </div>
           <p className="mt-1 text-sm text-muted">
-            Chọn một mục để tiếp tục. Tiến độ được lưu ngay trên thiết bị của bạn.
+            {user
+              ? `Đang đồng bộ tiến độ tài khoản ${user.displayName} (${user.role}).`
+              : 'Chọn một mục để tiếp tục. Tiến độ được lưu trên thiết bị ở chế độ Khách.'}
           </p>
         </div>
       </section>
@@ -226,6 +230,8 @@ export const HomePage: React.FC = () => {
           </ul>
         </section>
       ))}
+
+      <QuizHistoryCard limit={5} showProfileLink className="mt-6 md:mt-7" />
     </PageContainer>
   );
 };

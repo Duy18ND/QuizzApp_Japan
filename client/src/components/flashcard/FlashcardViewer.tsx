@@ -2,7 +2,9 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Shuffle, Star, Volume2 } from 'lucide-react';
 import { allVocabularyData } from '../../data';
+import { useAppSettings } from '../../hooks/useAppSettings';
 import { useUserProgress } from '../../hooks/useUserProgress';
+import { speakJapanese, stopJapaneseSpeech } from '../../utils/tts';
 import {
   Badge,
   Breadcrumbs,
@@ -47,6 +49,7 @@ export const FlashcardViewer: React.FC = () => {
     flipped: boolean;
   }>({ deckKey, index: 0, flipped: false });
   const { progress, toggleStar } = useUserProgress();
+  const { settings } = useAppSettings();
 
   const words = shuffledDeck?.deckKey === deckKey ? shuffledDeck.list : baseWords;
   const currentIndex = cardState.deckKey === deckKey ? cardState.index : 0;
@@ -89,22 +92,20 @@ export const FlashcardViewer: React.FC = () => {
   }, [deckKey, words]);
 
   const speakText = useCallback((text: string) => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'ja-JP';
-      window.speechSynthesis.speak(utterance);
-    }
-  }, []);
+    speakJapanese(text, settings.ttsRate);
+  }, [settings.ttsRate]);
 
   useEffect(() => {
-    if (currentWord) {
-      const timer = setTimeout(() => {
-        speakText(currentWord.kanji || currentWord.hiragana);
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [currentIndex, currentWord, speakText]);
+    if (!currentWord || !settings.ttsAutoPlay) return;
+    const timer = window.setTimeout(() => {
+      speakText(currentWord.kanji || currentWord.hiragana);
+    }, 100);
+    return () => window.clearTimeout(timer);
+  }, [currentIndex, currentWord, settings.ttsAutoPlay, speakText]);
+
+  useEffect(() => {
+    return () => stopJapaneseSpeech();
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

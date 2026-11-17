@@ -19,6 +19,8 @@ import {
   toStarQuestionShape,
   type JLPTLevelFilter,
 } from '../../data/jlpt/jlptDataset';
+import { useAuth } from '../../context/auth-context';
+import { recordQuizAttempt } from '../../services/quizHistoryService';
 import { shuffleArray } from '../../utils/shuffle';
 import { StarQuestionComp } from '../practice/StarQuestionComp';
 import { AudioSpeechPlayer, ListeningTranscriptPanel } from './AudioSpeechPlayer';
@@ -70,6 +72,7 @@ const JlptFullTestSession: React.FC<JlptFullTestSessionProps> = ({
   onNewAttempt,
   onRecordMistake,
 }) => {
+  const { user } = useAuth();
   const [activeSection, setActiveSection] = useState<ExamSectionId>('s1');
   const [secondsLeft, setSecondsLeft] = useState(DEFAULT_DURATION_SECONDS);
   const [timerPaused, setTimerPaused] = useState(false);
@@ -203,7 +206,37 @@ const JlptFullTestSession: React.FC<JlptFullTestSessionProps> = ({
         });
       }
     });
-  }, [examSet, mcqAnswers, onRecordMistake, readingQuestions, starAnswers, submitted]);
+
+    const totalCorrect =
+      examSet.s1.filter((q) => mcqAnswers[q.id] === q.correctIndex).length +
+      examSet.grammarMcqs.filter((q) => mcqAnswers[q.id] === q.correctIndex).length +
+      examSet.starItems.filter((item) => starAnswers[item.id]?.isCorrect).length +
+      readingQuestions.filter(({ question }) => mcqAnswers[question.id] === question.correctIndex).length +
+      examSet.listeningItems.filter((item) => mcqAnswers[item.id] === item.correctIndex).length;
+
+    void recordQuizAttempt(
+      {
+        quizType: 'jlpt-full',
+        level: levelFilter,
+        score: totalCorrect,
+        totalQuestions: Math.max(1, totalQuestions),
+        durationSeconds: Math.max(1, DEFAULT_DURATION_SECONDS - secondsLeft),
+        mistakesJson: [],
+      },
+      user?.id,
+    );
+  }, [
+    examSet,
+    levelFilter,
+    mcqAnswers,
+    onRecordMistake,
+    readingQuestions,
+    secondsLeft,
+    starAnswers,
+    submitted,
+    totalQuestions,
+    user?.id,
+  ]);
 
   const submitRef = useRef(handleSubmitExam);
   useEffect(() => {

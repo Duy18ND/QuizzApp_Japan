@@ -99,8 +99,25 @@ const grammarProgressSlice = createSlice({
       );
       saveRecords(state.records);
     },
+    hydrateGrammarProgress(state, action: PayloadAction<unknown>) {
+      const incoming = action.payload;
+      if (!isPlainObject(incoming)) return;
+      const cleanRecords: Record<string, GrammarProgress> = {};
+      for (const [grammarId, entry] of Object.entries(incoming)) {
+        if (UNSAFE_KEYS.has(grammarId)) continue;
+        const clean = sanitizeProgressRecord(entry);
+        if (clean) cleanRecords[grammarId] = clean;
+      }
+      state.records = cleanRecords;
+      saveRecords(state.records);
+    },
+    resetAllGrammarProgress(state) {
+      state.records = {};
+      saveRecords(state.records);
+    },
   },
 });
 
-export const { updateProgress } = grammarProgressSlice.actions;
+export const { updateProgress, hydrateGrammarProgress, resetAllGrammarProgress } =
+  grammarProgressSlice.actions;
 export default grammarProgressSlice.reducer;

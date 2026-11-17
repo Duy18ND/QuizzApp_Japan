@@ -6,7 +6,7 @@ import { buttonStyles, type ButtonSize, type ButtonVariant } from './styles';
 
 /* ---------- Modal (native <dialog>: focus trap, Esc and top-layer for free) ---------- */
 
-const modalSizes = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl' } as const;
+const modalSizes = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-5xl' } as const;
 
 interface ModalProps {
   open: boolean;

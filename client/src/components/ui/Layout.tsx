@@ -136,7 +136,7 @@ export function PageHeader({ title, description, breadcrumbs, actions, className
           {description && <p className="mt-1.5 max-w-prose text-base text-muted">{description}</p>}
           <span aria-hidden className="mt-3 block h-0.5 w-16 rounded-full bg-linear-to-r from-primary via-sakura to-transparent" />
         </div>
-        {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
+        {actions && <div className="flex max-w-full min-w-0 flex-wrap items-center gap-2">{actions}</div>}
       </div>
     </header>
   );

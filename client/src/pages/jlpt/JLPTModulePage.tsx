@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowRight,
@@ -39,6 +39,8 @@ import {
   type JLPTModuleId,
   type JLPTModuleMeta,
 } from '../../data/jlpt/jlptDataset';
+import { useAuth } from '../../context/auth-context';
+import { recordQuizAttempt } from '../../services/quizHistoryService';
 import { useAppDispatch } from '../../store/hooks';
 import { addMistake } from '../../store/slices/mistakeSlice';
 import { shuffleArray } from '../../utils/shuffle';
@@ -77,6 +79,12 @@ export const JLPTModulePage: React.FC = () => {
 
 const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
   const dispatch = useAppDispatch();
+  const { user } = useAuth();
+  const sessionStartRef = useRef<number>(0);
+
+  useEffect(() => {
+    sessionStartRef.current = Date.now();
+  }, []);
 
   const [levelFilter, setLevelFilter] = useState<JLPTLevelFilter>('ALL');
   const [questionLimit, setQuestionLimit] = useState<number>(5);
@@ -97,6 +105,7 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
   const [showFurigana, setShowFurigana] = useState(true);
 
   const resetSequentialSession = useCallback(() => {
+    sessionStartRef.current = Date.now();
     setCurrentIndex(0);
     setCorrectCount(0);
     setWrongCount(0);
@@ -201,6 +210,21 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
 
   const handleAdvance = useCallback(() => {
     if (currentIndex >= sequentialTotal - 1) {
+      const durationSeconds =
+        sessionStartRef.current > 0
+          ? Math.max(1, Math.round((Date.now() - sessionStartRef.current) / 1000))
+          : 0;
+      void recordQuizAttempt(
+        {
+          quizType: `jlpt-${meta.id}`,
+          level: levelFilter,
+          score: correctCount,
+          totalQuestions: Math.max(1, sequentialTotal),
+          durationSeconds,
+          mistakesJson: [],
+        },
+        user?.id,
+      );
       setFinished(true);
     } else {
       setCurrentIndex((prev) => prev + 1);
@@ -208,7 +232,7 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
       setStarResult(null);
       setShowTranscript(false);
     }
-  }, [currentIndex, sequentialTotal]);
+  }, [currentIndex, sequentialTotal, meta.id, levelFilter, correctCount, user?.id]);
 
   useEffect(() => {
     if (!hasAnsweredCurrent || finished) return;

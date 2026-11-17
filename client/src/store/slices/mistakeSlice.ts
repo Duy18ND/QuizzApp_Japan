@@ -95,6 +95,10 @@ const mistakeSlice = createSlice({
       state.mistakes.push(normalizedIncoming);
       saveMistakes(state.mistakes);
     },
+    removeMistake(state, action: PayloadAction<string>) {
+      state.mistakes = state.mistakes.filter((m) => m.id !== action.payload);
+      saveMistakes(state.mistakes);
+    },
     removeMistakesByGrammar(state, action: PayloadAction<string>) {
       state.mistakes = state.mistakes.filter((m) => m.grammarId !== action.payload);
       saveMistakes(state.mistakes);
@@ -103,8 +107,28 @@ const mistakeSlice = createSlice({
       state.mistakes = [];
       saveMistakes(state.mistakes);
     },
+    hydrateMistakes(state, action: PayloadAction<unknown>) {
+      if (!Array.isArray(action.payload)) return;
+      const deduped: GrammarMistake[] = [];
+      for (const item of action.payload) {
+        if (!isValidMistake(item)) continue;
+        const normalizedItem: GrammarMistake = {
+          ...item,
+          questionId: stripSeedSuffix(item.questionId),
+        };
+        const idx = deduped.findIndex((m) => isSameMistake(m, normalizedItem));
+        if (idx >= 0) {
+          deduped[idx] = normalizedItem;
+        } else {
+          deduped.push(normalizedItem);
+        }
+      }
+      state.mistakes = deduped;
+      saveMistakes(state.mistakes);
+    },
   },
 });
 
-export const { addMistake, removeMistakesByGrammar, clearMistakes } = mistakeSlice.actions;
+export const { addMistake, removeMistake, removeMistakesByGrammar, clearMistakes, hydrateMistakes } =
+  mistakeSlice.actions;
 export default mistakeSlice.reducer;
