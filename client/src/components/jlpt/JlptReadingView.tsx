@@ -1,7 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { BookOpenText, RotateCcw } from 'lucide-react';
+import { cn } from '../../lib/cn';
 import { Badge, Button, Card, Chip, EmptyState, Switch } from '../ui';
 import type { JLPTModuleMeta, JLPTReadingPassage } from '../../data/jlpt/jlptDataset';
+import {
+  buildPassageInteractiveParagraphs,
+  registerPassageSentences,
+} from '../../utils/japaneseLookup';
+import { useJapaneseLookup } from '../common/japanese-lookup-context';
 import { FuriganaText } from './FuriganaText';
 import { McqQuestionBlock } from './McqQuestionBlock';
 
@@ -38,10 +44,29 @@ export const JlptReadingView: React.FC<JlptReadingViewProps> = ({
   const isControlled = controlledAnswers !== undefined && onControlledAnswer !== undefined;
   const [activePassageIdx, setActivePassageIdx] = useState(0);
   const [showFurigana, setShowFurigana] = useState(true);
+  const [hoverTranslate, setHoverTranslate] = useState(true);
   const [showSupport, setShowSupport] = useState(false);
   const [localAnswers, setLocalAnswers] = useState<Record<string, number>>({});
+  const {
+    openLookup,
+    scheduleHoverLookup,
+    cancelHoverLookup,
+    activeTokenId,
+    activeSentenceId,
+  } = useJapaneseLookup();
 
-  if (passages.length === 0) {
+  const safeIdx = passages.length > 0 ? Math.min(activePassageIdx, passages.length - 1) : 0;
+  const currentPassage = passages[safeIdx];
+  const interactiveParagraphs = useMemo(
+    () => (currentPassage ? buildPassageInteractiveParagraphs(currentPassage) : []),
+    [currentPassage],
+  );
+
+  useEffect(() => {
+    registerPassageSentences(interactiveParagraphs);
+  }, [interactiveParagraphs]);
+
+  if (passages.length === 0 || !currentPassage) {
     return (
       <EmptyState
         icon={<BookOpenText className="size-6 text-muted" aria-hidden />}
@@ -51,7 +76,7 @@ export const JlptReadingView: React.FC<JlptReadingViewProps> = ({
     );
   }
 
-  const passage = passages[Math.min(activePassageIdx, passages.length - 1)];
+  const passage = currentPassage;
   const answers = isControlled ? controlledAnswers : localAnswers;
 
   const answeredCount = passage.questions.filter((q) => answers[q.id] !== undefined).length;
@@ -132,19 +157,111 @@ export const JlptReadingView: React.FC<JlptReadingViewProps> = ({
                   <Badge tone="neutral">{passage.genre}</Badge>
                 </div>
                 <h2 className="text-lg font-bold text-fg">{passage.title}</h2>
+                <p className="text-xs text-muted">
+                  Bấm, rê chuột hoặc bôi đen từ/câu bất kỳ để xem nghĩa & phân tích ngữ pháp.
+                </p>
               </div>
 
-              <Switch
-                checked={showFurigana}
-                onChange={setShowFurigana}
-                label="Furigana"
-              />
+              <div className="flex flex-wrap items-center gap-4">
+                <Switch
+                  checked={hoverTranslate}
+                  onChange={setHoverTranslate}
+                  label="Rê để dịch"
+                />
+                <Switch
+                  checked={showFurigana}
+                  onChange={setShowFurigana}
+                  label="Furigana"
+                />
+              </div>
             </div>
 
             <div className="space-y-4 text-base leading-[2.1] text-fg md:text-lg">
-              {passage.paragraphs.map((para, pIdx) => (
+              {interactiveParagraphs.map((sentences, pIdx) => (
                 <p key={pIdx} lang="ja" className="leading-[2.15]">
-                  <FuriganaText segments={para.segments} showFurigana={showFurigana} />
+                  {sentences.map((sentence) => (
+                    <span
+                      key={sentence.id}
+                      className={cn(
+                        'rounded transition-colors',
+                        activeSentenceId === sentence.id && 'bg-primary-soft/25',
+                      )}
+                    >
+                      {sentence.tokens.map((token) =>
+                        token.isPunctuation ? (
+                          <FuriganaText
+                            key={token.id}
+                            segments={token.segments}
+                            showFurigana={showFurigana}
+                          />
+                        ) : (
+                          <span
+                            key={token.id}
+                            role="button"
+                            tabIndex={0}
+                            data-lookup-interactive="token"
+                            onClick={(e) => {
+                              const selected = window.getSelection()?.toString().trim() ?? '';
+                              if (selected.length > 0) return;
+                              openLookup({
+                                text: token.text,
+                                rect: e.currentTarget.getBoundingClientRect(),
+                                rubyMap: token.rubyMap,
+                                sentenceText: sentence.text,
+                                sentenceTranslation: sentence.translationHint,
+                                sentenceRubyMap: sentence.rubyMap,
+                                passageVocab: passage.vocabNotes,
+                                activeTokenId: token.id,
+                                activeSentenceId: sentence.id,
+                                initialScope: 'phrase',
+                              });
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                openLookup({
+                                  text: token.text,
+                                  rect: e.currentTarget.getBoundingClientRect(),
+                                  rubyMap: token.rubyMap,
+                                  sentenceText: sentence.text,
+                                  sentenceTranslation: sentence.translationHint,
+                                  sentenceRubyMap: sentence.rubyMap,
+                                  passageVocab: passage.vocabNotes,
+                                  activeTokenId: token.id,
+                                  activeSentenceId: sentence.id,
+                                  initialScope: 'phrase',
+                                });
+                              }
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!hoverTranslate) return;
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              scheduleHoverLookup({
+                                text: token.text,
+                                rect,
+                                rubyMap: token.rubyMap,
+                                sentenceText: sentence.text,
+                                sentenceTranslation: sentence.translationHint,
+                                sentenceRubyMap: sentence.rubyMap,
+                                passageVocab: passage.vocabNotes,
+                                activeTokenId: token.id,
+                                activeSentenceId: sentence.id,
+                                initialScope: 'phrase',
+                              });
+                            }}
+                            onMouseLeave={cancelHoverLookup}
+                            className={cn(
+                              'cursor-pointer rounded px-0.5 transition-colors hover:bg-primary-soft/60',
+                              activeTokenId === token.id &&
+                                'bg-primary-soft/60 text-primary-fg ring-1 ring-primary/35',
+                            )}
+                          >
+                            <FuriganaText segments={token.segments} showFurigana={showFurigana} />
+                          </span>
+                        ),
+                      )}
+                    </span>
+                  ))}
                 </p>
               ))}
             </div>

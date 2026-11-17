@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { CheckCircle2, Play, Trash2, X } from 'lucide-react';
-import type { JLPTLevel, QuizConfig, QuizSource } from '../../types/quiz';
+import type { JLPTLevel, QuestionType, QuizConfig, QuizSource } from '../../types/quiz';
 import { UNIT_DATA } from '../../data/unitData';
 import { CustomDataImport } from '../common/CustomDataImport';
 import {
@@ -42,6 +42,16 @@ const WORD_TYPES: { id: string; label: string }[] = [
 ];
 
 const QUESTION_COUNTS: (number | 'all')[] = [10, 20, 50, 'all'];
+
+const QUESTION_TYPE_OPTIONS: { value: 'all' | QuestionType; label: string }[] = [
+  { value: 'all', label: 'Tất cả dạng (Ngẫu nhiên)' },
+  { value: 'vi_to_hiragana', label: 'Nghĩa Việt → Hiragana' },
+  { value: 'vi_to_kanji', label: 'Nghĩa Việt → Kanji' },
+  { value: 'kanji_to_hiragana', label: 'Kanji → Hiragana' },
+  { value: 'kanji_to_vi', label: 'Kanji → Nghĩa Việt' },
+  { value: 'hiragana_to_kanji', label: 'Hiragana → Kanji' },
+  { value: 'hiragana_to_vi', label: 'Hiragana → Nghĩa Việt' },
+];
 
 export const QuizSetup: React.FC<Props> = ({ onStart }) => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -188,6 +198,20 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
                 </Select>
               </Field>
             </div>
+
+            <Field label="Dạng câu hỏi" htmlFor="quiz-question-type">
+              <Select
+                id="quiz-question-type"
+                value={config.questionType || 'all'}
+                onChange={(e) => setConfig({ ...config, questionType: e.target.value })}
+              >
+                {QUESTION_TYPE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
 
             {/* 2. Nguồn từ vựng */}
             <div className="space-y-2 border-t border-line pt-5">

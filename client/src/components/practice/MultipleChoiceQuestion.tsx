@@ -1,7 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { MultipleChoiceQuestion, PracticeType } from '../../types/grammar';
-import { validateAnswer } from '../../utils/grammarEngine/answerValidator';
+import {
+  resolveQuestionTargetPatterns,
+  validateAnswer,
+} from '../../utils/grammarEngine/answerValidator';
 import { cn } from '../../lib/cn';
+import { JapaneseLookupButton } from '../common/JapaneseLookupPopover';
 
 interface Props {
   mode: PracticeType;
@@ -16,10 +20,11 @@ export const MultipleChoiceQuestionComp: React.FC<Props> = ({ mode, question, on
   const handleSelect = useCallback(
     (opt: string) => {
       setSelectedOpt(opt);
-      const result = validateAnswer(opt, question.correctAnswer, mode, question.grammarId);
+      const targetPatterns = resolveQuestionTargetPatterns(question);
+      const result = validateAnswer(opt, question.correctAnswer, mode, targetPatterns);
       onSubmit(opt, result.isCorrect, result.feedbackMessage);
     },
-    [mode, question.correctAnswer, question.grammarId, onSubmit],
+    [mode, question, onSubmit],
   );
 
   useEffect(() => {
@@ -57,9 +62,12 @@ export const MultipleChoiceQuestionComp: React.FC<Props> = ({ mode, question, on
         {question.instruction && (
           <p className="text-sm font-semibold text-primary-fg">{question.instruction}</p>
         )}
-        <h3 lang="ja" className="text-xl leading-relaxed font-semibold text-fg md:text-2xl">
-          {question.question}
-        </h3>
+        <div className="flex items-start justify-center gap-1.5">
+          <h3 lang="ja" className="text-xl leading-relaxed font-semibold text-fg md:text-2xl">
+            {question.question}
+          </h3>
+          <JapaneseLookupButton text={question.question} className="mt-1" />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

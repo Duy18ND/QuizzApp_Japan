@@ -142,7 +142,7 @@ export const KanjiDetail: React.FC = () => {
             </div>
 
             <div className="flex flex-wrap gap-2 pt-1">
-              {kanji.strokeCount && (
+              {typeof kanji.strokeCount === 'number' && kanji.strokeCount > 0 && (
                 <Badge tone="neutral" className="tabular px-3 py-1 text-sm">
                   Số nét: <strong className="ml-1 font-semibold text-fg">{kanji.strokeCount}</strong>
                 </Badge>

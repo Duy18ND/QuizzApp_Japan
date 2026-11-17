@@ -107,6 +107,7 @@ export interface WordOrderQuestion extends BasePracticeQuestion {
   metadata?: {
     originalSentence?: string;
     tokens?: any[];
+    grammarName?: string;
   };
 }
 

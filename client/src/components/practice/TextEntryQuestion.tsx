@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import type { PracticeQuestion, PracticeType } from '../../types/grammar';
-import { validateAnswer } from '../../utils/grammarEngine/answerValidator';
+import {
+  resolveQuestionTargetPatterns,
+  validateAnswer,
+} from '../../utils/grammarEngine/answerValidator';
 import { Button, Field, Textarea } from '../ui';
 
 interface TextEntryProps {
@@ -16,7 +19,8 @@ export const TextEntryQuestion: React.FC<TextEntryProps> = ({ mode, question, on
     e.preventDefault();
     if (!answer.trim()) return;
     const expected = (question.correctAnswer ?? '') as string | string[];
-    const result = validateAnswer(answer.trim(), expected, mode, question.grammarId);
+    const targetPatterns = resolveQuestionTargetPatterns(question);
+    const result = validateAnswer(answer.trim(), expected, mode, targetPatterns);
     onSubmit(answer.trim(), result.isCorrect, result.feedbackMessage);
   };
 

@@ -2923,12 +2923,26 @@
   {
     "id": "会",
     "kanji": "会",
-    "meanings": [],
-    "hanViet": "",
-    "onReadings": [],
-    "kunReadings": [],
-    "strokeCount": 0,
-    "jlptLevel": "N3",
+    "meanings": [
+      "meeting",
+      "meet",
+      "party",
+      "association",
+      "interview",
+      "join"
+    ],
+    "hanViet": "HỘI",
+    "onReadings": [
+      "カイ",
+      "エ"
+    ],
+    "kunReadings": [
+      "あ.う",
+      "あ.わせる",
+      "あつ.まる"
+    ],
+    "strokeCount": 6,
+    "jlptLevel": "N4",
     "vocabularyIds": [
       55
     ],

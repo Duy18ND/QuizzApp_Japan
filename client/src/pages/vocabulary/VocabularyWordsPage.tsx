@@ -27,6 +27,18 @@ interface VocabRow {
   wordType: WordType;
 }
 
+const getWordDisplay = (word: VocabRow) => {
+  const trimmedKanji = word.kanji?.trim() || '';
+  const trimmedHiragana = word.hiragana?.trim() || '';
+  const hasKanji = Boolean(trimmedKanji && trimmedKanji !== trimmedHiragana);
+  return {
+    primaryText: hasKanji ? trimmedKanji : trimmedHiragana,
+    hasKanji,
+    hiragana: trimmedHiragana,
+    hanviet: word.hanviet,
+  };
+};
+
 const formatWordType = (type?: WordType): string => {
   switch (type) {
     case 'noun':
@@ -199,21 +211,28 @@ export const VocabularyWordsPage: React.FC = () => {
                       <div className="flex min-w-0 items-baseline gap-3">
                         <span className="tabular text-xs font-medium text-subtle">{index + 1}.</span>
                         <div className="min-w-0">
-                          <p lang="ja" className="text-xl font-bold text-fg">
-                            {word.kanji || word.hiragana}
-                          </p>
-                          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                            {word.kanji && (
-                              <span lang="ja" className="text-sm font-medium text-primary-fg">
-                                {word.hiragana}
-                              </span>
-                            )}
-                            {word.kanji && word.hanviet && (
-                              <span className="text-xs font-medium text-muted uppercase">
-                                {word.hanviet}
-                              </span>
-                            )}
-                          </div>
+                          {(() => {
+                            const display = getWordDisplay(word);
+                            return (
+                              <>
+                                <p lang="ja" className="text-xl font-bold text-fg">
+                                  {display.primaryText}
+                                </p>
+                                <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                                  {display.hasKanji && (
+                                    <span lang="ja" className="text-sm font-medium text-primary-fg">
+                                      {display.hiragana}
+                                    </span>
+                                  )}
+                                  {display.hasKanji && display.hanviet && (
+                                    <span className="text-xs font-medium text-muted uppercase">
+                                      {display.hanviet}
+                                    </span>
+                                  )}
+                                </div>
+                              </>
+                            );
+                          })()}
                         </div>
                       </div>
 
@@ -273,21 +292,26 @@ export const VocabularyWordsPage: React.FC = () => {
                       <tr key={word.id} className="transition-colors hover:bg-surface-2">
                         <td className="tabular px-5 py-4 text-muted">{index + 1}</td>
                         <td className="px-5 py-4">
-                          <div className="flex flex-col">
-                            <span lang="ja" className="text-lg font-bold text-fg">
-                              {word.kanji || word.hiragana}
-                            </span>
-                            {word.kanji && (
-                              <span lang="ja" className="text-sm font-medium text-primary-fg">
-                                {word.hiragana}
-                              </span>
-                            )}
-                            {word.kanji && word.hanviet && (
-                              <span className="text-xs font-medium text-muted uppercase">
-                                {word.hanviet}
-                              </span>
-                            )}
-                          </div>
+                          {(() => {
+                            const display = getWordDisplay(word);
+                            return (
+                              <div className="flex flex-col">
+                                <span lang="ja" className="text-lg font-bold text-fg">
+                                  {display.primaryText}
+                                </span>
+                                {display.hasKanji && (
+                                  <span lang="ja" className="text-sm font-medium text-primary-fg">
+                                    {display.hiragana}
+                                  </span>
+                                )}
+                                {display.hasKanji && display.hanviet && (
+                                  <span className="text-xs font-medium text-muted uppercase">
+                                    {display.hanviet}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td className="px-5 py-4">
                           <div className="flex flex-col items-start gap-1">

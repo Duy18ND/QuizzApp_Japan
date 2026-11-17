@@ -8,6 +8,7 @@ import '@fontsource/noto-sans-jp/600.css'
 import '@fontsource/noto-sans-jp/700.css'
 import './index.css'
 import App from './App.tsx'
+import { ErrorBoundary } from './components/common/ErrorBoundary.tsx'
 import { FontManager } from './utils/fontManager'
 
 // Preload font ngay khi app khởi động (non-blocking)
@@ -16,7 +17,9 @@ FontManager.preloadFont();
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <Provider store={store}>
-      <App />
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
     </Provider>
   </StrictMode>,
 )

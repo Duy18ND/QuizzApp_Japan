@@ -30,18 +30,20 @@ export const PdfPage: React.FC = () => {
 
   return (
     <PageContainer className="flex flex-1 flex-col">
-      <PageHeader
-        title="Xuất tài liệu PDF"
-        description="Tạo tài liệu luyện tập chuẩn A4 để in và học trên giấy."
-      />
+      <div className="print:hidden">
+        <PageHeader
+          title="Xuất tài liệu PDF"
+          description="Tạo tài liệu luyện tập chuẩn A4 để in và học trên giấy."
+        />
 
-      <Tabs
-        aria-label="Loại tài liệu PDF"
-        items={TAB_ITEMS}
-        value={activeType}
-        onChange={handleTabChange}
-        className="mb-6"
-      />
+        <Tabs
+          aria-label="Loại tài liệu PDF"
+          items={TAB_ITEMS}
+          value={activeType}
+          onChange={handleTabChange}
+          className="mb-6"
+        />
+      </div>
 
       <div className="flex-1">
         {activeType === 'vocabulary' && <VocabularyPdfWorkspace />}

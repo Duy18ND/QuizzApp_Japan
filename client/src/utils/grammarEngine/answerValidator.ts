@@ -1,8 +1,55 @@
+import { grammarBooks } from '../../data/grammar';
+
 export interface ValidationResult {
   isCorrect: boolean;
   score?: number; // 0-100 for partial correctness
   feedbackMessage?: string;
 }
+
+const stripLeadingTilde = (pattern: string): string =>
+  pattern.replace(/^[～〜~]+/, '').trim();
+
+/**
+ * Resolves the target grammar surface forms (kana + display name) from grammarId.
+ */
+export const resolveGrammarTargetPatterns = (
+  grammarId: string,
+  fallbackName?: string,
+): string[] => {
+  const patterns: string[] = [];
+  const pushPattern = (raw?: string) => {
+    if (!raw) return;
+    const stripped = stripLeadingTilde(raw);
+    if (stripped && !patterns.includes(stripped)) {
+      patterns.push(stripped);
+    }
+  };
+
+  for (const book of grammarBooks) {
+    for (const chapter of book.chapters) {
+      const found = chapter.grammars.find((g) => g.id === grammarId);
+      if (found) {
+        pushPattern(found.hiragana);
+        pushPattern(found.name);
+      }
+    }
+  }
+
+  pushPattern(fallbackName);
+  return patterns;
+};
+
+export const resolveQuestionTargetPatterns = (question: {
+  grammarId: string;
+  metadata?: unknown;
+}): string[] => {
+  const meta =
+    question.metadata && typeof question.metadata === 'object'
+      ? (question.metadata as { grammarName?: unknown })
+      : undefined;
+  const fallbackName = typeof meta?.grammarName === 'string' ? meta.grammarName : undefined;
+  return resolveGrammarTargetPatterns(question.grammarId, fallbackName);
+};
 
 /**
  * Normalizes Japanese text by converting full-width alphanumeric to half-width,
@@ -27,7 +74,7 @@ export const validateAnswer = (
   userAnswer: string,
   correctAnswers: string | string[],
   practiceType: string,
-  targetGrammar?: string // e.g. "うちに"
+  targetGrammar?: string | string[] // e.g. "うちに" or ["てはじめて", "て初めて"]
 ): ValidationResult => {
   if (!userAnswer) {
     return { isCorrect: false, feedbackMessage: 'Vui lòng nhập câu trả lời.' };
@@ -66,9 +113,18 @@ export const validateAnswer = (
 
     // Advanced: Check for target grammar existence
     if (targetGrammar) {
-      const normGrammar = normalizeJapaneseText(targetGrammar);
-      if (!normalizedUser.includes(normGrammar)) {
-        return { isCorrect: false, feedbackMessage: `Câu của bạn dường như đang thiếu cấu trúc ngữ pháp mục tiêu: ${targetGrammar}` };
+      const targets = (Array.isArray(targetGrammar) ? targetGrammar : [targetGrammar]).filter(Boolean);
+      if (targets.length > 0) {
+        const hasTarget = targets.some((t) => {
+          const normGrammar = normalizeJapaneseText(t);
+          return Boolean(normGrammar) && normalizedUser.includes(normGrammar);
+        });
+        if (!hasTarget) {
+          return {
+            isCorrect: false,
+            feedbackMessage: `Câu của bạn dường như đang thiếu cấu trúc ngữ pháp mục tiêu: ${targets[0]}`,
+          };
+        }
       }
     }
   }

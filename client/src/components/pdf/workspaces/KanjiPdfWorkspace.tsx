@@ -1,8 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Printer, RefreshCw } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import { KanjiPdfBuilder } from './KanjiPdfBuilder';
 import type { KanjiItem } from '../../../types/kanji';
 import kanjiDataRaw from '../../../data/kanji/kanjiDataset.json';
+import { FontManager } from '../../../utils/fontManager';
 import { Badge, Button, Card, Field, Select } from '../../ui';
 
 const kanjiList = (kanjiDataRaw || []) as KanjiItem[];
@@ -15,6 +17,7 @@ export const KanjiPdfWorkspace: React.FC = () => {
   const [mode, setMode] = useState<KanjiPdfMode>('mode1');
   const [isGenerating, setIsGenerating] = useState(false);
   const [seed, setSeed] = useState(0);
+  const isExportingRef = useRef(false);
 
   const selectedKanji = useMemo(() => {
     const filtered = kanjiList.filter((k) => level === 'All' || k.jlptLevel === level);
@@ -37,12 +40,34 @@ export const KanjiPdfWorkspace: React.FC = () => {
     return array.slice(0, count);
   }, [level, count, seed]);
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
+    if (selectedKanji.length === 0 || isExportingRef.current) return;
+    isExportingRef.current = true;
     setIsGenerating(true);
-    window.setTimeout(() => {
-      window.print();
+
+    let fallbackTimer = 0;
+    const finishPrint = () => {
+      window.clearTimeout(fallbackTimer);
+      window.removeEventListener('afterprint', finishPrint);
       setIsGenerating(false);
-    }, 500);
+      isExportingRef.current = false;
+    };
+
+    try {
+      await FontManager.ensureReady();
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => resolve());
+        });
+      });
+
+      window.addEventListener('afterprint', finishPrint, { once: true });
+      fallbackTimer = window.setTimeout(finishPrint, 1500);
+      window.print();
+    } catch (error) {
+      console.error('Lỗi khi in PDF Kanji:', error);
+      finishPrint();
+    }
   };
 
   return (
@@ -139,8 +164,11 @@ export const KanjiPdfWorkspace: React.FC = () => {
         </div>
       </Card>
 
-      {/* Hidden PDF Builder Container (Only visible during print) */}
-      <KanjiPdfBuilder kanjiList={selectedKanji} mode={mode} isGenerating={isGenerating} />
+      {/* Hidden PDF Builder Container via Portal (Only visible during print) */}
+      {createPortal(
+        <KanjiPdfBuilder kanjiList={selectedKanji} mode={mode} isGenerating={isGenerating} />,
+        document.body,
+      )}
     </div>
   );
 };
