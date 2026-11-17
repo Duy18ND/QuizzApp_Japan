@@ -157,14 +157,14 @@ export function Switch({ checked, onChange, label, description, disabled, classN
         onClick={() => onChange(!checked)}
         className={cn(
           'relative h-6 w-11 shrink-0 rounded-full border transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50',
-          checked ? 'border-primary bg-primary' : 'border-line-strong bg-surface-3',
+          checked ? 'border-primary bg-primary' : 'border-line-strong bg-glass-soft',
         )}
       >
         <span
           aria-hidden
           className={cn(
             'absolute top-0.5 left-0.5 size-4.5 rounded-full shadow-card transition-transform duration-150 ease-out-soft',
-            checked ? 'translate-x-5 bg-on-primary' : 'translate-x-0 bg-surface',
+            checked ? 'translate-x-5 bg-on-primary' : 'translate-x-0 bg-glass-hover ring-1 ring-line-strong',
           )}
         />
       </button>
@@ -215,7 +215,7 @@ export function Chip({ selected, onClick, children, disabled, className }: ChipP
         'disabled:pointer-events-none disabled:opacity-50',
         selected
           ? 'border-primary bg-primary-soft text-primary-fg'
-          : 'border-line bg-surface text-fg hover:border-line-strong hover:bg-surface-2',
+          : 'border-line bg-glass text-fg hover:border-line-strong hover:bg-glass-hover',
         className,
       )}
     >

@@ -24,7 +24,7 @@ export const AppLayout: React.FC = () => {
       <header className="relative z-40 flex-none overflow-hidden border-b border-line bg-glass-header">
         <div
           aria-hidden
-          className="seigaiha-mask pointer-events-none absolute inset-0 bg-wave opacity-[0.08]"
+          className="seigaiha-mask pointer-events-none absolute inset-0 bg-wave opacity-[0.035]"
         />
         <div className="relative mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 md:h-15 md:px-6">
           <Link to="/" className="group flex shrink-0 items-center gap-2.5 rounded-lg" aria-label="Nihongo 問 — Trang chủ">

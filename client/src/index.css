@@ -26,40 +26,41 @@
   /* Surfaces (Cool Ice Blue & Pure White) */
   --bg: #F2F9FF;
   --surface: #FFFFFF;
-  --surface-2: #E0F2FE;
-  --surface-3: #BAE6FD;
+  --surface-2: #E6F4FE;
+  --surface-3: #CCE7FC;
 
-  /* Text */
-  --fg: #0C2340;
-  --fg-muted: #47698A;
-  --fg-subtle: #7FA6C9;
+  /* Text (Rich Obsidian Navy for crisp contrast over sheer glass) */
+  --fg: #071933;
+  --fg-muted: #1E3A5F;
+  --fg-subtle: #426488;
 
-  /* Lines */
-  --line: #CBE7FD;
-  --line-strong: #93C5FD;
+  /* Lines (Crisp optical hairline borders for translucent panels) */
+  --line: rgba(14, 116, 178, 0.22);
+  --line-strong: rgba(2, 132, 199, 0.36);
 
   /* Brand: Cool Ocean Blue + Sakura Pink */
   --primary: #0284C7;
   --primary-hover: #0369A1;
   --primary-active: #075985;
   --on-primary: #FFFFFF;
-  --primary-soft: #E0F2FE;
-  --primary-soft-hover: #BAE6FD;
+  --primary-soft: rgba(2, 132, 199, 0.14);
+  --primary-soft-hover: rgba(2, 132, 199, 0.22);
   --primary-fg: #0369A1;
   --focus-ring: #0284C7;
 
-  /* Translucent Glass Surfaces (No Blur) & Subtle Contrast Scrim */
-  --glass: rgba(255, 255, 255, 0.72);
-  --glass-hover: rgba(224, 242, 254, 0.86);
-  --glass-soft: rgba(240, 249, 255, 0.60);
-  --glass-header: rgba(255, 255, 255, 0.78);
-  --scrim-bg: rgba(242, 249, 255, 0.04);
+  /* Sheer Porcelain Glass Surfaces (No Blur — shows background scenery clearly through cards, nav & toggle) */
+  --glass: rgba(255, 255, 255, 0.46);
+  --glass-hover: rgba(255, 255, 255, 0.68);
+  --glass-soft: rgba(248, 252, 255, 0.30);
+  --glass-header: rgba(255, 255, 255, 0.34);
+  --scrim-bg: rgba(242, 249, 255, 0.0);
+  --scrim-sky: linear-gradient(180deg, rgba(224, 242, 254, 0.18) 0%, rgba(224, 242, 254, 0.04) 18%, transparent 34%);
 
   /* Japanese Decorative Accents */
-  --sakura: #F472B6;
-  --sakura-soft: #FDF2F8;
+  --sakura: #EC4899;
+  --sakura-soft: rgba(244, 114, 182, 0.13);
   --sun-disc: #FDA4AF;
-  --cyan-glow: rgba(56, 189, 248, 0.2);
+  --cyan-glow: rgba(56, 189, 248, 0.20);
   --wave: #0EA5E9;
   --wave-ink: #0284C7;
   --hero-from: #0369A1;
@@ -78,13 +79,13 @@
 
   --danger: #EF4444;
   --danger-fg: #DC2626;
-  --danger-soft: #FEF2F2;
-  --danger-line: #FECACA;
+  --danger-soft: rgba(239, 68, 68, 0.10);
+  --danger-line: rgba(239, 68, 68, 0.28);
 
-  /* Overlay + elevation */
+  /* Overlay + elevation (Top specular highlight + clean ambient shadow) */
   --scrim: rgb(12 35 64 / 0.45);
-  --elev-card: 0 2px 8px -2px rgb(2 132 199 / 0.07), 0 1px 2px rgb(12 35 64 / 0.04);
-  --elev-pop: 0 10px 28px -6px rgb(2 132 199 / 0.16), 0 2px 6px rgb(12 35 64 / 0.06);
+  --elev-card: inset 0 1px 0 rgba(255, 255, 255, 0.92), 0 6px 20px -6px rgb(12 52 92 / 0.11), 0 1px 3px rgb(12 52 92 / 0.06);
+  --elev-pop: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 14px 32px -8px rgb(12 52 92 / 0.18), 0 2px 6px rgb(12 52 92 / 0.06);
 }
 
 .dark {
@@ -92,65 +93,66 @@
 
   /* Surfaces (Cool Midnight Ocean & Glowing Cyan/Sakura) */
   --bg: #071B2F;
-  --surface: #0D2844;
-  --surface-2: #133659;
-  --surface-3: #1E4976;
+  --surface: #0C2342;
+  --surface-2: #123159;
+  --surface-3: #1B4374;
 
-  /* Text */
-  --fg: #F0F9FF;
-  --fg-muted: #93C5FD;
-  --fg-subtle: #38BDF8;
+  /* Text (Bright Snow White & Ice-Slate for crisp legibility over sheer glass) */
+  --fg: #FFFFFF;
+  --fg-muted: #D2E5F8;
+  --fg-subtle: #8CC0EC;
 
-  /* Lines */
-  --line: #1B436B;
-  --line-strong: #255C91;
+  /* Lines (Luminous optical cyan-white hairlines) */
+  --line: rgba(148, 212, 255, 0.24);
+  --line-strong: rgba(148, 212, 255, 0.42);
 
   /* Brand */
   --primary: #38BDF8;
   --primary-hover: #7DD3FC;
   --primary-active: #BAE6FD;
-  --on-primary: #071B2F;
-  --primary-soft: #0C4A6E;
-  --primary-soft-hover: #075985;
+  --on-primary: #06182C;
+  --primary-soft: rgba(56, 189, 248, 0.16);
+  --primary-soft-hover: rgba(56, 189, 248, 0.26);
   --primary-fg: #7DD3FC;
   --focus-ring: #38BDF8;
 
-  /* Translucent Navy Glass Surfaces (No Blur) & Subtle Scrim */
-  --glass: rgba(5, 15, 35, 0.50);
-  --glass-hover: rgba(12, 42, 74, 0.68);
-  --glass-soft: rgba(5, 15, 35, 0.36);
-  --glass-header: rgba(5, 15, 35, 0.56);
-  --scrim-bg: rgba(5, 15, 35, 0.18);
+  /* Sheer Smoked Midnight Glass (No Blur — reveals Fuji snow, pagoda & sakura through cards & nav) */
+  --glass: rgba(6, 20, 44, 0.44);
+  --glass-hover: rgba(10, 32, 66, 0.66);
+  --glass-soft: rgba(6, 20, 44, 0.28);
+  --glass-header: rgba(5, 16, 36, 0.38);
+  --scrim-bg: rgba(4, 14, 30, 0.0);
+  --scrim-sky: linear-gradient(180deg, rgba(4, 14, 30, 0.32) 0%, rgba(4, 14, 30, 0.10) 20%, transparent 40%);
 
   /* Japanese Decorative Accents */
   --sakura: #FB7185;
   --sakura-soft: rgba(244, 114, 182, 0.14);
   --sun-disc: #FDE047;
-  --cyan-glow: rgba(56, 189, 248, 0.16);
+  --cyan-glow: rgba(56, 189, 248, 0.18);
   --wave: #38BDF8;
   --wave-ink: #7DD3FC;
   --hero-from: #0C4A6E;
   --hero-to: #0284C7;
 
-  /* Status */
+  /* Status (Translucent jewel tones cohesive with midnight sapphire glass) */
   --success: #22C55E;
   --success-fg: #4ADE80;
-  --success-soft: #052E16;
-  --success-line: #166534;
+  --success-soft: rgba(34, 197, 94, 0.14);
+  --success-line: rgba(74, 222, 128, 0.35);
 
   --warning: #FBBF24;
-  --warning-fg: #FBBF24;
-  --warning-soft: #2A1F05;
-  --warning-line: #854D0E;
+  --warning-fg: #FDE047;
+  --warning-soft: rgba(245, 158, 11, 0.14);
+  --warning-line: rgba(251, 191, 36, 0.35);
 
   --danger: #F87171;
-  --danger-fg: #F87171;
-  --danger-soft: #2D0A0A;
-  --danger-line: #991B1B;
+  --danger-fg: #FDA4AF;
+  --danger-soft: rgba(244, 63, 94, 0.15);
+  --danger-line: rgba(251, 113, 133, 0.36);
 
   --scrim: rgb(4 15 28 / 0.68);
-  --elev-card: 0 4px 16px -4px rgb(2 12 27 / 0.45);
-  --elev-pop: 0 12px 32px -8px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(37 92 145 / 0.5);
+  --elev-card: inset 0 1px 0 rgba(255, 255, 255, 0.11), 0 8px 24px -8px rgb(2 10 24 / 0.56), 0 2px 6px rgb(2 10 24 / 0.32);
+  --elev-pop: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 16px 36px -10px rgb(0 0 0 / 0.66), 0 0 0 1px rgb(56 189 248 / 0.26);
 }
 
 /* ---------- 2. Tailwind mapping (semantic utilities only) ---------- */
@@ -411,7 +413,15 @@
     color: var(--fg);
     font-family: var(--font-sans);
     line-height: 1.6;
+  }
+
+  html.dark body {
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3 {
+    letter-spacing: -0.015em;
   }
 
   /* Japanese text breathes more and must never break mid-word awkwardly. */
@@ -437,6 +447,22 @@
 }
 
 @layer utilities {
+  .scrim-sky {
+    background: var(--scrim-sky);
+  }
+  .text-sky-legible {
+    text-shadow: 0 1px 8px rgba(255, 255, 255, 0.72);
+  }
+  html.dark .text-sky-legible {
+    text-shadow: 0 1px 10px rgba(4, 14, 30, 0.72);
+  }
+  /* Optical micro-contrast halo inside sheer translucent glass surfaces */
+  :root:not(.dark) :is(.bg-glass, .bg-glass-soft, .bg-glass-header) {
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.58);
+  }
+  html.dark :is(.bg-glass, .bg-glass-soft, .bg-glass-header) {
+    text-shadow: 0 1px 5px rgba(3, 10, 24, 0.75);
+  }
   .hide-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
   .hide-scrollbar::-webkit-scrollbar { display: none; }
   .tabular { font-variant-numeric: tabular-nums; }
@@ -477,6 +503,7 @@
   }
   .animate-sun-pulse {
     animation: sunPulse 4s ease-in-out infinite;
+    transform-box: fill-box;
     transform-origin: center;
   }
   .animate-bird-fly {
@@ -494,9 +521,6 @@
   .animate-firefly {
     animation: fireflyFloat 6s ease-in-out infinite alternate;
   }
-  .animate-water-shimmer {
-    animation: waterShimmer 9s ease-in-out infinite alternate;
-  }
   .animate-click-ripple {
     animation: clickRipple 550ms var(--ease-out-soft) forwards;
   }
@@ -506,7 +530,11 @@
   .animate-petal-burst {
     animation: petalBurst 700ms var(--ease-out-soft) forwards;
   }
-  .bg-day-layer,
+  .bg-day-layer {
+    opacity: 1;
+    filter: url(#anime-bg-crisp) contrast(1.03) saturate(1.04);
+    transition: opacity 700ms ease-in-out !important;
+  }
   .sky-day-layer {
     opacity: 1;
     transition: opacity 700ms ease-in-out !important;
@@ -515,7 +543,11 @@
   html.dark .sky-day-layer {
     opacity: 0;
   }
-  .bg-night-layer,
+  .bg-night-layer {
+    opacity: 0;
+    filter: url(#anime-bg-crisp) contrast(1.04) saturate(1.04) brightness(1.03);
+    transition: opacity 700ms ease-in-out !important;
+  }
   .sky-night-layer {
     opacity: 0;
     transition: opacity 700ms ease-in-out !important;
@@ -526,23 +558,25 @@
   }
   .celestial-sun {
     transform: translateY(0px) scale(1);
-    opacity: 1;
+    opacity: 0.94;
+    transform-box: fill-box;
     transform-origin: center;
     transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.7s ease !important;
   }
   html.dark .celestial-sun {
-    transform: translateY(180px) scale(0.65);
+    transform: translateY(160px) scale(0.65);
     opacity: 0;
   }
   .celestial-moon {
-    transform: translateY(180px) rotate(-35deg) scale(0.65);
+    transform: translateY(160px) rotate(-35deg) scale(0.65);
     opacity: 0;
+    transform-box: fill-box;
     transform-origin: center;
     transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.7s ease !important;
   }
   html.dark .celestial-moon {
     transform: translateY(0px) rotate(0deg) scale(1);
-    opacity: 1;
+    opacity: 0.92;
   }
   .animate-fade-up {
     animation: fadeUp 200ms var(--ease-out-soft) both;

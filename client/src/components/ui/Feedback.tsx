@@ -31,7 +31,11 @@ export function ProgressBar({ value, max = 100, label, tone = 'primary', size = 
       aria-valuemin={0}
       aria-valuemax={max}
       aria-valuenow={Math.round(Math.min(Math.max(value, 0), max))}
-      className={cn('w-full overflow-hidden rounded-full bg-surface-3', size === 'sm' ? 'h-1.5' : 'h-2.5', className)}
+      className={cn(
+        'w-full overflow-hidden rounded-full bg-glass-soft ring-1 ring-inset ring-line',
+        size === 'sm' ? 'h-1.5' : 'h-2',
+        className,
+      )}
     >
       <div
         className={cn('h-full origin-left rounded-full transition-transform duration-300 ease-out-soft', progressTones[tone])}

@@ -106,7 +106,7 @@ export const StarQuestionComp: React.FC<Props> = ({
 
   return (
     <div className="space-y-6">
-      <div className="flex min-h-40 flex-col justify-between rounded-xl border border-line bg-surface-2 p-5 md:p-6">
+      <div className="flex min-h-40 flex-col justify-between rounded-xl border border-line-strong bg-glass-soft p-5 md:p-6">
         <div className="space-y-1.5">
           {question.instruction && (
             <p className="text-sm font-semibold text-primary-fg">{question.instruction}</p>
@@ -175,7 +175,7 @@ export const StarQuestionComp: React.FC<Props> = ({
                         ? 'border-primary bg-primary-soft/70 text-primary-fg hover:bg-primary-soft'
                         : isStar
                           ? 'border-warning bg-warning-soft/60 hover:bg-warning-soft'
-                          : 'border-line-strong bg-surface/70 hover:border-primary',
+                          : 'border-line-strong bg-glass-soft hover:border-primary',
                 )}
               >
                 {chunkId ? (
@@ -225,7 +225,7 @@ export const StarQuestionComp: React.FC<Props> = ({
                 'flex min-h-14 items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-colors',
                 isSelected
                   ? 'cursor-not-allowed border-line bg-surface-2 text-subtle opacity-45'
-                  : 'cursor-grab border-line-strong bg-surface text-fg hover:border-primary hover:bg-surface-2 active:cursor-grabbing',
+                  : 'cursor-grab border-line-strong bg-glass text-fg hover:border-primary hover:bg-glass-hover active:cursor-grabbing',
               )}
             >
               <span className="flex items-center gap-3.5">

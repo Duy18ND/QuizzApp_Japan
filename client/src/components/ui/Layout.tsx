@@ -50,7 +50,7 @@ export function CardLink({ className, padding = 'md', ...rest }: LinkProps & { p
 type BadgeTone = 'neutral' | 'primary' | 'sakura' | 'success' | 'warning' | 'danger';
 
 const badgeTones: Record<BadgeTone, string> = {
-  neutral: 'bg-surface-2 text-muted border-line',
+  neutral: 'bg-glass-soft text-muted border-line',
   primary: 'bg-primary-soft text-primary-fg border-transparent',
   sakura: 'bg-sakura-soft text-sakura border-sakura/30',
   success: 'bg-success-soft text-success-fg border-success-line',
@@ -134,7 +134,7 @@ export function PageHeader({ title, description, breadcrumbs, actions, className
         <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight text-fg md:text-3xl">{title}</h1>
           {description && <p className="mt-1.5 max-w-prose text-base text-muted">{description}</p>}
-          <span aria-hidden className="seigaiha-mask mt-3 block h-3 w-28 bg-wave opacity-60" />
+          <span aria-hidden className="mt-3 block h-0.5 w-16 rounded-full bg-linear-to-r from-primary via-sakura to-transparent" />
         </div>
         {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
       </div>
@@ -148,7 +148,7 @@ export function Kbd({ className, ...rest }: HTMLAttributes<HTMLElement>) {
   return (
     <kbd
       className={cn(
-        'inline-flex min-w-5 items-center justify-center rounded border border-line-strong bg-surface-2 px-1.5 font-sans text-xs text-muted',
+        'inline-flex min-w-5 items-center justify-center rounded border border-line-strong bg-glass-soft px-1.5 font-sans text-xs text-muted',
         className,
       )}
       {...rest}
