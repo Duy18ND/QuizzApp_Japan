@@ -1,5 +1,6 @@
 import React from 'react';
 import { CheckCircle2, XCircle } from 'lucide-react';
+import { Badge } from './ui/Layout';
 
 interface QuizHeaderProps {
   current: number;
@@ -9,21 +10,21 @@ interface QuizHeaderProps {
 
 export const QuizHeader: React.FC<QuizHeaderProps> = ({ current, total, score }) => {
   return (
-    <div className="flex justify-end items-center mb-6">
-      <div className="flex items-center space-x-4 bg-white dark:bg-gray-800 rounded-lg px-4 py-2 border border-gray-200 dark:border-gray-700 transition-colors shadow-sm">
-        <div className="font-bold text-gray-800 dark:text-gray-200">
-          Câu {current} / {total}
-        </div>
-        <div className="w-px h-6 bg-gray-200 dark:bg-gray-600 transition-colors"></div>
-        <div className="flex items-center text-red-600 dark:text-red-400 font-semibold">
-          <XCircle className="w-5 h-5 mr-1.5" />
-          <span>{score.wrong}</span>
-        </div>
-        <div className="w-px h-6 bg-gray-200 dark:bg-gray-600 transition-colors"></div>
-        <div className="flex items-center text-green-600 dark:text-green-400 font-semibold">
-          <CheckCircle2 className="w-5 h-5 mr-1.5" />
-          <span>{score.correct}</span>
-        </div>
+    <div className="mb-5 flex items-center justify-between gap-3">
+      <Badge tone="primary" className="tabular px-3 py-1 text-sm font-semibold">
+        Câu {current} / {total}
+      </Badge>
+
+      <div className="tabular flex items-center gap-3 rounded-lg border border-line bg-surface px-3.5 py-1.5 text-sm font-semibold shadow-card">
+        <span className="inline-flex items-center gap-1.5 text-success-fg" aria-label={`${score.correct} câu đúng`}>
+          <CheckCircle2 className="size-4" aria-hidden />
+          {score.correct}
+        </span>
+        <span className="h-4 w-px bg-line" aria-hidden />
+        <span className="inline-flex items-center gap-1.5 text-danger-fg" aria-label={`${score.wrong} câu sai`}>
+          <XCircle className="size-4" aria-hidden />
+          {score.wrong}
+        </span>
       </div>
     </div>
   );

@@ -765,7 +765,7 @@ export const lesson01Sentences: GrammarSentence[] = [
     hiragana: "もうしこんでからでないと、さんかできません。",
     vietnamese: "Nếu chưa đăng ký thì không thể tham gia.",
     difficulty: "normal",
-    target: "てからでないと"
+    target: "でからでないと"
   },
   {
     id: "N3-SKZ-L01-TEKARA-DENAITO_S004",
@@ -819,7 +819,7 @@ export const lesson01Sentences: GrammarSentence[] = [
     hiragana: "せつめいしょをよくよんでからでないと、このきかいはつかえません。",
     vietnamese: "Nếu chưa đọc kỹ sách hướng dẫn thì không thể sử dụng cái máy này.",
     difficulty: "normal",
-    target: "てからでないと"
+    target: "でからでないと"
   },
   {
     id: "N3-SKZ-L01-TEKARA-DENAITO_S010",

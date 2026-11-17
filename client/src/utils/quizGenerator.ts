@@ -20,6 +20,34 @@ function shuffle<T>(array: T[]): T[] {
   return result;
 }
 
+const matchesWordType = (rawType: string | undefined, selectedType: string): boolean => {
+  if (!selectedType || selectedType === 'all') return true;
+  if (!rawType) return false;
+  const t = rawType.toLowerCase();
+  if (selectedType === 'Tính từ -i') {
+    return t.includes('tính từ -i') || t.includes('tính từ đuôi i') || t.includes('tính từ (い)');
+  }
+  if (selectedType === 'Tính từ -na') {
+    return t.includes('tính từ -na') || t.includes('tính từ đuôi na') || t.includes('tính từ (な)');
+  }
+  if (selectedType === 'Trạng từ') {
+    return t.includes('trạng từ') || t.includes('phó từ');
+  }
+  if (selectedType === 'Khác') {
+    return !(
+      t.includes('danh từ') ||
+      t.includes('động từ') ||
+      t.includes('tính từ') ||
+      t.includes('trạng từ') ||
+      t.includes('phó từ') ||
+      t.includes('đại từ') ||
+      t.includes('liên từ') ||
+      t.includes('trợ từ')
+    );
+  }
+  return rawType === selectedType;
+};
+
 export function generateQuizSession(config: QuizConfig, starredWords: number[], wrongWords: number[]) {
   const {
     level,
@@ -31,7 +59,8 @@ export function generateQuizSession(config: QuizConfig, starredWords: number[], 
     customRange,
     shuffleQuestions,
     shuffleAnswers,
-    customData
+    customData,
+    kanjiFilter,
   } = config;
 
   // 1. Lấy dữ liệu gốc
@@ -50,7 +79,7 @@ export function generateQuizSession(config: QuizConfig, starredWords: number[], 
     throw new Error(`Không có dữ liệu từ vựng để tạo bài kiểm tra.`);
   }
 
-  // 2. Lọc danh sách từ vựng gốc (Nguồn, Từ loại)
+  // 2. Lọc danh sách từ vựng gốc (Nguồn, Từ loại, Kanji)
   let words = [...unitData];
 
   if (!config.isCustom) {
@@ -59,16 +88,13 @@ export function generateQuizSession(config: QuizConfig, starredWords: number[], 
     } else if (source === 'wrong') {
       words = words.filter(w => wrongWords.includes(w.id));
     }
+    if (kanjiFilter) {
+      words = words.filter(w => typeof w.kanji === 'string' && w.kanji.includes(kanjiFilter));
+    }
   }
 
   if (wordType && wordType !== 'all') {
-    words = words.filter(w => {
-      if (!w.wordType) return false;
-      if (wordType === 'Khác') {
-        return !['Danh từ', 'Động từ', 'Tính từ -na', 'Tính từ -i', 'Trạng từ', 'Đại từ', 'Liên từ', 'Trợ từ'].includes(w.wordType);
-      }
-      return w.wordType === wordType;
-    });
+    words = words.filter(w => matchesWordType(w.wordType, wordType));
   }
 
   if (words.length === 0) {

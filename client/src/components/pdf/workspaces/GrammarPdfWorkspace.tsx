@@ -1,48 +1,56 @@
-import React, { useState, useMemo, useRef, useCallback } from 'react';
-import { Download, RefreshCcw, Book } from 'lucide-react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { Book, Download } from 'lucide-react';
 import { createPortal } from 'react-dom';
-import { grammarBooks } from '../../../data/grammar';
 import { useSearchParams } from 'react-router-dom';
+import { grammarBooks } from '../../../data/grammar';
 import { GrammarPdfBuilder } from './GrammarPdfBuilder';
 import { FontManager } from '../../../utils/fontManager';
 import { generateGrammarPdfDataset } from '../../../data/pdf/grammarPdfGenerator';
-import type { GrammarPdfConfig, PdfMode, GrammarPdfSet } from '../../../data/pdf/grammarPdfGenerator';
+import type { GrammarPdfConfig, GrammarPdfSet, PdfMode } from '../../../data/pdf/grammarPdfGenerator';
+import { Button, Card, Checkbox, Chip, Field, Input, Select } from '../../ui';
+
+type CountOption = number | 'all' | 'custom';
+const COUNT_OPTIONS: (number | 'all')[] = [2, 3, 5, 10, 'all'];
 
 export const GrammarPdfWorkspace: React.FC = () => {
   const [searchParams] = useSearchParams();
   const initBookId = searchParams.get('bookId') || grammarBooks[0]?.id || '';
-  const initChapterId = searchParams.get('chapterId') || grammarBooks.find(b => b.id === initBookId)?.chapters[0]?.id || '';
+  const initChapterId =
+    searchParams.get('chapterId') ||
+    grammarBooks.find((b) => b.id === initBookId)?.chapters[0]?.id ||
+    '';
   const initGrammarId = searchParams.get('grammarId') || '';
 
   const [selectedBookId, setSelectedBookId] = useState<string>(initBookId);
   const [selectedChapterId, setSelectedChapterId] = useState<string>(initChapterId);
-  
-  const selectedBook = useMemo(() => grammarBooks.find(b => b.id === selectedBookId), [selectedBookId]);
-  const selectedChapter = useMemo(() => selectedBook?.chapters.find(c => c.id === selectedChapterId), [selectedBook, selectedChapterId]);
-  
+
+  const selectedBook = useMemo(
+    () => grammarBooks.find((b) => b.id === selectedBookId),
+    [selectedBookId],
+  );
+  const selectedChapter = useMemo(
+    () => selectedBook?.chapters.find((c) => c.id === selectedChapterId),
+    [selectedBook, selectedChapterId],
+  );
+
   const rules = useMemo(() => selectedChapter?.grammars || [], [selectedChapter]);
 
   const [selectedRules, setSelectedRules] = useState<string[]>(() => {
     if (initGrammarId) return [initGrammarId];
-    const initialBook = grammarBooks.find(b => b.id === initBookId);
-    const initialChapter = initialBook?.chapters.find(c => c.id === initChapterId);
-    return initialChapter ? initialChapter.grammars.map(g => g.id) : [];
-  });  
-  // New PDF Config States
+    const initialBook = grammarBooks.find((b) => b.id === initBookId);
+    const initialChapter = initialBook?.chapters.find((c) => c.id === initChapterId);
+    return initialChapter ? initialChapter.grammars.map((g) => g.id) : [];
+  });
+
   const [pdfMode, setPdfMode] = useState<PdfMode>('vi_to_ja');
-  
-  type CountOption = number | 'all' | 'custom';
   const [questionCount, setQuestionCount] = useState<CountOption>(5);
   const [customCount, setCustomCount] = useState<number | ''>('');
-  
-
   const [showHiragana, setShowHiragana] = useState<boolean>(false);
   const [generateAnswer, setGenerateAnswer] = useState(true);
 
   const [generatedSets, setGeneratedSets] = useState<GrammarPdfSet[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // === Cache & Lock ===
   const lastConfigRef = useRef<string>('');
   const isExportingRef = useRef(false);
 
@@ -51,28 +59,29 @@ export const GrammarPdfWorkspace: React.FC = () => {
       rules: [...selectedRules].sort(),
       mode: pdfMode,
       count: questionCount === 'custom' ? customCount : questionCount,
-      showHiragana: showHiragana
+      showHiragana,
     });
   }, [selectedRules, pdfMode, questionCount, customCount, showHiragana]);
 
   const handleToggleRule = (id: string) => {
-    setSelectedRules(prev => 
-      prev.includes(id) ? prev.filter(r => r !== id) : [...prev, id]
+    setSelectedRules((prev) =>
+      prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id],
     );
   };
 
   const handleExport = async () => {
     if (selectedRules.length === 0) return;
-    
     if (isExportingRef.current) return;
+
     isExportingRef.current = true;
     setIsGenerating(true);
-    
+
     try {
       await FontManager.ensureReady();
 
       const currentConfig = getConfigFingerprint();
-      const needsRegenerate = currentConfig !== lastConfigRef.current || generatedSets.length === 0;
+      const needsRegenerate =
+        currentConfig !== lastConfigRef.current || generatedSets.length === 0;
 
       if (needsRegenerate) {
         let finalCount: number | 'all' = 10;
@@ -87,18 +96,18 @@ export const GrammarPdfWorkspace: React.FC = () => {
           grammarIds: selectedRules,
           showHiragana,
         };
-        
+
         const sets = generateGrammarPdfDataset(config);
         setGeneratedSets(sets);
         lastConfigRef.current = currentConfig;
 
-        await new Promise<void>(resolve => {
+        await new Promise<void>((resolve) => {
           requestAnimationFrame(() => {
             requestAnimationFrame(() => resolve());
           });
         });
       }
-      
+
       window.print();
     } finally {
       setIsGenerating(false);
@@ -107,207 +116,189 @@ export const GrammarPdfWorkspace: React.FC = () => {
   };
 
   return (
-    <div className="max-w-3xl mx-auto flex flex-col gap-6 h-full relative pb-8">
-      {/* Cấu hình (Left Panel) */}
-      <div className="flex flex-col gap-6">
-        
-        {/* Book & Chapter Selection */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 space-y-4">
-           <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
-            <Book className="w-5 h-5 text-blue-500" />
+    <div className="mx-auto max-w-4xl space-y-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Giáo trình & Ngữ pháp */}
+        <Card padding="lg" className="space-y-5">
+          <h2 className="flex items-center gap-2 text-base font-semibold text-fg">
+            <Book className="size-4 text-primary-fg" aria-hidden />
             Chọn giáo trình
-          </h3>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Giáo trình</label>
-            <select 
+          </h2>
+
+          <Field label="Giáo trình" htmlFor="pdf-grammar-book">
+            <Select
+              id="pdf-grammar-book"
               value={selectedBookId}
-              onChange={e => setSelectedBookId(e.target.value)}
-              className="w-full p-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+              onChange={(e) => setSelectedBookId(e.target.value)}
             >
-              {grammarBooks.map(b => (
-                 <option key={b.id} value={b.id}>{b.title} ({b.level})</option>
+              {grammarBooks.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.title} ({b.level})
+                </option>
               ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Chương / Bài</label>
-            <select 
+            </Select>
+          </Field>
+
+          <Field label="Chương / Bài" htmlFor="pdf-grammar-chapter">
+            <Select
+              id="pdf-grammar-chapter"
               value={selectedChapterId}
-              onChange={e => {
+              onChange={(e) => {
                 setSelectedChapterId(e.target.value);
-                setSelectedRules([]); 
+                setSelectedRules([]);
               }}
-              className="w-full p-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
             >
-              {selectedBook?.chapters.map(c => (
-                 <option key={c.id} value={c.id}>{c.title}</option>
+              {selectedBook?.chapters.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.title}
+                </option>
               ))}
-            </select>
-          </div>
-        </div>
+            </Select>
+          </Field>
 
-        {/* Cấu hình PDF */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 space-y-6">
-          
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Loại PDF</label>
-            <div className="flex gap-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input 
-                  type="radio" 
-                  name="pdfMode" 
-                  value="vi_to_ja" 
-                  checked={pdfMode === 'vi_to_ja'} 
-                  onChange={() => setPdfMode('vi_to_ja')}
-                  className="w-4 h-4 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-gray-900 dark:text-white">Việt → Nhật</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input 
-                  type="radio" 
-                  name="pdfMode" 
-                  value="ja_to_vi" 
-                  checked={pdfMode === 'ja_to_vi'} 
-                  onChange={() => setPdfMode('ja_to_vi')}
-                  className="w-4 h-4 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-gray-900 dark:text-white">Nhật → Việt</span>
-              </label>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Chọn ngữ pháp</label>
-            <div className="max-h-64 overflow-y-auto space-y-2 border border-gray-200 dark:border-gray-700 rounded-xl p-3 bg-gray-50 dark:bg-gray-900/50">
-              {rules.map((rule) => (
-                <label key={rule.id} className="flex items-center gap-3 p-2 hover:bg-white dark:hover:bg-gray-800 rounded-lg cursor-pointer">
-                  <input 
-                    type="checkbox"
-                    checked={selectedRules.includes(rule.id)}
-                    onChange={() => handleToggleRule(rule.id)}
-                    className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                  />
-                  <div>
-                    <div className="font-semibold text-gray-900 dark:text-white">{rule.name}</div>
-                    <div className="text-xs text-gray-500">{rule.meaning}</div>
-                  </div>
-                </label>
-              ))}
-              <div className="mt-2">
-                <button 
+          <div className="space-y-2 border-t border-line pt-4">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-medium text-fg">Chọn ngữ pháp</p>
+              <div className="flex gap-3 text-xs font-medium">
+                <button
+                  type="button"
                   onClick={() => setSelectedRules(rules.map((r) => r.id))}
-                  className="text-sm text-blue-600 dark:text-blue-400 font-medium hover:underline mr-4"
+                  className="text-primary-fg hover:underline"
                 >
                   Chọn tất cả
                 </button>
-                <button 
+                <button
+                  type="button"
                   onClick={() => setSelectedRules([])}
-                  className="text-sm text-red-600 dark:text-red-400 font-medium hover:underline"
+                  className="text-danger-fg hover:underline"
                 >
                   Bỏ chọn
                 </button>
               </div>
             </div>
-          </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-              Số câu hỏi (mỗi ngữ pháp)
-            </label>
-            <div className="flex flex-wrap gap-2 items-center">
-              {[2, 3, 5, 10, 'all'].map(num => (
-                <button
-                  key={num}
-                  onClick={() => {
-                    setQuestionCount(num as any);
-                    if (num !== 'custom') setCustomCount('');
-                  }}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    questionCount === num 
-                      ? 'bg-blue-600 text-white shadow-sm' 
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  {num === 'all' ? 'Tất cả' : num}
-                </button>
+            <div className="max-h-64 divide-y divide-line overflow-y-auto rounded-lg border border-line bg-surface-2">
+              {rules.map((rule) => (
+                <div key={rule.id} className="px-3.5 py-2.5">
+                  <Checkbox
+                    checked={selectedRules.includes(rule.id)}
+                    onChange={() => handleToggleRule(rule.id)}
+                    label={
+                      <span>
+                        <span lang="ja" className="font-semibold text-fg">
+                          {rule.name}
+                        </span>
+                        <span className="block text-xs text-muted">{rule.meaning}</span>
+                      </span>
+                    }
+                  />
+                </div>
               ))}
-              
-              <div className="flex items-center ml-2">
-                <button
+            </div>
+          </div>
+        </Card>
+
+        {/* Cấu hình PDF */}
+        <div className="flex flex-col gap-6">
+          <Card padding="lg" className="space-y-5">
+            <h2 className="text-base font-semibold text-fg">Cấu hình bài tập PDF</h2>
+
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-fg">Chiều dịch</p>
+              <div className="flex flex-wrap gap-2">
+                <Chip selected={pdfMode === 'vi_to_ja'} onClick={() => setPdfMode('vi_to_ja')}>
+                  Việt → Nhật
+                </Chip>
+                <Chip selected={pdfMode === 'ja_to_vi'} onClick={() => setPdfMode('ja_to_vi')}>
+                  Nhật → Việt
+                </Chip>
+              </div>
+            </div>
+
+            <div className="space-y-2 border-t border-line pt-4">
+              <p className="text-sm font-medium text-fg">Số câu hỏi (mỗi ngữ pháp)</p>
+              <div className="flex flex-wrap items-center gap-2">
+                {COUNT_OPTIONS.map((num) => (
+                  <Chip
+                    key={num}
+                    selected={questionCount === num}
+                    onClick={() => {
+                      setQuestionCount(num);
+                      setCustomCount('');
+                    }}
+                  >
+                    {num === 'all' ? 'Tất cả' : num}
+                  </Chip>
+                ))}
+                <Chip
+                  selected={questionCount === 'custom'}
                   onClick={() => setQuestionCount('custom')}
-                  className={`px-4 py-2 rounded-l-lg text-sm font-medium transition-colors ${
-                    questionCount === 'custom'
-                      ? 'bg-blue-600 text-white shadow-sm' 
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
                 >
                   Tự nhập
-                </button>
+                </Chip>
                 {questionCount === 'custom' && (
-                  <input
+                  <Input
                     type="number"
-                    min="1"
+                    min={1}
+                    aria-label="Số câu hỏi tùy chỉnh"
                     value={customCount}
-                    onChange={(e) => setCustomCount(e.target.value ? parseInt(e.target.value, 10) : '')}
+                    onChange={(e) =>
+                      setCustomCount(e.target.value ? parseInt(e.target.value, 10) : '')
+                    }
                     placeholder="VD: 15"
-                    className="w-20 px-3 py-2 border-y border-r border-gray-200 dark:border-gray-700 rounded-r-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-24"
                   />
                 )}
               </div>
             </div>
-          </div>
 
-
-
-          <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
-             <label className="flex items-center gap-3 py-2 cursor-pointer">
-              <input 
-                type="checkbox"
+            <div className="space-y-3 border-t border-line pt-4">
+              <Checkbox
                 checked={showHiragana}
-                onChange={e => setShowHiragana(e.target.checked)}
-                className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                onChange={setShowHiragana}
+                label={
+                  <span>
+                    <span className="font-medium text-fg">Hiển thị Hiragana hỗ trợ</span>
+                    <span className="block text-xs text-muted">
+                      In thêm dòng Hiragana gợi ý (chỉ áp dụng cho loại Việt → Nhật).
+                    </span>
+                  </span>
+                }
               />
-              <span className="font-semibold text-gray-900 dark:text-white text-sm">Hiển thị Hiragana hỗ trợ</span>
-            </label>
-            <p className="text-xs text-gray-500 pl-8">In thêm dòng Hiragana gợi ý (chỉ áp dụng cho loại Việt → Nhật).</p>
-          </div>
+
+              <Checkbox
+                checked={generateAnswer}
+                onChange={setGenerateAnswer}
+                label={<span className="font-medium text-fg">Tạo kèm Answer Key (Đáp án)</span>}
+              />
+            </div>
+          </Card>
+
+          <Button
+            variant="primary"
+            size="lg"
+            fullWidth
+            loading={isGenerating}
+            disabled={selectedRules.length === 0}
+            leftIcon={<Download className="size-5" aria-hidden />}
+            onClick={handleExport}
+          >
+            {isGenerating ? 'Đang tạo PDF...' : 'Xuất PDF Worksheet'}
+          </Button>
         </div>
-      </div>
-
-      {/* Action Footer */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 space-y-4">
-        <label className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-200 dark:border-gray-700 cursor-pointer">
-          <input 
-            type="checkbox"
-            checked={generateAnswer}
-            onChange={e => setGenerateAnswer(e.target.checked)}
-            className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-          />
-          <span className="font-semibold text-gray-900 dark:text-white text-sm">Tạo kèm Answer Key (Đáp án)</span>
-        </label>
-
-        <button 
-          onClick={handleExport}
-          disabled={selectedRules.length === 0 || isGenerating}
-          className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold text-lg shadow-lg flex items-center justify-center gap-3 transition-colors disabled:opacity-50"
-        >
-          {isGenerating ? <RefreshCcw className="w-6 h-6 animate-spin" /> : <Download className="w-6 h-6" />}
-          {isGenerating ? '⏳ Đang tạo PDF...' : 'Xuất PDF Worksheet'}
-        </button>
       </div>
 
       {/* Hidden Print Container via Portal */}
       {createPortal(
-        <GrammarPdfBuilder 
-          bookId={selectedBookId} 
+        <GrammarPdfBuilder
+          bookId={selectedBookId}
           chapterId={selectedChapterId}
-          generatedSets={generatedSets} 
-          generateAnswer={generateAnswer} 
+          generatedSets={generatedSets}
+          generateAnswer={generateAnswer}
           linesCount={1}
           pdfMode={pdfMode}
         />,
-        document.body
+        document.body,
       )}
     </div>
   );

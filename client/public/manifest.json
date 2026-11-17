@@ -4,8 +4,8 @@
   "description": "Ứng dụng luyện tiếng Nhật",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#0f8fa8",
+  "background_color": "#F8FAFC",
+  "theme_color": "#2563EB",
   "icons": [
     {
       "src": "icons/icon-192.png",

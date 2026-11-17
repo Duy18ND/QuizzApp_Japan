@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import type { PracticeType } from '../../types/grammar';
+import type { PracticeQuestion, PracticeType } from '../../types/grammar';
 import { validateAnswer } from '../../utils/grammarEngine/answerValidator';
+import { Button, Field, Textarea } from '../ui';
 
 interface TextEntryProps {
   mode: PracticeType;
-  question: any; // Using any internally for reusable base props to avoid union overload
+  question: PracticeQuestion;
   onSubmit: (answer: string, isCorrect: boolean, feedbackMsg?: string) => void;
 }
 
@@ -14,37 +15,37 @@ export const TextEntryQuestion: React.FC<TextEntryProps> = ({ mode, question, on
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!answer.trim()) return;
-    const result = validateAnswer(answer.trim(), question.correctAnswer, mode, question.grammarId);
+    const expected = (question.correctAnswer ?? '') as string | string[];
+    const result = validateAnswer(answer.trim(), expected, mode, question.grammarId);
     onSubmit(answer.trim(), result.isCorrect, result.feedbackMessage);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-gray-100 dark:border-slate-700 shadow-sm">
+    <form onSubmit={handleSubmit} className="space-y-5">
+      <div className="space-y-2">
         {question.instruction && (
-          <p className="text-sm font-semibold text-blue-600 dark:text-blue-400 mb-2">{question.instruction}</p>
+          <p className="text-sm font-semibold text-primary-fg">{question.instruction}</p>
         )}
-        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4 whitespace-pre-wrap leading-relaxed">
+        <h3 lang="ja" className="text-lg leading-relaxed font-medium whitespace-pre-wrap text-fg md:text-xl">
           {question.question}
         </h3>
-        
-        <textarea
+      </div>
+
+      <Field label="Câu trả lời" htmlFor={`text-entry-${question.id}`}>
+        <Textarea
+          id={`text-entry-${question.id}`}
+          lang="ja"
           value={answer}
           onChange={(e) => setAnswer(e.target.value)}
-          className="w-full text-gray-900 dark:text-white bg-gray-50 dark:bg-slate-900 border-2 border-gray-200 dark:border-slate-700 rounded-lg p-4 text-lg focus:outline-none focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 transition-colors"
           rows={3}
           placeholder="Nhập câu trả lời của bạn..."
           autoFocus
         />
-      </div>
+      </Field>
 
-      <button
-        type="submit"
-        disabled={!answer.trim()}
-        className="w-full bg-blue-600 text-gray-900 font-medium py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-      >
+      <Button type="submit" variant="primary" size="lg" fullWidth disabled={!answer.trim()}>
         Kiểm tra
-      </button>
+      </Button>
     </form>
   );
 };

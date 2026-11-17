@@ -1,23 +1,30 @@
+import type { PracticeQuestion, PracticeType } from '../../types/grammar';
 import type { SmartGrammarRule } from '../../types/grammarEngine';
-import type { PracticeType } from '../../types/grammar';
 import { lesson01Sentences } from '../../data/grammar/shinkanzen-n3/lesson01Sentences';
 import { lesson02Sentences } from '../../data/grammar/shinkanzen-n3/lesson02Sentences';
+import {
+  generateConjugationQuestion,
+  generateExampleQuestion,
+  generateFillBlankQuestion,
+  generateFreeWritingQuestion,
+  generateGrammarSelectionQuestion,
+  generateJaToViQuestion,
+  generateMultipleChoiceQuestion,
+  generateStarQuestion,
+  generateTransformationQuestion,
+  generateViToJaQuestion,
+  generateWordOrderQuestion,
+} from './questionTypes';
 
 const allGrammarSentences = [...lesson01Sentences, ...lesson02Sentences];
 
-import {
-  generateMultipleChoiceQuestion,
-  generateFillBlankQuestion,
-  generateConjugationQuestion,
-  generateWordOrderQuestion,
-  generateStarQuestion,
-  generateJaToViQuestion,
-  generateViToJaQuestion,
-  generateTransformationQuestion,
-  generateGrammarSelectionQuestion,
-  generateFreeWritingQuestion,
-  generateExampleQuestion
-} from './questionTypes';
+const DEFAULT_MIXED_TYPES: PracticeType[] = [
+  'multiple_choice',
+  'grammar_selection',
+  'sentence_ordering',
+  'star_question',
+  'fill_blank',
+];
 
 class SeededRandom {
   private seed: number;
@@ -45,45 +52,54 @@ export interface SmartGeneratorOptions {
   grammarRule: SmartGrammarRule;
   count: number;
   seed: number;
-  rawVocabulary: any[];
+  rawVocabulary?: unknown[];
   topicScope?: string[];
-  requestedPracticeTypes?: PracticeType[]; // Array of types to generate
+  requestedPracticeTypes?: PracticeType[];
 }
 
 export interface QuestionSet {
   id: string;
   seed: number;
   grammarId: string;
-  questions: any[];
+  questions: PracticeQuestion[];
 }
 
 export const generateSmartQuestionSet = (options: SmartGeneratorOptions): QuestionSet => {
   const { grammarRule, count, seed, requestedPracticeTypes } = options;
   const rng = new SeededRandom(seed);
-  
-  const questions: any[] = [];
+
+  const questions: PracticeQuestion[] = [];
   const usedFingerprints = new Set<string>();
-  
-  // Lấy các câu cố định cho grammar hiện tại từ Sentence Bank
-  const availableSentences = allGrammarSentences.filter(s => s.grammarId === grammarRule.id);
+
+  const availableSentences = allGrammarSentences.filter((s) => s.grammarId === grammarRule.id);
   const shuffledSentences = rng.shuffle(availableSentences);
-  
+
   if (shuffledSentences.length === 0) {
     return { id: `set-${seed}`, seed, grammarId: grammarRule.id, questions: [] };
   }
 
-  const ALLOWED_MIXED_TYPES: PracticeType[] = ['sentence_ordering', 'star_question'];
-  
-  let typesToUse = requestedPracticeTypes && requestedPracticeTypes.length > 0 
-      ? requestedPracticeTypes 
-      : grammarRule.practiceTypes.filter(t => ALLOWED_MIXED_TYPES.includes(t));
-
-  if (typesToUse.includes('mixed')) {
-    typesToUse = typesToUse.filter(t => t !== 'mixed');
+  let typesToUse: PracticeType[];
+  if (requestedPracticeTypes && requestedPracticeTypes.length > 0) {
+    if (requestedPracticeTypes.includes('mixed')) {
+      const explicitNonMixed = requestedPracticeTypes.filter((t) => t !== 'mixed');
+      const ruleMixedTypes = grammarRule.practiceTypes.filter((t) =>
+        DEFAULT_MIXED_TYPES.includes(t),
+      );
+      typesToUse =
+        explicitNonMixed.length > 0
+          ? explicitNonMixed
+          : ruleMixedTypes.length > 0
+            ? ruleMixedTypes
+            : DEFAULT_MIXED_TYPES;
+    } else {
+      typesToUse = requestedPracticeTypes;
+    }
+  } else {
+    const ruleMixedTypes = grammarRule.practiceTypes.filter((t) =>
+      DEFAULT_MIXED_TYPES.includes(t),
+    );
+    typesToUse = ruleMixedTypes.length > 0 ? ruleMixedTypes : DEFAULT_MIXED_TYPES;
   }
-  
-  // Fallback to grammar_selection if nothing matches
-  if (typesToUse.length === 0) typesToUse = ['grammar_selection'];
 
   const typeDistribution: PracticeType[] = [];
   const baseCount = Math.floor(count / typesToUse.length);
@@ -98,16 +114,14 @@ export const generateSmartQuestionSet = (options: SmartGeneratorOptions): Questi
 
   for (const sentenceRecord of shuffledSentences) {
     if (questions.length >= count) break;
-    
-    // Duplicate check bằng ID cố định
+
     if (usedFingerprints.has(sentenceRecord.id)) {
       continue;
     }
     usedFingerprints.add(sentenceRecord.id);
-    
+
     const pType = shuffledTypes[questions.length % shuffledTypes.length] || 'fill_blank';
-    
-    // Tạo baseQuestion và truyền GrammarSentence sang questionTypes
+
     const baseQuestion = {
       id: `${sentenceRecord.id}-${seed}`,
       grammarId: grammarRule.id,
@@ -118,15 +132,15 @@ export const generateSmartQuestionSet = (options: SmartGeneratorOptions): Questi
         vietnamese: sentenceRecord.vietnamese,
         grammarName: grammarRule.name,
         grammarMeaning: grammarRule.meaning,
-        grammarExplanation: grammarRule.explanation
-      }
+        grammarExplanation: grammarRule.explanation,
+      },
     };
 
     const generatorCtx = {
       baseQuestion,
       grammarRule,
       sentenceRecord,
-      rng
+      rng,
     };
 
     switch (pType) {
@@ -172,6 +186,6 @@ export const generateSmartQuestionSet = (options: SmartGeneratorOptions): Questi
     id: `set-${seed}-${Date.now()}`,
     seed,
     grammarId: grammarRule.id,
-    questions
+    questions,
   };
 };

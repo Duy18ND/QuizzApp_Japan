@@ -64,6 +64,8 @@ export interface BasePracticeQuestion {
   scenarioId?: string;
   explanation?: string;
   seed?: number;
+  hint?: string;
+  metadata?: any;
   // Compatibility fields for the union
   question?: string;
   instruction?: string;
@@ -202,6 +204,11 @@ export interface GrammarMistake {
   correctAnswer: string;
   errorType: 'wrong_conjugation' | 'wrong_particle' | 'wrong_word_order' | 'wrong_grammar' | 'missing_word';
   createdAt: string;
+  prompt?: string;
+  categoryLabel?: string;
+  practicePath?: string;
+  explanation?: string;
+  level?: string;
 }
 
 export interface GrammarProgress {

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Card } from './ui/Layout';
 
 interface QuestionCardProps {
   question: string;
@@ -7,15 +8,15 @@ interface QuestionCardProps {
 
 export const QuestionCard: React.FC<QuestionCardProps> = ({ question, hanViet }) => {
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 md:p-8 mb-6 shadow-lg border border-gray-200 dark:border-gray-700 text-center transition-colors">
-      <h2 className="text-2xl md:text-4xl font-bold text-gray-900 dark:text-white leading-tight break-words">
+    <Card padding="lg" className="mb-4 text-center">
+      <h2 lang="ja" className="jp text-2xl leading-snug font-bold break-words text-fg md:text-4xl">
         {question}
       </h2>
       {hanViet && (
-        <p className="text-sm md:text-base text-gray-500 dark:text-gray-400 mt-2 uppercase tracking-widest">
+        <p className="mt-2 text-xs font-semibold tracking-widest text-muted uppercase md:text-sm">
           {hanViet}
         </p>
       )}
-    </div>
+    </Card>
   );
 };

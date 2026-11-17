@@ -1,20 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { UserProgress } from '../types/quiz';
 
 const STORAGE_KEY = 'nihonmaster_user_progress';
 
 const defaultProgress: UserProgress = {
   starredWords: [],
-  wrongWords: {}
+  wrongWords: {},
 };
 
 export const useUserProgress = () => {
   const [progress, setProgress] = useState<UserProgress>(() => {
     try {
       const item = window.localStorage.getItem(STORAGE_KEY);
-      return item ? JSON.parse(item) : defaultProgress;
+      return item ? (JSON.parse(item) as UserProgress) : defaultProgress;
     } catch (error) {
-      console.warn("Error reading localStorage", error);
+      console.warn('Error reading localStorage', error);
       return defaultProgress;
     }
   });
@@ -23,40 +23,40 @@ export const useUserProgress = () => {
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
     } catch (error) {
-      console.warn("Error setting localStorage", error);
+      console.warn('Error setting localStorage', error);
     }
   }, [progress]);
 
-  const toggleStar = (wordId: number) => {
-    setProgress(prev => {
+  const toggleStar = useCallback((wordId: number) => {
+    setProgress((prev) => {
       const isStarred = prev.starredWords.includes(wordId);
       const newStarredWords = isStarred
-        ? prev.starredWords.filter(id => id !== wordId)
+        ? prev.starredWords.filter((id) => id !== wordId)
         : [...prev.starredWords, wordId];
-      
+
       return {
         ...prev,
-        starredWords: newStarredWords
+        starredWords: newStarredWords,
       };
     });
-  };
+  }, []);
 
-  const addWrongWord = (wordId: number) => {
-    setProgress(prev => {
+  const addWrongWord = useCallback((wordId: number) => {
+    setProgress((prev) => {
       const currentCount = prev.wrongWords[wordId] || 0;
       return {
         ...prev,
         wrongWords: {
           ...prev.wrongWords,
-          [wordId]: currentCount + 1
-        }
+          [wordId]: currentCount + 1,
+        },
       };
     });
-  };
+  }, []);
 
   return {
     progress,
     toggleStar,
-    addWrongWord
+    addWrongWord,
   };
 };

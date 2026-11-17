@@ -1,5 +1,6 @@
 import React from 'react';
 import { CheckCircle2, XCircle } from 'lucide-react';
+import { cn } from '../lib/cn';
 
 interface ExplanationProps {
   isCorrect: boolean;
@@ -11,43 +12,86 @@ interface ExplanationProps {
   meaning: string;
 }
 
-export const Explanation: React.FC<ExplanationProps> = ({ isCorrect, correctAnswerText, title, kanji, hanViet, hiragana, meaning }) => {
+export const Explanation: React.FC<ExplanationProps> = ({
+  isCorrect,
+  correctAnswerText,
+  title,
+  kanji,
+  hanViet,
+  hiragana,
+  meaning,
+}) => {
   return (
-    <div className={`mt-2 p-3 rounded-lg border transition-colors flex flex-col max-h-40 md:max-h-[25vh] overflow-y-auto ${isCorrect ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800' : 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800'}`}>
-      <div className={`flex items-center font-bold mb-2 md:mb-3 ${isCorrect ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+    <div
+      role="status"
+      aria-live="polite"
+      className={cn(
+        'animate-fade-in rounded-xl border p-4 md:p-5',
+        isCorrect ? 'border-success-line bg-success-soft' : 'border-danger-line bg-danger-soft',
+      )}
+    >
+      <div
+        className={cn(
+          'flex items-center gap-2 text-base font-bold',
+          isCorrect ? 'text-success-fg' : 'text-danger-fg',
+        )}
+      >
         {isCorrect ? (
           <>
-            <CheckCircle2 className="w-5 h-5 mr-2" />
-            ✓ Chính xác
+            <CheckCircle2 className="size-5 shrink-0" aria-hidden />
+            Chính xác
           </>
         ) : (
           <>
-            <XCircle className="w-5 h-5 mr-2" />
-            ✗ Chưa chính xác
+            <XCircle className="size-5 shrink-0" aria-hidden />
+            Chưa chính xác
           </>
         )}
       </div>
-      
-      <div className="space-y-3">
-        {!isCorrect && correctAnswerText && (
-          <div className="text-gray-800 dark:text-gray-200 font-medium text-base">
-            Đáp án đúng: <span className="text-green-600 dark:text-green-400">{correctAnswerText}</span>
-          </div>
-        )}
-        
-        {isCorrect && title && (
-          <div className="text-gray-800 dark:text-gray-200 font-medium text-base">
-            {title}
-          </div>
-        )}
 
-        <div className="bg-gray-100 dark:bg-black/20 p-3 rounded-lg space-y-1 transition-colors">
-          {kanji && <div className="text-gray-700 dark:text-gray-300 text-sm"><span className="text-gray-500 dark:text-gray-400 font-semibold w-20 inline-block">Kanji:</span><span className="text-gray-900 dark:text-white font-medium text-base">{kanji}</span></div>}
-          {hanViet && <div className="text-gray-700 dark:text-gray-300 text-sm"><span className="text-gray-500 dark:text-gray-400 font-semibold w-20 inline-block">Hán Việt:</span><span className="text-gray-900 dark:text-white font-medium text-base">{hanViet}</span></div>}
-          {hiragana && <div className="text-gray-700 dark:text-gray-300 text-sm"><span className="text-gray-500 dark:text-gray-400 font-semibold w-20 inline-block">Hiragana:</span><span className="text-gray-900 dark:text-white font-medium text-base">{hiragana}</span></div>}
-          {meaning && <div className="text-gray-700 dark:text-gray-300 text-sm"><span className="text-gray-500 dark:text-gray-400 font-semibold w-20 inline-block">Nghĩa:</span><span className="text-gray-900 dark:text-white font-medium text-base">{meaning}</span></div>}
-        </div>
-      </div>
+      {!isCorrect && correctAnswerText && (
+        <p className="mt-2 text-sm text-fg md:text-base">
+          Đáp án đúng:{' '}
+          <span lang="ja" className="font-semibold text-success-fg">
+            {correctAnswerText}
+          </span>
+        </p>
+      )}
+
+      {isCorrect && title && (
+        <p lang="ja" className="mt-2 text-sm font-medium text-fg md:text-base">
+          {title}
+        </p>
+      )}
+
+      {(kanji || hanViet || hiragana || meaning) && (
+        <dl className="mt-3 grid grid-cols-1 gap-2 rounded-lg border border-line bg-surface p-3.5 text-sm sm:grid-cols-2">
+          {kanji && (
+            <div className="flex items-baseline gap-2">
+              <dt className="w-20 shrink-0 font-medium text-muted">Kanji</dt>
+              <dd lang="ja" className="font-semibold text-fg">{kanji}</dd>
+            </div>
+          )}
+          {hanViet && (
+            <div className="flex items-baseline gap-2">
+              <dt className="w-20 shrink-0 font-medium text-muted">Hán Việt</dt>
+              <dd className="font-medium text-fg uppercase">{hanViet}</dd>
+            </div>
+          )}
+          {hiragana && (
+            <div className="flex items-baseline gap-2">
+              <dt className="w-20 shrink-0 font-medium text-muted">Hiragana</dt>
+              <dd lang="ja" className="font-medium text-primary-fg">{hiragana}</dd>
+            </div>
+          )}
+          {meaning && (
+            <div className="flex items-baseline gap-2 sm:col-span-2">
+              <dt className="w-20 shrink-0 font-medium text-muted">Nghĩa</dt>
+              <dd className="font-medium text-fg">{meaning}</dd>
+            </div>
+          )}
+        </dl>
+      )}
     </div>
   );
 };

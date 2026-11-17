@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { MultipleChoiceQuestion, PracticeType } from '../../types/grammar';
 import { validateAnswer } from '../../utils/grammarEngine/answerValidator';
+import { cn } from '../../lib/cn';
 
 interface Props {
   mode: PracticeType;
@@ -10,42 +11,89 @@ interface Props {
 
 export const MultipleChoiceQuestionComp: React.FC<Props> = ({ mode, question, onSubmit }) => {
   const [selectedOpt, setSelectedOpt] = useState<string>('');
+  const options = useMemo(() => question.answers || [], [question.answers]);
 
-  const handleSelect = (opt: string) => {
-    setSelectedOpt(opt);
-    const result = validateAnswer(opt, question.correctAnswer, mode, question.grammarId);
-    onSubmit(opt, result.isCorrect, result.feedbackMessage);
-  };
+  const handleSelect = useCallback(
+    (opt: string) => {
+      setSelectedOpt(opt);
+      const result = validateAnswer(opt, question.correctAnswer, mode, question.grammarId);
+      onSubmit(opt, result.isCorrect, result.feedbackMessage);
+    },
+    [mode, question.correctAnswer, question.grammarId, onSubmit],
+  );
 
-  const options = question.answers || [];
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+      const numIdx = ['1', '2', '3', '4'].indexOf(key);
+      const letterIdx = ['a', 'b', 'c', 'd'].indexOf(key);
+      const index = numIdx !== -1 ? numIdx : letterIdx;
+
+      if (index !== -1 && options[index]) {
+        event.preventDefault();
+        handleSelect(options[index]);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [options, handleSelect]);
 
   return (
     <div className="space-y-6">
-      <div className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-gray-100 dark:border-slate-700 shadow-sm text-center">
+      <div className="space-y-2 text-center">
         {question.instruction && (
-          <p className="text-sm font-semibold text-blue-600 dark:text-blue-400 mb-2">{question.instruction}</p>
+          <p className="text-sm font-semibold text-primary-fg">{question.instruction}</p>
         )}
-        <h3 className="text-xl font-medium text-gray-900 dark:text-white mb-8">
+        <h3 lang="ja" className="text-xl leading-relaxed font-semibold text-fg md:text-2xl">
           {question.question}
         </h3>
-        
-        <div className="grid gap-3">
-          {options.map((opt: string, idx: number) => (
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {options.map((opt, idx) => {
+          const isSelected = selectedOpt === opt;
+          return (
             <button
               key={idx}
               type="button"
               onClick={() => handleSelect(opt)}
-              className={`p-4 text-left rounded-lg border-2 transition-all ${
-                selectedOpt === opt 
-                  ? 'border-blue-500 bg-blue-100 dark:bg-blue-900/20 text-blue-900 dark:text-blue-300' 
-                  : 'border-blue-200 dark:border-slate-700 hover:border-blue-500 hover:bg-blue-50 dark:hover:border-blue-700 text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-800'
-              }`}
+              aria-pressed={isSelected}
+              className={cn(
+                'flex min-h-14 w-full items-center gap-3 rounded-xl border p-3.5 text-left transition-colors duration-150 md:p-4',
+                isSelected
+                  ? 'border-primary bg-primary-soft text-primary-fg'
+                  : 'border-line-strong bg-surface text-fg hover:border-primary hover:bg-surface-2',
+              )}
             >
-              <span className="font-medium mr-3">{String.fromCharCode(65 + idx)}.</span>
-              {opt}
+              <span
+                className={cn(
+                  'grid size-8 shrink-0 place-items-center rounded-lg text-sm font-bold',
+                  isSelected
+                    ? 'bg-primary text-on-primary'
+                    : 'border border-line bg-surface-2 text-muted',
+                )}
+              >
+                {String.fromCharCode(65 + idx)}
+              </span>
+              <span lang="ja" className="flex-1 text-base font-medium md:text-lg">
+                {opt}
+              </span>
             </button>
-          ))}
-        </div>
+          );
+        })}
       </div>
     </div>
   );

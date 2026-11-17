@@ -1,4 +1,5 @@
 import React from 'react';
+import { ProgressBar as UiProgressBar } from './ui/Feedback';
 
 interface ProgressBarProps {
   current: number;
@@ -6,14 +7,5 @@ interface ProgressBarProps {
 }
 
 export const ProgressBar: React.FC<ProgressBarProps> = ({ current, total }) => {
-  const percentage = Math.round((current / total) * 100);
-
-  return (
-    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 mb-6 overflow-hidden transition-colors">
-      <div 
-        className="bg-blue-500 h-2.5 rounded-full transition-all duration-500 ease-out" 
-        style={{ width: `${percentage}%` }}
-      ></div>
-    </div>
-  );
+  return <UiProgressBar value={current} max={total} label="Tiến độ bài làm" className="mb-4" />;
 };

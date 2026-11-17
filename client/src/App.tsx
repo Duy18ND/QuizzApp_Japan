@@ -1,5 +1,7 @@
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import { AppLayout } from './components/layout/AppLayout';
+import { ToastProvider } from './components/ui/Toast';
+import { HomePage } from './pages/HomePage';
 import { VocabularyLevelsPage } from './pages/vocabulary/VocabularyLevelsPage';
 import { VocabularyUnitsPage } from './pages/vocabulary/VocabularyUnitsPage';
 import { VocabularyWordsPage } from './pages/vocabulary/VocabularyWordsPage';
@@ -16,46 +18,63 @@ import { GrammarLesson } from './pages/grammar/GrammarLesson';
 import { GrammarPractice } from './pages/grammar/GrammarPractice';
 import { MistakesReview } from './pages/grammar/MistakesReview';
 import { PdfPage } from './pages/PdfPage';
+import { KanjiDashboard } from './pages/kanji/KanjiDashboard';
+import { KanjiDetail } from './pages/kanji/KanjiDetail';
+import { KanjiPractice } from './pages/kanji/KanjiPractice';
+import { JLPTModulePage } from './pages/jlpt/JLPTModulePage';
+import { validateGrammarPracticeBanks } from './data/grammar/shinkanzen-n3/lesson01PracticeBank';
 import './index.css';
 
+validateGrammarPracticeBanks();
+
 function App() {
+
   return (
-    <HashRouter>
-      <Routes>
-        <Route path="/" element={<AppLayout />}>
-          <Route index element={<Navigate to="/vocabulary" replace />} />
+    <ToastProvider>
+      <HashRouter>
+        <Routes>
+          <Route path="/" element={<AppLayout />}>
+            <Route index element={<HomePage />} />
           
-          <Route path="vocabulary">
-            <Route index element={<VocabularyLevelsPage />} />
-            <Route path=":level" element={<VocabularyUnitsPage />} />
-            <Route path=":level/:unitId" element={<VocabularyWordsPage />} />
+            <Route path="vocabulary">
+              <Route index element={<VocabularyLevelsPage />} />
+              <Route path=":level" element={<VocabularyUnitsPage />} />
+              <Route path=":level/:unitId" element={<VocabularyWordsPage />} />
 
-            <Route path="quiz" element={<QuizPage />} />
-            <Route path="writing" element={<WritingPage />} />
-            <Route path="review" element={<ReviewPage />} />
-            <Route path="unmastered" element={<UnmasteredPage />} />
-          </Route>
+              <Route path="quiz" element={<QuizPage />} />
+              <Route path="writing" element={<WritingPage />} />
+              <Route path="review" element={<ReviewPage />} />
+              <Route path="unmastered" element={<UnmasteredPage />} />
+            </Route>
           
-          <Route path="grammar">
-            <Route index element={<GrammarDashboard />} />
-            <Route path="mistakes" element={<MistakesReview />} />
-            <Route path=":bookId/:chapterId" element={<GrammarDetail />} />
-            <Route path=":bookId/:chapterId/lesson/:grammarId" element={<GrammarLesson />} />
-            <Route path=":bookId/:chapterId/practice" element={<GrammarPractice />} />
-            <Route path=":bookId/:chapterId/practice/:grammarId" element={<GrammarPractice />} />
-          </Route>
+            <Route path="kanji">
+              <Route index element={<KanjiDashboard />} />
+              <Route path=":kanjiId" element={<KanjiDetail />} />
+              <Route path=":kanjiId/practice" element={<KanjiPractice />} />
+            </Route>
 
-          <Route path="flashcard" element={<FlashcardPage />}>
-            <Route index element={<VocabularyLevelsPage basePath="/flashcard" title="Flashcard" hideTabs={true} />} />
-            <Route path=":level" element={<VocabularyUnitsPage basePath="/flashcard" title="Flashcard" hideTabs={true} />} />
-            <Route path=":level/:unitId" element={<FlashcardViewer />} />
-          </Route>
+            <Route path="grammar">
+              <Route index element={<GrammarDashboard />} />
+              <Route path="mistakes" element={<MistakesReview />} />
+              <Route path=":bookId/:chapterId" element={<GrammarDetail />} />
+              <Route path=":bookId/:chapterId/lesson/:grammarId" element={<GrammarLesson />} />
+              <Route path=":bookId/:chapterId/practice" element={<GrammarPractice />} />
+              <Route path=":bookId/:chapterId/practice/:grammarId" element={<GrammarPractice />} />
+            </Route>
 
-          <Route path="settings" element={<SettingsPage />} />
-          <Route path="pdf" element={<PdfPage />} />
-        </Route>
-      </Routes>
-    </HashRouter>
+            <Route path="flashcard" element={<FlashcardPage />}>
+              <Route index element={<VocabularyLevelsPage basePath="/flashcard" title="Flashcard" hideTabs={true} />} />
+              <Route path=":level" element={<VocabularyUnitsPage basePath="/flashcard" title="Flashcard" hideTabs={true} />} />
+              <Route path=":level/:unitId" element={<FlashcardViewer />} />
+            </Route>
+
+            <Route path="jlpt/:moduleId" element={<JLPTModulePage />} />
+            <Route path="settings" element={<SettingsPage />} />
+            <Route path="pdf" element={<PdfPage />} />
+          </Route>
+        </Routes>
+      </HashRouter>
+    </ToastProvider>
   );
 }
 

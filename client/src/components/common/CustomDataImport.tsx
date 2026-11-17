@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
-import { Copy, Check, Download } from 'lucide-react';
+import { Check, Copy, Download } from 'lucide-react';
+import { Button, Card, Field, Notice, Textarea } from '../ui';
 
 export interface ImportedData {
-  vocabularies: any[];
+  vocabularies: Record<string, unknown>[];
 }
 
 interface CustomDataImportProps {
   onDataImported: (data: ImportedData) => void;
 }
+
+const PROMPT_TEXT =
+  'Hãy trích xuất và chuẩn hóa danh sách từ vựng tiếng Nhật lộn xộn dưới đây thành một mảng JSON.\nCấu trúc bắt buộc: [{"kanji": "", "hiragana": "", "hanViet": "", "meaning": "", "wordType": ""}].\nNếu không có Kanji thì để rỗng. Chỉ trả về duy nhất mảng JSON, không giải thích.\nDữ liệu của tôi: [DÁN TỪ VỰNG VÀO ĐÂY]';
 
 export const CustomDataImport: React.FC<CustomDataImportProps> = ({ onDataImported }) => {
   const [aiText, setAiText] = useState('');
@@ -15,10 +19,8 @@ export const CustomDataImport: React.FC<CustomDataImportProps> = ({ onDataImport
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState<{ vocabCount: number } | null>(null);
 
-  const promptText = `Hãy trích xuất và chuẩn hóa danh sách từ vựng tiếng Nhật lộn xộn dưới đây thành một mảng JSON.\nCấu trúc bắt buộc: [{"kanji": "", "hiragana": "", "hanViet": "", "meaning": "", "wordType": ""}].\nNếu không có Kanji thì để rỗng. Chỉ trả về duy nhất mảng JSON, không giải thích.\nDữ liệu của tôi: [DÁN TỪ VỰNG VÀO ĐÂY]`;
-
   const handleCopyPrompt = () => {
-    navigator.clipboard.writeText(promptText);
+    navigator.clipboard.writeText(PROMPT_TEXT);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
   };
@@ -26,88 +28,90 @@ export const CustomDataImport: React.FC<CustomDataImportProps> = ({ onDataImport
   const handleImport = () => {
     setError('');
     setSuccessMsg(null);
-    
+
     if (!aiText.trim()) return;
 
     try {
-      const parsedData = JSON.parse(aiText);
+      const parsedData: unknown = JSON.parse(aiText);
       if (!Array.isArray(parsedData)) {
-        throw new Error("Dữ liệu không phải là mảng JSON.");
+        throw new Error('Dữ liệu không phải là mảng JSON.');
       }
-      
-      const vocabularies = parsedData.map((w: any, index: number) => ({
-        ...w,
-        id: w.id || `V${Date.now()}_${index}`
-      }));
-      
-      onDataImported({ vocabularies });
-      setSuccessMsg({ 
-        vocabCount: vocabularies.length
+
+      const vocabularies = parsedData.map((item, index) => {
+        const record =
+          typeof item === 'object' && item !== null ? (item as Record<string, unknown>) : {};
+        return {
+          ...record,
+          id: record.id ?? `V${Date.now()}_${index}`,
+        };
       });
+
+      onDataImported({ vocabularies });
+      setSuccessMsg({ vocabCount: vocabularies.length });
       setAiText('');
     } catch (err) {
-      console.error("Lỗi parse JSON:", err);
+      console.error('Lỗi parse JSON:', err);
       setError('Dữ liệu JSON không hợp lệ, vui lòng kiểm tra lại!');
     }
   };
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Box Hướng dẫn */}
-      <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-        <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-3">Hướng dẫn nhập dữ liệu thông minh</h3>
-        <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg border border-gray-200 dark:border-gray-800 text-[13px] leading-relaxed text-gray-600 dark:text-gray-300 font-mono relative pr-12 whitespace-pre-wrap">
-          {promptText}
-          <button 
+      <Card tone="muted" padding="md" className="space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold text-fg">Hướng dẫn nhập dữ liệu</h3>
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={handleCopyPrompt}
-            className="absolute top-2 right-2 px-2 py-1.5 bg-gray-200 hover:bg-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md transition-colors flex items-center justify-center min-w-[40px] h-[32px] gap-1 text-xs font-medium"
-            title="Copy Prompt"
+            leftIcon={
+              isCopied ? (
+                <Check className="size-3.5 text-success-fg" aria-hidden />
+              ) : (
+                <Copy className="size-3.5" aria-hidden />
+              )
+            }
           >
-            {isCopied ? (
-              <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
-                <Check className="w-3.5 h-3.5" /> Đã copy!
-              </span>
-            ) : (
-              <Copy className="w-3.5 h-3.5" />
-            )}
-          </button>
+            {isCopied ? 'Đã copy' : 'Copy prompt'}
+          </Button>
         </div>
-      </div>
 
-      {/* Box Nhập JSON */}
-      <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-        <textarea
-          rows={6}
-          className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-3 text-sm text-gray-900 dark:text-gray-100 focus:border-blue-500 outline-none resize-none placeholder-gray-400 dark:placeholder-gray-500 font-mono"
-          placeholder="Sau khi AI trả kết quả, hãy copy và dán đoạn mã JSON vào đây..."
-          value={aiText}
-          onChange={(e) => setAiText(e.target.value)}
-        />
-        
-        {/* Messages */}
-        {error && <p className="text-sm text-red-500 dark:text-red-400 mt-2">{error}</p>}
+        <pre className="rounded-lg border border-line bg-surface p-3.5 font-mono text-xs leading-relaxed whitespace-pre-wrap text-muted">
+          {PROMPT_TEXT}
+        </pre>
+      </Card>
+
+      <div className="space-y-3">
+        <Field label="Dữ liệu JSON từ vựng" htmlFor="custom-json-input">
+          <Textarea
+            id="custom-json-input"
+            rows={5}
+            className="font-mono text-sm"
+            placeholder="Dán mảng JSON từ vựng vào đây..."
+            value={aiText}
+            invalid={Boolean(error)}
+            onChange={(e) => setAiText(e.target.value)}
+          />
+        </Field>
+
+        {error && <Notice tone="danger">{error}</Notice>}
         {successMsg && (
-          <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-            <h4 className="font-semibold text-green-800 dark:text-green-400 mb-2">
-              ✅ Import thành công
-            </h4>
-            <div className="text-sm text-green-700 dark:text-green-300 space-y-1">
-              <p>{successMsg.vocabCount} từ vựng</p>
-            </div>
-          </div>
+          <Notice tone="success">
+            Import thành công {successMsg.vocabCount} từ vựng.
+          </Notice>
         )}
-        
-        <div className="mt-4 flex justify-end">
-          <button
+
+        <div className="flex justify-end">
+          <Button
+            variant="primary"
             onClick={handleImport}
             disabled={!aiText.trim()}
-            className="flex items-center gap-2 text-sm font-semibold bg-blue-600 hover:bg-blue-500 text-gray-900 px-5 py-2.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+            leftIcon={<Download className="size-4" aria-hidden />}
           >
-            <Download className="w-4 h-4" /> Nhập dữ liệu
-          </button>
+            Nhập dữ liệu
+          </Button>
         </div>
       </div>
     </div>
   );
 };
-

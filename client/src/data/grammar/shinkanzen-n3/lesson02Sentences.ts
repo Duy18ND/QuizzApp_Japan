@@ -737,7 +737,7 @@ export const lesson02Sentences: GrammarSentence[] = [
     hiragana: "ぎんこうへいくついでに、ゆうびんきょくにもよりました。",
     vietnamese: "Nhân tiện đi ngân hàng, tôi đã ghé qua cả bưu điện.",
     difficulty: "normal",
-    target: "いくついでに"
+    target: "行くついでに"
   },
   {
     id: "N3_L02_G005_S002",
@@ -782,7 +782,7 @@ export const lesson02Sentences: GrammarSentence[] = [
     hiragana: "としょかんへほんをかえしにいくついでに、あたらしいほんをかりました。",
     vietnamese: "Nhân tiện đi trả sách cho thư viện, tôi đã mượn cuốn sách mới.",
     difficulty: "normal",
-    target: "いくついでに"
+    target: "行くついでに"
   },
   {
     id: "N3_L02_G005_S007",
@@ -809,7 +809,7 @@ export const lesson02Sentences: GrammarSentence[] = [
     hiragana: "えきまでいくついでに、このてがみをだしてくれませんか。",
     vietnamese: "Nhân tiện đi ra nhà ga, bạn gửi giúp tôi bức thư này được không?",
     difficulty: "normal",
-    target: "いくついでに"
+    target: "行くついでに"
   },
   {
     id: "N3_L02_G005_S010",
@@ -836,7 +836,7 @@ export const lesson02Sentences: GrammarSentence[] = [
     hiragana: "びょういんへおみまいにいくついでに、はなをかいました。",
     vietnamese: "Nhân tiện đến bệnh viện thăm người ốm, tôi đã mua hoa.",
     difficulty: "normal",
-    target: "いくついでに"
+    target: "行くついでに"
   },
   {
     id: "N3_L02_G005_S013",
@@ -881,7 +881,7 @@ export const lesson02Sentences: GrammarSentence[] = [
     hiragana: "トイレにいくついでに、てをあらいました。",
     vietnamese: "Nhân tiện đi vệ sinh, tôi đã rửa tay.",
     difficulty: "easy",
-    target: "いくついでに"
+    target: "行くついでに"
   },
   {
     id: "N3_L02_G005_S018",

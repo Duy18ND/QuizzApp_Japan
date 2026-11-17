@@ -1,21 +1,32 @@
 import React from 'react';
 import type { ColumnOption } from '../DraggableColumnList';
 
+interface PrintWordRow {
+  kanji?: string;
+  hanViet?: string;
+  hanviet?: string;
+  hiragana?: string;
+  meaning?: string;
+}
+
 interface VocabularyPdfBuilderProps {
-  words: any[];
+  words: PrintWordRow[];
   columns: ColumnOption[];
   isGenerating: boolean;
 }
 
-export const VocabularyPdfBuilder: React.FC<VocabularyPdfBuilderProps> = ({ words, columns, isGenerating }) => {
+export const VocabularyPdfBuilder: React.FC<VocabularyPdfBuilderProps> = ({
+  words,
+  columns,
+  isGenerating,
+}) => {
   if (!isGenerating || words.length === 0) return null;
 
   const sttWidth = 8;
   const colWidth = (100 - sttWidth) / columns.length;
 
   return (
-    <div id="print-vocabulary" className="hidden print:block print:w-full bg-white text-black font-sans p-8">
-      {/* Print-only CSS style */}
+    <div id="print-vocabulary" className="hidden bg-surface p-8 font-sans text-fg print:block print:w-full">
       <style>{`
         @media print {
           @page { size: A4; margin: 15mm; }
@@ -25,8 +36,9 @@ export const VocabularyPdfBuilder: React.FC<VocabularyPdfBuilderProps> = ({ word
             margin: 0 !important;
             padding: 0 !important;
           }
-          body, #print-vocabulary { 
-            background: white; 
+          body, #print-vocabulary {
+            background: var(--surface);
+            color: var(--fg);
             -webkit-print-color-adjust: exact;
             font-family: 'MPLUS1p', sans-serif;
           }
@@ -37,27 +49,33 @@ export const VocabularyPdfBuilder: React.FC<VocabularyPdfBuilderProps> = ({ word
             width: 100%;
             padding: 0 !important;
           }
-          .break-inside-avoid { 
-            page-break-inside: avoid; 
-            break-inside: avoid; 
+          .break-inside-avoid {
+            page-break-inside: avoid;
+            break-inside: avoid;
           }
           th {
-            background-color: #DDF4FC !important;
-            color: #24445F !important;
+            background-color: var(--surface-2) !important;
+            color: var(--fg) !important;
             -webkit-print-color-adjust: exact;
-            color-adjust: exact;
+            print-color-adjust: exact;
           }
         }
       `}</style>
-      
-      <h1 className="text-2xl font-bold text-center mb-6 text-black">Danh sách từ vựng luyện viết</h1>
-      
-      <table className="w-full border-collapse border border-gray-400 table-fixed">
+
+      <h1 className="mb-6 text-center text-2xl font-bold text-fg">
+        Danh sách từ vựng luyện viết
+      </h1>
+
+      <table className="w-full table-fixed border-collapse border border-line-strong">
         <thead>
-          <tr className="bg-blue-100 text-blue-900">
-            <th className="border border-gray-400 p-2 text-sm font-bold w-[8%] print:bg-[#DDF4FC] print:text-[#24445F]" style={{ WebkitPrintColorAdjust: 'exact', colorAdjust: 'exact' }}>STT</th>
+          <tr className="bg-surface-2 text-fg">
+            <th className="w-[8%] border border-line-strong p-2 text-sm font-bold">STT</th>
             {columns.map((col) => (
-              <th key={col.id} className="border border-gray-400 p-2 text-sm font-bold print:bg-[#DDF4FC] print:text-[#24445F]" style={{ width: `${colWidth}%`, WebkitPrintColorAdjust: 'exact', colorAdjust: 'exact' }}>
+              <th
+                key={col.id}
+                className="border border-line-strong p-2 text-sm font-bold"
+                style={{ width: `${colWidth}%` }}
+              >
                 {col.label}
               </th>
             ))}
@@ -66,21 +84,35 @@ export const VocabularyPdfBuilder: React.FC<VocabularyPdfBuilderProps> = ({ word
         <tbody>
           {words.map((word, index) => (
             <tr key={index} className="break-inside-avoid">
-              <td className="border border-gray-400 p-2 text-center text-sm font-medium text-black">{index + 1}</td>
-              
+              <td className="border border-line-strong p-2 text-center text-sm font-medium text-fg">
+                {index + 1}
+              </td>
+
               {columns.map((col) => {
                 let text = '';
                 if (col.showContent) {
                   switch (col.id) {
-                    case 'kanji': text = word.kanji || ''; break;
-                    case 'hanviet': text = word.hanViet || word.hanviet || ''; break;
-                    case 'hiragana': text = word.hiragana || ''; break;
-                    case 'meaning': text = word.meaning || ''; break;
+                    case 'kanji':
+                      text = word.kanji || '';
+                      break;
+                    case 'hanviet':
+                      text = word.hanViet || word.hanviet || '';
+                      break;
+                    case 'hiragana':
+                      text = word.hiragana || '';
+                      break;
+                    case 'meaning':
+                      text = word.meaning || '';
+                      break;
                   }
                 }
-                
+
                 return (
-                  <td key={col.id} className="border border-gray-400 p-2 text-sm h-12 align-middle text-black font-japanese">
+                  <td
+                    key={col.id}
+                    lang={col.id === 'kanji' || col.id === 'hiragana' ? 'ja' : undefined}
+                    className="h-12 border border-line-strong p-2 align-middle text-sm text-fg"
+                  >
                     {text}
                   </td>
                 );

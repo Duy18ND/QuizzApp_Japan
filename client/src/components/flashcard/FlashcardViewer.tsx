@@ -1,74 +1,102 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Shuffle, Star, Volume2, Layers, ChevronRight as ChevronRightIcon } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { ChevronLeft, ChevronRight, Shuffle, Star, Volume2 } from 'lucide-react';
 import { allVocabularyData } from '../../data';
 import { useUserProgress } from '../../hooks/useUserProgress';
+import {
+  Badge,
+  Breadcrumbs,
+  Button,
+  EmptyState,
+  IconButton,
+  Kbd,
+  PageContainer,
+  ProgressBar,
+  buttonStyles,
+} from '../ui';
+import { cn } from '../../lib/cn';
+
+interface FlashcardWord {
+  id: number;
+  kanji?: string;
+  hiragana: string;
+  hanviet?: string;
+  hanViet?: string;
+  meaning: string;
+  wordType?: string;
+}
 
 export const FlashcardViewer: React.FC = () => {
   const { level, unitId } = useParams<{ level: string; unitId: string }>();
   const levelKey = level?.toLowerCase() || 'n3';
   const unitKey = unitId || '1';
-  
-  const [words, setWords] = useState<any[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isFlipped, setIsFlipped] = useState(false);
+  const deckKey = `${levelKey}:${unitKey}`;
+
+  const baseWords = useMemo<FlashcardWord[]>(() => {
+    const unitWords = allVocabularyData[levelKey]?.[unitKey];
+    return Array.isArray(unitWords) ? (unitWords as FlashcardWord[]) : [];
+  }, [levelKey, unitKey]);
+
+  const [shuffledDeck, setShuffledDeck] = useState<{
+    deckKey: string;
+    list: FlashcardWord[];
+  } | null>(null);
+  const [cardState, setCardState] = useState<{
+    deckKey: string;
+    index: number;
+    flipped: boolean;
+  }>({ deckKey, index: 0, flipped: false });
   const { progress, toggleStar } = useUserProgress();
 
-  // Load words
-  useEffect(() => {
-    if (allVocabularyData[levelKey] && allVocabularyData[levelKey][unitKey]) {
-      setWords(allVocabularyData[levelKey][unitKey]);
-    } else {
-      setWords([]);
-    }
-    setCurrentIndex(0);
-    setIsFlipped(false);
-  }, [levelKey, unitKey]);
+  const words = shuffledDeck?.deckKey === deckKey ? shuffledDeck.list : baseWords;
+  const currentIndex = cardState.deckKey === deckKey ? cardState.index : 0;
+  const isFlipped = cardState.deckKey === deckKey ? cardState.flipped : false;
 
   const currentWord = words[currentIndex];
   const isStarred = currentWord ? progress.starredWords.includes(currentWord.id) : false;
 
   const handleNext = useCallback(() => {
-    if (currentIndex < words.length - 1) {
-      setCurrentIndex(prev => prev + 1);
-      setIsFlipped(false);
-    }
-  }, [currentIndex, words.length]);
+    setCardState((prev) => {
+      const idx = prev.deckKey === deckKey ? prev.index : 0;
+      if (idx >= words.length - 1) return prev;
+      return { deckKey, index: idx + 1, flipped: false };
+    });
+  }, [deckKey, words.length]);
 
   const handlePrev = useCallback(() => {
-    if (currentIndex > 0) {
-      setCurrentIndex(prev => prev - 1);
-      setIsFlipped(false);
-    }
-  }, [currentIndex]);
+    setCardState((prev) => {
+      const idx = prev.deckKey === deckKey ? prev.index : 0;
+      if (idx <= 0) return prev;
+      return { deckKey, index: idx - 1, flipped: false };
+    });
+  }, [deckKey]);
 
   const handleFlip = useCallback(() => {
-    setIsFlipped(prev => !prev);
-  }, []);
+    setCardState((prev) => {
+      if (prev.deckKey !== deckKey) return { deckKey, index: 0, flipped: true };
+      return { ...prev, flipped: !prev.flipped };
+    });
+  }, [deckKey]);
 
   const handleShuffle = useCallback(() => {
-    setWords(prevWords => {
-      const shuffled = [...prevWords];
-      for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-      }
-      return shuffled;
-    });
-    setCurrentIndex(0);
-    setIsFlipped(false);
-  }, []);
+    const shuffled = [...words];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    setShuffledDeck({ deckKey, list: shuffled });
+    setCardState({ deckKey, index: 0, flipped: false });
+  }, [deckKey, words]);
 
   const speakText = useCallback((text: string) => {
     if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel(); // Cancel any previous speech
+      window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'ja-JP';
       window.speechSynthesis.speak(utterance);
     }
   }, []);
 
-  // Auto-pronounce when switching cards
   useEffect(() => {
     if (currentWord) {
       const timer = setTimeout(() => {
@@ -78,154 +106,200 @@ export const FlashcardViewer: React.FC = () => {
     }
   }, [currentIndex, currentWord, speakText]);
 
-  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowRight') handleNext();
-      if (e.key === 'ArrowLeft') handlePrev();
-      if (e.key === ' ' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        handleNext();
+        return;
+      }
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        handlePrev();
+        return;
+      }
+      if (
+        e.key === ' ' ||
+        e.key === 'ArrowUp' ||
+        e.key === 'ArrowDown' ||
+        (e.key === 'Enter' && target?.tagName !== 'BUTTON' && target?.tagName !== 'A')
+      ) {
         e.preventDefault();
         handleFlip();
       }
     };
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleNext, handlePrev, handleFlip]);
 
+  const levelDisplay = (level || 'N3').toUpperCase();
+
   if (!words.length) {
     return (
-      <div className="max-w-4xl mx-auto p-8 text-center text-gray-500 dark:text-gray-400">
-        Đang tải dữ liệu từ vựng...
-      </div>
+      <PageContainer size="md">
+        <Breadcrumbs
+          items={[
+            { label: 'Flashcard', to: '/flashcard' },
+            { label: levelDisplay, to: `/flashcard/${level || 'n3'}` },
+            { label: `Unit ${unitKey}` },
+          ]}
+        />
+        <EmptyState
+          title="Chưa có dữ liệu flashcard"
+          description="Unit này chưa có dữ liệu từ vựng offline."
+          action={
+            <Link to={`/flashcard/${level || 'n3'}`} className={buttonStyles({ variant: 'secondary' })}>
+              Chọn bài khác
+            </Link>
+          }
+        />
+      </PageContainer>
     );
   }
 
+  const hanViet = currentWord.hanViet || currentWord.hanviet;
+
   return (
-    <div className="max-w-4xl mx-auto h-[calc(100vh-140px)] flex flex-col items-center">
-      
-      {/* Breadcrumb */}
-      <div className="w-full flex justify-between items-center mb-6">
-        <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-          <Link to="/flashcard" className="hover:text-gray-900 dark:hover:text-white transition-colors flex items-center gap-1">
-            <Layers className="w-4 h-4" /> Flashcard
-          </Link>
-          <ChevronRightIcon className="w-4 h-4" />
-          <Link to={`/flashcard/${level}`} className="hover:text-gray-900 dark:hover:text-white transition-colors">
-            {level?.toUpperCase()}
-          </Link>
-          <ChevronRightIcon className="w-4 h-4" />
-          <span className="text-blue-600 dark:text-blue-400 font-medium">Unit {unitKey}</span>
-        </div>
+    <PageContainer size="md" className="flex flex-1 flex-col">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <Breadcrumbs
+          className="mb-0"
+          items={[
+            { label: 'Flashcard', to: '/flashcard' },
+            { label: levelDisplay, to: `/flashcard/${level || 'n3'}` },
+            { label: `Unit ${unitKey}` },
+          ]}
+        />
+        <span className="tabular text-sm font-medium text-muted">
+          Thẻ {currentIndex + 1} / {words.length}
+        </span>
       </div>
 
-      {/* Flashcard Area */}
-      <div className="relative w-full max-w-2xl flex-1 max-h-[500px] [perspective:1000px] mb-8 select-none">
-        <div 
-          className={`w-full h-full transition-transform duration-500 [transform-style:preserve-3d] cursor-pointer ${isFlipped ? '[transform:rotateY(180deg)]' : ''}`}
+      <ProgressBar value={currentIndex + 1} max={words.length} label="Tiến độ Flashcard" className="mb-6" />
+
+      {/* Flip Card */}
+      <div className="relative mx-auto mb-6 min-h-80 w-full flex-1 [perspective:1000px] sm:min-h-96 md:max-h-[460px]">
+        <div
+          role="button"
+          tabIndex={0}
+          aria-pressed={isFlipped}
+          aria-label={isFlipped ? 'Mặt sau thẻ — nhấn để lật lại mặt trước' : 'Mặt trước thẻ — nhấn để xem nghĩa'}
           onClick={handleFlip}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              e.stopPropagation();
+              handleFlip();
+            }
+          }}
+          className={cn(
+            'relative h-full min-h-80 w-full cursor-pointer transition-transform duration-200 ease-out-soft [transform-style:preserve-3d] select-none sm:min-h-96',
+            isFlipped && '[transform:rotateY(180deg)]',
+          )}
         >
-          
           {/* Front Face */}
-          <div className="absolute w-full h-full [backface-visibility:hidden] bg-white dark:bg-gray-800 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 flex flex-col items-center justify-center p-8 transition-colors">
-            <div className="absolute top-6 right-6">
-              <button 
-                onClick={(e) => { e.stopPropagation(); speakText(currentWord.kanji || currentWord.hiragana); }}
-                className="p-3 text-gray-400 hover:text-blue-500 dark:text-gray-500 dark:hover:text-blue-400 bg-gray-50 dark:bg-gray-900/50 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-full transition-all"
-                title="Phát âm"
+          <div className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl border border-line bg-surface p-8 shadow-card [backface-visibility:hidden]">
+            <div className="absolute top-4 right-4">
+              <IconButton
+                variant="soft"
+                aria-label={`Phát âm ${currentWord.kanji || currentWord.hiragana}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  speakText(currentWord.kanji || currentWord.hiragana);
+                }}
               >
-                <Volume2 className="w-6 h-6" />
-              </button>
+                <Volume2 className="size-5" aria-hidden />
+              </IconButton>
             </div>
-            
-            <h1 className="text-6xl md:text-8xl font-bold text-gray-900 dark:text-white text-center break-words leading-tight">
+
+            <p lang="ja" className="text-center text-5xl leading-tight font-bold break-words text-fg md:text-7xl">
               {currentWord.kanji || currentWord.hiragana}
-            </h1>
-            
-            <div className="absolute bottom-6 left-0 w-full text-center text-gray-400 dark:text-gray-500 text-sm animate-pulse">
-              Click hoặc bấm phím Space để lật thẻ
-            </div>
+            </p>
+
+            <p className="mt-8 flex items-center gap-1.5 text-xs text-muted">
+              Nhấp vào thẻ hoặc nhấn <Kbd className="hidden sm:inline-flex">Space</Kbd> để lật
+            </p>
           </div>
 
           {/* Back Face */}
-          <div className="absolute w-full h-full [backface-visibility:hidden] [transform:rotateY(180deg)] bg-white dark:bg-gray-800 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 flex flex-col items-center justify-center p-8 transition-colors">
-            
-            <div className="flex flex-col items-center gap-4 text-center max-w-md">
+          <div className="absolute inset-0 flex [transform:rotateY(180deg)] flex-col items-center justify-center rounded-2xl border border-primary bg-surface p-8 shadow-card [backface-visibility:hidden]">
+            <div className="flex max-w-md flex-col items-center gap-3 text-center">
               {currentWord.kanji && (
-                <div className="text-3xl md:text-4xl font-medium text-blue-500 dark:text-blue-400">
+                <p lang="ja" className="text-2xl font-semibold text-primary-fg md:text-3xl">
                   {currentWord.hiragana}
-                </div>
+                </p>
               )}
-              
-              {currentWord.kanji && currentWord.hanviet && (
-                <div className="text-xl md:text-2xl font-bold text-emerald-600 dark:text-emerald-500 tracking-widest uppercase">
-                  {currentWord.hanviet}
-                </div>
+
+              {currentWord.kanji && hanViet && (
+                <p className="text-sm font-semibold tracking-widest text-muted uppercase md:text-base">
+                  {hanViet}
+                </p>
               )}
-              
-              <div className="w-16 h-1 bg-gray-200 dark:bg-gray-700 rounded-full my-2"></div>
-              
-              <div className="text-2xl md:text-3xl font-semibold text-gray-800 dark:text-gray-200">
-                {currentWord.meaning}
-              </div>
-              
-              <div className="mt-4 px-4 py-1.5 bg-gray-100 dark:bg-gray-900 text-gray-600 dark:text-gray-400 rounded-lg text-sm font-medium">
-                {currentWord.wordType}
-              </div>
+
+              <div className="my-1 h-px w-16 bg-line" aria-hidden />
+
+              <p className="text-xl font-semibold text-fg md:text-2xl">{currentWord.meaning}</p>
+
+              {currentWord.wordType && <Badge tone="neutral">{currentWord.wordType}</Badge>}
             </div>
-
           </div>
-
         </div>
       </div>
 
       {/* Controls */}
-      <div className="w-full max-w-2xl flex items-center justify-between bg-white dark:bg-gray-800 p-4 md:p-6 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 transition-colors">
-        
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface p-3.5 shadow-card md:p-4">
         <div className="flex items-center gap-2">
-          <button
-            onClick={handleShuffle}
-            className="p-3 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-xl transition-all"
-            title="Đảo trộn thẻ"
-          >
-            <Shuffle className="w-5 h-5" />
-          </button>
-          
-          <button
+          <IconButton variant="secondary" aria-label="Đảo trộn thẻ" onClick={handleShuffle}>
+            <Shuffle className="size-4" aria-hidden />
+          </IconButton>
+          <IconButton
+            variant={isStarred ? 'soft' : 'secondary'}
+            aria-label={isStarred ? 'Bỏ lưu từ vựng' : 'Lưu từ vựng'}
+            aria-pressed={isStarred}
             onClick={() => toggleStar(currentWord.id)}
-            className={`p-3 rounded-xl transition-all ${
-              isStarred 
-                ? 'text-yellow-500 bg-yellow-50 dark:text-yellow-400 dark:bg-yellow-900/20' 
-                : 'text-gray-500 hover:text-yellow-500 dark:text-gray-400 dark:hover:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-900/20'
-            }`}
-            title="Lưu từ vựng"
+            className={cn(isStarred && 'text-warning-fg')}
           >
-            <Star className={`w-5 h-5 ${isStarred ? 'fill-current' : ''}`} />
-          </button>
+            <Star className={cn('size-4', isStarred && 'fill-current')} aria-hidden />
+          </IconButton>
         </div>
 
-        <div className="flex items-center gap-4 md:gap-6">
-          <button 
+        <div className="flex items-center gap-3">
+          <Button
+            variant="secondary"
             onClick={handlePrev}
             disabled={currentIndex === 0}
-            className="p-3 bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-all"
+            leftIcon={<ChevronLeft className="size-4" aria-hidden />}
           >
-            <ChevronLeft className="w-6 h-6" />
-          </button>
-          
-          <div className="font-medium text-gray-600 dark:text-gray-400 tabular-nums text-lg">
-            {currentIndex + 1} <span className="text-gray-400 dark:text-gray-600 mx-1">/</span> {words.length}
-          </div>
+            Trước
+          </Button>
 
-          <button 
+          <span className="tabular min-w-16 text-center text-sm font-semibold text-fg">
+            {currentIndex + 1} / {words.length}
+          </span>
+
+          <Button
+            variant="primary"
             onClick={handleNext}
             disabled={currentIndex === words.length - 1}
-            className="p-3 bg-blue-600 hover:bg-blue-500 text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-all shadow-md shadow-blue-500/20"
+            rightIcon={<ChevronRight className="size-4" aria-hidden />}
           >
-            <ChevronRight className="w-6 h-6" />
-          </button>
+            Tiếp
+          </Button>
         </div>
       </div>
-      
-    </div>
+    </PageContainer>
   );
 };

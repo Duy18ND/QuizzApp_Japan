@@ -10,22 +10,42 @@ interface HintProps {
 export const Hint: React.FC<HintProps> = ({ kanji, hiragana, meaning }) => {
   const [isOpen, setIsOpen] = useState(false);
 
+  if (!kanji && !hiragana && !meaning) return null;
+
   return (
-    <div className="my-2 relative inline-block">
-      <button 
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center text-yellow-600 hover:text-yellow-500 dark:text-yellow-500 dark:hover:text-yellow-400 font-medium text-sm transition-colors bg-yellow-50 dark:bg-yellow-900/20 px-3 py-1.5 rounded-full"
+    <div className="relative my-2 inline-block">
+      <button
+        type="button"
+        aria-expanded={isOpen}
+        onClick={() => setIsOpen((prev) => !prev)}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-warning-line bg-warning-soft px-3 py-1.5 text-sm font-medium text-warning-fg transition-colors hover:border-warning"
       >
-        <Lightbulb className="w-4 h-4 mr-1.5" />
-        Gợi ý {isOpen ? <ChevronUp className="w-4 h-4 ml-1" /> : <ChevronDown className="w-4 h-4 ml-1" />}
+        <Lightbulb className="size-4" aria-hidden />
+        Gợi ý
+        {isOpen ? <ChevronUp className="size-4" aria-hidden /> : <ChevronDown className="size-4" aria-hidden />}
       </button>
-      
+
       {isOpen && (
-        <div className="absolute top-full left-0 mt-2 z-50 w-64 p-4 bg-white border border-yellow-200 shadow-xl dark:bg-gray-800 dark:border-yellow-700/50 rounded-lg text-sm space-y-2 transition-colors">
-          {kanji && <div className="text-gray-900 dark:text-white"><span className="text-yellow-700 dark:text-yellow-500 font-semibold mr-2">Kanji:</span>{kanji}</div>}
-          {hiragana && <div className="text-gray-900 dark:text-white"><span className="text-yellow-700 dark:text-yellow-500 font-semibold mr-2">Hiragana:</span>{hiragana}</div>}
-          {meaning && <div className="text-gray-900 dark:text-white"><span className="text-yellow-700 dark:text-yellow-500 font-semibold mr-2">Nghĩa:</span>{meaning}</div>}
-        </div>
+        <dl className="absolute top-full left-0 z-30 mt-2 w-64 animate-pop-in space-y-1.5 rounded-xl border border-line bg-surface p-4 text-sm shadow-pop">
+          {kanji && (
+            <div className="flex items-baseline justify-between gap-3">
+              <dt className="font-medium text-muted">Kanji</dt>
+              <dd lang="ja" className="font-semibold text-fg">{kanji}</dd>
+            </div>
+          )}
+          {hiragana && (
+            <div className="flex items-baseline justify-between gap-3">
+              <dt className="font-medium text-muted">Hiragana</dt>
+              <dd lang="ja" className="font-semibold text-fg">{hiragana}</dd>
+            </div>
+          )}
+          {meaning && (
+            <div className="flex items-baseline justify-between gap-3">
+              <dt className="font-medium text-muted">Nghĩa</dt>
+              <dd className="text-right font-medium text-fg">{meaning}</dd>
+            </div>
+          )}
+        </dl>
       )}
     </div>
   );

@@ -1,127 +1,204 @@
 import React from 'react';
-import { useSelector, useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
+import { Link } from 'react-router-dom';
+import { BookOpen, CircleCheck, Trash2 } from 'lucide-react';
 import type { RootState } from '../../store';
 import { clearMistakes, removeMistakesByGrammar } from '../../store/slices/mistakeSlice';
-import { ArrowLeft, Trash2, AlertTriangle, BookOpen } from 'lucide-react';
-import { useNavigate, Link } from 'react-router-dom';
+import { grammarBooks } from '../../data/grammar';
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  IconButton,
+  PageContainer,
+  PageHeader,
+  buttonStyles,
+} from '../../components/ui';
+
+interface ResolvedRuleMeta {
+  id: string;
+  name: string;
+  practicePath: string;
+}
 
 export const MistakesReview: React.FC = () => {
-  const navigate = useNavigate();
   const dispatch = useDispatch();
   const mistakes = useSelector((state: RootState) => state.mistake.mistakes);
-  const rules = useSelector((state: RootState) => state.grammar.availableRules);
+  const availableRules = useSelector((state: RootState) => state.grammar.availableRules);
 
-  const mistakesByGrammar = mistakes.reduce((acc, mistake) => {
-    if (!acc[mistake.grammarId]) {
-      acc[mistake.grammarId] = [];
+  const mistakesByGrammar = mistakes.reduce(
+    (acc, mistake) => {
+      if (!acc[mistake.grammarId]) {
+        acc[mistake.grammarId] = [];
+      }
+      acc[mistake.grammarId].push(mistake);
+      return acc;
+    },
+    {} as Record<string, typeof mistakes>,
+  );
+
+  const resolveRuleMeta = (
+    grammarId: string,
+    sampleMistake?: (typeof mistakes)[number],
+  ): ResolvedRuleMeta => {
+    if (sampleMistake?.categoryLabel || sampleMistake?.practicePath || grammarId.startsWith('JLPT_')) {
+      return {
+        id: grammarId,
+        name: sampleMistake?.categoryLabel || grammarId,
+        practicePath: sampleMistake?.practicePath || '/',
+      };
     }
-    acc[mistake.grammarId].push(mistake);
-    return acc;
-  }, {} as Record<string, typeof mistakes>);
+
+    for (const book of grammarBooks) {
+      for (const chapter of book.chapters) {
+        const found = chapter.grammars.find((g) => g.id === grammarId);
+        if (found) {
+          return {
+            id: found.id,
+            name: found.name,
+            practicePath: `/grammar/${book.id}/${chapter.id}/practice/${found.id}?mode=mixed`,
+          };
+        }
+      }
+    }
+
+    const storeRule = availableRules.find((r) => r.id === grammarId);
+    return {
+      id: grammarId,
+      name: storeRule?.name || grammarId,
+      practicePath: '/grammar',
+    };
+  };
+
+  const entries = Object.entries(mistakesByGrammar);
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center justify-between mb-6">
-        <button 
-          onClick={() => navigate('/grammar')}
-          className="flex items-center gap-2 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors font-medium"
-        >
-          <ArrowLeft className="w-5 h-5" />
-          Quay lại
-        </button>
-        
-        {mistakes.length > 0 && (
-          <button 
-            onClick={() => dispatch(clearMistakes())}
-            className="flex items-center gap-2 px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-sm font-semibold transition-colors"
-          >
-            <Trash2 className="w-4 h-4" />
-            Xóa lịch sử
-          </button>
-        )}
-      </div>
+    <PageContainer size="md">
+      <PageHeader
+        breadcrumbs={[
+          { label: 'Trang chủ', to: '/' },
+          { label: 'Ôn tập lỗi sai' },
+        ]}
+        title="Ôn tập lỗi sai"
+        description="Danh sách các câu hỏi bạn đã làm sai trong quá trình luyện tập."
+        actions={
+          mistakes.length > 0 ? (
+            <Button
+              variant="danger"
+              size="sm"
+              leftIcon={<Trash2 className="size-4" aria-hidden />}
+              onClick={() => dispatch(clearMistakes())}
+            >
+              Xóa lịch sử
+            </Button>
+          ) : undefined
+        }
+      />
 
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-8">
-        <h1 className="text-3xl font-black text-gray-900 dark:text-white mb-2 flex items-center gap-3">
-          <AlertTriangle className="w-8 h-8 text-amber-500" />
-          Ôn tập lỗi sai
-        </h1>
-        <p className="text-gray-500 dark:text-gray-400 mb-8">
-          Danh sách các câu hỏi bạn đã làm sai trong quá trình luyện tập.
-        </p>
+      {entries.length === 0 ? (
+        <EmptyState
+          icon={<CircleCheck className="size-6 text-success-fg" aria-hidden />}
+          title="Không có lỗi sai nào!"
+          description="Tuyệt vời, bạn đang làm rất tốt."
+          action={
+            <Link to="/" className={buttonStyles({ variant: 'secondary' })}>
+              Quay lại Trang chủ
+            </Link>
+          }
+        />
+      ) : (
+        <div className="space-y-4">
+          {entries.map(([grammarId, grammarMistakes]) => {
+            const ruleMeta = resolveRuleMeta(grammarId, grammarMistakes[0]);
+            const isJlptGroup = grammarId.startsWith('JLPT_');
 
-        {Object.keys(mistakesByGrammar).length === 0 ? (
-          <div className="text-center py-12">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-green-50 text-green-500 rounded-full mb-4">
-              <CheckCircle className="w-8 h-8" />
-            </div>
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Không có lỗi sai nào!</h3>
-            <p className="text-gray-500">Tuyệt vời, bạn đang làm rất tốt.</p>
-          </div>
-        ) : (
-          <div className="space-y-8">
-            {Object.entries(mistakesByGrammar).map(([grammarId, grammarMistakes]) => {
-              const rule = rules.find(r => r.id === grammarId);
-              if (!rule) return null;
-
-              return (
-                <div key={grammarId} className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-                  <div className="bg-gray-50 dark:bg-gray-900/50 p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                    <div>
-                      <h3 className="font-bold text-lg text-gray-900 dark:text-white">{rule.name}</h3>
-                      <p className="text-sm text-gray-500">{grammarMistakes.length} lỗi sai</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Link 
-                        to={`/grammar/${rule.id}/practice?mode=mix_review`}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-gray-900 rounded-lg text-sm font-medium"
-                      >
-                        <BookOpen className="w-4 h-4" />
-                        Ôn lại ngữ pháp này
-                      </Link>
-                      <button 
-                        onClick={() => dispatch(removeMistakesByGrammar(grammarId))}
-                        className="p-1.5 text-gray-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
-                        title="Xóa lỗi của ngữ pháp này"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                    </div>
+            return (
+              <Card key={grammarId} padding="none" className="overflow-hidden">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-surface-2 px-5 py-3.5">
+                  <div className="flex items-center gap-2.5">
+                    <h2 lang="ja" className="text-base font-bold text-fg">
+                      {ruleMeta.name}
+                    </h2>
+                    <Badge tone="danger" className="tabular">
+                      {grammarMistakes.length} lỗi sai
+                    </Badge>
                   </div>
-                  <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {grammarMistakes.map(mistake => (
-                      <div key={mistake.id} className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <span className="text-xs font-semibold text-gray-500 uppercase">Câu hỏi / Lời nhắc</span>
-                          <p className="mt-1 font-medium">{mistake.questionId}</p> 
-                          {/* Note: we would normally store the prompt text in mistake, but for simplicity here we just show ID or fallback */}
-                        </div>
-                        <div className="grid grid-cols-2 gap-4 bg-rose-50/50 dark:bg-rose-900/10 p-3 rounded-lg border border-rose-100 dark:border-rose-900/30">
-                          <div>
-                            <span className="text-xs font-semibold text-rose-500 uppercase">Bạn trả lời</span>
-                            <p className="mt-1 font-medium text-rose-700 dark:text-rose-400 line-through">{mistake.userAnswer}</p>
+
+                  <div className="flex items-center gap-2">
+                    <Link
+                      to={ruleMeta.practicePath}
+                      className={buttonStyles({ variant: 'soft', size: 'sm' })}
+                    >
+                      <BookOpen className="size-4" aria-hidden />
+                      {isJlptGroup ? 'Luyện lại phần này' : 'Ôn lại ngữ pháp này'}
+                    </Link>
+                    <IconButton
+                      variant="ghost"
+                      size="sm"
+                      aria-label={`Xóa lỗi của ${ruleMeta.name}`}
+                      onClick={() => dispatch(removeMistakesByGrammar(grammarId))}
+                      className="text-danger-fg"
+                    >
+                      <Trash2 className="size-4" aria-hidden />
+                    </IconButton>
+                  </div>
+                </div>
+
+                <div className="divide-y divide-line">
+                  {grammarMistakes.map((mistake) => (
+                    <div key={mistake.id} className="space-y-3 p-4 md:p-5">
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <div className="min-w-0 space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-xs font-semibold tracking-wide text-muted uppercase">
+                              {mistake.prompt ? 'Câu hỏi' : 'Mã câu hỏi'}
+                            </p>
+                            {mistake.level && <Badge tone="primary">{mistake.level}</Badge>}
                           </div>
-                          <div>
-                            <span className="text-xs font-semibold text-green-600 uppercase">Đáp án đúng</span>
-                            <p className="mt-1 font-bold text-green-700 dark:text-green-400">{mistake.correctAnswer}</p>
+                          {mistake.prompt ? (
+                            <p lang="ja" className="text-sm font-medium leading-relaxed text-fg">
+                              {mistake.prompt}
+                            </p>
+                          ) : (
+                            <p className="font-mono text-sm font-medium text-fg">{mistake.questionId}</p>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="rounded-lg border border-danger-line bg-danger-soft p-3">
+                            <p className="text-xs font-semibold text-danger-fg uppercase">
+                              Bạn trả lời
+                            </p>
+                            <p lang="ja" className="mt-1 text-sm font-medium text-fg line-through">
+                              {mistake.userAnswer}
+                            </p>
+                          </div>
+
+                          <div className="rounded-lg border border-success-line bg-success-soft p-3">
+                            <p className="text-xs font-semibold text-success-fg uppercase">
+                              Đáp án đúng
+                            </p>
+                            <p lang="ja" className="mt-1 text-sm font-semibold text-fg">
+                              {mistake.correctAnswer}
+                            </p>
                           </div>
                         </div>
                       </div>
-                    ))}
-                  </div>
+
+                      {mistake.explanation && (
+                        <p className="rounded-lg border border-line bg-surface-2 px-3.5 py-2.5 text-sm leading-relaxed text-muted">
+                          {mistake.explanation}
+                        </p>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </PageContainer>
   );
 };
-
-// Helper for check circle since lucide wasn't imported at top for it
-const CheckCircle = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-  </svg>
-);

@@ -29,6 +29,7 @@ export interface QuizConfig {
   isCustom?: boolean;
   customData?: any[];
   questionType?: string;
+  kanjiFilter?: string;
 }
 
 export type WordType = 

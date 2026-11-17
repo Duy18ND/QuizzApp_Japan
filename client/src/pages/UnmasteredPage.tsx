@@ -1,10 +1,20 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
+import { EmptyState, PageContainer, PageHeader, buttonStyles } from '../components/ui';
 
 export const UnmasteredPage: React.FC = () => {
   return (
-    <div>
-      <h1 className="text-2xl font-bold text-white mb-6">Unmastered</h1>
-      <p className="text-gray-400">This is the placeholder for UnmasteredPage.</p>
-    </div>
+    <PageContainer size="md">
+      <PageHeader title="Từ chưa thuộc" />
+      <EmptyState
+        title="Tính năng đang được hoàn thiện"
+        description="This is the placeholder for UnmasteredPage."
+        action={
+          <Link to="/vocabulary" className={buttonStyles({ variant: 'secondary' })}>
+            Quay lại Từ vựng
+          </Link>
+        }
+      />
+    </PageContainer>
   );
 };

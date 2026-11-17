@@ -1,6 +1,6 @@
 import React from 'react';
-import { clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import { CheckCircle2, XCircle } from 'lucide-react';
+import { cn } from '../lib/cn';
 
 export type AnswerStatus = 'default' | 'correct' | 'wrong' | 'disabled';
 
@@ -11,26 +11,48 @@ interface AnswerOptionProps {
   onClick: () => void;
 }
 
-export const AnswerOption: React.FC<AnswerOptionProps> = ({ label, text, status, onClick }) => {
-  const baseClasses = "flex items-center w-full min-h-[3rem] p-3 md:p-4 rounded-xl border-2 transition-all duration-200 text-left text-lg md:text-xl font-medium";
-  
-  const statusClasses = {
-    default: "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:border-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:hover:bg-gray-700 cursor-pointer",
-    correct: "border-green-500 bg-green-600 text-white shadow-lg shadow-green-200 dark:shadow-green-900/50",
-    wrong: "border-red-500 bg-red-600 text-white shadow-lg shadow-red-200 dark:shadow-red-900/50",
-    disabled: "border-gray-200 bg-gray-50 text-gray-400 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-500 opacity-60 cursor-not-allowed",
-  };
+const statusClasses: Record<AnswerStatus, string> = {
+  default: 'border-line-strong bg-surface text-fg hover:border-primary hover:bg-surface-2',
+  correct: 'border-success bg-success-soft text-fg',
+  wrong: 'border-danger bg-danger-soft text-fg',
+  disabled: 'border-line bg-surface text-muted opacity-60 cursor-not-allowed',
+};
 
+const labelClasses: Record<AnswerStatus, string> = {
+  default: 'bg-surface-2 text-muted border border-line',
+  correct: 'bg-success text-on-primary',
+  wrong: 'bg-danger text-on-primary',
+  disabled: 'bg-surface-2 text-subtle',
+};
+
+export const AnswerOption: React.FC<AnswerOptionProps> = ({ label, text, status, onClick }) => {
   return (
     <button
+      type="button"
       onClick={onClick}
       disabled={status !== 'default'}
-      className={twMerge(clsx(baseClasses, statusClasses[status]))}
+      aria-pressed={status === 'correct' || status === 'wrong' ? true : undefined}
+      className={cn(
+        'flex min-h-14 w-full items-center justify-between gap-3 rounded-xl border p-3.5 text-left transition-colors duration-150 md:p-4',
+        'active:scale-[0.99] disabled:active:scale-100',
+        statusClasses[status],
+      )}
     >
-      <span className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-black/20 mr-4 text-sm font-bold">
+      <span
+        className={cn(
+          'grid size-8 shrink-0 place-items-center rounded-lg text-sm font-bold',
+          labelClasses[status],
+        )}
+      >
         {label}
       </span>
-      <span>{text}</span>
+
+      <span lang="ja" className="flex-1 text-base leading-snug font-medium md:text-lg">
+        {text}
+      </span>
+
+      {status === 'correct' && <CheckCircle2 className="size-5 shrink-0 text-success-fg" aria-hidden />}
+      {status === 'wrong' && <XCircle className="size-5 shrink-0 text-danger-fg" aria-hidden />}
     </button>
   );
 };

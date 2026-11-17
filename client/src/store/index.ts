@@ -10,8 +10,7 @@ import grammarReducer from './slices/grammarSlice';
 import practiceReducer from './slices/practiceSlice';
 import grammarProgressReducer from './slices/grammarProgressSlice';
 import mistakeReducer from './slices/mistakeSlice';
-
-
+import kanjiReducer from './slices/kanjiSlice';
 export const store = configureStore({
   reducer: {
     app: appReducer,
@@ -25,6 +24,7 @@ export const store = configureStore({
     practice: practiceReducer,
     grammarProgress: grammarProgressReducer,
     mistake: mistakeReducer,
+    kanji: kanjiReducer,
   },
 });
 

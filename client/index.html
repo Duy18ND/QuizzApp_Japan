@@ -1,16 +1,36 @@
 <!doctype html>
-<html lang="en">
+<html lang="vi">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/src/assets/favicon.png" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=3" />
     <link rel="manifest" href="/manifest.json?v=2" />
-    <meta name="theme-color" content="#0f8fa8" />
+    <meta name="theme-color" content="#F2F9FF" />
+    <meta name="color-scheme" content="light dark" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Nihongo 問" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Nihongo 問</title>
+    <!-- Apply the saved / system theme before first paint to avoid a light flash in dark mode.
+         Keep the storage key and colours in sync with src/hooks/useTheme.ts and src/index.css. -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem('theme');
+          var dark = stored === 'dark' || (stored !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          var root = document.documentElement;
+          if (dark) root.classList.add('dark');
+          root.style.colorScheme = dark ? 'dark' : 'light';
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute('content', dark ? '#071B2F' : '#F2F9FF');
+        } catch (e) {}
+      })();
+    </script>
+    <style>
+      html { background: #F2F9FF; }
+      html.dark { background: #071B2F; }
+    </style>
   </head>
   <body>
     <div id="root"></div>

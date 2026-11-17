@@ -1,36 +1,71 @@
 import React, { useMemo, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { ChevronDown, ChevronUp, FileDown, Play, RefreshCw } from 'lucide-react';
 import { grammarBooks } from '../../data/grammar';
-import { ArrowLeft, FileDown, RefreshCw, ChevronDown, ChevronUp, Play } from 'lucide-react';
 import { generateSmartQuestionSet } from '../../utils/grammarEngine/questionGenerator';
-import { unit1Data } from '../../data/n3/unit1'; // Mocking vocab data source
+import { unit1Data } from '../../data/n3/unit1';
+import type { ExampleQuestion } from '../../types/grammar';
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Notice,
+  PageContainer,
+  PageHeader,
+  buttonStyles,
+} from '../../components/ui';
+
+interface ExampleVocabularyItem {
+  kanji?: string;
+  hiragana?: string;
+  meaning?: string;
+}
 
 export const GrammarLesson: React.FC = () => {
-  const { bookId, chapterId, grammarId } = useParams<{ bookId: string; chapterId: string; grammarId: string }>();
+  const { bookId, chapterId, grammarId } = useParams<{
+    bookId: string;
+    chapterId: string;
+    grammarId: string;
+  }>();
   const navigate = useNavigate();
 
-  const rule = useMemo(() => {
-    const book = grammarBooks.find(b => b.id === bookId);
-    const chapter = book?.chapters.find(c => c.id === chapterId);
-    return chapter?.grammars.find(g => g.id === grammarId);
+  const { chapter, rule } = useMemo(() => {
+    const book = grammarBooks.find((b) => b.id === bookId);
+    const ch = book?.chapters.find((c) => c.id === chapterId);
+    const gr = ch?.grammars.find((g) => g.id === grammarId);
+    return { chapter: ch, rule: gr };
   }, [bookId, chapterId, grammarId]);
 
-  const [examples, setExamples] = useState<any[]>([]);
-  const [expandedExample, setExpandedExample] = useState<number | null>(null);
+  const [customExamples, setCustomExamples] = useState<{
+    grammarId?: string;
+    list: ExampleQuestion[];
+  } | null>(null);
+  const [expandedState, setExpandedState] = useState<{
+    grammarId?: string;
+    index: number | null;
+  }>({ grammarId, index: null });
 
-  // Generate initial examples
-  useMemo(() => {
-    if (rule && examples.length === 0) {
-      const qs = generateSmartQuestionSet({
-        grammarRule: rule,
-        count: 3,
-        seed: Date.now(),
-        rawVocabulary: unit1Data as any[],
-        requestedPracticeTypes: ['example']
-      });
-      setExamples(qs.questions);
-    }
-  }, [rule]); // Run once when rule is loaded
+  const expandedExample = expandedState.grammarId === grammarId ? expandedState.index : null;
+  const setExpandedExample = (index: number | null) =>
+    setExpandedState({ grammarId, index });
+
+  const defaultExamples = useMemo<ExampleQuestion[]>(() => {
+    if (!rule) return [];
+    const qs = generateSmartQuestionSet({
+      grammarRule: rule,
+      count: 3,
+      seed: 101,
+      rawVocabulary: unit1Data as unknown as Record<string, unknown>[],
+      requestedPracticeTypes: ['example'],
+    });
+    return qs.questions as ExampleQuestion[];
+  }, [rule]);
+
+  const examples =
+    customExamples && customExamples.grammarId === grammarId
+      ? customExamples.list
+      : defaultExamples;
 
   const handleGenerateExamples = () => {
     if (!rule) return;
@@ -38,185 +73,253 @@ export const GrammarLesson: React.FC = () => {
       grammarRule: rule,
       count: 3,
       seed: Date.now() + Math.random(),
-      rawVocabulary: unit1Data as any[],
-      requestedPracticeTypes: ['example']
+      rawVocabulary: unit1Data as unknown as Record<string, unknown>[],
+      requestedPracticeTypes: ['example'],
     });
-    setExamples(qs.questions);
+    setCustomExamples({ grammarId, list: qs.questions as ExampleQuestion[] });
+    setExpandedState({ grammarId, index: null });
   };
 
   if (!rule) {
-    return <div className="p-8 text-center">Không tìm thấy bài học ngữ pháp.</div>;
+    return (
+      <PageContainer size="md">
+        <EmptyState
+          title="Không tìm thấy bài học ngữ pháp"
+          action={
+            <Link to="/grammar" className={buttonStyles({ variant: 'secondary' })}>
+              Quay lại Ngữ pháp
+            </Link>
+          }
+        />
+      </PageContainer>
+    );
   }
 
-
   return (
-    <div className="max-w-4xl mx-auto space-y-8 pb-16">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Link 
-          to={`/grammar/${bookId}/${chapterId}`}
-          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors text-gray-500"
-        >
-          <ArrowLeft className="w-6 h-6" />
-        </Link>
-        <div>
-          <h1 className="text-3xl font-black text-gray-900 dark:text-white flex items-baseline gap-4">
-            {rule.name}
-            <span className="text-lg font-medium text-gray-500">{rule.hiragana}</span>
-          </h1>
-          <p className="text-gray-500 mt-1">{rule.level} • {rule.category}</p>
-        </div>
-      </div>
+    <PageContainer>
+      <PageHeader
+        breadcrumbs={[
+          { label: 'Ngữ pháp', to: '/grammar' },
+          { label: chapter?.title || 'Bài học', to: `/grammar/${bookId}/${chapterId}` },
+          { label: rule.name },
+        ]}
+        title={<span lang="ja">{rule.name}</span>}
+        description={
+          <span className="flex flex-wrap items-center gap-2">
+            {rule.hiragana && <span lang="ja">{rule.hiragana}</span>}
+            <Badge tone="primary">{rule.level}</Badge>
+            {rule.category && <Badge tone="neutral">{rule.category}</Badge>}
+          </span>
+        }
+      />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* LÝ THUYẾT */}
-        <div className="lg:col-span-2 space-y-8">
-          
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div className="p-6 border-b border-gray-100 dark:border-gray-700 bg-blue-50 dark:bg-blue-900/20">
-              <h2 className="text-xl font-bold text-blue-900 dark:text-blue-100">1. Ý nghĩa</h2>
-              <p className="mt-2 text-lg text-gray-800 dark:text-gray-200">{rule.meaning}</p>
-              {rule.explanation && (
-                <p className="mt-2 text-gray-600 dark:text-gray-400">{rule.explanation}</p>
-              )}
-            </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* Lý thuyết & Ví dụ */}
+        <div className="space-y-6 lg:col-span-2">
+          <Card padding="none" className="divide-y divide-line overflow-hidden">
+            <section className="bg-primary-soft p-5 md:p-6">
+              <h2 className="text-sm font-semibold tracking-wide text-primary-fg uppercase">
+                1. Ý nghĩa
+              </h2>
+              <p className="mt-2 text-lg font-semibold text-fg">{rule.meaning}</p>
+              {rule.explanation && <p className="mt-2 text-sm leading-relaxed text-muted">{rule.explanation}</p>}
+            </section>
 
             {rule.usage && (
-              <div className="p-6 border-b border-gray-100 dark:border-gray-700">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-3">2. Cách dùng</h2>
-                <p className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">{rule.usage}</p>
-              </div>
+              <section className="p-5 md:p-6">
+                <h2 className="mb-2 text-base font-semibold text-fg">2. Cách dùng</h2>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap text-fg md:text-base">
+                  {rule.usage}
+                </p>
+              </section>
             )}
 
-            <div className="p-6 border-b border-gray-100 dark:border-gray-700">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-3">3. Cấu trúc</h2>
-              <div className="space-y-3">
-                {rule.templates.map(t => (
-                  <div key={t.id} className="bg-gray-50 dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
-                    <p className="font-bold text-lg text-blue-600 dark:text-blue-400 font-mono">{t.pattern}</p>
-                    <p className="text-sm text-gray-500 mt-2">{t.vietnamesePattern}</p>
+            <section className="p-5 md:p-6">
+              <h2 className="mb-3 text-base font-semibold text-fg">3. Cấu trúc</h2>
+              <div className="space-y-2.5">
+                {rule.templates.map((t) => (
+                  <div
+                    key={t.id}
+                    className="rounded-lg border border-line bg-surface-2 p-4"
+                  >
+                    <p lang="ja" className="text-base font-bold text-primary-fg md:text-lg">
+                      {t.pattern}
+                    </p>
+                    {t.vietnamesePattern && (
+                      <p className="mt-1 text-sm text-muted">{t.vietnamesePattern}</p>
+                    )}
                   </div>
                 ))}
               </div>
-            </div>
+            </section>
 
             {rule.patterns && rule.patterns.length > 0 && (
-              <div className="p-6 border-b border-gray-100 dark:border-gray-700">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-3">4. Cách chia / Form</h2>
-                <div className="space-y-2">
+              <section className="p-5 md:p-6">
+                <h2 className="mb-3 text-base font-semibold text-fg">4. Cách chia / Form</h2>
+                <ul className="space-y-2">
                   {rule.patterns.map((p, i) => (
-                    <div key={i} className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
-                      <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                      <span className="font-mono text-gray-900 dark:text-white font-medium">{p.pattern}</span>
-                    </div>
+                    <li
+                      key={i}
+                      className="flex items-center gap-3 rounded-lg border border-line bg-surface-2 px-3.5 py-2.5"
+                    >
+                      <span className="size-2 shrink-0 rounded-full bg-primary" aria-hidden />
+                      <span lang="ja" className="font-mono text-sm font-medium text-fg">
+                        {p.pattern}
+                      </span>
+                    </li>
                   ))}
-                </div>
-              </div>
+                </ul>
+              </section>
             )}
 
             {rule.notes && (
-              <div className="p-6 bg-amber-50 dark:bg-amber-900/10">
-                <h2 className="text-lg font-bold text-amber-900 dark:text-amber-500 mb-2">4. Ghi chú</h2>
-                <p className="text-amber-800 dark:text-amber-200/80 leading-relaxed whitespace-pre-wrap">{rule.notes}</p>
-              </div>
+              <section className="p-5 md:p-6">
+                <Notice tone="warning" className="space-y-1">
+                  <h2 className="font-semibold">Ghi chú</h2>
+                  <p className="leading-relaxed whitespace-pre-wrap text-fg">{rule.notes}</p>
+                </Notice>
+              </section>
             )}
-          </div>
+          </Card>
 
-          {/* VÍ DỤ ĐỘNG */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Ví dụ</h2>
-              <button 
+          {/* Ví dụ động */}
+          <Card padding="lg" className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold text-fg">Ví dụ</h2>
+              <Button
+                variant="soft"
+                size="sm"
                 onClick={handleGenerateExamples}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-xl font-semibold transition-colors text-sm"
+                leftIcon={<RefreshCw className="size-4" aria-hidden />}
               >
-                <RefreshCw className="w-4 h-4" />
                 Tạo ví dụ khác
-              </button>
+              </Button>
             </div>
-            
-            <div className="space-y-4">
+
+            <div className="space-y-3">
               {examples.map((ex, idx) => {
                 const meta = ex.metadata;
                 if (!meta) return null;
                 const isExpanded = expandedExample === idx;
+                const slotValues = (meta.slotValues ?? {}) as Record<string, string>;
+                const vocabList = (meta.vocabulary ?? []) as ExampleVocabularyItem[];
+                const conjugation = meta.conjugation as
+                  | { base?: string; conjugated?: string; rule?: string }
+                  | undefined;
 
                 return (
-                  <div key={idx} className="bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
-                    <div className="p-5">
+                  <div
+                    key={idx}
+                    className="overflow-hidden rounded-xl border border-line bg-surface-2"
+                  >
+                    <div className="p-4 md:p-5">
                       <div className="flex items-start gap-3">
-                        <span className="font-bold text-blue-600 dark:text-blue-400 mt-1">【{idx + 1}】</span>
-                        <div className="flex-1">
-                          <p className="text-xl text-gray-900 dark:text-white font-medium leading-loose">
-                            {meta.pattern && meta.slotValues ? (
-                              <>
-                                {meta.pattern.split(/(\{.*?\})/).map((part: string, i: number) => {
+                        <Badge tone="primary" className="tabular mt-1 shrink-0">
+                          {idx + 1}
+                        </Badge>
+                        <div className="min-w-0 flex-1 space-y-1.5">
+                          <p lang="ja" className="text-lg leading-loose font-medium text-fg md:text-xl">
+                            {meta.pattern && meta.slotValues
+                              ? meta.pattern.split(/(\{.*?\})/).map((part, i) => {
                                   if (part.startsWith('{') && part.endsWith('}')) {
                                     const slotName = part.slice(1, -1);
                                     return (
-                                      <span key={i} className="text-blue-600 dark:text-blue-400 font-bold px-1.5 py-0.5 mx-0.5 bg-blue-50 dark:bg-blue-900/30 rounded border border-blue-100 dark:border-blue-800/50 relative group">
-                                        {meta.slotValues[slotName]}
-                                        <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                                          {slotName}
-                                        </span>
+                                      <span
+                                        key={i}
+                                        className="mx-0.5 rounded border border-line bg-surface px-1.5 py-0.5 font-semibold text-primary-fg"
+                                      >
+                                        {slotValues[slotName]}
                                       </span>
                                     );
                                   }
                                   if (part && !/^[、。！？\s]+$/.test(part)) {
-                                    return <span key={i} className="text-red-600 dark:text-red-400 font-bold mx-0.5">{part}</span>;
+                                    return (
+                                      <span key={i} className="mx-0.5 font-bold text-primary-fg underline decoration-primary/40 underline-offset-4">
+                                        {part}
+                                      </span>
+                                    );
                                   }
                                   return <span key={i}>{part}</span>;
-                                })}
-                              </>
-                            ) : (
-                              meta.japanese
-                            )}
+                                })
+                              : meta.japanese}
                           </p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400 mb-3 mt-2">{meta.hiragana}</p>
-                          <p className="text-gray-700 dark:text-gray-300">{meta.vietnamese}</p>
+                          {meta.hiragana && (
+                            <p lang="ja" className="text-sm text-muted">
+                              {meta.hiragana}
+                            </p>
+                          )}
+                          {meta.vietnamese && <p className="text-sm font-medium text-fg">{meta.vietnamese}</p>}
                         </div>
                       </div>
                     </div>
-                    
-                    <div className="border-t border-gray-200 dark:border-gray-700">
-                      <button 
+
+                    <div className="border-t border-line bg-surface">
+                      <button
+                        type="button"
+                        aria-expanded={isExpanded}
                         onClick={() => setExpandedExample(isExpanded ? null : idx)}
-                        className="w-full p-3 flex items-center justify-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        className="flex w-full items-center justify-center gap-1.5 py-2.5 text-xs font-medium text-muted transition-colors hover:bg-surface-2 hover:text-fg"
                       >
-                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        {isExpanded ? (
+                          <ChevronUp className="size-4" aria-hidden />
+                        ) : (
+                          <ChevronDown className="size-4" aria-hidden />
+                        )}
                         {isExpanded ? 'Đóng phân tích' : 'Phân tích câu'}
                       </button>
-                      
+
                       {isExpanded && (
-                        <div className="p-5 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 space-y-5">
-                          {/* Conjugation Analysis */}
-                          <div>
-                            <h4 className="font-bold text-xs text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wider">Cách tạo câu</h4>
-                            <div className="flex flex-wrap items-center gap-3 text-gray-700 dark:text-gray-300 font-mono text-sm bg-gray-50 dark:bg-gray-900 p-3 rounded-lg border border-gray-100 dark:border-gray-700">
-                              <span>{meta.conjugation?.base}</span>
-                              <span className="text-gray-400">→</span>
-                              <span className="font-semibold text-blue-600 dark:text-blue-400">{meta.conjugation?.conjugated}</span>
-                              <span className="text-gray-400">→</span>
-                              <span>{meta.conjugation?.rule}</span>
+                        <div className="space-y-4 border-t border-line p-4 md:p-5">
+                          {conjugation && (
+                            <div>
+                              <h3 className="mb-2 text-xs font-semibold tracking-wide text-muted uppercase">
+                                Cách tạo câu
+                              </h3>
+                              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-line bg-surface-2 px-3.5 py-2.5 font-mono text-sm text-fg">
+                                <span lang="ja">{conjugation.base}</span>
+                                <span className="text-subtle" aria-hidden>
+                                  →
+                                </span>
+                                <span lang="ja" className="font-semibold text-primary-fg">
+                                  {conjugation.conjugated}
+                                </span>
+                                <span className="text-subtle" aria-hidden>
+                                  →
+                                </span>
+                                <span>{conjugation.rule}</span>
+                              </div>
                             </div>
-                          </div>
-                          
-                          {/* Vocabulary */}
-                          <div>
-                            <h4 className="font-bold text-xs text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wider">Từ vựng</h4>
-                            <div className="space-y-2">
-                              {meta.vocabulary?.map((v: any, vi: number) => (
-                                <div key={vi} className="flex items-center justify-between bg-gray-50 dark:bg-gray-900 p-2.5 rounded-lg text-sm border border-gray-100 dark:border-gray-700">
-                                  <div>
-                                    <span className="font-bold text-gray-900 dark:text-white text-base">{v.kanji || v.hiragana}</span>
-                                    {v.kanji && <span className="text-gray-500 ml-2">({v.hiragana})</span>}
+                          )}
+
+                          {vocabList.length > 0 && (
+                            <div>
+                              <h3 className="mb-2 text-xs font-semibold tracking-wide text-muted uppercase">
+                                Từ vựng
+                              </h3>
+                              <div className="divide-y divide-line rounded-lg border border-line bg-surface-2">
+                                {vocabList.map((v, vi) => (
+                                  <div
+                                    key={vi}
+                                    className="flex items-center justify-between gap-3 px-3.5 py-2.5 text-sm"
+                                  >
+                                    <div>
+                                      <span lang="ja" className="font-semibold text-fg">
+                                        {v.kanji || v.hiragana}
+                                      </span>
+                                      {v.kanji && v.hiragana && (
+                                        <span lang="ja" className="ml-2 text-muted">
+                                          ({v.hiragana})
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span className="text-right text-muted">
+                                      {v.meaning?.split(',')[0]}
+                                    </span>
                                   </div>
-                                  <span className="text-gray-600 dark:text-gray-400 font-medium">{v.meaning?.split(',')[0]}</span>
-                                </div>
-                              ))}
+                                ))}
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -224,41 +327,48 @@ export const GrammarLesson: React.FC = () => {
                 );
               })}
             </div>
-          </div>
+          </Card>
         </div>
 
-        {/* LUYỆN TẬP WORKSPACE */}
-        <div className="space-y-6">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-6 sticky top-6">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              <Play className="w-5 h-5 text-blue-500" />
+        {/* Practice Workspace */}
+        <div>
+          <Card padding="lg" className="sticky top-6 space-y-4">
+            <h2 className="flex items-center gap-2 text-lg font-semibold text-fg">
+              <Play className="size-5 text-primary-fg" aria-hidden />
               Luyện tập
             </h2>
-            
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Luyện tập tổng hợp ngẫu nhiên 10 câu liên quan đến cấu trúc này.
+            <p className="text-sm text-muted">
+              Luyện tập 10 câu từ bộ 20 câu của ngữ pháp này.
             </p>
-
-            <button 
-              onClick={() => navigate(`/grammar/${bookId}/${chapterId}/practice/${grammarId}?mode=mixed&count=10`)}
-              className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-gray-900 rounded-xl font-bold transition-colors shadow-sm"
+            <Button
+              variant="primary"
+              size="lg"
+              fullWidth
+              onClick={() =>
+                navigate(`/grammar/${bookId}/${chapterId}/practice/${grammarId}?mode=mixed&count=10`)
+              }
             >
               Bắt đầu luyện
-            </button>
+            </Button>
 
-            <div className="border-t border-gray-100 dark:border-gray-700 pt-6 space-y-3">
-              <button 
-                onClick={() => navigate(`/pdf?tab=grammar&bookId=${bookId}&chapterId=${chapterId}&grammarId=${grammarId}`)}
-                className="w-full flex items-center justify-center gap-2 p-4 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600 rounded-xl font-bold transition-colors shadow-sm"
+            <div className="border-t border-line pt-4">
+              <Button
+                variant="secondary"
+                size="md"
+                fullWidth
+                leftIcon={<FileDown className="size-4" aria-hidden />}
+                onClick={() =>
+                  navigate(
+                    `/pdf?tab=grammar&bookId=${bookId}&chapterId=${chapterId}&grammarId=${grammarId}`,
+                  )
+                }
               >
-                <FileDown className="w-5 h-5" />
                 Tạo PDF bài này
-              </button>
+              </Button>
             </div>
-          </div>
+          </Card>
         </div>
-
       </div>
-    </div>
+    </PageContainer>
   );
 };

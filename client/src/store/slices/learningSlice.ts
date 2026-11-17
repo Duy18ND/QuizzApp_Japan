@@ -17,5 +17,4 @@ const learningSlice = createSlice({
   },
 });
 
-export const { } = learningSlice.actions;
 export default learningSlice.reducer;

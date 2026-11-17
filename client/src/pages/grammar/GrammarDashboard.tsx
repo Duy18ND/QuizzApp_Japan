@@ -1,145 +1,152 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { Book, ChevronDown, ChevronRight, ChevronUp, FileText, LayoutList } from 'lucide-react';
 import type { JLPTLevel } from '../../types/grammar';
-import { Filter, FileText, Book, LayoutList, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
 import { grammarBooks } from '../../data/grammar';
+import {
+  Badge,
+  Card,
+  Chip,
+  EmptyState,
+  PageContainer,
+  PageHeader,
+  buttonStyles,
+} from '../../components/ui';
+
+const LEVELS: (JLPTLevel | 'All')[] = ['All', 'N5', 'N4', 'N3', 'N2', 'N1'];
 
 export const GrammarDashboard: React.FC = () => {
-  const navigate = useNavigate();
   const [selectedLevel, setSelectedLevel] = useState<JLPTLevel | 'All'>('All');
   const [expandedBooks, setExpandedBooks] = useState<Record<string, boolean>>({});
 
-  const isExpanded = (bookId: string) => {
-    return expandedBooks[bookId] !== false; // defaults to true
-  };
+  const isExpanded = (bookId: string) => expandedBooks[bookId] !== false;
 
   const toggleBook = (bookId: string) => {
-    setExpandedBooks(prev => ({
+    setExpandedBooks((prev) => ({
       ...prev,
-      [bookId]: !isExpanded(bookId)
+      [bookId]: !isExpanded(bookId),
     }));
   };
-  const levels: (JLPTLevel | 'All')[] = ['All', 'N5', 'N4', 'N3', 'N2', 'N1'];
 
   const filteredBooks = grammarBooks.filter(
-    book => selectedLevel === 'All' || book.level === selectedLevel
+    (book) => selectedLevel === 'All' || book.level === selectedLevel,
   );
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight mb-2">
-            Ngữ pháp
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400">
-            Hệ thống học ngữ pháp theo giáo trình chuẩn
-          </p>
-        </div>
-        
-        <div className="flex items-center gap-3">
-          <Link 
-            to="/grammar/pdf" 
-            className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-500 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold transition-all shadow-sm"
-          >
-            <FileText className="w-4 h-4" />
-            Xuất PDF
-          </Link>
-          <Link 
-            to="/grammar/mistakes" 
-            className="flex items-center gap-2 px-4 py-2.5 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-lg text-sm font-semibold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors"
-          >
-            Ôn tập lỗi sai
-          </Link>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="flex items-center gap-3 mb-3">
-          <Filter className="w-5 h-5 text-gray-400" />
-          <h3 className="font-semibold text-gray-700 dark:text-gray-300">Cấp độ</h3>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {levels.map((level) => (
-            <button
-              key={level}
-              onClick={() => setSelectedLevel(level)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                selectedLevel === level
-                  ? 'bg-blue-600 text-gray-900 shadow-md shadow-blue-200 dark:shadow-none'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-              }`}
+    <PageContainer>
+      <PageHeader
+        title="Ngữ pháp"
+        description="Hệ thống học ngữ pháp theo giáo trình chuẩn."
+        actions={
+          <>
+            <Link
+              to="/pdf?tab=grammar"
+              className={buttonStyles({ variant: 'secondary', size: 'md' })}
             >
-              {level}
-            </button>
-          ))}
-        </div>
+              <FileText className="size-4" aria-hidden />
+              Xuất PDF
+            </Link>
+            <Link
+              to="/grammar/mistakes"
+              className={buttonStyles({ variant: 'danger', size: 'md' })}
+            >
+              Ôn tập lỗi sai
+            </Link>
+          </>
+        }
+      />
+
+      {/* Level Filter */}
+      <div className="mb-6 flex flex-wrap items-center gap-2">
+        <span className="mr-1 text-sm font-medium text-muted">Cấp độ:</span>
+        {LEVELS.map((level) => (
+          <Chip
+            key={level}
+            selected={selectedLevel === level}
+            onClick={() => setSelectedLevel(level)}
+          >
+            {level === 'All' ? 'Tất cả' : level}
+          </Chip>
+        ))}
       </div>
 
       {/* Books & Chapters List */}
-      <div className="space-y-6">
-        {filteredBooks.map((book) => (
-          <div key={book.id} className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div 
-              className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex items-center justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800/80 transition-colors"
-              onClick={() => toggleBook(book.id)}
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center shrink-0">
-                  <Book className="w-6 h-6" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-black text-gray-900 dark:text-white">
-                    {book.title}
-                  </h2>
-                  <p className="text-sm text-gray-500 font-medium mt-1">Level {book.level}</p>
-                </div>
-              </div>
-              <div className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
-                {isExpanded(book.id) ? <ChevronUp className="w-6 h-6" /> : <ChevronDown className="w-6 h-6" />}
-              </div>
-            </div>
-            
-            {isExpanded(book.id) && (
-              <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
-              {book.chapters.map(chapter => (
-                <div key={chapter.id} className="p-6 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors flex items-center justify-between group">
-                  <div className="flex items-start gap-4">
-                    <div className="mt-1 w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 font-bold text-sm">
-                      {chapter.chapterNumber}
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                        {chapter.title}
-                      </h3>
-                      <p className="text-sm text-gray-500 mt-1 flex items-center gap-2">
-                        <LayoutList className="w-4 h-4" />
-                        {chapter.grammars.length} ngữ pháp
-                      </p>
+      {filteredBooks.length === 0 ? (
+        <EmptyState
+          title="Chưa có giáo trình"
+          description="Chưa có giáo trình nào cho cấp độ này."
+        />
+      ) : (
+        <div className="space-y-4">
+          {filteredBooks.map((book) => {
+            const expanded = isExpanded(book.id);
+            return (
+              <Card key={book.id} padding="none" className="overflow-hidden">
+                <button
+                  type="button"
+                  aria-expanded={expanded}
+                  onClick={() => toggleBook(book.id)}
+                  className="flex w-full items-center justify-between gap-4 bg-surface-2 px-5 py-4 text-left transition-colors hover:bg-primary-soft md:px-6"
+                >
+                  <div className="flex min-w-0 items-center gap-3.5">
+                    <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary-fg">
+                      <Book className="size-5" aria-hidden />
+                    </span>
+                    <div className="min-w-0">
+                      <h2 className="truncate text-lg font-bold text-fg">{book.title}</h2>
+                      <div className="mt-1 flex items-center gap-2">
+                        <Badge tone="primary">{book.level}</Badge>
+                        <span className="tabular text-xs text-muted">
+                          {book.chapters.length} bài học
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  
-                  <button 
-                    onClick={() => navigate(`/grammar/${book.id}/${chapter.id}`)}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-lg text-sm font-semibold hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors"
-                  >
-                    Học ngay
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-            )}
-          </div>
-        ))}
+                  <span className="shrink-0 text-muted" aria-hidden>
+                    {expanded ? <ChevronUp className="size-5" /> : <ChevronDown className="size-5" />}
+                  </span>
+                </button>
 
-        {filteredBooks.length === 0 && (
-          <div className="py-12 text-center text-gray-500 dark:text-gray-400">
-            Chưa có giáo trình nào cho cấp độ này.
-          </div>
-        )}
-      </div>
-    </div>
+                {expanded && (
+                  <div className="divide-y divide-line border-t border-line">
+                    {book.chapters.map((chapter) => (
+                      <div
+                        key={chapter.id}
+                        className="flex flex-col justify-between gap-4 px-5 py-4 transition-colors hover:bg-surface-2 sm:flex-row sm:items-center md:px-6"
+                      >
+                        <div className="flex min-w-0 items-start gap-3.5">
+                          <span className="tabular mt-0.5 grid size-8 shrink-0 place-items-center rounded-full bg-surface-2 text-sm font-bold text-muted">
+                            {chapter.chapterNumber}
+                          </span>
+                          <div className="min-w-0">
+                            <h3 className="text-base font-semibold text-fg">{chapter.title}</h3>
+                            <p className="mt-1 flex items-center gap-1.5 text-sm text-muted">
+                              <LayoutList className="size-4 shrink-0" aria-hidden />
+                              <span className="tabular">{chapter.grammars.length} ngữ pháp</span>
+                            </p>
+                          </div>
+                        </div>
+
+                        <Link
+                          to={`/grammar/${book.id}/${chapter.id}`}
+                          className={buttonStyles({
+                            variant: 'soft',
+                            size: 'sm',
+                            className: 'self-start sm:self-center',
+                          })}
+                        >
+                          Học ngay
+                          <ChevronRight className="size-4" aria-hidden />
+                        </Link>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </PageContainer>
   );
 };

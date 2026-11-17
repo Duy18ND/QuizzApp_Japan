@@ -1,11 +1,14 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:is(.dark *));
+/* ==========================================================================
+   Nihongo 問 — Design Tokens (Cool Ocean & Sakura Edition)
+   Single source of truth for colour, type, radius, elevation and motion.
+   Components must use the semantic utilities below (bg-surface, text-fg,
+   border-line, bg-primary, text-sakura, bg-sakura-soft ...).
+   Theme = `.dark` class on <html>. Light is the default.
+   ========================================================================== */
 
-/* === Font Registration === */
-/* MPLUS1p: hỗ trợ đầy đủ Japanese (Kanji/Hiragana/Katakana) + Vietnamese có dấu */
-/* Font được load 1 lần duy nhất bởi browser, sau đó cache trong memory */
-/* Dùng đường dẫn tuyệt đối với base path cho GitHub Pages */
+/* PDF export font (used by FontManager) — keep. */
 @font-face {
   font-family: 'MPLUS1p';
   src: url('../public/fonts/MPLUS1p-Regular.ttf') format('truetype');
@@ -14,100 +17,502 @@
   font-display: swap;
 }
 
-@theme {
-  /* Ice/Sky/Navy Blue Palette Override */
-  --color-blue-50: #F4FBFE;
-  --color-blue-100: #DDF4FC;
-  --color-blue-200: #C8E7F2;
-  --color-blue-300: #9DD6EA;
-  --color-blue-400: #82C9E5;
-  --color-blue-500: #82C9E5; /* Primary Sky Blue */
-  --color-blue-600: #70BCD9; /* Primary Hover */
-  --color-blue-700: #64B3D2; /* Primary Active */
-  --color-blue-800: #4B8FA8;
-  --color-blue-900: #24445F; /* Navy Blue */
-  --color-blue-950: #1B3347;
+@custom-variant dark (&:is(.dark *));
 
-  /* Blue-Gray Palette Override */
-  --color-gray-50: #F7FBFD;
-  --color-gray-100: #F4FBFE;
-  --color-gray-200: #E7EEF2; /* Blue Gray Border */
-  --color-gray-300: #D0DBE1;
-  --color-gray-400: #A8BCC8;
-  --color-gray-500: #647B8A; /* Secondary Text */
-  --color-gray-600: #4D6473;
-  --color-gray-700: #384D59;
-  --color-gray-800: #2C3C46;
-  --color-gray-900: #24445F; /* Navy Blue Text */
-  --color-gray-950: #152736;
+/* ---------- 1. Raw theme values (swapped by .dark) ---------- */
+:root {
+  color-scheme: light;
+
+  /* Surfaces (Cool Ice Blue & Pure White) */
+  --bg: #F2F9FF;
+  --surface: #FFFFFF;
+  --surface-2: #E0F2FE;
+  --surface-3: #BAE6FD;
+
+  /* Text */
+  --fg: #0C2340;
+  --fg-muted: #47698A;
+  --fg-subtle: #7FA6C9;
+
+  /* Lines */
+  --line: #CBE7FD;
+  --line-strong: #93C5FD;
+
+  /* Brand: Cool Ocean Blue + Sakura Pink */
+  --primary: #0284C7;
+  --primary-hover: #0369A1;
+  --primary-active: #075985;
+  --on-primary: #FFFFFF;
+  --primary-soft: #E0F2FE;
+  --primary-soft-hover: #BAE6FD;
+  --primary-fg: #0369A1;
+  --focus-ring: #0284C7;
+
+  /* Japanese Decorative Accents */
+  --sakura: #F472B6;
+  --sakura-soft: #FDF2F8;
+  --sun-disc: #FDA4AF;
+  --cyan-glow: rgba(56, 189, 248, 0.2);
+  --wave: #0EA5E9;
+  --wave-ink: #0284C7;
+  --hero-from: #0369A1;
+  --hero-to: #0EA5E9;
+
+  /* Status: solid, text-safe foreground, soft background, border */
+  --success: #16A34A;
+  --success-fg: #15803D;
+  --success-soft: #F0FDF4;
+  --success-line: #BBF7D0;
+
+  --warning: #F59E0B;
+  --warning-fg: #B45309;
+  --warning-soft: #FFFBEB;
+  --warning-line: #FDE68A;
+
+  --danger: #EF4444;
+  --danger-fg: #DC2626;
+  --danger-soft: #FEF2F2;
+  --danger-line: #FECACA;
+
+  /* Overlay + elevation */
+  --scrim: rgb(12 35 64 / 0.45);
+  --elev-card: 0 2px 8px -2px rgb(2 132 199 / 0.07), 0 1px 2px rgb(12 35 64 / 0.04);
+  --elev-pop: 0 10px 28px -6px rgb(2 132 199 / 0.16), 0 2px 6px rgb(12 35 64 / 0.06);
 }
 
-@layer base {
-  :root {
-    --primary: #82C9E5;
-    --primary-hover: #70BCD9;
-    --primary-active: #64B3D2;
-    --primary-soft: #DDF4FC;
-    --primary-softer: #F4FBFE;
-    --background: #F7FBFD;
-    --surface: #FFFFFF;
-    --text: #24445F;
-    --text-secondary: #647B8A;
-    --border: #E7EEF2;
-    --border-strong: #C8E7F2;
-    --success: #22C55E;
-    --danger: #EF4444;
-    --warning: #F59E0B;
+.dark {
+  color-scheme: dark;
+
+  /* Surfaces (Cool Midnight Ocean & Glowing Cyan/Sakura) */
+  --bg: #071B2F;
+  --surface: #0D2844;
+  --surface-2: #133659;
+  --surface-3: #1E4976;
+
+  /* Text */
+  --fg: #F0F9FF;
+  --fg-muted: #93C5FD;
+  --fg-subtle: #38BDF8;
+
+  /* Lines */
+  --line: #1B436B;
+  --line-strong: #255C91;
+
+  /* Brand */
+  --primary: #38BDF8;
+  --primary-hover: #7DD3FC;
+  --primary-active: #BAE6FD;
+  --on-primary: #071B2F;
+  --primary-soft: #0C4A6E;
+  --primary-soft-hover: #075985;
+  --primary-fg: #7DD3FC;
+  --focus-ring: #38BDF8;
+
+  /* Japanese Decorative Accents */
+  --sakura: #FB7185;
+  --sakura-soft: rgba(244, 114, 182, 0.14);
+  --sun-disc: #FDE68A;
+  --cyan-glow: rgba(56, 189, 248, 0.16);
+  --wave: #38BDF8;
+  --wave-ink: #7DD3FC;
+  --hero-from: #0C4A6E;
+  --hero-to: #0284C7;
+
+  /* Status */
+  --success: #22C55E;
+  --success-fg: #4ADE80;
+  --success-soft: #052E16;
+  --success-line: #166534;
+
+  --warning: #FBBF24;
+  --warning-fg: #FBBF24;
+  --warning-soft: #2A1F05;
+  --warning-line: #854D0E;
+
+  --danger: #F87171;
+  --danger-fg: #F87171;
+  --danger-soft: #2D0A0A;
+  --danger-line: #991B1B;
+
+  --scrim: rgb(4 15 28 / 0.68);
+  --elev-card: 0 4px 16px -4px rgb(2 12 27 / 0.45);
+  --elev-pop: 0 12px 32px -8px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(37 92 145 / 0.5);
+}
+
+/* ---------- 2. Tailwind mapping (semantic utilities only) ---------- */
+@theme inline {
+  /* Remove Tailwind's default palette so raw colours cannot sneak back in. */
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+
+  --color-fg: var(--fg);
+  --color-muted: var(--fg-muted);
+  --color-subtle: var(--fg-subtle);
+
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-active: var(--primary-active);
+  --color-on-primary: var(--on-primary);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-soft-hover: var(--primary-soft-hover);
+  --color-primary-fg: var(--primary-fg);
+  --color-focus: var(--focus-ring);
+
+  --color-sakura: var(--sakura);
+  --color-sakura-soft: var(--sakura-soft);
+  --color-sun-disc: var(--sun-disc);
+  --color-cyan-glow: var(--cyan-glow);
+  --color-wave: var(--wave);
+  --color-on-hero: #F4FBFE;
+  --color-wave-ink: var(--wave-ink);
+  --color-hero-from: var(--hero-from);
+  --color-hero-to: var(--hero-to);
+
+  --color-success: var(--success);
+  --color-success-fg: var(--success-fg);
+  --color-success-soft: var(--success-soft);
+  --color-success-line: var(--success-line);
+
+  --color-warning: var(--warning);
+  --color-warning-fg: var(--warning-fg);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-line: var(--warning-line);
+
+  --color-danger: var(--danger);
+  --color-danger-fg: var(--danger-fg);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-line: var(--danger-line);
+
+  --color-scrim: var(--scrim);
+
+  /* Typography: one family covers Latin, Vietnamese and Japanese. */
+  --font-sans: 'Noto Sans JP', 'Hiragino Sans', 'Yu Gothic UI', 'Meiryo', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-jp: 'Noto Sans JP', 'Hiragino Sans', 'Yu Gothic UI', 'Meiryo', sans-serif;
+
+  /* Elevation */
+  --shadow-card: var(--elev-card);
+  --shadow-pop: var(--elev-pop);
+
+  /* Motion */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-fade-in: fade-in 160ms var(--ease-out-soft) both;
+  --animate-pop-in: pop-in 180ms var(--ease-out-soft) both;
+  --animate-slide-up: slide-up 220ms var(--ease-out-soft) both;
+  --animate-fade-up: fadeUp 200ms var(--ease-out-soft) both;
+  --animate-shimmer: shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pop-in {
+  from { opacity: 0; transform: translateY(4px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes shimmer {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+@keyframes waveFlow {
+  0% { transform: translate3d(-2%, 0, 0) scaleY(1); }
+  50% { transform: translate3d(1.5%, -4px, 0) scaleY(1.04); }
+  100% { transform: translate3d(2.5%, 2px, 0) scaleY(0.98); }
+}
+@keyframes cloudDrift {
+  0% { transform: translate3d(-18px, 0, 0); }
+  100% { transform: translate3d(22px, -3px, 0); }
+}
+@keyframes sakuraFlutter {
+  0% {
+    transform: translate3d(0, -10vh, 0) rotate(0deg);
+    opacity: 0;
   }
+  15% {
+    opacity: 0.55;
+  }
+  50% {
+    transform: translate3d(28px, 45vh, 0) rotate(160deg);
+    opacity: 0.5;
+  }
+  85% {
+    opacity: 0.45;
+  }
+  100% {
+    transform: translate3d(-24px, 105vh, 0) rotate(340deg);
+    opacity: 0;
+  }
+}
+@keyframes sakuraFall3D {
+  0% {
+    transform: translate3d(0, -12vh, 0) rotateX(0deg) rotateY(0deg) rotateZ(0deg);
+  }
+  25% {
+    transform: translate3d(34px, 22vh, 18px) rotateX(110deg) rotateY(70deg) rotateZ(85deg);
+  }
+  50% {
+    transform: translate3d(-18px, 52vh, -12px) rotateX(220deg) rotateY(155deg) rotateZ(175deg);
+  }
+  75% {
+    transform: translate3d(42px, 80vh, 14px) rotateX(300deg) rotateY(240deg) rotateZ(265deg);
+  }
+  100% {
+    transform: translate3d(12px, 112vh, 0) rotateX(360deg) rotateY(360deg) rotateZ(360deg);
+  }
+}
+@keyframes craneGlide {
+  0% {
+    transform: translate3d(-4vw, 6px, 0) rotate(-1.5deg);
+  }
+  50% {
+    transform: translate3d(2vw, -8px, 0) rotate(1deg);
+  }
+  100% {
+    transform: translate3d(8vw, -2px, 0) rotate(-1deg);
+  }
+}
+@keyframes craneWing {
+  0%, 100% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(0.55);
+  }
+}
+@keyframes starTwinkle {
+  0%, 100% {
+    opacity: 0.25;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.2);
+  }
+}
+@keyframes shootingStar {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(-28deg) scaleX(0);
+    opacity: 0;
+  }
+  8% {
+    transform: translate3d(-40px, 22px, 0) rotate(-28deg) scaleX(1);
+    opacity: 0.95;
+  }
+  28% {
+    transform: translate3d(-320px, 175px, 0) rotate(-28deg) scaleX(0.6);
+    opacity: 0;
+  }
+  100% {
+    transform: translate3d(-320px, 175px, 0) rotate(-28deg) scaleX(0);
+    opacity: 0;
+  }
+}
+@keyframes clickRipple {
+  0% {
+    transform: translate(-50%, -50%) scale(0.2);
+    opacity: 0.7;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.1);
+    opacity: 0;
+  }
+}
+@keyframes sakuraBloom {
+  0% {
+    transform: translate(-50%, -50%) scale(0.2) rotate(-25deg);
+    opacity: 0.95;
+  }
+  55% {
+    transform: translate(-50%, -50%) scale(1.1) rotate(15deg);
+    opacity: 0.85;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.45) rotate(45deg);
+    opacity: 0;
+  }
+}
+@keyframes petalBurst {
+  0% {
+    transform: translate(-50%, -50%) translate3d(0, 0, 0) rotate(0deg) scale(0.4);
+    opacity: 0.95;
+  }
+  40% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: translate(-50%, -50%) translate3d(var(--tx, 26px), var(--ty, 22px), 0) rotate(var(--rot, 180deg)) scale(0.75);
+    opacity: 0;
+  }
+}
 
-  .dark {
-    /* Midnight Blue Theme Core Variables */
-    --background: #152536;
-    --surface: #1C3043;
-    --primary: #83C8E3;
-    --primary-hover: #9BD7EA;
-    --primary-active: #9BD7EA;
-    --primary-soft: #29465C;
-    --primary-softer: #1C3043;
-    --text: #E7F5FB;
-    --text-secondary: #AFC3D0;
-    --border: #355267;
-    --border-strong: #46677C;
-    
-    /* Override Tailwind Color Palette for dark:* classes */
-    --color-gray-50: #152536;
-    --color-gray-100: #152536;
-    --color-gray-200: #355267;
-    --color-gray-300: #E7F5FB;
-    --color-gray-400: #AFC3D0;
-    --color-gray-500: #AFC3D0;
-    --color-gray-600: #46677C;
-    --color-gray-700: #355267;
-    --color-gray-800: #1C3043;
-    --color-gray-900: #152536;
-    --color-gray-950: #152536;
-
-    --color-slate-700: #355267;
-    --color-slate-800: #1C3043;
-
-    --color-blue-50: #29465C;
-    --color-blue-100: #29465C;
-    --color-blue-200: #355267;
-    --color-blue-300: #E7F5FB;
-    --color-blue-400: #83C8E3;
-    --color-blue-500: #83C8E3;
-    --color-blue-600: #9BD7EA;
-    --color-blue-700: #46677C;
-    --color-blue-800: #29465C;
-    --color-blue-900: #1C3043;
-    
-    --color-white: #E7F5FB; /* Maps to text color in dark mode */
-    --color-black: #0B1622; /* No true black #000000 allowed */
+/* ---------- 3. Base ---------- */
+@layer base {
+  html {
+    background-color: var(--bg);
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
   }
 
   body {
-    @apply min-h-screen font-sans transition-colors duration-200 dark:bg-gray-900 dark:text-gray-100;
-    background-color: var(--background);
-    color: var(--text);
+    min-height: 100vh;
+    background-color: var(--bg);
+    background-image:
+      radial-gradient(circle at 14% 8%, var(--sakura-soft), transparent 38%),
+      radial-gradient(circle at 86% 12%, var(--cyan-glow), transparent 42%),
+      radial-gradient(circle at 50% 96%, var(--cyan-glow), transparent 48%);
+    background-attachment: fixed;
+    color: var(--fg);
+    font-family: var(--font-sans);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Japanese text breathes more and must never break mid-word awkwardly. */
+  :lang(ja), .jp {
+    font-family: var(--font-jp);
+    line-height: 1.75;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+
+  ::selection { background: var(--primary-soft-hover); color: var(--fg); }
+
+  :focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  button, [role="button"], a { -webkit-tap-highlight-color: transparent; }
+  button:not(:disabled), [role="button"] { cursor: pointer; }
+
+  /* Subtle, themed scrollbars */
+  * { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+}
+
+@layer utilities {
+  .hide-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+  .hide-scrollbar::-webkit-scrollbar { display: none; }
+  .tabular { font-variant-numeric: tabular-nums; }
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+
+  /* Seigaiha (青海波) wave pattern, tinted via currentColor */
+  .seigaiha {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='24' viewBox='0 0 48 24' fill='none' stroke='%23000' stroke-width='1.2'%3E%3Ccircle cx='24' cy='24' r='20'/%3E%3Ccircle cx='24' cy='24' r='14'/%3E%3Ccircle cx='24' cy='24' r='8'/%3E%3Ccircle cx='0' cy='12' r='20'/%3E%3Ccircle cx='0' cy='12' r='14'/%3E%3Ccircle cx='0' cy='12' r='8'/%3E%3Ccircle cx='48' cy='12' r='20'/%3E%3Ccircle cx='48' cy='12' r='14'/%3E%3Ccircle cx='48' cy='12' r='8'/%3E%3C/svg%3E");
+    background-size: 48px 24px;
+  }
+  .seigaiha-mask {
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='24' viewBox='0 0 48 24' fill='none' stroke='%23000' stroke-width='1.2'%3E%3Ccircle cx='24' cy='24' r='20'/%3E%3Ccircle cx='24' cy='24' r='14'/%3E%3Ccircle cx='24' cy='24' r='8'/%3E%3Ccircle cx='0' cy='12' r='20'/%3E%3Ccircle cx='0' cy='12' r='14'/%3E%3Ccircle cx='0' cy='12' r='8'/%3E%3Ccircle cx='48' cy='12' r='20'/%3E%3Ccircle cx='48' cy='12' r='14'/%3E%3Ccircle cx='48' cy='12' r='8'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='24' viewBox='0 0 48 24' fill='none' stroke='%23000' stroke-width='1.2'%3E%3Ccircle cx='24' cy='24' r='20'/%3E%3Ccircle cx='24' cy='24' r='14'/%3E%3Ccircle cx='24' cy='24' r='8'/%3E%3Ccircle cx='0' cy='12' r='20'/%3E%3Ccircle cx='0' cy='12' r='14'/%3E%3Ccircle cx='0' cy='12' r='8'/%3E%3Ccircle cx='48' cy='12' r='20'/%3E%3Ccircle cx='48' cy='12' r='14'/%3E%3Ccircle cx='48' cy='12' r='8'/%3E%3C/svg%3E");
+    -webkit-mask-size: 48px 24px;
+    mask-size: 48px 24px;
+  }
+
+  /* Landscape & Card Animations */
+  .animate-wave-slow {
+    animation: waveFlow 16s ease-in-out infinite alternate;
+  }
+  .animate-wave-mid {
+    animation: waveFlow 12s ease-in-out infinite alternate-reverse;
+  }
+  .animate-wave-fast {
+    animation: waveFlow 8s ease-in-out infinite alternate;
+  }
+  .animate-cloud-drift {
+    animation: cloudDrift 25s linear infinite alternate;
+  }
+  .animate-sakura-flutter {
+    animation: sakuraFlutter 14s linear infinite;
+  }
+  .animate-sakura-3d {
+    animation: sakuraFall3D 14s linear infinite;
+    transform-style: preserve-3d;
+    will-change: transform;
+  }
+  .animate-crane-glide {
+    animation: craneGlide 22s ease-in-out infinite alternate;
+  }
+  .animate-crane-wing {
+    animation: craneWing 2.6s ease-in-out infinite;
+    transform-origin: center;
+  }
+  .animate-star-twinkle {
+    animation: starTwinkle 3.6s ease-in-out infinite;
+  }
+  .animate-shooting-star {
+    animation: shootingStar 7s ease-out infinite;
+  }
+  .animate-click-ripple {
+    animation: clickRipple 550ms var(--ease-out-soft) forwards;
+  }
+  .animate-sakura-bloom {
+    animation: sakuraBloom 600ms var(--ease-out-soft) forwards;
+  }
+  .animate-petal-burst {
+    animation: petalBurst 700ms var(--ease-out-soft) forwards;
+  }
+  .day-scene {
+    display: block;
+  }
+  .night-scene {
+    display: none;
+  }
+  html.dark .day-scene {
+    display: none;
+  }
+  html.dark .night-scene {
+    display: block;
+  }
+  .animate-fade-up {
+    animation: fadeUp 200ms var(--ease-out-soft) both;
+  }
+}
+
+/* Short colour cross-fade only while the theme is being toggled (set from JS),
+   so ordinary hover/transition behaviour is never slowed down. */
+html.theme-transition,
+html.theme-transition *,
+html.theme-transition *::before,
+html.theme-transition *::after {
+  transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease, fill 180ms ease, stroke 180ms ease !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media print {
+  :root, .dark {
+    color-scheme: light;
+    --bg: #FFFFFF;
+    --surface: #FFFFFF;
+    --surface-2: #E0F2FE;
+    --surface-3: #BAE6FD;
+    --fg: #0C2340;
+    --fg-muted: #47698A;
+    --fg-subtle: #7FA6C9;
+    --line: #CBE7FD;
+    --line-strong: #93C5FD;
+    --primary: #0284C7;
+    --primary-fg: #0369A1;
+    --primary-soft: #E0F2FE;
   }
 }

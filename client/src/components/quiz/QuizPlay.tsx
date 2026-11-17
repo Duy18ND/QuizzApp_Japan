@@ -1,7 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { ArrowLeft } from 'lucide-react';
 import { quizConfig } from '../../config/quizConfig';
-import type { QuizState, QuestionType, QuestionAnswer, Question } from '../../types/quiz';
-
+import type {
+  AnswerOption as AnswerOptionType,
+  Question,
+  QuestionAnswer,
+  QuestionType,
+  QuizConfig,
+  QuizState,
+} from '../../types/quiz';
 import { QuizHeader } from '../QuizHeader';
 import { ProgressBar } from '../ProgressBar';
 import { QuestionCard } from '../QuestionCard';
@@ -10,7 +17,9 @@ import { Explanation } from '../Explanation';
 import { Hint } from '../Hint';
 import { QuizNavigation } from '../QuizNavigation';
 import { QuizResult } from '../QuizResult';
+import { Button, ErrorState, Kbd, LoadingState, PageContainer, useToast } from '../ui';
 import { useUserProgress } from '../../hooks/useUserProgress';
+import { generateQuizSession } from '../../utils/quizGenerator';
 
 export type MergedQuestion = Question & {
   answerData: QuestionAnswer;
@@ -18,29 +27,26 @@ export type MergedQuestion = Question & {
 
 const LABELS = ['A', 'B', 'C', 'D', 'E', 'F'];
 
-import type { QuizConfig } from '../../types/quiz';
-import { generateQuizSession } from '../../utils/quizGenerator';
-
 interface Props {
   config: QuizConfig;
   onExit: () => void;
 }
 
 export const QuizPlay: React.FC<Props> = ({ config, onExit }) => {
+  const { toast } = useToast();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [quizSessionKey] = useState<number>(0);
-  const { progress } = useUserProgress();
-  
+  const { progress, addWrongWord } = useUserProgress();
+
   const [quizQuestions, setQuizQuestions] = useState<MergedQuestion[]>([]);
   const [state, setState] = useState<QuizState>({
     currentIndex: 0,
     userAnswers: {},
     score: { correct: 0, wrong: 0 },
-    isFinished: false
+    isFinished: false,
   });
 
-  // Fetch from API
   useEffect(() => {
     const fetchQuiz = async () => {
       setLoading(true);
@@ -48,92 +54,172 @@ export const QuizPlay: React.FC<Props> = ({ config, onExit }) => {
       try {
         const starredList = progress.starredWords;
         const wrongList = Object.keys(progress.wrongWords).map(Number);
-        
+
         const data = generateQuizSession(config, starredList, wrongList);
-        
-        if (config.rangeType === 'fixed' && typeof config.questionCount === 'number' && data.length < config.questionCount) {
-          alert(`Không đủ từ vựng thuộc loại này. Hiện có ${data.length} từ.`);
+
+        if (
+          config.rangeType === 'fixed' &&
+          typeof config.questionCount === 'number' &&
+          data.length < config.questionCount
+        ) {
+          toast({
+            title: 'Số lượng từ vựng ít hơn lựa chọn',
+            description: `Không đủ từ vựng thuộc loại này. Hiện có ${data.length} từ.`,
+            tone: 'warning',
+          });
         }
-        
+
         setQuizQuestions(data as MergedQuestion[]);
         setState({
           currentIndex: 0,
           userAnswers: {},
           score: { correct: 0, wrong: 0 },
-          isFinished: false
+          isFinished: false,
         });
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Đã xảy ra lỗi khi tải câu hỏi.');
       } finally {
         setLoading(false);
       }
     };
-    
+
     fetchQuiz();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quizSessionKey]);
 
-  const handleAnswerSelect = useCallback((answerId: string) => {
-    setState((prev: QuizState) => {
-      // Prevent multiple clicks on same question
-      if (prev.userAnswers[prev.currentIndex]) return prev;
+  const handleAnswerSelect = useCallback(
+    (answerId: string) => {
+      if (state.userAnswers[state.currentIndex]) return;
 
-      const currentQ = quizQuestions[prev.currentIndex];
+      const currentQ = quizQuestions[state.currentIndex];
+      if (!currentQ) return;
       const isCorrect = answerId === currentQ.answerData.correctAnswerId;
-      
-      return {
-        ...prev,
-        userAnswers: {
-          ...prev.userAnswers,
-          [prev.currentIndex]: answerId
-        },
-        score: {
-          correct: prev.score.correct + (isCorrect ? 1 : 0),
-          wrong: prev.score.wrong + (isCorrect ? 0 : 1),
-        }
-      };
+
+      if (!isCorrect && typeof currentQ.wordId === 'number') {
+        addWrongWord(currentQ.wordId);
+      }
+
+      setState((prev: QuizState) => {
+        if (prev.userAnswers[prev.currentIndex]) return prev;
+
+        return {
+          ...prev,
+          userAnswers: {
+            ...prev.userAnswers,
+            [prev.currentIndex]: answerId,
+          },
+          score: {
+            correct: prev.score.correct + (isCorrect ? 1 : 0),
+            wrong: prev.score.wrong + (isCorrect ? 0 : 1),
+          },
+        };
+      });
+    },
+    [quizQuestions, state.currentIndex, state.userAnswers, addWrongWord],
+  );
+
+  const handleNext = useCallback(() => {
+    setState((prev: QuizState) => {
+      if (prev.currentIndex < quizQuestions.length - 1) {
+        return { ...prev, currentIndex: prev.currentIndex + 1 };
+      }
+      return { ...prev, isFinished: true };
     });
-  }, [quizQuestions]);
+  }, [quizQuestions.length]);
 
-  const handleNext = () => {
-    if (state.currentIndex < quizQuestions.length - 1) {
-      setState((prev: QuizState) => ({ ...prev, currentIndex: prev.currentIndex + 1 }));
-    } else {
-      setState((prev: QuizState) => ({ ...prev, isFinished: true }));
-    }
-  };
-
-  const handleBack = () => {
-    if (state.currentIndex > 0) {
-      setState((prev: QuizState) => ({ ...prev, currentIndex: prev.currentIndex - 1 }));
-    }
-  };
+  const handleBack = useCallback(() => {
+    setState((prev: QuizState) => {
+      if (prev.currentIndex > 0) {
+        return { ...prev, currentIndex: prev.currentIndex - 1 };
+      }
+      return prev;
+    });
+  }, []);
 
   const handleRetry = () => {
-    // Reset state, keep same session data
     setState({
       currentIndex: 0,
       userAnswers: {},
       score: { correct: 0, wrong: 0 },
-      isFinished: false
+      isFinished: false,
     });
   };
 
+  useEffect(() => {
+    if (loading || error || state.isFinished || quizQuestions.length === 0) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      const currentQuestion = quizQuestions[state.currentIndex];
+      if (!currentQuestion) return;
+      const answered = Boolean(state.userAnswers[state.currentIndex]);
+
+      const key = event.key.toLowerCase();
+      const numIndex = ['1', '2', '3', '4'].indexOf(key);
+      const letterIndex = ['a', 'b', 'c', 'd'].indexOf(key);
+      const optionIndex = numIndex !== -1 ? numIndex : letterIndex;
+
+      if (optionIndex !== -1 && !answered) {
+        const answer = currentQuestion.answers[optionIndex];
+        if (answer) {
+          event.preventDefault();
+          handleAnswerSelect(answer.id);
+        }
+        return;
+      }
+
+      if ((event.key === 'Enter' || event.key === 'ArrowRight') && answered) {
+        event.preventDefault();
+        handleNext();
+      } else if (event.key === 'ArrowLeft' && state.currentIndex > 0) {
+        event.preventDefault();
+        handleBack();
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [
+    loading,
+    error,
+    state.isFinished,
+    state.currentIndex,
+    state.userAnswers,
+    quizQuestions,
+    handleAnswerSelect,
+    handleNext,
+    handleBack,
+  ]);
+
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-white p-8 flex items-center justify-center transition-colors">
-        <div className="bg-red-50 dark:bg-red-900/50 border border-red-200 dark:border-red-500 p-8 rounded-xl max-w-lg w-full">
-          <h2 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-4">Quiz Data Error</h2>
-          <p className="text-red-500 dark:text-gray-200 font-mono">{error}</p>
-        </div>
-      </div>
+      <PageContainer size="sm" className="py-8">
+        <ErrorState
+          title="Không thể tạo bài Quiz"
+          description={error}
+          onRetry={onExit}
+          retryLabel="Quay lại cài đặt"
+        />
+      </PageContainer>
     );
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-white p-8 flex items-center justify-center transition-colors">
-        <div className="text-xl text-gray-500 dark:text-gray-400">Đang tải dữ liệu...</div>
-      </div>
+      <PageContainer size="md">
+        <LoadingState label="Đang tải câu hỏi..." />
+      </PageContainer>
     );
   }
 
@@ -143,29 +229,27 @@ export const QuizPlay: React.FC<Props> = ({ config, onExit }) => {
 
   if (state.isFinished) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-8 transition-colors">
-        <QuizResult 
-          score={state.score} 
-          total={quizQuestions.length} 
-          onRetry={handleRetry} 
-          onNewQuiz={onExit} 
-        />
-      </div>
+      <QuizResult
+        score={state.score}
+        total={quizQuestions.length}
+        onRetry={handleRetry}
+        onNewQuiz={onExit}
+      />
     );
   }
 
   const currentQ = quizQuestions[state.currentIndex];
   const selectedAnswerId = state.userAnswers[state.currentIndex];
-  const isAnswered = !!selectedAnswerId;
+  const isAnswered = Boolean(selectedAnswerId);
   const isCorrect = selectedAnswerId === currentQ.answerData.correctAnswerId;
   const canGoNext = isAnswered;
 
   const getAnswerStatus = (ansId: string): AnswerStatus => {
     if (!isAnswered) return 'default';
-    
+
     const isThisSelected = ansId === selectedAnswerId;
     const isThisCorrect = ansId === currentQ.answerData.correctAnswerId;
-    
+
     if (isThisCorrect) return 'correct';
     if (isThisSelected && !isThisCorrect) return 'wrong';
     return 'disabled';
@@ -174,86 +258,110 @@ export const QuizPlay: React.FC<Props> = ({ config, onExit }) => {
   const getHintProps = (type: QuestionType, hint: QuestionAnswer['hint']) => {
     if (!hint) return {};
     switch (type) {
-      case 'vi_to_hiragana': return { kanji: hint.kanji, meaning: hint.meaning };
-      case 'vi_to_kanji': return { hiragana: hint.hiragana, meaning: hint.meaning };
-      case 'kanji_to_hiragana': return { meaning: hint.meaning };
-      case 'kanji_to_vi': return { hiragana: hint.hiragana };
-      case 'hiragana_to_kanji': return { meaning: hint.meaning };
-      case 'hiragana_to_vi': return { kanji: hint.kanji };
-      default: return {};
+      case 'vi_to_hiragana':
+        return { kanji: hint.kanji, meaning: hint.meaning };
+      case 'vi_to_kanji':
+        return { hiragana: hint.hiragana, meaning: hint.meaning };
+      case 'kanji_to_hiragana':
+        return { meaning: hint.meaning };
+      case 'kanji_to_vi':
+        return { hiragana: hint.hiragana };
+      case 'hiragana_to_kanji':
+        return { meaning: hint.meaning };
+      case 'hiragana_to_vi':
+        return { kanji: hint.kanji };
+      default:
+        return {};
     }
   };
 
-  const correctAnswerText = currentQ.answers.find((a: any) => a.id === currentQ.answerData.correctAnswerId)?.text;
+  const correctAnswerText = currentQ.answers.find(
+    (a: AnswerOptionType) => a.id === currentQ.answerData.correctAnswerId,
+  )?.text;
 
   return (
-    <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors w-full h-full relative">
-      <div className="w-full max-w-4xl mx-auto flex-1 flex flex-col">
-        <ProgressBar current={state.currentIndex} total={quizQuestions.length} />
-        
-        <QuizHeader 
-          current={state.currentIndex + 1} 
-          total={quizQuestions.length} 
-          score={state.score} 
-        />
-        <QuestionCard 
-          question={currentQ.question} 
-          hanViet={
-            (config.showHanVietHint && (currentQ.type === 'kanji_to_hiragana' || currentQ.type === 'kanji_to_vi' || currentQ.type.includes('kanji'))) 
-              ? (currentQ.answerData.hanViet || currentQ.answerData.hanviet)
-              : undefined
-          }
-        />
-        
-        {quizConfig.showHint && currentQ.answerData.hint && (
-          <div className="relative z-20">
-            <Hint {...getHintProps(currentQ.type, currentQ.answerData.hint)} />
-          </div>
-        )}
-        
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mt-6">
-          {currentQ.answers.map((ans: any, idx: number) => (
-            <AnswerOption
-              key={ans.id}
-              label={LABELS[idx] || (idx + 1).toString()}
-              text={ans.text}
-              status={getAnswerStatus(ans.id)}
-              onClick={() => handleAnswerSelect(ans.id)}
-            />
-          ))}
-        </div>
-        
-        {isAnswered && quizConfig.showExplanation && (
-          <div className="relative z-10 mt-4 mb-24">
-            <Explanation 
-              isCorrect={isCorrect} 
-              correctAnswerText={correctAnswerText}
-              title={currentQ.answerData.kanji && currentQ.answerData.hiragana ? `${currentQ.answerData.kanji}（${currentQ.answerData.hiragana}）` : ''}
-              kanji={currentQ.answerData.kanji}
-              hanViet={currentQ.answerData.hanViet || currentQ.answerData.hanviet}
-              hiragana={currentQ.answerData.hiragana}
-              meaning={currentQ.answerData.meaning}
-            />
-          </div>
-        )}
-        
-        {/* We use mb-24 on the last visible element or pb-24 here to ensure we can scroll past the fixed footer */}
-        {!isAnswered || !quizConfig.showExplanation ? <div className="h-24"></div> : null}
-        
+    <PageContainer size="md" className="flex flex-1 flex-col">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onExit}
+          leftIcon={<ArrowLeft className="size-4" aria-hidden />}
+          className="-ml-2"
+        >
+          Cài đặt lại
+        </Button>
+
+        <p className="hidden items-center gap-1.5 text-xs text-muted md:flex">
+          Phím tắt: <Kbd>1–4</Kbd> / <Kbd>A–D</Kbd> chọn đáp án
+        </p>
       </div>
 
-      {/* Fixed bottom navigation */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-sm py-4 border-t border-gray-200 dark:border-gray-800 shadow-[0_-4px_10px_-1px_rgba(0,0,0,0.1)]">
-        <div className="w-full max-w-4xl mx-auto px-4 md:px-8">
-          <QuizNavigation 
-            onBack={handleBack} 
-            onNext={handleNext} 
-            isFirst={state.currentIndex === 0} 
-            isLast={state.currentIndex === quizQuestions.length - 1} 
-            canGoNext={canGoNext} 
+      <ProgressBar current={state.currentIndex + 1} total={quizQuestions.length} />
+
+      <QuizHeader
+        current={state.currentIndex + 1}
+        total={quizQuestions.length}
+        score={state.score}
+      />
+
+      <QuestionCard
+        question={currentQ.question}
+        hanViet={
+          config.showHanVietHint &&
+          (currentQ.type === 'kanji_to_hiragana' ||
+            currentQ.type === 'kanji_to_vi' ||
+            currentQ.type.includes('kanji'))
+            ? currentQ.answerData.hanViet || currentQ.answerData.hanviet
+            : undefined
+        }
+      />
+
+      {quizConfig.showHint && currentQ.answerData.hint && (
+        <div className="relative z-20">
+          <Hint {...getHintProps(currentQ.type, currentQ.answerData.hint)} />
+        </div>
+      )}
+
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {currentQ.answers.map((ans: AnswerOptionType, idx: number) => (
+          <AnswerOption
+            key={ans.id}
+            label={LABELS[idx] || (idx + 1).toString()}
+            text={ans.text}
+            status={getAnswerStatus(ans.id)}
+            onClick={() => handleAnswerSelect(ans.id)}
+          />
+        ))}
+      </div>
+
+      {isAnswered && quizConfig.showExplanation && (
+        <div className="mt-4 mb-4">
+          <Explanation
+            isCorrect={isCorrect}
+            correctAnswerText={correctAnswerText}
+            title={
+              currentQ.answerData.kanji && currentQ.answerData.hiragana
+                ? `${currentQ.answerData.kanji}（${currentQ.answerData.hiragana}）`
+                : ''
+            }
+            kanji={currentQ.answerData.kanji}
+            hanViet={currentQ.answerData.hanViet || currentQ.answerData.hanviet}
+            hiragana={currentQ.answerData.hiragana}
+            meaning={currentQ.answerData.meaning}
           />
         </div>
+      )}
+
+      <div className="sticky bottom-0 z-20 mt-auto -mx-4 border-t border-line bg-bg px-4 py-3 md:-mx-8 md:px-8">
+        <QuizNavigation
+          onBack={handleBack}
+          onNext={handleNext}
+          isFirst={state.currentIndex === 0}
+          isLast={state.currentIndex === quizQuestions.length - 1}
+          canGoNext={canGoNext}
+        />
       </div>
-    </div>
+    </PageContainer>
   );
 };

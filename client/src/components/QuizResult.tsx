@@ -1,5 +1,6 @@
 import React from 'react';
-import { RefreshCw, Play } from 'lucide-react';
+import { CheckCircle2, Play, RefreshCw, XCircle } from 'lucide-react';
+import { Button, Card, PageContainer, ProgressBar } from './ui';
 
 interface QuizResultProps {
   score: { correct: number; wrong: number };
@@ -9,47 +10,70 @@ interface QuizResultProps {
 }
 
 export const QuizResult: React.FC<QuizResultProps> = ({ score, total, onRetry, onNewQuiz }) => {
-  const percentage = Math.round((score.correct / total) * 100);
+  const percentage = total > 0 ? Math.round((score.correct / total) * 100) : 0;
 
   return (
-    <div className="max-w-2xl mx-auto text-center mt-12">
-      <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-8">Quiz hoàn thành!</h1>
-      
-      <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 mb-8 shadow-xl border border-gray-200 dark:border-gray-700 transition-colors">
-        <div className="text-6xl font-extrabold text-blue-600 dark:text-blue-500 mb-4">
-          {score.correct} <span className="text-3xl text-gray-400">/ {total}</span>
+    <PageContainer size="sm" className="py-6 md:py-10">
+      <Card padding="lg" className="space-y-6 text-center">
+        <div>
+          <p className="text-sm font-medium text-muted">Kết quả</p>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-fg md:text-3xl">
+            Quiz hoàn thành!
+          </h1>
         </div>
-        
-        <div className="text-2xl font-bold text-gray-700 dark:text-gray-300 mb-8">
-          {percentage}%
-        </div>
-        
-        <div className="flex justify-center space-x-12">
-          <div className="text-center">
-            <div className="text-green-600 dark:text-green-400 font-bold text-2xl mb-1">✓ Đúng: {score.correct}</div>
+
+        <div className="space-y-3">
+          <div className="tabular text-5xl font-bold tracking-tight text-primary-fg md:text-6xl">
+            {score.correct} <span className="text-2xl font-medium text-muted md:text-3xl">/ {total}</span>
           </div>
-          <div className="text-center">
-            <div className="text-red-600 dark:text-red-400 font-bold text-2xl mb-1">✕ Sai: {score.wrong}</div>
+          <p className="tabular text-lg font-semibold text-fg">{percentage}% chính xác</p>
+          <ProgressBar
+            value={score.correct}
+            max={total}
+            label="Tỷ lệ chính xác"
+            tone={percentage >= 80 ? 'success' : 'primary'}
+            className="mx-auto max-w-xs"
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 rounded-xl border border-line bg-surface-2 p-4">
+          <div className="flex flex-col items-center gap-1">
+            <span className="inline-flex items-center gap-1.5 text-sm font-medium text-success-fg">
+              <CheckCircle2 className="size-4" aria-hidden />
+              Đúng
+            </span>
+            <span className="tabular text-2xl font-bold text-fg">{score.correct}</span>
+          </div>
+          <div className="flex flex-col items-center gap-1 border-l border-line">
+            <span className="inline-flex items-center gap-1.5 text-sm font-medium text-danger-fg">
+              <XCircle className="size-4" aria-hidden />
+              Sai
+            </span>
+            <span className="tabular text-2xl font-bold text-fg">{score.wrong}</span>
           </div>
         </div>
-      </div>
-      
-      <div className="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4">
-        <button
-          onClick={onRetry}
-          className="flex items-center justify-center px-8 py-4 rounded-xl font-bold transition-all bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600"
-        >
-          <RefreshCw className="w-5 h-5 mr-2" />
-          Làm lại
-        </button>
-        <button
-          onClick={onNewQuiz}
-          className="flex items-center justify-center px-8 py-4 rounded-xl font-bold transition-all bg-blue-600 text-gray-900 hover:bg-blue-500 shadow-lg shadow-blue-900/50"
-        >
-          <Play className="w-5 h-5 mr-2" />
-          Quiz mới
-        </button>
-      </div>
-    </div>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+          <Button
+            variant="secondary"
+            size="lg"
+            onClick={onRetry}
+            leftIcon={<RefreshCw className="size-4" aria-hidden />}
+            className="sm:min-w-40"
+          >
+            Làm lại
+          </Button>
+          <Button
+            variant="primary"
+            size="lg"
+            onClick={onNewQuiz}
+            leftIcon={<Play className="size-4" aria-hidden />}
+            className="sm:min-w-40"
+          >
+            Quiz mới
+          </Button>
+        </div>
+      </Card>
+    </PageContainer>
   );
 };

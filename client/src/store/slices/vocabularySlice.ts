@@ -17,5 +17,4 @@ const vocabularySlice = createSlice({
   },
 });
 
-export const { } = vocabularySlice.actions;
 export default vocabularySlice.reducer;

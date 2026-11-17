@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "description": "Japanese Vocabulary Learning App",
   "scripts": {
-    "dev": "npm run dev --prefix server & npm run dev --prefix client",
-    "install:all": "npm install && npm install --prefix server && npm install --prefix client",
+    "dev": "npm run dev --prefix client",
+    "build": "npm run build --prefix client",
+    "install:all": "npm install && npm install --prefix client",
     "git:push": "git add . && git commit -m \"Auto update quiz app\" && git push -u origin main",
     "predeploy": "npm run build --prefix client",
     "deploy": "gh-pages -d client/dist"

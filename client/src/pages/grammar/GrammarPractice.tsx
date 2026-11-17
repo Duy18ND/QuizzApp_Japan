@@ -1,66 +1,131 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
+import { ArrowLeft, ArrowRight, CheckCircle2, FileText, RefreshCw, XCircle } from 'lucide-react';
 import type { RootState } from '../../store';
-import { startPractice, submitAnswer, nextQuestion, endPractice } from '../../store/slices/practiceSlice';
+import {
+  nextQuestion,
+  resetPractice,
+  startPractice,
+  submitAnswer,
+} from '../../store/slices/practiceSlice';
 import { updateProgress } from '../../store/slices/grammarProgressSlice';
 import { addMistake } from '../../store/slices/mistakeSlice';
 import { PracticeQuestionRenderer } from '../../components/practice/PracticeQuestionRenderer';
-import type { PracticeType } from '../../types/grammar';
-import { generateSmartQuestionSet } from '../../utils/grammarEngine/questionGenerator';
-import { ArrowLeft, CheckCircle, XCircle } from 'lucide-react';
-import { unit1Data } from '../../data/n3/unit1'; // Mocking vocab data source
+import type { PracticeQuestion, PracticeType } from '../../types/grammar';
 import { grammarBooks } from '../../data/grammar';
 import { shuffleArray } from '../../utils/shuffle';
+import { lesson01PracticeBank } from '../../data/grammar/shinkanzen-n3/lesson01PracticeBank';
+import { generateSmartQuestionSet } from '../../utils/grammarEngine/questionGenerator';
+import {
+  Badge,
+  Button,
+  Card,
+  Kbd,
+  LoadingState,
+  Notice,
+  PageContainer,
+  ProgressBar,
+} from '../../components/ui';
+
+interface FeedbackState {
+  isCorrect: boolean;
+  correctAnswer: string | string[];
+  explanation?: string;
+  feedbackMsg?: string;
+}
+
+interface QuestionMetadata {
+  japanese?: string;
+  vietnamese?: string;
+  grammarName?: string;
+  grammarMeaning?: string;
+  grammarExplanation?: string;
+}
+
+const selectBankQuestions = (ruleId: string, practiceMode: PracticeType): PracticeQuestion[] => {
+  const bankQuestions = lesson01PracticeBank[ruleId] || [];
+  if (bankQuestions.length === 0) return [];
+  if (practiceMode === 'mixed') return bankQuestions;
+  const filtered = bankQuestions.filter((q) => q.type === practiceMode);
+  return filtered.length > 0 ? filtered : bankQuestions;
+};
 
 export const GrammarPractice: React.FC = () => {
-  const { bookId, chapterId, grammarId } = useParams<{ bookId: string; chapterId: string; grammarId?: string }>();
+  const { bookId, chapterId, grammarId } = useParams<{
+    bookId: string;
+    chapterId: string;
+    grammarId?: string;
+  }>();
   const [searchParams] = useSearchParams();
   const mode = (searchParams.get('mode') as PracticeType) || 'fill_blank';
   const countParam = parseInt(searchParams.get('count') || '10', 10);
-  const [questionCount] = useState<number>(isNaN(countParam) ? 10 : countParam);
-  const [currentSeed] = useState<number>(Date.now());
+  const questionCount = isNaN(countParam) || countParam <= 0 ? 10 : countParam;
+  const [currentSeed] = useState<number>(() => Date.now());
   const navigate = useNavigate();
   const dispatch = useDispatch();
-
 
   const practice = useSelector((state: RootState) => state.practice);
 
   const { rulesToPractice } = useMemo(() => {
-    const b = grammarBooks.find(bk => bk.id === bookId);
-    const c = b?.chapters.find(ch => ch.id === chapterId);
-    
+    const b = grammarBooks.find((bk) => bk.id === bookId);
+    const c = b?.chapters.find((ch) => ch.id === chapterId);
+
     let rules = c?.grammars || [];
     if (grammarId) {
-      rules = rules.filter(r => r.id === grammarId);
+      rules = rules.filter((r) => r.id === grammarId);
     }
     return { rulesToPractice: rules };
   }, [bookId, chapterId, grammarId]);
 
-  const [feedback, setFeedback] = useState<{ isCorrect: boolean, correctAnswer: string | string[], explanation?: string, feedbackMsg?: string } | null>(null);
+  const [feedback, setFeedback] = useState<FeedbackState | null>(null);
 
   useEffect(() => {
-    if (rulesToPractice.length > 0 && !practice.isActive) {
-      let allQuestions: any[] = [];
-      
-      // Generate questions for all targeted rules
-      rulesToPractice.forEach((rule, index) => {
-        const countPerRule = grammarId ? questionCount : Math.max(4, Math.ceil(questionCount / rulesToPractice.length));
-        const questionSet = generateSmartQuestionSet({
-          grammarRule: rule,
-          count: countPerRule,
-          seed: currentSeed + index, // Add index to seed to ensure variety across rules
-          rawVocabulary: unit1Data as any[],
-          requestedPracticeTypes: mode === 'mixed' ? ['sentence_ordering', 'star_question', 'fill_blank', 'multiple_choice'] : [mode],
-        });
-        allQuestions = [...allQuestions, ...questionSet.questions];
-      });
+    return () => {
+      setFeedback(null);
+      dispatch(resetPractice());
+    };
+  }, [dispatch, bookId, chapterId, grammarId, mode, questionCount]);
 
-      // Shuffle all questions
+  useEffect(() => {
+    if (rulesToPractice.length > 0 && !practice.isActive && !practice.isFinished) {
+      let allQuestions: PracticeQuestion[] = [];
+
+      if (grammarId) {
+        const bankQuestions = selectBankQuestions(grammarId, mode);
+        if (bankQuestions.length > 0) {
+          allQuestions = [...bankQuestions];
+        } else {
+          const generated = generateSmartQuestionSet({
+            grammarRule: rulesToPractice[0],
+            count: questionCount,
+            seed: currentSeed,
+            rawVocabulary: [],
+            requestedPracticeTypes: [mode],
+          });
+          allQuestions = generated.questions;
+        }
+      } else {
+        rulesToPractice.forEach((rule) => {
+          const bankQuestions = selectBankQuestions(rule.id, mode);
+          if (bankQuestions.length > 0) {
+            allQuestions = [...allQuestions, ...bankQuestions];
+          } else {
+            const generated = generateSmartQuestionSet({
+              grammarRule: rule,
+              count: Math.max(4, Math.ceil(questionCount / rulesToPractice.length)),
+              seed: currentSeed,
+              rawVocabulary: [],
+              requestedPracticeTypes: [mode],
+            });
+            allQuestions = [...allQuestions, ...generated.questions];
+          }
+        });
+      }
+
       let shuffled = shuffleArray([...allQuestions]);
-      
-      // If practicing the whole chapter, cap exactly at questionCount
-      if (!grammarId && shuffled.length > questionCount) {
+
+      if (shuffled.length > questionCount) {
         shuffled = shuffled.slice(0, questionCount);
       }
 
@@ -68,15 +133,16 @@ export const GrammarPractice: React.FC = () => {
         shuffled.push({
           id: 'fb-1',
           grammarId: rulesToPractice[0].id,
-          type: mode,
-          question: 'Mock Question (Không đủ từ vựng để tạo câu)',
-          correctAnswer: 'mock'
+          type: 'fill_blank',
+          question: 'Mock Question (Chưa có bộ câu luyện cho grammar này)',
+          instruction: 'Điền đáp án phù hợp',
+          correctAnswer: 'mock',
         });
       }
 
       dispatch(startPractice({ mode, questions: shuffled }));
     }
-  }, [rulesToPractice, mode, questionCount, practice.isActive, dispatch, grammarId]);
+  }, [rulesToPractice, mode, questionCount, currentSeed, practice.isActive, practice.isFinished, dispatch, grammarId]);
 
   const handleSubmit = (answer: string, isCorrect: boolean, feedbackMsg?: string) => {
     const currentQ = practice.questions[practice.currentQuestionIndex];
@@ -84,214 +150,286 @@ export const GrammarPractice: React.FC = () => {
       isCorrect,
       correctAnswer: currentQ.correctAnswer,
       explanation: currentQ.explanation,
-      feedbackMsg
+      feedbackMsg,
     });
 
     dispatch(submitAnswer({ questionId: currentQ.id, answer, isCorrect }));
 
     if (!isCorrect) {
-      dispatch(addMistake({
-        id: Date.now().toString(),
-        grammarId: currentQ.grammarId,
-        questionId: currentQ.id,
-        userAnswer: answer,
-        correctAnswer: Array.isArray(currentQ.correctAnswer) ? currentQ.correctAnswer[0] : currentQ.correctAnswer,
-        errorType: 'wrong_grammar',
-        createdAt: new Date().toISOString()
-      }));
+      dispatch(
+        addMistake({
+          id: Date.now().toString(),
+          grammarId: currentQ.grammarId,
+          questionId: currentQ.id,
+          userAnswer: answer,
+          correctAnswer: Array.isArray(currentQ.correctAnswer)
+            ? currentQ.correctAnswer[0]
+            : currentQ.correctAnswer,
+          errorType: 'wrong_grammar',
+          createdAt: new Date().toISOString(),
+        }),
+      );
     }
   };
 
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     setFeedback(null);
     if (practice.currentQuestionIndex >= practice.questions.length - 1) {
-      dispatch(endPractice());
-      // Calculate and save progress
       const total = practice.score.correct + practice.score.wrong;
       const progress = total > 0 ? Math.round((practice.score.correct / total) * 100) : 0;
-      
+
       if (grammarId) {
-         dispatch(updateProgress({ grammarId, type: mode, score: progress }));
-      } else {
-         // Could distribute score across all rules in chapter
+        dispatch(updateProgress({ grammarId, type: mode, score: progress }));
       }
+      dispatch(nextQuestion());
     } else {
       dispatch(nextQuestion());
     }
-  };
+  }, [
+    practice.currentQuestionIndex,
+    practice.questions.length,
+    practice.score.correct,
+    practice.score.wrong,
+    grammarId,
+    mode,
+    dispatch,
+  ]);
+
+  useEffect(() => {
+    if (!feedback) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT')
+      ) {
+        return;
+      }
+      if (event.key === 'Enter' || event.key === 'ArrowRight') {
+        event.preventDefault();
+        handleNext();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [feedback, handleNext]);
 
   if (!rulesToPractice.length || !practice.isActive) {
-    return <div className="p-8 text-center text-gray-500">Đang chuẩn bị bài luyện tập...</div>;
-  }
-
-  const currentQ = practice.questions[practice.currentQuestionIndex];
-  const progressPercent = ((practice.currentQuestionIndex) / practice.questions.length) * 100;
-
-  if (practice.isFinished) {
     return (
-      <div className="max-w-2xl mx-auto text-center space-y-6 bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
-        <h2 className="text-3xl font-bold">Hoàn thành!</h2>
-        <div className="text-5xl font-black text-indigo-600 dark:text-indigo-400 py-4">
-          {practice.score.correct} / {practice.questions.length}
-        </div>
-        <div className="flex justify-center gap-4">
-          <button 
-            onClick={() => navigate(`/grammar/${bookId}/${chapterId}`)}
-            className="px-6 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl font-semibold transition-colors"
-          >
-            Quay lại bài học
-          </button>
-        </div>
-      </div>
+      <PageContainer size="md">
+        <LoadingState label="Đang chuẩn bị bài luyện tập..." />
+      </PageContainer>
     );
   }
 
-  return (
-    <div className="max-w-6xl mx-auto space-y-8 lg:grid lg:grid-cols-4 lg:gap-8 lg:space-y-0">
-      
-      {/* Sidebar Workspace Menu */}
-      <div className="lg:col-span-1">
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 sticky top-6 space-y-6">
-          <button 
-            onClick={() => {
-              dispatch(endPractice());
-              navigate(`/grammar/${bookId}/${chapterId}`);
-            }}
-            className="flex items-center gap-2 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors mb-4 font-medium"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            Về bài học
-          </button>
-          
-          {/* Target rule info */}
-          <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800/30">
-            <p className="text-xs font-bold text-indigo-400 mb-1 uppercase tracking-wider">MỤC TIÊU</p>
-            <p className="text-sm text-indigo-900 dark:text-indigo-200 font-bold leading-relaxed">
-              {grammarId ? rulesToPractice[0]?.name : `Toàn bộ bài (${rulesToPractice.length} cấu trúc)`}
+  if (practice.isFinished) {
+    const total = practice.questions.length;
+    const percentage = total > 0 ? Math.round((practice.score.correct / total) * 100) : 0;
+
+    return (
+      <PageContainer size="sm" className="py-6">
+        <Card padding="lg" className="space-y-6 text-center">
+          <div>
+            <p className="text-sm font-medium text-muted">Kết quả luyện tập</p>
+            <h1 className="mt-1 text-2xl font-bold text-fg md:text-3xl">Hoàn thành!</h1>
+          </div>
+
+          <div className="space-y-3">
+            <p className="tabular text-5xl font-bold text-primary-fg">
+              {practice.score.correct}{' '}
+              <span className="text-2xl font-medium text-muted">/ {total}</span>
             </p>
+            <p className="tabular text-base font-semibold text-fg">{percentage}% chính xác</p>
+            <ProgressBar
+              value={practice.score.correct}
+              max={total}
+              label="Tỷ lệ chính xác"
+              tone={percentage >= 80 ? 'success' : 'primary'}
+              className="mx-auto max-w-xs"
+            />
           </div>
-          {/* Sidebar Actions */}
-          <div className="space-y-3 pt-4 border-t border-gray-100 dark:border-gray-700/50">
-            <button
-              onClick={() => navigate(`/pdf?tab=grammar&chapterId=${chapterId}${grammarId ? `&grammarId=${grammarId}` : ''}&seed=${currentSeed}&count=${questionCount}&mode=${mode}`)}
-              className="w-full py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-900 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl font-semibold transition-all border border-gray-200 dark:border-gray-700 flex items-center justify-center gap-2"
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+            <Button
+              variant="secondary"
+              size="lg"
+              leftIcon={<RefreshCw className="size-4" aria-hidden />}
+              onClick={() => {
+                setFeedback(null);
+                dispatch(resetPractice());
+              }}
             >
-              Tạo PDF bài này
-            </button>
+              Làm lại
+            </Button>
+            <Button
+              variant="primary"
+              size="lg"
+              onClick={() => {
+                dispatch(resetPractice());
+                navigate(`/grammar/${bookId}/${chapterId}`);
+              }}
+            >
+              Quay lại bài học
+            </Button>
           </div>
+        </Card>
+      </PageContainer>
+    );
+  }
+
+  const currentQ = practice.questions[practice.currentQuestionIndex];
+  const meta = currentQ.metadata as QuestionMetadata | undefined;
+
+  return (
+    <PageContainer size="md" className="space-y-5">
+      {/* Top context bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Button
+          variant="ghost"
+          size="sm"
+          leftIcon={<ArrowLeft className="size-4" aria-hidden />}
+          onClick={() => {
+            dispatch(resetPractice());
+            navigate(`/grammar/${bookId}/${chapterId}`);
+          }}
+          className="-ml-2"
+        >
+          Về bài học
+        </Button>
+
+        <div className="flex items-center gap-2">
+          <Badge tone="neutral" className="jp max-w-48 truncate">
+            {grammarId
+              ? rulesToPractice[0]?.name
+              : `Toàn bộ bài (${rulesToPractice.length} cấu trúc)`}
+          </Badge>
+          <Button
+            variant="secondary"
+            size="sm"
+            leftIcon={<FileText className="size-4" aria-hidden />}
+            onClick={() =>
+              navigate(
+                `/pdf?tab=grammar&chapterId=${chapterId}${grammarId ? `&grammarId=${grammarId}` : ''}&seed=${currentSeed}&count=${questionCount}&mode=${mode}`,
+              )
+            }
+          >
+            Tạo PDF
+          </Button>
         </div>
       </div>
 
-      {/* Main Practice Area */}
-      <div className="lg:col-span-3 space-y-6">
-        <div className="flex items-center justify-between px-2">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Workspace Luyện tập</h2>
-          {practice.isActive && !practice.isFinished && (
-            <div className="font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-4 py-1.5 rounded-full text-sm">
-              Câu {practice.currentQuestionIndex + 1} / {practice.questions.length}
-            </div>
-          )}
+      {/* Progress & Counter */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-3">
+          <Badge tone="primary" className="tabular">
+            Câu {practice.currentQuestionIndex + 1} / {practice.questions.length}
+          </Badge>
+          <div className="tabular flex items-center gap-3 text-sm font-semibold">
+            <span className="inline-flex items-center gap-1 text-success-fg">
+              <CheckCircle2 className="size-4" aria-hidden />
+              {practice.score.correct}
+            </span>
+            <span className="inline-flex items-center gap-1 text-danger-fg">
+              <XCircle className="size-4" aria-hidden />
+              {practice.score.wrong}
+            </span>
+          </div>
         </div>
 
-        {/* Progress Bar */}
-        {practice.isActive && !practice.isFinished && (
-          <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-indigo-500 transition-all duration-300"
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
-        )}
+        <ProgressBar
+          value={practice.currentQuestionIndex + 1}
+          max={practice.questions.length}
+          label="Tiến độ luyện tập ngữ pháp"
+        />
+      </div>
 
-        {/* Practice Content */}
-        <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 min-h-[400px]">
-          {!feedback ? (
-            <PracticeQuestionRenderer 
-              mode={mode} 
-              question={currentQ} 
-              onSubmit={handleSubmit} 
-            />
-          ) : (
-            <div className="space-y-6 text-center animate-in fade-in zoom-in duration-300 max-w-lg mx-auto">
-              {feedback.isCorrect ? (
-                <div className="inline-flex items-center justify-center w-20 h-20 bg-green-100 dark:bg-green-500/20 text-green-500 rounded-full mb-4">
-                  <CheckCircle className="w-10 h-10" />
-                </div>
-              ) : (
-                <div className="inline-flex items-center justify-center w-20 h-20 bg-rose-100 dark:bg-rose-500/20 text-rose-500 rounded-full mb-4">
-                  <XCircle className="w-10 h-10" />
-                </div>
-              )}
-              
-              <h3 className={`text-2xl font-bold ${feedback.isCorrect ? 'text-green-600' : 'text-rose-600'}`}>
-                {feedback.isCorrect ? 'Chính xác!' : 'Chưa chính xác!'}
-              </h3>
-              
-              {feedback.feedbackMsg && (
-                <p className="text-gray-600 dark:text-gray-400 mt-2 font-medium">
-                  {feedback.feedbackMsg}
+      {/* Main Question / Feedback */}
+      <Card padding="lg">
+        {!feedback ? (
+          <PracticeQuestionRenderer mode={mode} question={currentQ} onSubmit={handleSubmit} />
+        ) : (
+          <div className="animate-fade-in space-y-5">
+            <Notice tone={feedback.isCorrect ? 'success' : 'danger'} className="space-y-1.5">
+              <div className="flex items-center gap-2 text-base font-bold">
+                {feedback.isCorrect ? (
+                  <>
+                    <CheckCircle2 className="size-5 shrink-0" aria-hidden />
+                    Chính xác!
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="size-5 shrink-0" aria-hidden />
+                    Chưa chính xác!
+                  </>
+                )}
+              </div>
+              {feedback.feedbackMsg && <p className="text-sm text-fg">{feedback.feedbackMsg}</p>}
+              {!feedback.isCorrect && (
+                <p className="text-sm text-fg">
+                  Đáp án đúng:{' '}
+                  <span lang="ja" className="font-bold text-success-fg">
+                    {Array.isArray(feedback.correctAnswer)
+                      ? feedback.correctAnswer.join(' / ')
+                      : feedback.correctAnswer}
+                  </span>
                 </p>
               )}
+            </Notice>
 
-              {!feedback.isCorrect && (
-                <div className="bg-rose-50 dark:bg-rose-900/20 p-5 rounded-xl border border-rose-100 dark:border-rose-800/30 mt-6 text-left">
-                  <p className="text-sm font-bold text-rose-500 mb-1 uppercase tracking-wider">Đáp án đúng</p>
-                  <p className="font-bold text-xl text-gray-900 dark:text-white">
-                    {Array.isArray(feedback.correctAnswer) ? feedback.correctAnswer.join(' / ') : feedback.correctAnswer}
-                  </p>
-                </div>
-              )}
-
-              {feedback.explanation && (
-                <div className="bg-gray-50 dark:bg-gray-900/50 p-6 rounded-xl border border-gray-200 dark:border-gray-700 mt-6 text-left space-y-4">
-                  {(currentQ as any).metadata?.japanese ? (
-                    <>
-                      <div>
-                        <p className="text-sm font-bold text-indigo-500 mb-2 uppercase tracking-wider">Câu gốc & Dịch nghĩa</p>
-                        <p className="text-lg font-bold text-gray-900 dark:text-white mb-2">
-                          {(currentQ as any).metadata.japanese}
-                        </p>
-                        <p className="text-gray-600 dark:text-gray-400">
-                          {(currentQ as any).metadata.vietnamese}
-                        </p>
-                      </div>
-                      <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                        <p className="text-sm font-bold text-indigo-500 mb-2 uppercase tracking-wider">
-                          Ngữ pháp: {(currentQ as any).metadata.grammarName}
-                        </p>
-                        <p className="font-medium text-gray-700 dark:text-gray-300 leading-relaxed">
-                          Ý nghĩa: {(currentQ as any).metadata.grammarMeaning}
-                        </p>
-                        {(currentQ as any).metadata.grammarExplanation && (
-                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                            {(currentQ as any).metadata.grammarExplanation}
-                          </p>
-                        )}
-                      </div>
-                    </>
-                  ) : (
-                    <div>
-                      <p className="text-sm font-bold text-indigo-500 mb-1 uppercase tracking-wider">Giải thích chi tiết</p>
-                      <p className="font-medium text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
-                        {feedback.explanation}
+            {feedback.explanation && (
+              <div className="space-y-4 rounded-xl border border-line bg-surface-2 p-5 text-sm">
+                {meta?.japanese ? (
+                  <>
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold tracking-wide text-primary-fg uppercase">
+                        Câu gốc & Dịch nghĩa
                       </p>
+                      <p lang="ja" className="text-lg font-semibold text-fg">
+                        {meta.japanese}
+                      </p>
+                      {meta.vietnamese && <p className="text-muted">{meta.vietnamese}</p>}
                     </div>
-                  )}
-                </div>
-              )}
-
-              <div className="pt-4">
-                <button 
-                  onClick={handleNext}
-                  className="px-8 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-colors w-full shadow-sm text-lg"
-                >
-                  Tiếp tục
-                </button>
+                    <div className="space-y-1 border-t border-line pt-4">
+                      <p className="text-xs font-semibold tracking-wide text-primary-fg uppercase">
+                        Ngữ pháp: <span lang="ja">{meta.grammarName}</span>
+                      </p>
+                      <p className="font-medium text-fg">Ý nghĩa: {meta.grammarMeaning}</p>
+                      {meta.grammarExplanation && (
+                        <p className="leading-relaxed text-muted">{meta.grammarExplanation}</p>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold tracking-wide text-primary-fg uppercase">
+                      Giải thích chi tiết
+                    </p>
+                    <p className="leading-relaxed whitespace-pre-wrap text-fg">
+                      {feedback.explanation}
+                    </p>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+            )}
+
+            <Button
+              variant="primary"
+              size="lg"
+              fullWidth
+              onClick={handleNext}
+              rightIcon={<ArrowRight className="size-4" aria-hidden />}
+            >
+              {practice.currentQuestionIndex >= practice.questions.length - 1
+                ? 'Xem kết quả'
+                : 'Tiếp tục'}
+              <Kbd className="hidden border-transparent bg-surface/20 text-on-primary md:inline-flex">
+                Enter
+              </Kbd>
+            </Button>
+          </div>
+        )}
+      </Card>
+    </PageContainer>
   );
 };

@@ -17,5 +17,4 @@ const writingSlice = createSlice({
   },
 });
 
-export const { } = writingSlice.actions;
 export default writingSlice.reducer;

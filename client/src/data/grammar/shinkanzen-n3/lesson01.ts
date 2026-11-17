@@ -1,10 +1,11 @@
 import type { SmartGrammarRule } from '../../../types/grammarEngine';
+import type { PracticeType } from '../../../types/grammar';
 
-const ALL_PRACTICE_TYPES = [
-  'multiple_choice', 'fill_blank', 'conjugation', 'sentence_ordering', 
-  'ja_to_vi', 'vi_to_ja', 'sentence_transformation', 'grammar_selection', 
-  'text_input', 'mixed'
-] as any[];
+const ALL_PRACTICE_TYPES: PracticeType[] = [
+  'multiple_choice', 'fill_blank', 'conjugation', 'sentence_ordering',
+  'star_question', 'ja_to_vi', 'vi_to_ja', 'sentence_transformation',
+  'grammar_selection', 'text_input', 'mixed',
+];
 
 export const shinkanzenN3Lesson01: SmartGrammarRule[] = [
   {
