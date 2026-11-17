@@ -8,15 +8,25 @@ export type ButtonSize = 'sm' | 'md' | 'lg';
 
 const buttonBase =
   'inline-flex items-center justify-center gap-2 rounded-lg font-medium whitespace-nowrap select-none ' +
-  'transition-[background-color,border-color,color,transform] duration-150 ease-out-soft ' +
-  'active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50';
+  'transition-[background-color,border-color,color,transform,box-shadow] duration-150 ease-out-soft ' +
+  'active:scale-[0.98] disabled:pointer-events-none aria-disabled:pointer-events-none';
 
 const buttonVariants: Record<ButtonVariant, string> = {
-  primary: 'bg-primary text-on-primary hover:bg-primary-hover active:bg-primary-active',
-  secondary: 'border border-line-strong bg-surface text-fg hover:bg-surface-2',
-  soft: 'bg-primary-soft text-primary-fg hover:bg-primary-soft-hover',
-  ghost: 'text-muted hover:bg-surface-2 hover:text-fg',
-  danger: 'border border-danger-line bg-danger-soft text-danger-fg hover:border-danger',
+  primary:
+    'border border-transparent bg-primary text-on-primary shadow-card ' +
+    'hover:bg-primary-hover active:bg-primary-active ' +
+    'disabled:border-line disabled:bg-glass-soft disabled:text-subtle disabled:shadow-none ' +
+    'aria-disabled:border-line aria-disabled:bg-glass-soft aria-disabled:text-subtle aria-disabled:shadow-none',
+  secondary:
+    'border border-line-strong bg-glass text-fg shadow-card ' +
+    'hover:border-primary/50 hover:bg-glass-hover disabled:opacity-45 aria-disabled:opacity-45',
+  soft:
+    'border border-primary/25 bg-primary-soft text-primary-fg ' +
+    'hover:border-primary/45 hover:bg-primary-soft-hover disabled:opacity-45 aria-disabled:opacity-45',
+  ghost: 'text-muted hover:bg-glass-soft hover:text-fg disabled:opacity-45 aria-disabled:opacity-45',
+  danger:
+    'border border-danger-line bg-danger-soft text-danger-fg ' +
+    'hover:border-danger disabled:opacity-45 aria-disabled:opacity-45',
 };
 
 const buttonSizes: Record<ButtonSize, string> = {
@@ -40,10 +50,10 @@ export const iconButtonSizes: Record<ButtonSize, string> = {
 
 /** Text-field surface shared by Input, Select, Textarea and SearchInput. */
 export const fieldStyles =
-  'w-full rounded-lg border border-line-strong bg-surface text-base text-fg md:text-sm ' +
+  'w-full rounded-lg border border-line-strong bg-glass text-base text-fg md:text-sm ' +
   'placeholder:text-subtle transition-[border-color,background-color] duration-150 ' +
-  'hover:border-subtle focus-visible:border-primary focus-visible:outline-2 focus-visible:-outline-offset-1 ' +
-  'disabled:cursor-not-allowed disabled:bg-surface-2 disabled:opacity-60 aria-invalid:border-danger';
+  'hover:border-subtle hover:bg-glass-hover focus-visible:border-primary focus-visible:bg-glass-hover focus-visible:outline-2 focus-visible:-outline-offset-1 ' +
+  'disabled:cursor-not-allowed disabled:bg-glass-soft disabled:opacity-60 aria-invalid:border-danger';
 
 export type TabVariant = 'underline' | 'pill';
 
@@ -59,7 +69,7 @@ export function tabStyles(active: boolean, variant: TabVariant = 'underline', cl
         )
       : cn(
           'h-9 rounded-lg px-3',
-          active ? 'bg-primary-soft text-primary-fg' : 'text-muted hover:bg-surface-2 hover:text-fg',
+          active ? 'bg-primary-soft text-primary-fg' : 'text-muted hover:bg-glass-hover hover:text-fg',
         );
   return cn(base, byVariant, className);
 }

@@ -210,7 +210,7 @@ export const HomePage: React.FC = () => {
         },
       ].map((section) => (
         <section key={section.id} aria-labelledby={section.id} className={section.first ? 'mt-6 md:mt-7' : undefined}>
-          <div className="mb-3 inline-flex flex-col rounded-lg border border-line bg-glass-soft px-3 py-1.5">
+          <div className="mb-3 inline-flex flex-col rounded-xl border border-line bg-glass px-3.5 py-2 shadow-card">
             <h2 id={section.id} className="flex items-center gap-2 text-base font-semibold text-fg md:text-lg">
               <span aria-hidden className="h-4 w-1 rounded-full bg-wave" />
               {section.title}

@@ -130,22 +130,35 @@ export const JapaneseLandscapeBg: React.FC = () => {
       aria-hidden
       className="pointer-events-none fixed inset-0 -z-10 overflow-hidden select-none"
     >
-      {/* 1. Dual High-Resolution Background Illustrations (Sharp Cover, Cross-Fade on Theme Toggle) */}
+      {/* 1. Subtle SVG edge-definition kernel for upscaled 1024px anime artwork + Dual Background Layers */}
+      <svg className="sr-only" aria-hidden="true">
+        <defs>
+          <filter id="anime-bg-crisp" colorInterpolationFilters="sRGB">
+            <feConvolveMatrix
+              order="3"
+              kernelMatrix="0 -0.12 0  -0.12 1.48 -0.12  0 -0.12 0"
+              preserveAlpha="true"
+            />
+          </filter>
+        </defs>
+      </svg>
       <img
         src={`${BASE_URL}bK.jpg`}
         alt=""
-        decoding="async"
+        decoding="sync"
+        fetchPriority="high"
         className="bg-day-layer absolute inset-0 h-full w-full object-cover object-center md:object-[center_60%]"
       />
       <img
         src={`${BASE_URL}aK.jpg`}
         alt=""
-        decoding="async"
+        decoding="sync"
+        fetchPriority="high"
         className="bg-night-layer absolute inset-0 h-full w-full object-cover object-center md:object-[center_60%]"
       />
 
-      {/* Subtle Single Contrast Overlay (rgba(5, 15, 35, 0.18) in Dark Mode) */}
-      <div className="bg-scrim-bg pointer-events-none absolute inset-0" />
+      {/* Top-Sky Directional Contrast Scrim (leaves Mount Fuji, Pagoda, Sakura & Lake 100% crisp) */}
+      <div className="scrim-sky pointer-events-none absolute inset-0" />
 
       {/* 2. Celestial Sun & Moon Rise/Set Layer (Upper Sky below Header) */}
       <svg
@@ -157,59 +170,58 @@ export const JapaneseLandscapeBg: React.FC = () => {
         <defs>
           <mask id="crescent-moon-mask">
             <rect x="0" y="0" width="1440" height="320" fill="black" />
-            <circle cx="1020" cy="86" r="34" fill="white" />
-            <circle cx="1034" cy="74" r="28" fill="black" />
+            <circle cx="910" cy="78" r="28" fill="white" />
+            <circle cx="922" cy="68" r="23" fill="black" />
           </mask>
           <radialGradient id="morning-sun-glow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="currentColor" stopOpacity="0.6" />
-            <stop offset="55%" stopColor="currentColor" stopOpacity="0.22" />
-            <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
+            <stop offset="0%" stopColor="var(--sun-disc)" stopOpacity="0.52" />
+            <stop offset="55%" stopColor="var(--sakura)" stopOpacity="0.16" />
+            <stop offset="100%" stopColor="var(--sakura)" stopOpacity="0" />
           </radialGradient>
           <radialGradient id="crescent-moon-glow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="currentColor" stopOpacity="0.35" />
-            <stop offset="60%" stopColor="currentColor" stopOpacity="0.1" />
-            <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
+            <stop offset="0%" stopColor="var(--sun-disc)" stopOpacity="0.34" />
+            <stop offset="60%" stopColor="var(--sun-disc)" stopOpacity="0.10" />
+            <stop offset="100%" stopColor="var(--sun-disc)" stopOpacity="0" />
           </radialGradient>
         </defs>
 
-        {/* Morning Sun (Upper-Left / Center-Left Sky — Rises in Light Mode, Sets in Dark Mode) */}
+        {/* Morning Sun (Open Upper-Right Sky — Clear of Subpage Titles, Rises in Light Mode) */}
         <g className="celestial-sun">
           <circle
-            cx="285"
-            cy="68"
-            r="72"
-            className="animate-sun-pulse text-sakura"
+            cx="890"
+            cy="74"
+            r="60"
+            className="animate-sun-pulse"
             fill="url(#morning-sun-glow)"
           />
           <circle
-            cx="285"
-            cy="68"
-            r="34"
+            cx="890"
+            cy="74"
+            r="27"
             className="text-sun-disc opacity-80"
             fill="currentColor"
           />
           <circle
-            cx="285"
-            cy="68"
-            r="24"
-            className="text-on-hero opacity-75"
+            cx="890"
+            cy="74"
+            r="19"
+            className="text-on-hero opacity-85"
             fill="currentColor"
           />
         </g>
 
-        {/* Golden Crescent Moon (Upper-Right Sky — Sets in Light Mode, Rises in Dark Mode) */}
+        {/* Golden Crescent Moon (Upper-Right Sky — Clear on Mobile & Desktop, Rises in Dark Mode) */}
         <g className="celestial-moon">
           <circle
-            cx="1020"
-            cy="86"
-            r="72"
-            className="text-sun-disc"
+            cx="910"
+            cy="78"
+            r="58"
             fill="url(#crescent-moon-glow)"
           />
           <circle
-            cx="1020"
-            cy="86"
-            r="34"
+            cx="910"
+            cy="78"
+            r="28"
             mask="url(#crescent-moon-mask)"
             className="text-sun-disc opacity-95"
             fill="currentColor"
@@ -308,31 +320,6 @@ export const JapaneseLandscapeBg: React.FC = () => {
           />
         ))}
       </div>
-
-      {/* 5. All-Day Lake Water Shimmer (Bottom 12%) */}
-      <svg
-        viewBox="0 0 800 90"
-        preserveAspectRatio="none"
-        className="absolute bottom-0 left-[18%] h-[12%] w-[56%]"
-        fill="none"
-      >
-        <g className="animate-water-shimmer text-on-hero opacity-45" stroke="currentColor" strokeLinecap="round">
-          <line x1="120" y1="24" x2="290" y2="24" strokeWidth="1.8" />
-          <line x1="340" y1="32" x2="540" y2="32" strokeWidth="1.5" />
-          <line x1="190" y1="48" x2="430" y2="48" strokeWidth="2.0" />
-          <line x1="470" y1="56" x2="650" y2="56" strokeWidth="1.6" />
-        </g>
-        <g
-          className="animate-water-shimmer text-sun-disc opacity-40"
-          style={{ animationDuration: '12s', animationDelay: '-4s' }}
-          stroke="currentColor"
-          strokeLinecap="round"
-        >
-          <line x1="240" y1="38" x2="460" y2="38" strokeWidth="1.6" />
-          <line x1="150" y1="66" x2="380" y2="66" strokeWidth="1.8" />
-          <line x1="420" y1="74" x2="610" y2="74" strokeWidth="1.5" />
-        </g>
-      </svg>
 
       {/* 6. All-Day 3D Falling Sakura Petals (30 petals drifting from right branches) */}
       {SAKURA_PETALS.map((petal, idx) => (

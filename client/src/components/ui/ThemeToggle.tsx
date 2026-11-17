@@ -17,15 +17,15 @@ export function ThemeToggle({ className }: { className?: string }) {
         aria-label="Giao diện tối"
         onClick={toggleTheme}
         className={cn(
-          'relative inline-grid h-9 w-[4.5rem] grid-cols-2 items-center rounded-full border border-line bg-surface-2 p-0.5',
-          'transition-colors duration-150 hover:border-line-strong',
+          'relative inline-grid h-9 w-[4.5rem] grid-cols-2 items-center rounded-full border border-line-strong bg-glass-soft p-0.5 shadow-card',
+          'transition-colors duration-150 hover:border-primary/50 hover:bg-glass',
           className,
         )}
       >
         <span
           aria-hidden
           className={cn(
-            'absolute top-0.5 left-0.5 size-7 rounded-full bg-surface shadow-card ring-1 ring-line',
+            'absolute top-0.5 left-0.5 size-7 rounded-full bg-glass-hover shadow-card ring-1 ring-line-strong',
             'transition-transform duration-200 ease-out-soft',
             dark && 'translate-x-9',
           )}
