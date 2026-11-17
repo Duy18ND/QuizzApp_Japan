@@ -1,4 +1,6 @@
 import React from 'react';
+import dayLandscapeUrl from '../../assets/bK.jpg';
+import nightLandscapeUrl from '../../assets/aK.jpg';
 
 interface SakuraPetalSpec {
   left: string;
@@ -121,8 +123,26 @@ const FIREFLIES = [
   { left: '67%', bottom: '12%', size: 6, duration: '6.9s', delay: '-4.6s' },
 ];
 
-const rawBase = import.meta.env.BASE_URL || '/';
-const BASE_URL = rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
+const BG_IMAGE_STYLE: React.CSSProperties = {
+  imageRendering: 'auto',
+  transform: 'translateZ(0)',
+  backfaceVisibility: 'hidden',
+};
+
+const BG_IMAGE_LAYERS = [
+  {
+    key: 'day',
+    src: dayLandscapeUrl,
+    className:
+      'bg-day-layer fixed inset-0 h-full w-full object-cover object-bottom opacity-100 select-none transition-opacity duration-700 ease-in-out',
+  },
+  {
+    key: 'night',
+    src: nightLandscapeUrl,
+    className:
+      'bg-night-layer fixed inset-0 h-full w-full object-cover object-bottom opacity-0 select-none transition-opacity duration-700 ease-in-out',
+  },
+] as const;
 
 export const JapaneseLandscapeBg: React.FC = () => {
   return (
@@ -130,33 +150,19 @@ export const JapaneseLandscapeBg: React.FC = () => {
       aria-hidden
       className="pointer-events-none fixed inset-0 -z-10 h-dvh w-screen overflow-hidden select-none print:hidden"
     >
-      {/* 1. Native 2K Dual Japanese Landscape Image Layers (100% crisp, viewport-locked, zero filter/scrim) */}
-      <img
-        src={`${BASE_URL}bK.jpg`}
-        alt=""
-        decoding="sync"
-        loading="eager"
-        fetchPriority="high"
-        style={{
-          imageRendering: '-webkit-optimize-contrast',
-          transform: 'translateZ(0)',
-          backfaceVisibility: 'hidden',
-        }}
-        className="bg-day-layer fixed inset-0 h-full w-full object-cover object-bottom opacity-100 select-none transition-opacity duration-700 ease-in-out"
-      />
-      <img
-        src={`${BASE_URL}aK.jpg`}
-        alt=""
-        decoding="sync"
-        loading="eager"
-        fetchPriority="high"
-        style={{
-          imageRendering: '-webkit-optimize-contrast',
-          transform: 'translateZ(0)',
-          backfaceVisibility: 'hidden',
-        }}
-        className="bg-night-layer fixed inset-0 h-full w-full object-cover object-bottom opacity-0 select-none transition-opacity duration-700 ease-in-out"
-      />
+      {/* 1. Content-Hashed 2K Dual Japanese Landscape Image Layers (cache-busted per deploy, high-quality scaling) */}
+      {BG_IMAGE_LAYERS.map((layer) => (
+        <img
+          key={layer.key}
+          src={layer.src}
+          alt=""
+          decoding="sync"
+          loading="eager"
+          fetchPriority="high"
+          style={BG_IMAGE_STYLE}
+          className={layer.className}
+        />
+      ))}
 
       {/* 2. Celestial Sun & Moon Rise/Set Layer (Upper Sky below Header) */}
       <svg
