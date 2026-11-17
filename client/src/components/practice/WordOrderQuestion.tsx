@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import type { PracticeType, WordOrderQuestion } from '../../types/grammar';
-import { validateAnswer } from '../../utils/grammarEngine/answerValidator';
+import {
+  resolveQuestionTargetPatterns,
+  validateAnswer,
+} from '../../utils/grammarEngine/answerValidator';
 import { Button } from '../ui';
 
 interface Props {
@@ -26,7 +29,8 @@ export const WordOrderQuestionComp: React.FC<Props> = ({ mode, question, onSubmi
 
   const handleSubmit = () => {
     const answer = selectedTokens.join('');
-    const result = validateAnswer(answer, question.correctAnswer, mode, question.grammarId);
+    const targetPatterns = resolveQuestionTargetPatterns(question);
+    const result = validateAnswer(answer, question.correctAnswer, mode, targetPatterns);
     onSubmit(answer, result.isCorrect, result.feedbackMessage);
   };
 

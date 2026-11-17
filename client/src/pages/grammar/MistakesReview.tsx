@@ -25,7 +25,6 @@ interface ResolvedRuleMeta {
 export const MistakesReview: React.FC = () => {
   const dispatch = useDispatch();
   const mistakes = useSelector((state: RootState) => state.mistake.mistakes);
-  const availableRules = useSelector((state: RootState) => state.grammar.availableRules);
 
   const mistakesByGrammar = mistakes.reduce(
     (acc, mistake) => {
@@ -63,10 +62,9 @@ export const MistakesReview: React.FC = () => {
       }
     }
 
-    const storeRule = availableRules.find((r) => r.id === grammarId);
     return {
       id: grammarId,
-      name: storeRule?.name || grammarId,
+      name: grammarId,
       practicePath: '/grammar',
     };
   };

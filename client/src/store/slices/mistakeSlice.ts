@@ -8,6 +8,35 @@ interface MistakeState {
   mistakes: GrammarMistake[];
 }
 
+const stripSeedSuffix = (questionId: string): string =>
+  questionId.trim().replace(/-\d{10,}$/, '');
+
+const normalizePrompt = (prompt?: string): string =>
+  (prompt ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+
+const isSameMistake = (existing: GrammarMistake, incoming: GrammarMistake): boolean => {
+  if (existing.questionId === incoming.questionId) return true;
+  if (existing.grammarId !== incoming.grammarId) return false;
+  if (stripSeedSuffix(existing.questionId) === stripSeedSuffix(incoming.questionId)) return true;
+  const incomingPrompt = normalizePrompt(incoming.prompt);
+  const existingPrompt = normalizePrompt(existing.prompt);
+  return Boolean(incomingPrompt && existingPrompt && incomingPrompt === existingPrompt);
+};
+
+const isValidMistake = (item: unknown): item is GrammarMistake => {
+  if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
+  const m = item as Record<string, unknown>;
+  return (
+    typeof m.id === 'string' &&
+    typeof m.grammarId === 'string' &&
+    typeof m.questionId === 'string' &&
+    typeof m.userAnswer === 'string' &&
+    typeof m.correctAnswer === 'string' &&
+    typeof m.errorType === 'string' &&
+    typeof m.createdAt === 'string'
+  );
+};
+
 const loadInitialMistakes = (): GrammarMistake[] => {
   if (typeof window === 'undefined') return [];
   try {
@@ -15,7 +44,21 @@ const loadInitialMistakes = (): GrammarMistake[] => {
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
     if (Array.isArray(parsed)) {
-      return parsed as GrammarMistake[];
+      const deduped: GrammarMistake[] = [];
+      for (const item of parsed) {
+        if (!isValidMistake(item)) continue;
+        const normalizedItem: GrammarMistake = {
+          ...item,
+          questionId: stripSeedSuffix(item.questionId),
+        };
+        const idx = deduped.findIndex((m) => isSameMistake(m, normalizedItem));
+        if (idx >= 0) {
+          deduped[idx] = normalizedItem;
+        } else {
+          deduped.push(normalizedItem);
+        }
+      }
+      return deduped;
     }
   } catch {
     // ignore corrupted localStorage data
@@ -41,11 +84,15 @@ const mistakeSlice = createSlice({
   initialState,
   reducers: {
     addMistake(state, action: PayloadAction<GrammarMistake>) {
-      const existingIndex = state.mistakes.findIndex((m) => m.questionId === action.payload.questionId);
+      const normalizedIncoming: GrammarMistake = {
+        ...action.payload,
+        questionId: stripSeedSuffix(action.payload.questionId),
+      };
+      const existingIndex = state.mistakes.findIndex((m) => isSameMistake(m, normalizedIncoming));
       if (existingIndex >= 0) {
         state.mistakes.splice(existingIndex, 1);
       }
-      state.mistakes.push(action.payload);
+      state.mistakes.push(normalizedIncoming);
       saveMistakes(state.mistakes);
     },
     removeMistakesByGrammar(state, action: PayloadAction<string>) {

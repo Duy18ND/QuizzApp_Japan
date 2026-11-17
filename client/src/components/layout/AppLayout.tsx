@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
+import { JapaneseLookupProvider } from '../common/JapaneseLookupPopover';
 import { buttonStyles } from '../ui/styles';
 import { ThemeToggle } from '../ui/ThemeToggle';
 import { ClickEffect } from './ClickEffect';
@@ -8,6 +9,7 @@ import { JapaneseLandscapeBg } from './JapaneseLandscapeBg';
 export const AppLayout: React.FC = () => {
   const { pathname } = useLocation();
   const isHome = pathname === '/';
+  const mainRef = useRef<HTMLElement>(null);
 
   return (
     <div className="relative isolate flex h-dvh flex-col overflow-hidden bg-transparent text-fg">
@@ -21,7 +23,7 @@ export const AppLayout: React.FC = () => {
         Bỏ qua điều hướng
       </a>
 
-      <header className="relative z-40 flex-none overflow-hidden border-b border-line bg-glass-header">
+      <header className="relative z-40 flex-none overflow-hidden border-b border-line bg-glass-header print:hidden">
         <div
           aria-hidden
           className="seigaiha-mask pointer-events-none absolute inset-0 bg-wave opacity-[0.035]"
@@ -55,12 +57,15 @@ export const AppLayout: React.FC = () => {
       </header>
 
       <main
+        ref={mainRef}
         id="main"
         tabIndex={-1}
         className="relative z-10 flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto focus:outline-none"
       >
         <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-4 md:px-6 md:py-6">
-          <Outlet />
+          <JapaneseLookupProvider containerRef={mainRef}>
+            <Outlet />
+          </JapaneseLookupProvider>
         </div>
       </main>
     </div>

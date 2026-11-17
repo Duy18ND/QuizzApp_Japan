@@ -432,6 +432,12 @@
     overflow-wrap: anywhere;
   }
 
+  /* Keep copied/selected Japanese text clean when Furigana (<rt>/<rp>) is visible */
+  rt, rp {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
   ::selection { background: var(--primary-soft-hover); color: var(--fg); }
 
   :focus-visible {

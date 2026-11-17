@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { Badge } from '../ui';
 import { cn } from '../../lib/cn';
+import { JapaneseLookupButton } from '../common/JapaneseLookupPopover';
 
 const OPTION_LABELS = ['A', 'B', 'C', 'D'] as const;
 
@@ -69,15 +70,18 @@ export const McqQuestionBlock: React.FC<McqQuestionBlockProps> = ({
         </div>
       )}
 
-      <p
-        lang="ja"
-        className={cn(
-          'leading-relaxed font-semibold text-fg',
-          compact ? 'text-base md:text-lg' : 'text-xl md:text-2xl',
-        )}
-      >
-        {prompt}
-      </p>
+      <div className="flex items-start justify-between gap-2">
+        <p
+          lang="ja"
+          className={cn(
+            'min-w-0 flex-1 leading-relaxed font-semibold text-fg',
+            compact ? 'text-base md:text-lg' : 'text-xl md:text-2xl',
+          )}
+        >
+          {prompt}
+        </p>
+        <JapaneseLookupButton text={prompt} className="mt-0.5" />
+      </div>
 
       <div className={cn('grid grid-cols-1 gap-3', !compact && 'sm:grid-cols-2')}>
         {options.map((opt, idx) => {

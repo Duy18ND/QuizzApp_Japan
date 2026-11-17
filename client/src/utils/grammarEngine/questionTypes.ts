@@ -142,14 +142,26 @@ export const generateFillBlankQuestion = (ctx: GeneratorContext): PracticeQuesti
 };
 
 export const generateConjugationQuestion = (ctx: GeneratorContext): PracticeQuestion => {
+  const conjugation = ctx.sentenceRecord.analysis?.conjugation;
+  if (conjugation?.conjugated && conjugation?.base) {
+    const blanked = ctx.sentenceRecord.japanese.replace(conjugation.conjugated, '＿＿＿＿＿');
+    return {
+      ...ctx.baseQuestion,
+      type: 'conjugation',
+      instruction: 'Chia động từ / từ trong ngoặc cho đúng:',
+      question: `${blanked}（${conjugation.base}）`,
+      correctAnswer: conjugation.conjugated,
+    } as PracticeQuestion;
+  }
+
   const target = ctx.sentenceRecord.target || ctx.grammarRule.hiragana;
   const blanked = ctx.sentenceRecord.japanese.replace(target, '＿＿＿＿＿');
 
   return {
     ...ctx.baseQuestion,
     type: 'conjugation',
-    instruction: 'Chia động từ trong ngoặc cho đúng:',
-    question: `${blanked}（${target}）`,
+    instruction: 'Điền dạng chia / cấu trúc ngữ pháp phù hợp vào chỗ trống:',
+    question: `${blanked}（Nghĩa: ${ctx.sentenceRecord.vietnamese}）`,
     correctAnswer: target,
   } as PracticeQuestion;
 };

@@ -3,6 +3,7 @@ import type { QuizConfig, QuestionType } from '../types/quiz';
 
 const QUESTION_TYPES: QuestionType[] = [
   "vi_to_hiragana",
+  "vi_to_kanji",
   "kanji_to_hiragana",
   "kanji_to_vi",
   "hiragana_to_kanji",
@@ -155,6 +156,7 @@ export function generateQuizSession(config: QuizConfig, starredWords: number[], 
     const mapOptionText = (w: any, t: string) => {
       switch(t) {
         case 'vi_to_hiragana': return w.hiragana || w.kanji || w.meaning;
+        case 'vi_to_kanji': return w.kanji || w.hiragana || w.meaning;
         case 'kanji_to_hiragana': return w.hiragana || w.kanji || w.meaning;
         case 'kanji_to_vi': return w.meaning || w.hiragana || w.kanji;
         case 'hiragana_to_kanji': return w.kanji || w.hiragana || w.meaning;
@@ -166,11 +168,27 @@ export function generateQuizSession(config: QuizConfig, starredWords: number[], 
     // Nếu câu hỏi được định nghĩa sẵn trong JSON (có mảng options)
     if (qObj.options && Array.isArray(qObj.options)) {
       questionText = qObj.question || '';
-      answers = qObj.options.map((optText: string, i: number) => {
-        const id = String.fromCharCode(65 + i); // A, B, C, D
-        if (qObj.answer === i || qObj.answer === id || qObj.answer === i + 1 || qObj.answer === optText) {
-            correctAnswerId = id;
+      const options: string[] = qObj.options;
+      let resolvedIdx = -1;
+      if (typeof qObj.answer === 'number' && Number.isInteger(qObj.answer)) {
+        if (qObj.answer >= 0 && qObj.answer < options.length) {
+          resolvedIdx = qObj.answer;
         }
+      } else if (typeof qObj.answer === 'string') {
+        const trimmed = qObj.answer.trim();
+        const upper = trimmed.toUpperCase();
+        const letterIdx = upper.length === 1 ? upper.charCodeAt(0) - 65 : -1;
+        if (letterIdx >= 0 && letterIdx < options.length) {
+          resolvedIdx = letterIdx;
+        } else {
+          resolvedIdx = options.findIndex((opt) => opt === trimmed);
+        }
+      }
+      if (resolvedIdx >= 0) {
+        correctAnswerId = String.fromCharCode(65 + resolvedIdx);
+      }
+      answers = options.map((optText: string, i: number) => {
+        const id = String.fromCharCode(65 + i); // A, B, C, D
         return { id, text: optText };
       });
       if (shuffleAnswers) {
@@ -190,6 +208,10 @@ export function generateQuizSession(config: QuizConfig, starredWords: number[], 
         case 'vi_to_hiragana':
           questionText = word.meaning || word.kanji;
           hint = { kanji: word.kanji, meaning: word.meaning };
+          break;
+        case 'vi_to_kanji':
+          questionText = word.meaning || word.hiragana;
+          hint = { hiragana: word.hiragana, meaning: word.meaning };
           break;
         case 'kanji_to_hiragana':
           questionText = word.kanji || word.meaning;

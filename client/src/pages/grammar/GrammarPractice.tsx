@@ -21,6 +21,7 @@ import {
   Badge,
   Button,
   Card,
+  ErrorState,
   Kbd,
   LoadingState,
   Notice,
@@ -47,8 +48,7 @@ const selectBankQuestions = (ruleId: string, practiceMode: PracticeType): Practi
   const bankQuestions = lesson01PracticeBank[ruleId] || [];
   if (bankQuestions.length === 0) return [];
   if (practiceMode === 'mixed') return bankQuestions;
-  const filtered = bankQuestions.filter((q) => q.type === practiceMode);
-  return filtered.length > 0 ? filtered : bankQuestions;
+  return bankQuestions.filter((q) => q.type === practiceMode);
 };
 
 export const GrammarPractice: React.FC = () => {
@@ -67,7 +67,7 @@ export const GrammarPractice: React.FC = () => {
 
   const practice = useSelector((state: RootState) => state.practice);
 
-  const { rulesToPractice } = useMemo(() => {
+  const { isInvalidTarget, rulesToPractice } = useMemo(() => {
     const b = grammarBooks.find((bk) => bk.id === bookId);
     const c = b?.chapters.find((ch) => ch.id === chapterId);
 
@@ -75,7 +75,10 @@ export const GrammarPractice: React.FC = () => {
     if (grammarId) {
       rules = rules.filter((r) => r.id === grammarId);
     }
-    return { rulesToPractice: rules };
+    return {
+      isInvalidTarget: !b || !c || rules.length === 0,
+      rulesToPractice: rules,
+    };
   }, [bookId, chapterId, grammarId]);
 
   const [feedback, setFeedback] = useState<FeedbackState | null>(null);
@@ -160,13 +163,15 @@ export const GrammarPractice: React.FC = () => {
         addMistake({
           id: Date.now().toString(),
           grammarId: currentQ.grammarId,
-          questionId: currentQ.id,
+          questionId: currentQ.id.replace(/-\d{10,}$/, ''),
           userAnswer: answer,
           correctAnswer: Array.isArray(currentQ.correctAnswer)
             ? currentQ.correctAnswer[0]
             : currentQ.correctAnswer,
           errorType: 'wrong_grammar',
           createdAt: new Date().toISOString(),
+          prompt: currentQ.question || currentQ.instruction,
+          explanation: currentQ.explanation,
         }),
       );
     }
@@ -215,7 +220,21 @@ export const GrammarPractice: React.FC = () => {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [feedback, handleNext]);
 
-  if (!rulesToPractice.length || !practice.isActive) {
+  if (isInvalidTarget) {
+    return (
+      <PageContainer size="md">
+        <ErrorState
+          title="Không tìm thấy bài luyện tập ngữ pháp"
+          description="Giáo trình, chương hoặc mẫu ngữ pháp bạn yêu cầu không tồn tại."
+          onRetry={() => navigate('/grammar')}
+          retryLabel="Về trang Ngữ pháp"
+          className="bg-surface/90 backdrop-blur-md"
+        />
+      </PageContainer>
+    );
+  }
+
+  if (!practice.isActive) {
     return (
       <PageContainer size="md">
         <LoadingState label="Đang chuẩn bị bài luyện tập..." />
@@ -347,7 +366,11 @@ export const GrammarPractice: React.FC = () => {
       {/* Main Question / Feedback */}
       <Card padding="lg">
         {!feedback ? (
-          <PracticeQuestionRenderer mode={mode} question={currentQ} onSubmit={handleSubmit} />
+          <PracticeQuestionRenderer
+            mode={mode === 'mixed' ? currentQ.type : mode}
+            question={currentQ}
+            onSubmit={handleSubmit}
+          />
         ) : (
           <div className="animate-fade-in space-y-5">
             <Notice tone={feedback.isCorrect ? 'success' : 'danger'} className="space-y-1.5">

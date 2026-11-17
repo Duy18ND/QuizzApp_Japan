@@ -20,6 +20,8 @@ declare module 'hanzi-writer' {
     drawingFadeDuration?: number;
     leniency?: number;
     charDataLoader?: (char: string, onLoad: (data: any) => void, onError: (err: any) => void) => void;
+    onLoadCharDataSuccess?: (data: unknown) => void;
+    onLoadCharDataError?: (err?: unknown) => void;
   }
 
   export default class HanziWriter {

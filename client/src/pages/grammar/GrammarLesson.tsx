@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ChevronDown, ChevronUp, FileDown, Play, RefreshCw } from 'lucide-react';
+import { JapaneseLookupButton } from '../../components/common/JapaneseLookupPopover';
 import { grammarBooks } from '../../data/grammar';
 import { generateSmartQuestionSet } from '../../utils/grammarEngine/questionGenerator';
 import { unit1Data } from '../../data/n3/unit1';
@@ -218,31 +219,40 @@ export const GrammarLesson: React.FC = () => {
                           {idx + 1}
                         </Badge>
                         <div className="min-w-0 flex-1 space-y-1.5">
-                          <p lang="ja" className="text-lg leading-loose font-medium text-fg md:text-xl">
-                            {meta.pattern && meta.slotValues
-                              ? meta.pattern.split(/(\{.*?\})/).map((part, i) => {
-                                  if (part.startsWith('{') && part.endsWith('}')) {
-                                    const slotName = part.slice(1, -1);
-                                    return (
-                                      <span
-                                        key={i}
-                                        className="mx-0.5 rounded border border-line bg-surface px-1.5 py-0.5 font-semibold text-primary-fg"
-                                      >
-                                        {slotValues[slotName]}
-                                      </span>
-                                    );
-                                  }
-                                  if (part && !/^[、。！？\s]+$/.test(part)) {
-                                    return (
-                                      <span key={i} className="mx-0.5 font-bold text-primary-fg underline decoration-primary/40 underline-offset-4">
-                                        {part}
-                                      </span>
-                                    );
-                                  }
-                                  return <span key={i}>{part}</span>;
-                                })
-                              : meta.japanese}
-                          </p>
+                          <div className="flex items-start justify-between gap-2">
+                            <p lang="ja" className="min-w-0 flex-1 text-lg leading-loose font-medium text-fg md:text-xl">
+                              {meta.pattern && meta.slotValues
+                                ? meta.pattern.split(/(\{.*?\})/).map((part, i) => {
+                                    if (part.startsWith('{') && part.endsWith('}')) {
+                                      const slotName = part.slice(1, -1);
+                                      return (
+                                        <span
+                                          key={i}
+                                          className="mx-0.5 rounded border border-line bg-surface px-1.5 py-0.5 font-semibold text-primary-fg"
+                                        >
+                                          {slotValues[slotName]}
+                                        </span>
+                                      );
+                                    }
+                                    if (part && !/^[、。！？\s]+$/.test(part)) {
+                                      return (
+                                        <span key={i} className="mx-0.5 font-bold text-primary-fg underline decoration-primary/40 underline-offset-4">
+                                          {part}
+                                        </span>
+                                      );
+                                    }
+                                    return <span key={i}>{part}</span>;
+                                  })
+                                : meta.japanese}
+                            </p>
+                            {meta.japanese && (
+                              <JapaneseLookupButton
+                                text={meta.japanese}
+                                sentenceTranslation={meta.vietnamese}
+                                className="mt-1"
+                              />
+                            )}
+                          </div>
                           {meta.hiragana && (
                             <p lang="ja" className="text-sm text-muted">
                               {meta.hiragana}

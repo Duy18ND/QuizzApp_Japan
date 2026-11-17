@@ -28,9 +28,21 @@ export const KanjiPdfBuilder: React.FC<KanjiPdfBuilderProps> = ({
             background: var(--surface) !important;
             color: var(--fg) !important;
           }
-          * {
+          body, #print-kanji {
+            background: var(--surface);
+            color: var(--fg);
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
+            font-family: 'MPLUS1p', sans-serif;
+          }
+          #root { display: none !important; }
+          #print-kanji {
+            display: block !important;
+            position: relative !important;
+            width: 100%;
+          }
+          .break-inside-avoid {
+            page-break-inside: avoid;
             break-inside: avoid;
           }
           .kanji-page {
@@ -44,9 +56,9 @@ export const KanjiPdfBuilder: React.FC<KanjiPdfBuilderProps> = ({
         <p className="mt-2 text-muted">Tổng số: {kanjiList.length} chữ</p>
       </div>
 
-      <div className="space-y-12">
+      <div className="space-y-8">
         {kanjiList.map((kanji) => (
-          <div key={kanji.id} className="rounded-xl border border-line-strong p-6">
+          <div key={kanji.id} className="break-inside-avoid rounded-xl border border-line-strong p-6">
             <div className="mb-6 flex gap-6">
               {mode !== 'mode3' && (
                 <div className="relative flex size-24 items-center justify-center rounded-lg border-2 border-fg sm:size-32">

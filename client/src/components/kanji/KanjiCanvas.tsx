@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useImperativeHandle, useRef, useState, forwardRef } from 'react';
 import HanziWriter from 'hanzi-writer';
 import { useTheme } from '../../hooks/useTheme';
-import { Spinner } from '../ui';
+import { ErrorState, Spinner } from '../ui';
 import { cn } from '../../lib/cn';
 
 interface KanjiCanvasProps {
@@ -19,8 +19,39 @@ export interface KanjiCanvasRef {
   undo: () => void;
 }
 
-function readToken(name: string): string {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || 'currentColor';
+function normalizeColorForHanzi(raw: string, fallback: string): string {
+  const val = raw.trim();
+  if (!val) return fallback;
+
+  // HanziWriter's color parser rejects 8-digit (#RRGGBBAA) and 4-digit (#RGBA) hex produced by CSS minifiers.
+  if (/^#[0-9a-f]{8}$/i.test(val)) {
+    const r = parseInt(val.slice(1, 3), 16);
+    const g = parseInt(val.slice(3, 5), 16);
+    const b = parseInt(val.slice(5, 7), 16);
+    const a = Number((parseInt(val.slice(7, 9), 16) / 255).toFixed(3));
+    return `rgba(${r}, ${g}, ${b}, ${a})`;
+  }
+  if (/^#[0-9a-f]{4}$/i.test(val)) {
+    const r = parseInt(val[1] + val[1], 16);
+    const g = parseInt(val[2] + val[2], 16);
+    const b = parseInt(val[3] + val[3], 16);
+    const a = Number((parseInt(val[4] + val[4], 16) / 255).toFixed(3));
+    return `rgba(${r}, ${g}, ${b}, ${a})`;
+  }
+  // Also normalize CSS Color 4 space-separated rgb(r g b / a) to comma-separated rgba(r, g, b, a).
+  const spaceRgb = val.match(/^rgba?\(\s*(\d+)\s+(\d+)\s+(\d+)(?:\s*\/\s*([\d.]+%?))?\s*\)$/i);
+  if (spaceRgb) {
+    const [, r, g, b, rawAlpha] = spaceRgb;
+    if (!rawAlpha) return `rgb(${r}, ${g}, ${b})`;
+    const a = rawAlpha.endsWith('%') ? Number(parseFloat(rawAlpha) / 100) : parseFloat(rawAlpha);
+    return `rgba(${r}, ${g}, ${b}, ${Number.isFinite(a) ? a : 1})`;
+  }
+  return val;
+}
+
+function readToken(name: string, fallback = '#000000'): string {
+  const raw = getComputedStyle(document.documentElement).getPropertyValue(name);
+  return normalizeColorForHanzi(raw, fallback);
 }
 
 export const KanjiCanvas = forwardRef<KanjiCanvasRef, KanjiCanvasProps>(
@@ -29,6 +60,11 @@ export const KanjiCanvas = forwardRef<KanjiCanvasRef, KanjiCanvasProps>(
     const containerRef = useRef<HTMLDivElement>(null);
     const writerRef = useRef<HanziWriter | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
+    const [retryKey, setRetryKey] = useState(0);
+
+    const modeRef = useRef(mode);
+    modeRef.current = mode;
 
     const callbacksRef = useRef({ onCorrect, onMistake, onComplete });
     callbacksRef.current = { onCorrect, onMistake, onComplete };
@@ -62,8 +98,10 @@ export const KanjiCanvas = forwardRef<KanjiCanvasRef, KanjiCanvasProps>(
     useEffect(() => {
       if (!containerRef.current || !kanji) return;
 
+      let cancelled = false;
       containerRef.current.replaceChildren();
       setIsLoading(true);
+      setLoadError(false);
 
       const primaryColor = readToken('--primary');
       const outlineColor = readToken('--line');
@@ -83,28 +121,36 @@ export const KanjiCanvas = forwardRef<KanjiCanvasRef, KanjiCanvasProps>(
         radicalColor: primaryColor,
         highlightColor: dangerColor,
         drawingColor,
-        showCharacter: mode === 'show',
+        showCharacter: modeRef.current === 'show',
         leniency: 1.5,
+        onLoadCharDataSuccess: () => {
+          if (cancelled) return;
+          setIsLoading(false);
+          setLoadError(false);
+          setupMode(writer, modeRef.current);
+        },
+        onLoadCharDataError: () => {
+          if (cancelled) return;
+          setIsLoading(false);
+          setLoadError(true);
+        },
       });
 
       writerRef.current = writer;
 
-      const timer = window.setTimeout(() => setIsLoading(false), 500);
-      setupMode(writer, mode);
-
       return () => {
-        window.clearTimeout(timer);
+        cancelled = true;
         writer.cancelQuiz();
       };
-      // Re-initialize only when kanji, size or theme changes; mode updates use the second effect.
+      // Re-initialize when kanji, size, theme, or retry changes; mode updates use the second effect.
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [kanji, size, theme]);
+    }, [kanji, size, theme, retryKey]);
 
     useEffect(() => {
-      if (writerRef.current) {
+      if (writerRef.current && !isLoading && !loadError) {
         setupMode(writerRef.current, mode);
       }
-    }, [mode, setupMode]);
+    }, [mode, isLoading, loadError, setupMode]);
 
     useImperativeHandle(
       ref,
@@ -152,7 +198,7 @@ export const KanjiCanvas = forwardRef<KanjiCanvasRef, KanjiCanvasProps>(
           ref={containerRef}
           className={cn(
             'absolute inset-0 z-10 transition-opacity duration-200',
-            isLoading ? 'opacity-0' : 'opacity-100',
+            isLoading || loadError ? 'pointer-events-none opacity-0' : 'opacity-100',
           )}
           style={{ touchAction: 'none' }}
         />
@@ -160,6 +206,22 @@ export const KanjiCanvas = forwardRef<KanjiCanvasRef, KanjiCanvasProps>(
         {isLoading && (
           <div className="absolute inset-0 z-20 flex items-center justify-center rounded-lg bg-surface/60">
             <Spinner className="size-7" />
+          </div>
+        )}
+
+        {loadError && (
+          <div className="absolute inset-0 z-30 flex items-center justify-center rounded-lg">
+            <ErrorState
+              title="Không tải được nét chữ"
+              description="Kiểm tra kết nối mạng hoặc thử tải lại."
+              onRetry={() => {
+                setLoadError(false);
+                setIsLoading(true);
+                setRetryKey((k) => k + 1);
+              }}
+              retryLabel="Thử lại"
+              className="h-full w-full justify-center px-3 py-3"
+            />
           </div>
         )}
       </div>
