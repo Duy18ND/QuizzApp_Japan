@@ -128,37 +128,35 @@ export const JapaneseLandscapeBg: React.FC = () => {
   return (
     <div
       aria-hidden
-      className="pointer-events-none fixed inset-0 -z-10 overflow-hidden select-none"
+      className="pointer-events-none fixed inset-0 -z-10 h-dvh w-screen overflow-hidden select-none print:hidden"
     >
-      {/* 1. Subtle SVG edge-definition kernel for upscaled 1024px anime artwork + Dual Background Layers */}
-      <svg className="sr-only" aria-hidden="true">
-        <defs>
-          <filter id="anime-bg-crisp" colorInterpolationFilters="sRGB">
-            <feConvolveMatrix
-              order="3"
-              kernelMatrix="0 -0.12 0  -0.12 1.48 -0.12  0 -0.12 0"
-              preserveAlpha="true"
-            />
-          </filter>
-        </defs>
-      </svg>
+      {/* 1. Native 2K Dual Japanese Landscape Image Layers (100% crisp, viewport-locked, zero filter/scrim) */}
       <img
         src={`${BASE_URL}bK.jpg`}
         alt=""
         decoding="sync"
+        loading="eager"
         fetchPriority="high"
-        className="bg-day-layer absolute inset-0 h-full w-full object-cover object-center md:object-[center_60%]"
+        style={{
+          imageRendering: '-webkit-optimize-contrast',
+          transform: 'translateZ(0)',
+          backfaceVisibility: 'hidden',
+        }}
+        className="bg-day-layer fixed inset-0 h-full w-full object-cover object-bottom opacity-100 select-none transition-opacity duration-700 ease-in-out"
       />
       <img
         src={`${BASE_URL}aK.jpg`}
         alt=""
         decoding="sync"
+        loading="eager"
         fetchPriority="high"
-        className="bg-night-layer absolute inset-0 h-full w-full object-cover object-center md:object-[center_60%]"
+        style={{
+          imageRendering: '-webkit-optimize-contrast',
+          transform: 'translateZ(0)',
+          backfaceVisibility: 'hidden',
+        }}
+        className="bg-night-layer fixed inset-0 h-full w-full object-cover object-bottom opacity-0 select-none transition-opacity duration-700 ease-in-out"
       />
-
-      {/* Top-Sky Directional Contrast Scrim (leaves Mount Fuji, Pagoda, Sakura & Lake 100% crisp) */}
-      <div className="scrim-sky pointer-events-none absolute inset-0" />
 
       {/* 2. Celestial Sun & Moon Rise/Set Layer (Upper Sky below Header) */}
       <svg
