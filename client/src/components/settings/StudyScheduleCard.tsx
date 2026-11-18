@@ -632,22 +632,22 @@ export const StudyScheduleCard: React.FC = () => {
           )}
         </div>
 
-        {/* iOS Native App vs iOS Safari PWA Instructions */}
+        {/* iPhone Home Screen Removal Options: Native App vs Apple Calendar (.ics) vs Safari Hide Page */}
         <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-2">
           <div className="rounded-lg border border-line bg-surface p-3 text-xs text-muted space-y-1.5">
             <p className="font-semibold text-fg">
               <Smartphone className="mr-1 inline size-3.5 text-primary-fg" aria-hidden />
-              Bản Ứng dụng iPhone Native (Capacitor iOS):
+              Cách 1 — Bản Native iOS App (Khuyên dùng, lưu vào App Library):
             </p>
             <ul className="list-disc pl-4 space-y-1">
               <li>
-                Thông báo dùng <strong>Apple UNUserNotificationCenter</strong> (hoạt động cả khi mất mạng, khóa màn hình hoặc đóng hoàn toàn ứng dụng ở App Switcher).
+                Thông báo dùng <strong>Apple UNUserNotificationCenter</strong> (hoạt động cả khi khóa màn hình, đóng ở App Switcher, mất mạng hoặc khởi động lại iPhone).
               </li>
               <li>
-                Có thể giữ icon ➔ chọn <strong>"Xóa khỏi Màn hình chính (Remove from Home Screen)"</strong> để ẩn vào <strong>Thư viện ứng dụng (App Library)</strong> — lịch nhắc vẫn chạy bình thường.
+                Có thể giữ icon ➔ <strong>Xóa ứng dụng</strong> ➔ chọn <strong>"Xóa khỏi Màn hình chính (Remove from Home Screen)"</strong> để ẩn vào <strong>Thư viện ứng dụng (App Library)</strong> — thông báo vẫn hiển thị bình thường (tuyệt đối không chọn <em>"Xóa ứng dụng / Delete App"</em>).
               </li>
               <li>
-                <strong>Lưu ý:</strong> Không chọn <strong>"Xóa ứng dụng (Delete App)"</strong> nếu muốn tiếp tục nhận thông báo.
+                <strong>Không có máy Mac?</strong> Có thể tải file <code>.ipa</code> từ GitHub Actions (<em>Build Native Apps</em>) rồi cài vào iPhone bằng <strong>Sideloadly / AltStore</strong> từ Windows.
               </li>
             </ul>
           </div>
@@ -655,15 +655,16 @@ export const StudyScheduleCard: React.FC = () => {
           <div className="rounded-lg border border-line bg-surface p-3 text-xs text-muted space-y-1.5">
             <p className="font-semibold text-fg">
               <Smartphone className="mr-1 inline size-3.5 text-primary-fg" aria-hidden />
-              Bản Web / PWA trên iPhone Safari (iOS 16.4+):
+              Cách 2 &amp; 3 — Dùng trên Safari iPhone (Không cần cài App Native):
             </p>
-            <ol className="list-decimal pl-4 space-y-0.5">
-              <li>Mở trang web trong <strong>Safari</strong> ➔ bấm <strong>Chia sẻ (Share)</strong> ➔ chọn <strong>Thêm vào MH chính</strong>.</li>
-              <li>Mở ứng dụng <strong>Nihongo 問</strong> từ Màn hình chính và bấm <strong>Đăng ký Web Push</strong>.</li>
+            <ul className="list-disc pl-4 space-y-1">
               <li>
-                <strong>Lưu ý PWA:</strong> Biểu tượng Web App phải <strong>giữ lại trên Màn hình chính</strong> — nếu xóa icon Web App khỏi Màn hình chính, Safari iOS sẽ gỡ Web App và ngừng Web Push.
+                <strong>Muốn xóa hẳn icon Web khỏi Màn hình chính:</strong> Bấm nút <strong>"📲 Cài vào Lịch Báo Thức Điện Thoại (iPhone .ics)"</strong> ở mục 4 để nạp lịch vào <strong>Apple Calendar</strong> — sau đó có thể xóa bookmark Web khỏi Màn hình chính mà iPhone vẫn báo chuông + hiện thông báo kèm link vào học.
               </li>
-            </ol>
+              <li>
+                <strong>Muốn giữ Web Push (APNs) nhưng giấu icon khỏi MH chính:</strong> Mở Safari ➔ <strong>Chia sẻ</strong> ➔ <strong>Thêm vào MH chính</strong>, kéo icon sang 1 trang riêng rồi giữ nền MH chính ➔ bấm dãy chấm (<code>•••</code>) ➔ <strong>bỏ tích trang đó</strong> để ẩn trang (không bấm <em>Xóa dấu trang</em> vì iOS sẽ ngừng Web Push).
+              </li>
+            </ul>
           </div>
         </div>
 
