@@ -1,7 +1,9 @@
-import React, { Suspense, useRef } from 'react';
+import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LogIn, LogOut, Settings, ShieldCheck, UserRound } from 'lucide-react';
-import { useAuth } from '../../context/auth-context';
+import { FlaskConical, LogIn, LogOut, Settings, ShieldCheck, UserRound } from 'lucide-react';
+import { isQuickTestAllowed, useAuth } from '../../context/auth-context';
+import { startStudyReminderLoop } from '../../services/notificationService';
+import { QuickTestLoginModal } from '../auth/QuickTestLoginModal';
 import { JapaneseLookupProvider } from '../common/JapaneseLookupPopover';
 import { Badge, LoadingState, PageContainer } from '../ui';
 import { buttonStyles } from '../ui/styles';
@@ -21,6 +23,12 @@ export const AppLayout: React.FC = () => {
   const mainRef = useRef<HTMLElement>(null);
   const { user, signOut } = useAuth();
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
+  const quickTestAllowed = isQuickTestAllowed();
+  const [quickTestModalOpen, setQuickTestModalOpen] = useState(false);
+
+  useEffect(() => {
+    return startStudyReminderLoop();
+  }, []);
 
   return (
     <div className="relative isolate flex h-dvh flex-col overflow-hidden bg-transparent text-fg">
@@ -71,22 +79,24 @@ export const AppLayout: React.FC = () => {
                 {isAdmin && (
                   <Link
                     to="/admin"
-                    aria-label="Bảng quản trị"
-                    title="Bảng quản trị"
-                    className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'px-2 sm:px-3' })}
+                    aria-label="Quản trị (/admin)"
+                    title="Quản trị (/admin)"
+                    className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'gap-1.5 px-2 sm:px-3' })}
                   >
                     <ShieldCheck className="size-4 text-primary-fg" aria-hidden />
-                    <span className="hidden md:inline">Admin</span>
+                    <span className="hidden sm:inline">Quản trị</span>
                   </Link>
                 )}
                 <Link
                   to="/profile"
-                  aria-label={`Hồ sơ ${user.displayName} (${user.role})`}
-                  title={`Hồ sơ: ${user.displayName} (${user.role})`}
+                  aria-label={`Hồ sơ ${user.displayName || user.email} (${user.role})`}
+                  title={`${user.email} (${user.role})`}
                   className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'gap-1.5 px-2 sm:px-2.5' })}
                 >
                   <UserRound className="size-3.5 shrink-0" aria-hidden />
-                  <span className="hidden max-w-24 truncate md:inline">{user.displayName}</span>
+                  <span className="hidden max-w-28 truncate md:inline">
+                    {user.displayName || user.email}
+                  </span>
                   <Badge tone={ROLE_BADGE_TONE[user.role]} className="px-1.5 py-0 text-[10px]">
                     {user.role}
                   </Badge>
@@ -96,9 +106,10 @@ export const AppLayout: React.FC = () => {
                   onClick={() => void signOut()}
                   aria-label="Đăng xuất"
                   title="Đăng xuất"
-                  className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'w-8 px-0' })}
+                  className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'gap-1.5 px-2 sm:px-2.5' })}
                 >
-                  <LogOut className="size-4" aria-hidden />
+                  <LogOut className="size-3.5" aria-hidden />
+                  <span className="hidden md:inline text-xs">Đăng xuất</span>
                 </button>
               </>
             ) : (
@@ -107,23 +118,38 @@ export const AppLayout: React.FC = () => {
                   to="/profile"
                   aria-label="Hồ sơ & Lịch sử (Khách)"
                   title="Hồ sơ & Lịch sử (Khách)"
-                  className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'gap-1.5 px-2 sm:px-2.5' })}
+                  className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'hidden gap-1.5 px-2.5 md:inline-flex' })}
                 >
                   <UserRound className="size-3.5 shrink-0" aria-hidden />
-                  <Badge tone="neutral" className="hidden px-1.5 py-0 text-[10px] md:inline-flex">
+                  <Badge tone="neutral" className="px-1.5 py-0 text-[10px]">
                     Khách
                   </Badge>
                 </Link>
                 <Link
                   to="/login"
-                  aria-label="Đăng nhập"
-                  title="Đăng nhập"
+                  aria-label="Đăng nhập / Đăng ký"
+                  title="Đăng nhập / Đăng ký"
                   className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'gap-1.5 px-2 sm:px-3' })}
                 >
                   <LogIn className="size-3.5 shrink-0" aria-hidden />
-                  <span className={isHome ? 'text-xs sm:text-sm' : 'hidden sm:inline'}>Đăng nhập</span>
+                  <span className={isHome ? 'text-xs sm:text-sm' : 'hidden text-xs sm:inline sm:text-sm'}>
+                    Đăng nhập / Đăng ký
+                  </span>
                 </Link>
               </>
+            )}
+
+            {quickTestAllowed && (
+              <button
+                type="button"
+                onClick={() => setQuickTestModalOpen(true)}
+                aria-label="Test Nhanh (User / Admin)"
+                title="Đăng nhập nhanh & Chuyển quyền Test (User / Admin)"
+                className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'gap-1.5 px-2 sm:px-2.5' })}
+              >
+                <FlaskConical className="size-3.5 shrink-0 text-primary-fg" aria-hidden />
+                <span className="hidden lg:inline text-xs">Test Nhanh</span>
+              </button>
             )}
 
             <Link
@@ -138,6 +164,12 @@ export const AppLayout: React.FC = () => {
           </div>
         </div>
       </header>
+      {quickTestAllowed && (
+        <QuickTestLoginModal
+          open={quickTestModalOpen}
+          onClose={() => setQuickTestModalOpen(false)}
+        />
+      )}
 
       <main
         ref={mainRef}

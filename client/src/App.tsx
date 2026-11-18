@@ -7,8 +7,7 @@ import { ToastProvider } from './components/ui/Toast';
 import './index.css';
 
 const HomePage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m.HomePage })));
-const LoginPage = lazy(() => import('./pages/auth/LoginPage').then((m) => ({ default: m.LoginPage })));
-const RegisterPage = lazy(() => import('./pages/auth/RegisterPage').then((m) => ({ default: m.RegisterPage })));
+const AuthPage = lazy(() => import('./pages/AuthPage').then((m) => ({ default: m.AuthPage })));
 const ProfilePage = lazy(() => import('./pages/ProfilePage').then((m) => ({ default: m.ProfilePage })));
 const AdminDashboardPage = lazy(() =>
   import('./pages/admin/AdminDashboardPage').then((m) => ({ default: m.AdminDashboardPage })),
@@ -120,8 +119,8 @@ function App() {
             </Route>
 
             <Route path="jlpt/:moduleId" element={<JLPTModulePage />} />
-            <Route path="login" element={<LoginPage />} />
-            <Route path="register" element={<RegisterPage />} />
+            <Route path="login" element={<AuthPage initialMode="login" />} />
+            <Route path="register" element={<AuthPage initialMode="register" />} />
             <Route path="profile" element={<ProfilePage />} />
             <Route
               path="admin"

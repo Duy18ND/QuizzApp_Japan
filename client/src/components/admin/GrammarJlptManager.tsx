@@ -256,7 +256,7 @@ export function GrammarJlptManager({
     };
 
     setSaving(true);
-    const res = await saveGrammarRule(record, actor);
+    const res = await saveGrammarRule(record, actor, { isNew: !grammarForm.isEdit });
     setSaving(false);
     if (!res.ok) {
       setFormError(res.error ?? 'Không thể lưu ngữ pháp.');
@@ -314,7 +314,7 @@ export function GrammarJlptManager({
     };
 
     setSaving(true);
-    const res = await saveJlptQuestion(record, actor);
+    const res = await saveJlptQuestion(record, actor, { isNew: !jlptForm.isEdit });
     setSaving(false);
     if (!res.ok) {
       setFormError(res.error ?? 'Không thể lưu câu hỏi JLPT.');

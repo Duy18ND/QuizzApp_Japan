@@ -1,11 +1,17 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
-import { CardLink, Card, PageContainer, ProgressBar, QuizHistoryCard, Stat } from '../components/ui';
+import { AlarmClock, ArrowRight } from 'lucide-react';
+import { StudyScheduleModal } from '../components/settings/StudyScheduleCard';
+import { Badge, Button, CardLink, Card, PageContainer, ProgressBar, QuizHistoryCard, Stat } from '../components/ui';
 import { useAuth } from '../context/auth-context';
 import { grammarBooks } from '../data/grammar';
 import kanjiDataRaw from '../data/kanji/kanjiDataset.json';
 import { cn } from '../lib/cn';
+import {
+  loadStudySchedule,
+  STUDY_SCHEDULE_SYNC_EVENT,
+  type StudyScheduleConfig,
+} from '../services/notificationService';
 import type { KanjiItem } from '../types/kanji';
 import { useAppSelector } from '../store/hooks';
 
@@ -137,6 +143,14 @@ export const HomePage: React.FC = () => {
   const kanjiProgress = useAppSelector((state) => state.kanji.progress);
   const grammarRecords = useAppSelector((state) => state.grammarProgress.records);
   const mistakes = useAppSelector((state) => state.mistake.mistakes);
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+  const [schedule, setSchedule] = useState<StudyScheduleConfig>(() => loadStudySchedule());
+
+  useEffect(() => {
+    const onSync = () => setSchedule(loadStudySchedule());
+    window.addEventListener(STUDY_SCHEDULE_SYNC_EVENT, onSync);
+    return () => window.removeEventListener(STUDY_SCHEDULE_SYNC_EVENT, onSync);
+  }, []);
 
   const kanjiLearned = Object.values(kanjiProgress).filter((item) => item.learned).length;
   const grammarPracticed = Object.values(grammarRecords).filter((record) =>
@@ -164,7 +178,30 @@ export const HomePage: React.FC = () => {
               : 'Chọn một mục để tiếp tục. Tiến độ được lưu trên thiết bị ở chế độ Khách.'}
           </p>
         </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {schedule.enabled && (
+            <Badge tone="primary">
+              <span className="font-mono tabular-nums">{schedule.primaryTime}</span>
+              <span className="ml-1">
+                · {schedule.isContinuousDaily ? 'Học liên tục mỗi ngày' : `${schedule.daysOfWeek.length} ngày/tuần`}
+              </span>
+            </Badge>
+          )}
+          <Button
+            variant="secondary"
+            size="sm"
+            leftIcon={<AlarmClock className="size-4 text-primary-fg shrink-0" aria-hidden />}
+            onClick={() => setScheduleModalOpen(true)}
+          >
+            ⏰ Lịch nhắc học
+          </Button>
+        </div>
       </section>
+      <StudyScheduleModal
+        open={scheduleModalOpen}
+        onClose={() => setScheduleModalOpen(false)}
+      />
 
       <Card as="section" aria-label="Tiến độ học tập" className="mb-5 md:mb-6" padding="md">
         <div className="mb-3.5 flex items-center gap-2">

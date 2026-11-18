@@ -121,6 +121,7 @@ export function KanjiManager({ kanjis, actor, snapshot, onRefresh }: KanjiManage
         meanings: nextMeanings.length > 0 ? nextMeanings : item.meanings,
       },
       actor,
+      { isNew: false },
     );
     setSavingId(null);
 
@@ -203,7 +204,7 @@ export function KanjiManager({ kanjis, actor, snapshot, onRefresh }: KanjiManage
     };
 
     setSaving(true);
-    const res = await saveKanjiItem(record, actor);
+    const res = await saveKanjiItem(record, actor, { isNew: !form.isEdit });
     setSaving(false);
 
     if (!res.ok) {
