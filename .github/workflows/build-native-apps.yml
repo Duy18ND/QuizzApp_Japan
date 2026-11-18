@@ -21,10 +21,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js 22 (required by Capacitor CLI 8)
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: "22"
           cache: "npm"
           cache-dependency-path: "./client/package-lock.json"
 
@@ -47,24 +47,24 @@ jobs:
             -scheme App
         working-directory: ./client
 
-      - name: Build unsigned iOS Release bundle
+      - name: Archive unsigned iOS Release bundle
         run: |
-          xcodebuild clean build \
+          xcodebuild archive \
             -project ios/App/App.xcodeproj \
             -scheme App \
             -configuration Release \
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
+            -archivePath "$PWD/ios_build/App.xcarchive" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            CONFIGURATION_BUILD_DIR="$PWD/ios_build"
+            CODE_SIGN_IDENTITY=""
         working-directory: ./client
 
       - name: Package unsigned .ipa for Sideloadly / AltStore
         run: |
           mkdir -p ios_ipa/Payload
-          cp -R ios_build/App.app ios_ipa/Payload/App.app
+          cp -R ios_build/App.xcarchive/Products/Applications/App.app ios_ipa/Payload/App.app
           cd ios_ipa
           zip -qry ../Nihongo-QuizzApp-iOS-Unsigned.ipa Payload
         working-directory: ./client
@@ -82,10 +82,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js 22 (required by Capacitor CLI 8)
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: "22"
           cache: "npm"
           cache-dependency-path: "./client/package-lock.json"
 
@@ -94,6 +94,14 @@ jobs:
         with:
           distribution: "temurin"
           java-version: "21"
+
+      - name: Ensure Android SDK 36 & Licenses
+        run: |
+          SDK_MANAGER="${ANDROID_HOME:-$ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
+          if [ -x "$SDK_MANAGER" ]; then
+            yes | "$SDK_MANAGER" --licenses > /dev/null 2>&1 || true
+            "$SDK_MANAGER" "platforms;android-36" "build-tools;36.0.0"
+          fi
 
       - name: Install client dependencies
         run: npm ci
