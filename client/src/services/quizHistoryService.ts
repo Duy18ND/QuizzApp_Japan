@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { recordStudyCompletion } from './notificationService';
 import { supabase } from './supabaseClient';
 
 export const QUIZ_HISTORY_STORAGE_KEY = 'nihonmaster_quiz_history';
@@ -118,6 +119,7 @@ export async function recordQuizAttempt(
 
   const current = loadQuizHistory();
   saveQuizHistory([record, ...current]);
+  void recordStudyCompletion(undefined, userId);
 
   if (supabase && userId) {
     try {

@@ -167,7 +167,7 @@ export function VocabularyManager({
     };
 
     setSaving(true);
-    const res = await saveVocabItem(record, actor);
+    const res = await saveVocabItem(record, actor, { isNew: !form.id });
     setSaving(false);
 
     if (!res.ok) {
@@ -265,7 +265,7 @@ export function VocabularyManager({
               leftIcon={<Plus className="size-4" aria-hidden />}
               onClick={openCreateModal}
             >
-              Thêm từ vựng
+              Thêm từ vựng mới
             </Button>
           </div>
         </div>
@@ -334,6 +334,7 @@ export function VocabularyManager({
                           onClick={() => openEditModal(item)}
                         >
                           <Pencil className="size-3.5" aria-hidden />
+                          <span>Sửa</span>
                         </Button>
                         <Button
                           variant="danger"
@@ -342,6 +343,7 @@ export function VocabularyManager({
                           onClick={() => setDeleteTarget(item)}
                         >
                           <Trash2 className="size-3.5" aria-hidden />
+                          <span>Xóa</span>
                         </Button>
                       </div>
                     </td>

@@ -21,6 +21,9 @@ import { hydrateKanjiState, resetAllKanjiProgress } from '../store/slices/kanjiS
 import { clearMistakes, hydrateMistakes } from '../store/slices/mistakeSlice';
 import type { UserProgress } from '../types/quiz';
 import { isSpeechSupported, speakJapanese } from '../utils/tts';
+import { SupabaseStatusBadge } from '../components/common/SupabaseStatusBadge';
+import { StudyScheduleCard } from '../components/settings/StudyScheduleCard';
+import { STUDY_SCHEDULE_STORAGE_KEY } from '../services/notificationService';
 import {
   Button,
   Card,
@@ -53,6 +56,7 @@ interface ProgressBackupPayload {
   kanjiProgress?: unknown;
   grammarProgress?: unknown;
   grammarMistakes?: unknown;
+  studySchedule?: unknown;
 }
 
 function readJsonStorage(key: string, fallback: unknown): unknown {
@@ -89,6 +93,7 @@ export const SettingsPage: React.FC = () => {
       kanjiProgress: readJsonStorage(KANJI_STORAGE_KEY, { progress: {}, tutorialSeen: false }),
       grammarProgress: readJsonStorage(GRAMMAR_PROGRESS_KEY, {}),
       grammarMistakes: readJsonStorage(GRAMMAR_MISTAKES_KEY, []),
+      studySchedule: readJsonStorage(STUDY_SCHEDULE_STORAGE_KEY, null),
     };
 
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -180,8 +185,12 @@ export const SettingsPage: React.FC = () => {
       <PageHeader
         breadcrumbs={[{ label: 'Trang chủ', to: '/' }, { label: 'Cài đặt' }]}
         title="Cài đặt & Quản lý dữ liệu"
-        description="Tùy chỉnh giao diện, giọng đọc tiếng Nhật và sao lưu / khôi phục tiến độ cá nhân."
+        description="Tùy chỉnh lịch nhắc học trên điện thoại, giao diện, giọng đọc tiếng Nhật và sao lưu tiến độ cá nhân."
+        actions={<SupabaseStatusBadge />}
       />
+
+      {/* 0. Mobile Study Notification & Fixed Schedule Manager */}
+      <StudyScheduleCard />
 
       {/* 1. Theme */}
       <Card padding="lg" className="space-y-4">

@@ -385,3 +385,93 @@ create policy "audit_logs_admin_insert"
   for insert
   to authenticated
   with check (auth.uid() = actor_id and public.is_admin_or_super());
+
+-- ============================================================================
+-- 4. USER STUDY REMINDERS, STREAK GOAL & MULTI-DEVICE WEB PUSH (RLS)
+-- ============================================================================
+
+create table if not exists public.user_reminders (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  enabled boolean default true,
+  time_slots jsonb default '[]'::jsonb,
+  is_continuous_daily boolean default true,
+  days_of_week jsonb default '[1,2,3,4,5,6,0]'::jsonb,
+  streak_mode text not null default 'every_day' check (streak_mode in ('every_day', 'custom_weekly')),
+  streak_days_of_week jsonb not null default '[1,2,3,4,5,6,0]'::jsonb,
+  completed_dates jsonb not null default '[]'::jsonb,
+  target_exam_level text not null default 'N3' check (target_exam_level in ('N5', 'N4', 'N3', 'N2', 'N1')),
+  target_exam_date text default '',
+  continuous_repeat_minutes int default 0,
+  timezone text default 'Asia/Ho_Chi_Minh',
+  push_subscription jsonb,
+  updated_at timestamptz default now()
+);
+
+alter table public.user_reminders enable row level security;
+
+drop policy if exists "user_reminders_owner_all" on public.user_reminders;
+create policy "user_reminders_owner_all"
+  on public.user_reminders
+  for all
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- Multi-device Web Push Subscriptions (PC Chrome/Edge, iOS 16.4+ Home Screen PWA, Android Chrome)
+create table if not exists public.push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  device_id text not null,
+  device_label text not null default 'Thiết bị học tập',
+  platform text not null default 'unknown',
+  browser text not null default 'unknown',
+  endpoint text not null unique,
+  p256dh text not null,
+  auth text not null,
+  enabled boolean not null default true,
+  timezone text not null default 'Asia/Ho_Chi_Minh',
+  schedule_snapshot jsonb not null default '{}'::jsonb,
+  last_notified_key text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint uq_push_subscriptions_user_device unique (user_id, device_id)
+);
+
+create index if not exists idx_push_subscriptions_user_enabled
+  on public.push_subscriptions (user_id, enabled);
+
+alter table public.push_subscriptions enable row level security;
+
+drop policy if exists "push_subscriptions_owner_all" on public.push_subscriptions;
+create policy "push_subscriptions_owner_all"
+  on public.push_subscriptions
+  for all
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- Server-side push delivery log to guarantee zero duplicate notifications
+create table if not exists public.push_delivery_logs (
+  id uuid primary key default gen_random_uuid(),
+  subscription_id uuid not null references public.push_subscriptions (id) on delete cascade,
+  delivery_key text not null,
+  delivered_at timestamptz not null default now(),
+  constraint uq_push_delivery_once unique (subscription_id, delivery_key)
+);
+
+alter table public.push_delivery_logs enable row level security;
+
+drop policy if exists "push_delivery_logs_owner_select" on public.push_delivery_logs;
+create policy "push_delivery_logs_owner_select"
+  on public.push_delivery_logs
+  for select
+  to authenticated
+  using (
+    exists (
+      select 1 from public.push_subscriptions s
+      where s.id = push_delivery_logs.subscription_id
+        and s.user_id = auth.uid()
+    )
+  );
+
+

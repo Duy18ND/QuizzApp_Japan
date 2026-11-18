@@ -1,11 +1,13 @@
 {
-  "name": "Nihongo 問",
+  "name": "Nihongo 問 - QuizzApp Japan",
   "short_name": "Nihongo 問",
-  "description": "Ứng dụng luyện tiếng Nhật",
+  "description": "Ứng dụng luyện từ vựng, Kanji, ngữ pháp và đề thi JLPT tiếng Nhật",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
-  "background_color": "#F8FAFC",
-  "theme_color": "#2563EB",
+  "orientation": "portrait-primary",
+  "background_color": "#F2F9FF",
+  "theme_color": "#0284C7",
   "icons": [
     {
       "src": "icons/icon-192.png",

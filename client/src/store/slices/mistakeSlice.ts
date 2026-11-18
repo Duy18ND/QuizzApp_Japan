@@ -23,17 +23,28 @@ const isSameMistake = (existing: GrammarMistake, incoming: GrammarMistake): bool
   return Boolean(incomingPrompt && existingPrompt && incomingPrompt === existingPrompt);
 };
 
+const MAX_MISTAKES = 200;
+const MAX_FIELD_LEN = 600;
+const UNSAFE_JSON_PATTERN = /"(__proto__|constructor|prototype)"\s*:/;
+
 const isValidMistake = (item: unknown): item is GrammarMistake => {
   if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
   const m = item as Record<string, unknown>;
   return (
     typeof m.id === 'string' &&
+    m.id.length <= 120 &&
     typeof m.grammarId === 'string' &&
+    m.grammarId.length <= 120 &&
     typeof m.questionId === 'string' &&
+    m.questionId.length <= 120 &&
     typeof m.userAnswer === 'string' &&
+    m.userAnswer.length <= MAX_FIELD_LEN &&
     typeof m.correctAnswer === 'string' &&
+    m.correctAnswer.length <= MAX_FIELD_LEN &&
     typeof m.errorType === 'string' &&
-    typeof m.createdAt === 'string'
+    m.errorType.length <= 80 &&
+    typeof m.createdAt === 'string' &&
+    m.createdAt.length <= 64
   );
 };
 
@@ -41,7 +52,7 @@ const loadInitialMistakes = (): GrammarMistake[] => {
   if (typeof window === 'undefined') return [];
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
+    if (!raw || raw.length > 262_144 || UNSAFE_JSON_PATTERN.test(raw)) return [];
     const parsed: unknown = JSON.parse(raw);
     if (Array.isArray(parsed)) {
       const deduped: GrammarMistake[] = [];
@@ -58,7 +69,7 @@ const loadInitialMistakes = (): GrammarMistake[] => {
           deduped.push(normalizedItem);
         }
       }
-      return deduped;
+      return deduped.slice(-MAX_MISTAKES);
     }
   } catch {
     // ignore corrupted localStorage data
@@ -69,7 +80,7 @@ const loadInitialMistakes = (): GrammarMistake[] => {
 const saveMistakes = (mistakes: GrammarMistake[]) => {
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(mistakes));
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(mistakes.slice(-MAX_MISTAKES)));
   } catch {
     // ignore quota / private-mode storage errors
   }
