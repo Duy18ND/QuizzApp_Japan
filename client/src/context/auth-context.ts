@@ -76,6 +76,7 @@ export interface AuthContextValue extends AuthState {
     password: string,
     displayName: string,
   ) => Promise<AuthActionResult>;
+  signInWithGoogle: () => Promise<AuthActionResult>;
   quickLoginAsRole: (role: AccountRole) => AuthUser;
   quickSignInWithPreset: (role: AccountRole) => Promise<AuthActionResult>;
   signOut: () => Promise<void>;
@@ -84,6 +85,12 @@ export interface AuthContextValue extends AuthState {
 
 export function translateSupabaseAuthError(message: string): string {
   const lower = message.toLowerCase();
+  if (lower.includes('provider is not enabled') || lower.includes('unsupported provider')) {
+    return 'Đăng nhập Google chưa được bật trên Supabase (cần bật Google trong Authentication ➔ Providers trên Supabase Dashboard).';
+  }
+  if (lower.includes('access_denied')) {
+    return 'Bạn đã hủy quá trình đăng nhập Google.';
+  }
   if (lower.includes('invalid login credentials')) {
     return 'Email hoặc mật khẩu không chính xác.';
   }

@@ -74,7 +74,17 @@ begin
   values (
     new.id,
     coalesce(new.email, ''),
-    nullif(trim(coalesce(new.raw_user_meta_data ->> 'display_name', '')), ''),
+    nullif(
+      trim(
+        coalesce(
+          new.raw_user_meta_data ->> 'display_name',
+          new.raw_user_meta_data ->> 'full_name',
+          new.raw_user_meta_data ->> 'name',
+          ''
+        )
+      ),
+      ''
+    ),
     'USER'
   )
   on conflict (id) do update

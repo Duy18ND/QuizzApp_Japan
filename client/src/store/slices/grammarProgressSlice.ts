@@ -1,8 +1,13 @@
 import { createSlice } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
+import {
+  deleteAllGrammarDirectFromSupabase,
+  getInMemoryGrammarMap,
+  setInMemoryGrammarMap,
+  writeGrammarItemDirectToSupabase,
+} from '../../services/cloudProgressWriter';
+import { getActiveAuthenticatedUserId } from '../../services/sessionScope';
 import type { GrammarProgress, PracticeType } from '../../types/grammar';
-
-const STORAGE_KEY = 'nihonmaster_grammar_progress';
 
 interface ProgressState {
   records: Record<string, GrammarProgress>;
@@ -41,34 +46,22 @@ const sanitizeProgressRecord = (val: unknown): GrammarProgress | null => {
 };
 
 const loadInitialRecords = (): Record<string, GrammarProgress> => {
-  if (typeof window === 'undefined') return {};
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return {};
-    const parsed: unknown = JSON.parse(raw);
-    if (!isPlainObject(parsed)) return {};
-    const result: Record<string, GrammarProgress> = {};
-    for (const [grammarId, entry] of Object.entries(parsed)) {
-      if (UNSAFE_KEYS.has(grammarId)) continue;
-      const clean = sanitizeProgressRecord(entry);
-      if (clean) {
-        result[grammarId] = clean;
-      }
-    }
-    return result;
-  } catch {
-    // ignore corrupted localStorage data
+  const uid = getActiveAuthenticatedUserId();
+  if (!uid) return {};
+  const cached = getInMemoryGrammarMap(uid);
+  const result: Record<string, GrammarProgress> = {};
+  for (const [grammarId, entry] of Object.entries(cached)) {
+    if (UNSAFE_KEYS.has(grammarId)) continue;
+    const clean = sanitizeProgressRecord(entry);
+    if (clean) result[grammarId] = clean;
   }
-  return {};
+  return result;
 };
 
-const saveRecords = (records: Record<string, GrammarProgress>) => {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-  } catch {
-    // ignore quota / private-mode storage errors
-  }
+const cacheGrammarInSession = (records: Record<string, GrammarProgress>) => {
+  const uid = getActiveAuthenticatedUserId();
+  if (!uid) return;
+  setInMemoryGrammarMap(uid, { ...records });
 };
 
 const initialState: ProgressState = {
@@ -83,6 +76,8 @@ const grammarProgressSlice = createSlice({
       state,
       action: PayloadAction<{ grammarId: string; type: PracticeType; score: number }>,
     ) {
+      const uid = getActiveAuthenticatedUserId();
+      if (!uid) return;
       const { grammarId, type, score } = action.payload;
       if (!grammarId || UNSAFE_KEYS.has(grammarId)) {
         return;
@@ -97,7 +92,8 @@ const grammarProgressSlice = createSlice({
         Number.isFinite(existingScore) ? existingScore : 0,
         normalizedScore,
       );
-      saveRecords(state.records);
+      cacheGrammarInSession(state.records);
+      void writeGrammarItemDirectToSupabase(uid, grammarId, { ...state.records[grammarId] });
     },
     hydrateGrammarProgress(state, action: PayloadAction<unknown>) {
       const incoming = action.payload;
@@ -109,15 +105,25 @@ const grammarProgressSlice = createSlice({
         if (clean) cleanRecords[grammarId] = clean;
       }
       state.records = cleanRecords;
-      saveRecords(state.records);
+      cacheGrammarInSession(state.records);
     },
     resetAllGrammarProgress(state) {
+      const uid = getActiveAuthenticatedUserId();
       state.records = {};
-      saveRecords(state.records);
+      if (!uid) return;
+      cacheGrammarInSession({});
+      void deleteAllGrammarDirectFromSupabase(uid);
+    },
+    reloadGrammarFromSession(state) {
+      state.records = loadInitialRecords();
     },
   },
 });
 
-export const { updateProgress, hydrateGrammarProgress, resetAllGrammarProgress } =
-  grammarProgressSlice.actions;
+export const {
+  updateProgress,
+  hydrateGrammarProgress,
+  resetAllGrammarProgress,
+  reloadGrammarFromSession,
+} = grammarProgressSlice.actions;
 export default grammarProgressSlice.reducer;

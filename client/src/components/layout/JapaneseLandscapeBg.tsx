@@ -134,13 +134,13 @@ const BG_IMAGE_LAYERS = [
     key: 'day',
     src: dayLandscapeUrl,
     className:
-      'bg-day-layer fixed inset-0 h-full w-full object-cover object-bottom opacity-100 select-none transition-opacity duration-700 ease-in-out',
+      'bg-day-layer bg-landscape-responsive absolute inset-0 h-full w-full opacity-100 select-none transition-opacity duration-700 ease-in-out',
   },
   {
     key: 'night',
     src: nightLandscapeUrl,
     className:
-      'bg-night-layer fixed inset-0 h-full w-full object-cover object-bottom opacity-0 select-none transition-opacity duration-700 ease-in-out',
+      'bg-night-layer bg-landscape-responsive absolute inset-0 h-full w-full opacity-0 select-none transition-opacity duration-700 ease-in-out',
   },
 ] as const;
 

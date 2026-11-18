@@ -2,14 +2,18 @@ import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { FlaskConical, LogIn, LogOut, Settings, ShieldCheck, UserRound } from 'lucide-react';
 import { isQuickTestAllowed, useAuth } from '../../context/auth-context';
-import { startStudyReminderLoop } from '../../services/notificationService';
+import {
+  startStudyReminderLoop,
+  startWebOnlineTimeTracker,
+} from '../../services/notificationService';
 import { QuickTestLoginModal } from '../auth/QuickTestLoginModal';
 import { JapaneseLookupProvider } from '../common/JapaneseLookupPopover';
-import { Badge, LoadingState, PageContainer } from '../ui';
+import { Badge, LoadingState } from '../ui';
 import { buttonStyles } from '../ui/styles';
 import { ThemeToggle } from '../ui/ThemeToggle';
 import { ClickEffect } from './ClickEffect';
 import { JapaneseLandscapeBg } from './JapaneseLandscapeBg';
+import { SakuraContactFloating } from './SakuraContactFloating';
 
 const ROLE_BADGE_TONE = {
   SUPER_ADMIN: 'sakura',
@@ -22,12 +26,22 @@ export const AppLayout: React.FC = () => {
   const isHome = pathname === '/';
   const mainRef = useRef<HTMLElement>(null);
   const { user, signOut } = useAuth();
+  const userIdRef = useRef<string | undefined>(user?.id);
+
+  useEffect(() => {
+    userIdRef.current = user?.id;
+  }, [user?.id]);
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
   const quickTestAllowed = isQuickTestAllowed();
   const [quickTestModalOpen, setQuickTestModalOpen] = useState(false);
 
   useEffect(() => {
-    return startStudyReminderLoop();
+    const stopReminders = startStudyReminderLoop();
+    const stopOnlineTracker = startWebOnlineTimeTracker(() => userIdRef.current);
+    return () => {
+      stopReminders();
+      stopOnlineTracker();
+    };
   }, []);
 
   return (
@@ -42,32 +56,32 @@ export const AppLayout: React.FC = () => {
         Bỏ qua điều hướng
       </a>
 
-      <header className="relative z-40 flex-none overflow-hidden border-b border-line bg-glass-header print:hidden">
+      <header className="relative z-40 flex-none border-b border-line bg-glass-header print:hidden">
         <div
           aria-hidden
-          className="seigaiha-mask pointer-events-none absolute inset-0 bg-wave opacity-[0.035]"
+          className="seigaiha-mask pointer-events-none absolute inset-0 overflow-hidden bg-wave opacity-[0.035]"
         />
-        <div className="relative mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-3 sm:gap-4 sm:px-4 md:h-15 md:px-6">
-          <Link to="/" className="group flex shrink-0 items-center gap-2 rounded-lg sm:gap-2.5" aria-label="Nihongo 問 — Trang chủ">
+        <div className="relative mx-auto flex min-h-14 max-w-6xl flex-wrap items-center justify-between gap-x-2 gap-y-1.5 px-2.5 py-1.5 sm:h-15 sm:flex-nowrap sm:gap-3 sm:px-5 sm:py-0 lg:px-8">
+          <Link to="/" className="group flex shrink-0 items-center gap-1.5 rounded-lg sm:gap-2.5" aria-label="Nihongo 問 — Trang chủ">
             <span
               lang="ja"
               aria-hidden
-              className="grid size-8 place-items-center rounded-lg bg-primary text-base font-bold text-on-primary shadow-card ring-2 ring-sakura/35 transition-transform duration-150 group-hover:scale-105"
+              className="grid size-7 place-items-center rounded-lg bg-primary text-sm font-bold text-on-primary shadow-card ring-2 ring-sakura/35 transition-transform duration-150 group-hover:scale-105 sm:size-8 sm:text-base"
             >
               問
             </span>
-            <span className="text-base font-bold tracking-tight sm:text-lg">
+            <span className="text-sm font-bold tracking-tight min-[350px]:text-base sm:text-lg">
               Nihongo <span className="text-primary-fg">問</span>
             </span>
           </Link>
 
-          <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2.5">
+          <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-1 sm:flex-nowrap sm:gap-2.5">
             {!isHome && (
               <Link
                 to="/"
                 aria-label="Về trang chủ"
                 title="Về trang chủ"
-                className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'px-2 sm:px-3' })}
+                className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'h-8 px-2 sm:px-3' })}
               >
                 <span aria-hidden>←</span>
                 <span className="hidden sm:inline">Trang chủ</span>
@@ -81,9 +95,9 @@ export const AppLayout: React.FC = () => {
                     to="/admin"
                     aria-label="Quản trị (/admin)"
                     title="Quản trị (/admin)"
-                    className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'gap-1.5 px-2 sm:px-3' })}
+                    className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'h-8 gap-1 px-2 sm:gap-1.5 sm:px-3' })}
                   >
-                    <ShieldCheck className="size-4 text-primary-fg" aria-hidden />
+                    <ShieldCheck className="size-3.5 shrink-0 text-primary-fg sm:size-4" aria-hidden />
                     <span className="hidden sm:inline">Quản trị</span>
                   </Link>
                 )}
@@ -91,13 +105,13 @@ export const AppLayout: React.FC = () => {
                   to="/profile"
                   aria-label={`Hồ sơ ${user.displayName || user.email} (${user.role})`}
                   title={`${user.email} (${user.role})`}
-                  className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'gap-1.5 px-2 sm:px-2.5' })}
+                  className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'h-8 gap-1 px-1.5 sm:gap-1.5 sm:px-2.5' })}
                 >
                   <UserRound className="size-3.5 shrink-0" aria-hidden />
                   <span className="hidden max-w-28 truncate md:inline">
                     {user.displayName || user.email}
                   </span>
-                  <Badge tone={ROLE_BADGE_TONE[user.role]} className="px-1.5 py-0 text-[10px]">
+                  <Badge tone={ROLE_BADGE_TONE[user.role]} className="hidden px-1.5 py-0 text-[10px] min-[375px]:inline-flex">
                     {user.role}
                   </Badge>
                 </Link>
@@ -106,9 +120,9 @@ export const AppLayout: React.FC = () => {
                   onClick={() => void signOut()}
                   aria-label="Đăng xuất"
                   title="Đăng xuất"
-                  className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'gap-1.5 px-2 sm:px-2.5' })}
+                  className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'h-8 gap-1.5 px-2 sm:px-2.5' })}
                 >
-                  <LogOut className="size-3.5" aria-hidden />
+                  <LogOut className="size-3.5 shrink-0" aria-hidden />
                   <span className="hidden md:inline text-xs">Đăng xuất</span>
                 </button>
               </>
@@ -118,7 +132,7 @@ export const AppLayout: React.FC = () => {
                   to="/profile"
                   aria-label="Hồ sơ & Lịch sử (Khách)"
                   title="Hồ sơ & Lịch sử (Khách)"
-                  className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'hidden gap-1.5 px-2.5 md:inline-flex' })}
+                  className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'hidden h-8 gap-1.5 px-2.5 md:inline-flex' })}
                 >
                   <UserRound className="size-3.5 shrink-0" aria-hidden />
                   <Badge tone="neutral" className="px-1.5 py-0 text-[10px]">
@@ -129,12 +143,17 @@ export const AppLayout: React.FC = () => {
                   to="/login"
                   aria-label="Đăng nhập / Đăng ký"
                   title="Đăng nhập / Đăng ký"
-                  className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'gap-1.5 px-2 sm:px-3' })}
+                  className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'h-8 gap-1 px-2 sm:gap-1.5 sm:px-3' })}
                 >
                   <LogIn className="size-3.5 shrink-0" aria-hidden />
-                  <span className={isHome ? 'text-xs sm:text-sm' : 'hidden text-xs sm:inline sm:text-sm'}>
-                    Đăng nhập / Đăng ký
-                  </span>
+                  {isHome ? (
+                    <>
+                      <span className="hidden text-xs min-[360px]:inline sm:hidden">Đăng nhập</span>
+                      <span className="hidden text-sm sm:inline">Đăng nhập / Đăng ký</span>
+                    </>
+                  ) : (
+                    <span className="hidden text-xs sm:inline sm:text-sm">Đăng nhập / Đăng ký</span>
+                  )}
                 </Link>
               </>
             )}
@@ -145,7 +164,7 @@ export const AppLayout: React.FC = () => {
                 onClick={() => setQuickTestModalOpen(true)}
                 aria-label="Test Nhanh (User / Admin)"
                 title="Đăng nhập nhanh & Chuyển quyền Test (User / Admin)"
-                className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'gap-1.5 px-2 sm:px-2.5' })}
+                className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'h-8 w-8 px-0 sm:w-auto sm:gap-1.5 sm:px-2.5' })}
               >
                 <FlaskConical className="size-3.5 shrink-0 text-primary-fg" aria-hidden />
                 <span className="hidden lg:inline text-xs">Test Nhanh</span>
@@ -156,7 +175,7 @@ export const AppLayout: React.FC = () => {
               to="/settings"
               aria-label="Cài đặt"
               title="Cài đặt"
-              className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'w-8 px-0' })}
+              className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'size-8 px-0' })}
             >
               <Settings className="size-4" aria-hidden />
             </Link>
@@ -177,13 +196,13 @@ export const AppLayout: React.FC = () => {
         tabIndex={-1}
         className="relative z-10 flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto focus:outline-none"
       >
-        <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-4 md:px-6 md:py-6">
+        <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-3 py-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-5 sm:py-5 lg:px-8 lg:py-6">
           <JapaneseLookupProvider containerRef={mainRef}>
             <Suspense
               fallback={
-                <PageContainer size="md" className="py-12">
-                  <LoadingState label="Đang tải trang..." />
-                </PageContainer>
+                <div className="flex flex-1 items-center justify-center">
+                  <LoadingState label="Đang tải trang..." className="py-0" />
+                </div>
               }
             >
               <Outlet />
@@ -191,6 +210,7 @@ export const AppLayout: React.FC = () => {
           </JapaneseLookupProvider>
         </div>
       </main>
+      <SakuraContactFloating />
     </div>
   );
 };

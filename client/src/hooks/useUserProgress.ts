@@ -1,11 +1,20 @@
 import { useCallback, useEffect, useState } from 'react';
+import {
+  deleteAllVocabDirectFromSupabase,
+  getInMemoryUserProgress,
+  setInMemoryUserProgress,
+  writeVocabItemDirectToSupabase,
+} from '../services/cloudProgressWriter';
+import {
+  getActiveAuthenticatedUserId,
+  onActiveSessionUserChange,
+} from '../services/sessionScope';
 import type { UserProgress } from '../types/quiz';
 
-const STORAGE_KEY = 'nihonmaster_user_progress';
 const PROGRESS_SYNC_EVENT = 'nihonmaster:user-progress-sync';
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
-export const USER_PROGRESS_STORAGE_KEY = STORAGE_KEY;
+export const USER_PROGRESS_STORAGE_KEY = 'nihonmaster_user_progress';
 
 const defaultProgress: UserProgress = {
   starredWords: [],
@@ -49,30 +58,42 @@ export const sanitizeUserProgress = (parsed: unknown): UserProgress => {
   };
 };
 
-export const loadUserProgress = (): UserProgress => {
-  if (typeof window === 'undefined') return defaultProgress;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return defaultProgress;
-    return sanitizeUserProgress(JSON.parse(raw));
-  } catch (error) {
-    console.warn('Error reading localStorage', error);
-    return defaultProgress;
+export const loadUserProgress = (explicitUserId?: string | null): UserProgress => {
+  const uid = explicitUserId === undefined ? getActiveAuthenticatedUserId() : explicitUserId;
+  if (!uid) {
+    return { starredWords: [], wrongWords: {} };
   }
+  return sanitizeUserProgress(getInMemoryUserProgress(uid));
 };
 
-export const commitUserProgress = (next: UserProgress): UserProgress => {
+/**
+ * Hydrates / commits user progress strictly in active account memory + dispatches UI sync
+ * (never writes user quiz/vocab progress to `localStorage` or cookies).
+ */
+export const commitUserProgress = (
+  next: UserProgress,
+  explicitUserId?: string | null,
+): UserProgress => {
+  const uid = explicitUserId === undefined ? getActiveAuthenticatedUserId() : explicitUserId;
+  if (!uid) {
+    return { starredWords: [], wrongWords: {} };
+  }
   const clean = sanitizeUserProgress(next);
+  setInMemoryUserProgress(uid, clean);
   if (typeof window !== 'undefined') {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(clean));
-    } catch (error) {
-      console.warn('Error setting localStorage', error);
-    }
     window.dispatchEvent(new CustomEvent<UserProgress>(PROGRESS_SYNC_EVENT, { detail: clean }));
   }
   return clean;
 };
+
+export function broadcastUserProgressReset(): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(
+    new CustomEvent<UserProgress>(PROGRESS_SYNC_EVENT, {
+      detail: { starredWords: [], wrongWords: {} },
+    }),
+  );
+}
 
 export const useUserProgress = () => {
   const [progress, setProgress] = useState<UserProgress>(() => loadUserProgress());
@@ -87,73 +108,87 @@ export const useUserProgress = () => {
       }
     };
 
-    const onStorage = (event: StorageEvent) => {
-      if (event.key === STORAGE_KEY) {
-        setProgress(loadUserProgress());
-      }
-    };
+    const unsubSession = onActiveSessionUserChange(() => {
+      setProgress(loadUserProgress());
+    });
 
     window.addEventListener(PROGRESS_SYNC_EVENT, onSync);
-    window.addEventListener('storage', onStorage);
     return () => {
+      unsubSession();
       window.removeEventListener(PROGRESS_SYNC_EVENT, onSync);
-      window.removeEventListener('storage', onStorage);
     };
   }, []);
 
-  const commitProgress = useCallback((next: UserProgress) => {
-    const clean = commitUserProgress(next);
-    setProgress(clean);
-  }, []);
+  const toggleStar = useCallback((wordId: number) => {
+    const uid = getActiveAuthenticatedUserId();
+    if (!uid) return;
+    const latest = loadUserProgress(uid);
+    const isStarred = latest.starredWords.includes(wordId);
+    const nextStarred = !isStarred;
+    const newStarredWords = nextStarred
+      ? [...latest.starredWords, wordId]
+      : latest.starredWords.filter((id) => id !== wordId);
 
-  const toggleStar = useCallback(
-    (wordId: number) => {
-      const latest = loadUserProgress();
-      const isStarred = latest.starredWords.includes(wordId);
-      const newStarredWords = isStarred
-        ? latest.starredWords.filter((id) => id !== wordId)
-        : [...latest.starredWords, wordId];
-
-      commitProgress({
+    const clean = commitUserProgress(
+      {
         ...latest,
         starredWords: newStarredWords,
-      });
-    },
-    [commitProgress],
-  );
+      },
+      uid,
+    );
+    setProgress(clean);
+    void writeVocabItemDirectToSupabase(uid, wordId, nextStarred, clean.wrongWords[wordId] || 0);
+  }, []);
 
-  const addWrongWord = useCallback(
-    (wordId: number) => {
-      const latest = loadUserProgress();
-      const currentCount = latest.wrongWords[wordId] || 0;
-      commitProgress({
+  const addWrongWord = useCallback((wordId: number) => {
+    const uid = getActiveAuthenticatedUserId();
+    if (!uid) return;
+    const latest = loadUserProgress(uid);
+    const nextWrongCount = (latest.wrongWords[wordId] || 0) + 1;
+    const clean = commitUserProgress(
+      {
         ...latest,
         wrongWords: {
           ...latest.wrongWords,
-          [wordId]: currentCount + 1,
+          [wordId]: nextWrongCount,
         },
-      });
-    },
-    [commitProgress],
-  );
+      },
+      uid,
+    );
+    setProgress(clean);
+    void writeVocabItemDirectToSupabase(
+      uid,
+      wordId,
+      clean.starredWords.includes(wordId),
+      nextWrongCount,
+    );
+  }, []);
 
-  const clearWrongWord = useCallback(
-    (wordId: number) => {
-      const latest = loadUserProgress();
-      if (!(wordId in latest.wrongWords)) return;
-      const nextWrong = { ...latest.wrongWords };
-      delete nextWrong[wordId];
-      commitProgress({
+  const clearWrongWord = useCallback((wordId: number) => {
+    const uid = getActiveAuthenticatedUserId();
+    if (!uid) return;
+    const latest = loadUserProgress(uid);
+    if (!(wordId in latest.wrongWords)) return;
+    const nextWrong = { ...latest.wrongWords };
+    delete nextWrong[wordId];
+    const clean = commitUserProgress(
+      {
         ...latest,
         wrongWords: nextWrong,
-      });
-    },
-    [commitProgress],
-  );
+      },
+      uid,
+    );
+    setProgress(clean);
+    void writeVocabItemDirectToSupabase(uid, wordId, clean.starredWords.includes(wordId), 0);
+  }, []);
 
   const resetProgress = useCallback(() => {
-    commitProgress(defaultProgress);
-  }, [commitProgress]);
+    const uid = getActiveAuthenticatedUserId();
+    if (!uid) return;
+    const clean = commitUserProgress(defaultProgress, uid);
+    setProgress(clean);
+    void deleteAllVocabDirectFromSupabase(uid);
+  }, []);
 
   return {
     progress,

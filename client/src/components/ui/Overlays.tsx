@@ -6,7 +6,7 @@ import { buttonStyles, type ButtonSize, type ButtonVariant } from './styles';
 
 /* ---------- Modal (native <dialog>: focus trap, Esc and top-layer for free) ---------- */
 
-const modalSizes = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-5xl' } as const;
+const modalSizes = { sm: 'max-w-sm', md: 'max-w-xl', lg: 'max-w-3xl', xl: 'max-w-5xl' } as const;
 
 interface ModalProps {
   open: boolean;
@@ -36,24 +36,24 @@ export function Modal({ open, onClose, title, description, children, footer, siz
         if (event.target === event.currentTarget) onClose();
       }}
       className={cn(
-        'm-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] overflow-hidden rounded-2xl border border-line bg-surface p-0 text-fg shadow-pop',
+        'm-auto max-h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] overflow-hidden rounded-xl border border-line bg-surface p-0 text-fg shadow-pop sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100%-2.5rem)] sm:rounded-2xl',
         'backdrop:bg-scrim open:animate-pop-in',
         modalSizes[size],
       )}
     >
       {open && (
-        <div className="flex max-h-[calc(100dvh-2rem)] flex-col">
-          <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
+        <div className="flex max-h-[calc(100dvh-1rem)] flex-col sm:max-h-[calc(100dvh-2rem)]">
+          <div className="flex items-start justify-between gap-3 border-b border-line px-3.5 py-3 sm:gap-4 sm:px-5 sm:py-4">
             <div className="min-w-0">
-              <h2 className="text-lg font-semibold text-fg">{title}</h2>
-              {description && <p className="mt-0.5 text-sm text-muted">{description}</p>}
+              <h2 className="text-base font-semibold text-fg sm:text-lg">{title}</h2>
+              {description && <p className="mt-0.5 text-xs text-muted sm:text-sm">{description}</p>}
             </div>
-            <IconButton aria-label="Đóng" size="sm" onClick={onClose} className="-mr-1.5">
+            <IconButton aria-label="Đóng" size="sm" onClick={onClose} className="-mr-1 shrink-0 sm:-mr-1.5">
               <X className="size-4" aria-hidden />
             </IconButton>
           </div>
-          {children && <div className="overflow-y-auto px-5 py-4">{children}</div>}
-          {footer && <div className="flex flex-wrap justify-end gap-2 border-t border-line px-5 py-3">{footer}</div>}
+          {children && <div className="overflow-y-auto px-3.5 py-3 sm:px-5 sm:py-4">{children}</div>}
+          {footer && <div className="flex flex-wrap justify-end gap-2 border-t border-line px-3.5 py-2.5 sm:px-5 sm:py-3">{footer}</div>}
         </div>
       )}
     </dialog>

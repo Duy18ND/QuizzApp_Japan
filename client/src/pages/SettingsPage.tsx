@@ -12,7 +12,7 @@ import {
 import { useAppSettings, type AppSettings } from '../hooks/useAppSettings';
 import { useTheme } from '../hooks/useTheme';
 import { useUserProgress } from '../hooks/useUserProgress';
-import { useAppDispatch } from '../store/hooks';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
   hydrateGrammarProgress,
   resetAllGrammarProgress,
@@ -22,8 +22,15 @@ import { clearMistakes, hydrateMistakes } from '../store/slices/mistakeSlice';
 import type { UserProgress } from '../types/quiz';
 import { isSpeechSupported, speakJapanese } from '../utils/tts';
 import { SupabaseStatusBadge } from '../components/common/SupabaseStatusBadge';
+import { LoginRequiredState } from '../components/auth/LoginRequiredState';
 import { StudyScheduleCard } from '../components/settings/StudyScheduleCard';
-import { STUDY_SCHEDULE_STORAGE_KEY } from '../services/notificationService';
+import { useAuth } from '../context/auth-context';
+import { commitUserProgress, loadUserProgress } from '../hooks/useUserProgress';
+import { loadStudySchedule } from '../services/notificationService';
+import {
+  clearAllCloudAccountData,
+  pushRestoredProgressToCloud,
+} from '../services/progressSyncService';
 import {
   Button,
   Card,
@@ -43,10 +50,6 @@ const TTS_SPEEDS = [
   { value: 1.2, label: '1.2x Nhanh' },
 ];
 
-const KANJI_STORAGE_KEY = 'nihonmaster_kanji_progress';
-const GRAMMAR_PROGRESS_KEY = 'nihonmaster_grammar_progress';
-const GRAMMAR_MISTAKES_KEY = 'nihonmaster_grammar_mistakes';
-
 interface ProgressBackupPayload {
   version: number;
   exportedAt: string;
@@ -59,18 +62,16 @@ interface ProgressBackupPayload {
   studySchedule?: unknown;
 }
 
-function readJsonStorage(key: string, fallback: unknown): unknown {
-  if (typeof window === 'undefined') return fallback;
-  try {
-    const raw = window.localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch {
-    return fallback;
-  }
+function hasSavedBackupAccess(userId?: string | null): boolean {
+  return Boolean(userId);
 }
 
 export const SettingsPage: React.FC = () => {
+  const { user } = useAuth();
   const dispatch = useAppDispatch();
+  const kanjiState = useAppSelector((state) => state.kanji);
+  const grammarRecords = useAppSelector((state) => state.grammarProgress.records);
+  const mistakeItems = useAppSelector((state) => state.mistake.mistakes);
   const { theme, setTheme } = useTheme();
   const { settings, updateSettings } = useAppSettings();
   const { progress, resetProgress } = useUserProgress();
@@ -84,16 +85,17 @@ export const SettingsPage: React.FC = () => {
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
 
   const handleExportBackup = () => {
+    if (!hasSavedBackupAccess(user?.id)) return;
     const payload: ProgressBackupPayload = {
       version: 1,
       exportedAt: new Date().toISOString(),
       theme,
       settings,
-      userProgress: progress,
-      kanjiProgress: readJsonStorage(KANJI_STORAGE_KEY, { progress: {}, tutorialSeen: false }),
-      grammarProgress: readJsonStorage(GRAMMAR_PROGRESS_KEY, {}),
-      grammarMistakes: readJsonStorage(GRAMMAR_MISTAKES_KEY, []),
-      studySchedule: readJsonStorage(STUDY_SCHEDULE_STORAGE_KEY, null),
+      userProgress: progress ?? loadUserProgress(user?.id),
+      kanjiProgress: kanjiState,
+      grammarProgress: grammarRecords,
+      grammarMistakes: mistakeItems,
+      studySchedule: loadStudySchedule(undefined, user?.id),
     };
 
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -144,8 +146,7 @@ export const SettingsPage: React.FC = () => {
         typeof data.userProgress === 'object' &&
         !Array.isArray(data.userProgress)
       ) {
-        window.localStorage.setItem('nihonmaster_user_progress', JSON.stringify(data.userProgress));
-        window.dispatchEvent(new CustomEvent('nihonmaster:user-progress-sync'));
+        commitUserProgress(data.userProgress as Partial<UserProgress> as UserProgress, user?.id);
       }
       if (data.kanjiProgress) {
         dispatch(hydrateKanjiState(data.kanjiProgress));
@@ -155,6 +156,9 @@ export const SettingsPage: React.FC = () => {
       }
       if (data.grammarMistakes) {
         dispatch(hydrateMistakes(data.grammarMistakes));
+      }
+      if (user?.id) {
+        void pushRestoredProgressToCloud(user.id);
       }
 
       setImportStatus({
@@ -173,6 +177,9 @@ export const SettingsPage: React.FC = () => {
     dispatch(resetAllKanjiProgress());
     dispatch(resetAllGrammarProgress());
     dispatch(clearMistakes());
+    if (user?.id) {
+      void clearAllCloudAccountData(user.id);
+    }
     setIsResetModalOpen(false);
     setImportStatus({ tone: 'success', message: 'Đã đặt lại toàn bộ tiến độ học tập.' });
     toast({ title: 'Đã đặt lại tiến độ học tập', tone: 'info' });
@@ -181,7 +188,7 @@ export const SettingsPage: React.FC = () => {
   const speechAvailable = isSpeechSupported();
 
   return (
-    <PageContainer size="md" className="space-y-6">
+    <PageContainer size="lg" className="max-w-5xl space-y-4 sm:space-y-6">
       <PageHeader
         breadcrumbs={[{ label: 'Trang chủ', to: '/' }, { label: 'Cài đặt' }]}
         title="Cài đặt & Quản lý dữ liệu"
@@ -262,10 +269,18 @@ export const SettingsPage: React.FC = () => {
         <div>
           <h2 className="text-base font-semibold text-fg">Sao lưu & Khôi phục tiến độ (.json)</h2>
           <p className="text-sm text-muted">
-            Tải về toàn bộ tiến độ Kanji, Ngữ pháp, Từ đánh dấu sao và Lỗi sai để chuyển sang thiết bị khác.
+            Tải về toàn bộ tiến độ Kanji, Ngữ pháp, Từ đánh dấu sao và Lỗi sai theo tài khoản đã đăng nhập.
           </p>
         </div>
 
+        {!user ? (
+          <LoginRequiredState
+            compact
+            title="Đăng nhập để sao lưu & khôi phục tiến độ"
+            description="Chức năng sao lưu chỉ áp dụng cho tài khoản đã đăng nhập."
+          />
+        ) : (
+        <>
         <div className="flex flex-wrap gap-3">
           <Button
             variant="primary"
@@ -298,6 +313,8 @@ export const SettingsPage: React.FC = () => {
             <span>{importStatus.message}</span>
           </Notice>
         )}
+        </>
+        )}
       </Card>
 
       {/* 4. Reset Progress Danger Zone */}
@@ -309,13 +326,19 @@ export const SettingsPage: React.FC = () => {
           </p>
         </div>
 
-        <Button
-          variant="danger"
-          leftIcon={<Trash2 className="size-4" aria-hidden />}
-          onClick={() => setIsResetModalOpen(true)}
-        >
-          Xóa toàn bộ tiến độ
-        </Button>
+        {!user ? (
+          <Notice tone="info">
+            Chế độ Khách hiện không lưu tiến độ nên không có dữ liệu cá nhân cần đặt lại.
+          </Notice>
+        ) : (
+          <Button
+            variant="danger"
+            leftIcon={<Trash2 className="size-4" aria-hidden />}
+            onClick={() => setIsResetModalOpen(true)}
+          >
+            Xóa toàn bộ tiến độ
+          </Button>
+        )}
       </Card>
 
       <Modal

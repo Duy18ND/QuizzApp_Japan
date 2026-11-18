@@ -2,6 +2,8 @@ import React from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
 import { BookOpen, CircleCheck, Trash2 } from 'lucide-react';
+import { useAuth } from '../../context/auth-context';
+import { LoginRequiredState } from '../../components/auth/LoginRequiredState';
 import type { RootState } from '../../store';
 import { clearMistakes, removeMistakesByGrammar } from '../../store/slices/mistakeSlice';
 import { grammarBooks } from '../../data/grammar';
@@ -23,6 +25,7 @@ interface ResolvedRuleMeta {
 }
 
 export const MistakesReview: React.FC = () => {
+  const { user } = useAuth();
   const dispatch = useDispatch();
   const mistakes = useSelector((state: RootState) => state.mistake.mistakes);
 
@@ -81,7 +84,7 @@ export const MistakesReview: React.FC = () => {
         title="Ôn tập lỗi sai"
         description="Danh sách các câu hỏi bạn đã làm sai trong quá trình luyện tập."
         actions={
-          mistakes.length > 0 ? (
+          user && mistakes.length > 0 ? (
             <Button
               variant="danger"
               size="sm"
@@ -94,7 +97,12 @@ export const MistakesReview: React.FC = () => {
         }
       />
 
-      {entries.length === 0 ? (
+      {!user ? (
+        <LoginRequiredState
+          title="Đăng nhập để lưu & ôn tập lỗi sai"
+          description="Câu làm sai khi luyện tập được lưu trực tiếp vào tài khoản Supabase riêng của bạn (Google hoặc tự tạo tài khoản)."
+        />
+      ) : entries.length === 0 ? (
         <EmptyState
           icon={<CircleCheck className="size-6 text-success-fg" aria-hidden />}
           title="Không có lỗi sai nào!"

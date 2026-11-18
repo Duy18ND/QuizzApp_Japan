@@ -71,8 +71,8 @@ const JLPTModulePage = lazy(() =>
 
 function RouteFallback() {
   return (
-    <PageContainer size="md" className="py-12">
-      <LoadingState label="Đang tải trang..." />
+    <PageContainer size="md" className="flex min-h-[calc(100dvh-6rem)] flex-1 items-center justify-center">
+      <LoadingState label="Đang tải trang..." className="py-0" />
     </PageContainer>
   );
 }

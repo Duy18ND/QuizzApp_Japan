@@ -12,6 +12,16 @@ import {
   type NativePlatformKind,
   type NativeScheduleSyncStatus,
 } from './nativeNotificationService';
+import {
+  getInMemoryOnlineTime,
+  getInMemoryStudySchedule,
+  setInMemoryOnlineTime,
+  setInMemoryStudySchedule,
+} from './cloudProgressWriter';
+import {
+  getActiveAuthenticatedUserId,
+  isSupabaseAccountUuid,
+} from './sessionScope';
 import { supabase } from './supabaseClient';
 
 export {
@@ -30,6 +40,9 @@ export const STUDY_SCHEDULE_FIRED_STORAGE_KEY = 'nihonmaster_study_fired_keys';
 export const PUSH_DEVICES_STORAGE_KEY = 'nihonmaster_push_devices_v1';
 export const CURRENT_DEVICE_ID_KEY = 'nihonmaster_device_id_v1';
 export const STUDY_SCHEDULE_SYNC_EVENT = 'nihonmaster:study-schedule-sync';
+export const ONLINE_TIME_STORAGE_KEY = 'nihonmaster_online_time_v1';
+export const ONLINE_TIME_SYNC_EVENT = 'nihonmaster:online-time-sync';
+export const ONLINE_STREAK_THRESHOLD_SECONDS = 60;
 export const DEFAULT_TIMEZONE = 'Asia/Ho_Chi_Minh';
 
 export type RepeatIntervalMinutes = 0 | 5 | 10 | 15;
@@ -660,18 +673,21 @@ export function calculateStudyStreakStats(
   };
 }
 
-export function loadStudySchedule(currentDateKey = getLocalDateKey()): StudyScheduleConfig {
-  if (typeof window === 'undefined' || !window.localStorage) {
+export function loadStudySchedule(
+  currentDateKey = getLocalDateKey(),
+  explicitUserId?: string | null,
+): StudyScheduleConfig {
+  const uid = explicitUserId === undefined ? getActiveAuthenticatedUserId() : explicitUserId;
+  if (!uid) {
     return sanitizeStudySchedule(null, currentDateKey);
   }
-  try {
-    const raw = window.localStorage.getItem(STUDY_SCHEDULE_STORAGE_KEY);
-    if (!raw) return sanitizeStudySchedule(null, currentDateKey);
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const rawSlotCount = Array.isArray(parsed?.timeSlots) ? parsed.timeSlots.length : 0;
-    const clean = sanitizeStudySchedule(parsed, currentDateKey);
-    if (rawSlotCount > clean.timeSlots.length) {
-      window.localStorage.setItem(STUDY_SCHEDULE_STORAGE_KEY, JSON.stringify(clean));
+  const parsed = getInMemoryStudySchedule(uid);
+  if (!parsed) return sanitizeStudySchedule(null, currentDateKey);
+  const rawSlotCount = Array.isArray(parsed.timeSlots) ? parsed.timeSlots.length : 0;
+  const clean = sanitizeStudySchedule(parsed, currentDateKey);
+  if (rawSlotCount > clean.timeSlots.length) {
+    setInMemoryStudySchedule(uid, clean as unknown as Record<string, unknown>);
+    if (typeof window !== 'undefined') {
       try {
         window.dispatchEvent(
           new CustomEvent<StudyScheduleConfig>(STUDY_SCHEDULE_SYNC_EVENT, { detail: clean }),
@@ -680,10 +696,8 @@ export function loadStudySchedule(currentDateKey = getLocalDateKey()): StudySche
         // Ignore in non-DOM environments
       }
     }
-    return clean;
-  } catch {
-    return sanitizeStudySchedule(null, currentDateKey);
   }
+  return clean;
 }
 
 export async function saveStudySchedule(
@@ -691,7 +705,16 @@ export async function saveStudySchedule(
   userId?: string | null,
   currentDateKey = getLocalDateKey(),
 ): Promise<StudyScheduleConfig> {
-  const current = loadStudySchedule(currentDateKey);
+  const effectiveUid = userId === undefined ? getActiveAuthenticatedUserId() : userId;
+  if (!effectiveUid) {
+    // Guests must not persist study progress, streak dates, or schedules
+    return sanitizeStudySchedule(
+      { ...next, completedDates: [], lastStudiedDate: null },
+      currentDateKey,
+    );
+  }
+
+  const current = loadStudySchedule(currentDateKey, effectiveUid);
   const nextPatch = { ...next };
 
   if (nextPatch.streakMode !== undefined) {
@@ -715,12 +738,8 @@ export async function saveStudySchedule(
     currentDateKey,
   );
 
-  if (typeof window !== 'undefined' && window.localStorage) {
-    try {
-      window.localStorage.setItem(STUDY_SCHEDULE_STORAGE_KEY, JSON.stringify(merged));
-    } catch {
-      // Ignore quota / private browsing errors
-    }
+  setInMemoryStudySchedule(effectiveUid, merged as unknown as Record<string, unknown>);
+  if (typeof window !== 'undefined') {
     try {
       window.dispatchEvent(
         new CustomEvent<StudyScheduleConfig>(STUDY_SCHEDULE_SYNC_EVENT, { detail: merged }),
@@ -730,11 +749,11 @@ export async function saveStudySchedule(
     }
   }
 
-  if (supabase && userId && !userId.startsWith('quick-test-')) {
+  if (supabase && effectiveUid && isSupabaseAccountUuid(effectiveUid)) {
     try {
       await supabase.from('user_reminders').upsert(
         {
-          user_id: userId,
+          user_id: effectiveUid,
           enabled: merged.enabled,
           time_slots: merged.timeSlots,
           is_continuous_daily: merged.isContinuousDaily,
@@ -769,7 +788,7 @@ export async function saveStudySchedule(
           },
           updated_at: merged.updatedAt,
         })
-        .eq('user_id', userId)
+        .eq('user_id', effectiveUid)
         .eq('device_id', deviceId);
     } catch {
       // Offline / RLS fallback — localStorage remains authoritative locally
@@ -791,14 +810,18 @@ export async function recordStudyCompletion(
   dateKey = getLocalDateKey(),
   userId?: string | null,
 ): Promise<StudyScheduleConfig> {
-  const current = loadStudySchedule(dateKey);
+  const effectiveUid = userId === undefined ? getActiveAuthenticatedUserId() : userId;
+  if (!effectiveUid) {
+    return sanitizeStudySchedule(null, dateKey);
+  }
+  const current = loadStudySchedule(dateKey, effectiveUid);
   const nextCompleted = sanitizeCompletedDates([...current.completedDates, dateKey]);
   return saveStudySchedule(
     {
       completedDates: nextCompleted,
       lastStudiedDate: dateKey,
     },
-    userId,
+    effectiveUid,
     dateKey,
   );
 }
@@ -806,6 +829,163 @@ export async function recordStudyCompletion(
 export async function markTodayStudyStarted(userId?: string | null): Promise<StudyScheduleConfig> {
   const today = getLocalDateKey(new Date());
   return recordStudyCompletion(today, userId);
+}
+
+/* ============================================================================
+   WEB ONLINE STUDY TIME TRACKER (COUNTS ACTIVE WEB TIME TOWARD DAILY STREAK)
+   ============================================================================ */
+
+export interface OnlineTimeSyncDetail {
+  dateKey: string;
+  todaySeconds: number;
+  totalSeconds: number;
+  streakAwardedToday: boolean;
+}
+
+export function loadOnlineTimeMap(explicitUserId?: string | null): Record<string, number> {
+  const uid = explicitUserId === undefined ? getActiveAuthenticatedUserId() : explicitUserId;
+  if (!uid) return {};
+  const parsed = getInMemoryOnlineTime(uid);
+  const clean: Record<string, number> = {};
+  for (const [k, v] of Object.entries(parsed)) {
+    if (VALID_DATE_REGEX.test(k)) {
+      const secs = Math.floor(Number(v) || 0);
+      if (secs > 0) {
+        clean[k] = Math.min(secs, 86_400);
+      }
+    }
+  }
+  const keys = Object.keys(clean).sort().slice(-90);
+  const trimmed: Record<string, number> = {};
+  for (const key of keys) {
+    trimmed[key] = clean[key];
+  }
+  return trimmed;
+}
+
+export function getTodayOnlineSeconds(
+  dateKey = getLocalDateKey(),
+  explicitUserId?: string | null,
+): number {
+  const map = loadOnlineTimeMap(explicitUserId);
+  return map[dateKey] ?? 0;
+}
+
+export function getTotalOnlineSeconds(map = loadOnlineTimeMap()): number {
+  return Object.values(map).reduce((sum, secs) => sum + (Number(secs) || 0), 0);
+}
+
+export function formatOnlineDurationVi(totalSeconds: number): string {
+  const clean = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+  if (clean < 60) {
+    return `${clean} giây`;
+  }
+  const hours = Math.floor(clean / 3600);
+  const mins = Math.floor((clean % 3600) / 60);
+  const secs = clean % 60;
+  if (hours > 0) {
+    return mins > 0 ? `${hours}g ${mins}p` : `${hours} giờ`;
+  }
+  return secs > 0 ? `${mins}p ${String(secs).padStart(2, '0')}s` : `${mins} phút`;
+}
+
+export async function addOnlineStudySeconds(
+  secondsToAdd: number,
+  dateKey = getLocalDateKey(),
+  userId?: string | null,
+): Promise<OnlineTimeSyncDetail> {
+  const effectiveUid = userId === undefined ? getActiveAuthenticatedUserId() : userId;
+  if (!effectiveUid) {
+    return {
+      dateKey,
+      todaySeconds: 0,
+      totalSeconds: 0,
+      streakAwardedToday: false,
+    };
+  }
+
+  const increment = Math.max(0, Math.floor(Number(secondsToAdd) || 0));
+  const map = loadOnlineTimeMap(effectiveUid);
+  const nextToday = Math.min(86_400, (map[dateKey] ?? 0) + increment);
+
+  if (increment > 0 && VALID_DATE_REGEX.test(dateKey)) {
+    map[dateKey] = nextToday;
+    setInMemoryOnlineTime(effectiveUid, map);
+  }
+
+  let streakAwardedToday = false;
+  if (nextToday >= ONLINE_STREAK_THRESHOLD_SECONDS) {
+    const current = loadStudySchedule(dateKey, effectiveUid);
+    if (!current.completedDates.includes(dateKey)) {
+      await recordStudyCompletion(dateKey, effectiveUid);
+      streakAwardedToday = true;
+    }
+  }
+
+  const detail: OnlineTimeSyncDetail = {
+    dateKey,
+    todaySeconds: nextToday,
+    totalSeconds: getTotalOnlineSeconds(map),
+    streakAwardedToday,
+  };
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent<OnlineTimeSyncDetail>(ONLINE_TIME_SYNC_EVENT, { detail }));
+  }
+
+  return detail;
+}
+
+export function startWebOnlineTimeTracker(getUserId?: () => string | null | undefined): () => void {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return () => {};
+
+  let bufferedSeconds = 0;
+
+  const resolveUid = () => getUserId?.() || getActiveAuthenticatedUserId();
+
+  const flush = () => {
+    const uid = resolveUid();
+    if (!uid || bufferedSeconds <= 0) {
+      bufferedSeconds = 0;
+      return;
+    }
+    const toFlush = bufferedSeconds;
+    bufferedSeconds = 0;
+    const today = getLocalDateKey(new Date());
+    void addOnlineStudySeconds(toFlush, today, uid);
+  };
+
+  const intervalId = window.setInterval(() => {
+    if (document.visibilityState !== 'visible') return;
+    const uid = resolveUid();
+    if (!uid) {
+      bufferedSeconds = 0;
+      return;
+    }
+    bufferedSeconds += 1;
+    const currentToday = getTodayOnlineSeconds(getLocalDateKey(new Date()), uid) + bufferedSeconds;
+    if (bufferedSeconds >= 5 || currentToday === ONLINE_STREAK_THRESHOLD_SECONDS) {
+      flush();
+    }
+  }, 1000);
+
+  const onVisibilityChange = () => {
+    if (document.visibilityState === 'hidden') {
+      flush();
+    }
+  };
+
+  window.addEventListener('pagehide', flush);
+  window.addEventListener('beforeunload', flush);
+  document.addEventListener('visibilitychange', onVisibilityChange);
+
+  return () => {
+    flush();
+    window.clearInterval(intervalId);
+    window.removeEventListener('pagehide', flush);
+    window.removeEventListener('beforeunload', flush);
+    document.removeEventListener('visibilitychange', onVisibilityChange);
+  };
 }
 
 /**
@@ -954,24 +1134,19 @@ export async function cleanupExpiredOneTimeSchedules(
   userId?: string | null,
   currentDateKey = getLocalDateKey(),
 ): Promise<{ removedCount: number; schedule: StudyScheduleConfig }> {
-  let rawCount = 0;
-  if (typeof window !== 'undefined' && window.localStorage) {
-    try {
-      const raw = window.localStorage.getItem(STUDY_SCHEDULE_STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as Record<string, unknown>;
-        if (Array.isArray(parsed?.timeSlots)) {
-          rawCount = parsed.timeSlots.length;
-        }
-      }
-    } catch {
-      // Ignore
-    }
+  const effectiveUid = userId === undefined ? getActiveAuthenticatedUserId() : userId;
+  if (!effectiveUid) {
+    return {
+      removedCount: 0,
+      schedule: sanitizeStudySchedule(null, currentDateKey),
+    };
   }
-  const current = loadStudySchedule(currentDateKey);
+  const parsed = getInMemoryStudySchedule(effectiveUid);
+  const rawCount = Array.isArray(parsed?.timeSlots) ? parsed.timeSlots.length : 0;
+  const current = loadStudySchedule(currentDateKey, effectiveUid);
   const removedCount = Math.max(0, rawCount - current.timeSlots.length);
-  if (removedCount > 0 && userId) {
-    await saveStudySchedule({ timeSlots: current.timeSlots }, userId, currentDateKey);
+  if (removedCount > 0) {
+    await saveStudySchedule({ timeSlots: current.timeSlots }, effectiveUid, currentDateKey);
   }
   return {
     removedCount,
@@ -982,8 +1157,8 @@ export async function cleanupExpiredOneTimeSchedules(
 export async function syncStudyScheduleFromCloud(
   userId?: string | null,
 ): Promise<StudyScheduleConfig> {
-  const local = loadStudySchedule();
-  if (!supabase || !userId || userId.startsWith('quick-test-')) {
+  const local = loadStudySchedule(getLocalDateKey(), userId);
+  if (!supabase || !userId || !isSupabaseAccountUuid(userId)) {
     return local;
   }
 
@@ -1029,10 +1204,12 @@ export async function syncStudyScheduleFromCloud(
     });
 
     try {
-      window.localStorage.setItem(STUDY_SCHEDULE_STORAGE_KEY, JSON.stringify(hydrated));
-      window.dispatchEvent(
-        new CustomEvent<StudyScheduleConfig>(STUDY_SCHEDULE_SYNC_EVENT, { detail: hydrated }),
-      );
+      setInMemoryStudySchedule(userId, hydrated as unknown as Record<string, unknown>);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent<StudyScheduleConfig>(STUDY_SCHEDULE_SYNC_EVENT, { detail: hydrated }),
+        );
+      }
     } catch {
       // Ignore
     }
@@ -2246,4 +2423,110 @@ export function buildGoogleCalendarUrl(
   }
 
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
+export function buildExamGoogleCalendarUrl(
+  level: JLPTExamLevelGoal,
+  examDate: string,
+  reminderOffsetDays: 0 | 7 | 30 = 0,
+  todayKey = getLocalDateKey(),
+): string {
+  const cleanDate = VALID_DATE_REGEX.test(examDate) ? examDate : todayKey;
+  const appUrl =
+    typeof window !== 'undefined' && window.location
+      ? `${window.location.origin}${window.location.pathname}#/jlpt/full-test`
+      : 'https://duy18nd.github.io/QuizzApp_Japan/#/jlpt/full-test';
+
+  if (reminderOffsetDays > 0) {
+    const rawReminderDate = addDaysToDateKey(cleanDate, -reminderOffsetDays);
+    const targetDate = rawReminderDate < todayKey ? todayKey : rawReminderDate;
+    const dtStart = formatIcsLocalDateTime(targetDate, '20:00');
+    const dtEnd = formatIcsLocalDateTime(targetDate, '20:30');
+    const params = new URLSearchParams({
+      action: 'TEMPLATE',
+      text: `⏳ Còn ${reminderOffsetDays} ngày tới kỳ thi JLPT ${level} — Ôn nước rút (Nihongo 問)`,
+      dates: `${dtStart}/${dtEnd}`,
+      details: `Ngày thi JLPT ${level} dự kiến: ${formatVietnameseDateWithWeekday(cleanDate)}.\nLàm đề thi thử ngay tại: ${appUrl}`,
+      ctz: DEFAULT_TIMEZONE,
+    });
+    return `https://calendar.google.com/calendar/render?${params.toString()}`;
+  }
+
+  const dtStart = formatIcsLocalDateTime(cleanDate, '08:30');
+  const dtEnd = formatIcsLocalDateTime(cleanDate, '12:00');
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: `🎯 Ngày thi JLPT ${level} — Mục tiêu (Nihongo 問)`,
+    dates: `${dtStart}/${dtEnd}`,
+    details: `Ngày thi mục tiêu JLPT ${level}.\nÔn tập tổng hợp trước giờ thi: ${appUrl}`,
+    ctz: DEFAULT_TIMEZONE,
+  });
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
+export function generateExamScheduleIcs(level: JLPTExamLevelGoal, examDate: string): string {
+  const todayKey = getLocalDateKey();
+  const cleanDate = VALID_DATE_REGEX.test(examDate) ? examDate : todayKey;
+  const dtStamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  const dtStart = formatIcsLocalDateTime(cleanDate, '08:30');
+  const dtEnd = formatIcsLocalDateTime(cleanDate, '12:00');
+  const appUrl =
+    typeof window !== 'undefined' && window.location
+      ? `${window.location.origin}${window.location.pathname}#/jlpt/full-test`
+      : 'https://duy18nd.github.io/QuizzApp_Japan/#/jlpt/full-test';
+
+  return [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Nihongo 問 QuizzApp//JLPT Exam Goal//VI',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    `X-WR-CALNAME:Nihongo 問 — Ngày thi JLPT ${level}`,
+    `X-WR-TIMEZONE:${DEFAULT_TIMEZONE}`,
+    'BEGIN:VEVENT',
+    `UID:nihongo-jlpt-exam-${level}-${cleanDate}@quizzapp.nihon`,
+    `DTSTAMP:${dtStamp}`,
+    `DTSTART;TZID=${DEFAULT_TIMEZONE}:${dtStart}`,
+    `DTEND;TZID=${DEFAULT_TIMEZONE}:${dtEnd}`,
+    `SUMMARY:🎯 Kỳ thi JLPT ${level} — Mục tiêu (Nihongo 問)`,
+    `DESCRIPTION:Ngày thi JLPT ${level} (${formatVietnameseDateWithWeekday(cleanDate)}). Ôn đề ngay: ${appUrl}`,
+    `URL:${appUrl}`,
+    'BEGIN:VALARM',
+    'ACTION:DISPLAY',
+    `DESCRIPTION:📣 Còn 30 ngày nữa tới kỳ thi JLPT ${level}!`,
+    'TRIGGER:-P30D',
+    'END:VALARM',
+    'BEGIN:VALARM',
+    'ACTION:DISPLAY',
+    `DESCRIPTION:⏳ Còn 7 ngày tới kỳ thi JLPT ${level} — Ôn nước rút ngay!`,
+    'TRIGGER:-P7D',
+    'END:VALARM',
+    'BEGIN:VALARM',
+    'ACTION:DISPLAY',
+    `DESCRIPTION:⏰ Ngày mai thi JLPT ${level}! Kiểm tra giấy tờ & nghỉ ngơi sớm.`,
+    'TRIGGER:-P1D',
+    'END:VALARM',
+    'BEGIN:VALARM',
+    'ACTION:DISPLAY',
+    `DESCRIPTION:🎯 Chúc bạn thi tốt kỳ thi JLPT ${level} hôm nay!`,
+    'TRIGGER:-PT60M',
+    'END:VALARM',
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].join('\r\n');
+}
+
+export function downloadExamScheduleIcs(level: JLPTExamLevelGoal, examDate: string): void {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return;
+  const cleanDate = VALID_DATE_REGEX.test(examDate) ? examDate : getLocalDateKey();
+  const icsContent = generateExamScheduleIcs(level, cleanDate);
+  const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `nihongo-jlpt-${level}-${cleanDate}.ics`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }

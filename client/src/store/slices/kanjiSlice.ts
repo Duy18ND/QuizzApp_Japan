@@ -1,5 +1,12 @@
 import { createSlice } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
+import {
+  deleteAllKanjiDirectFromSupabase,
+  getInMemoryKanjiState,
+  setInMemoryKanjiState,
+  writeKanjiItemDirectToSupabase,
+} from '../../services/cloudProgressWriter';
+import { getActiveAuthenticatedUserId } from '../../services/sessionScope';
 
 export interface KanjiProgress {
   kanjiId: string;
@@ -15,7 +22,6 @@ interface KanjiState {
   tutorialSeen: boolean;
 }
 
-const STORAGE_KEY = 'nihonmaster_kanji_progress';
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
 const isPlainObject = (val: unknown): val is Record<string, unknown> =>
@@ -41,44 +47,30 @@ const sanitizeKanjiProgress = (key: string, val: unknown): KanjiProgress | null 
   };
 };
 
-// Load initial state from localStorage if available
 const loadInitialState = (): KanjiState => {
   const fallback: KanjiState = { progress: {}, tutorialSeen: false };
-  if (typeof window === 'undefined') return fallback;
-  try {
-    const serialized = window.localStorage.getItem(STORAGE_KEY);
-    if (!serialized) return fallback;
-    const parsed: unknown = JSON.parse(serialized);
-    if (!isPlainObject(parsed)) return fallback;
-
-    const progress: Record<string, KanjiProgress> = {};
-    if (isPlainObject(parsed.progress)) {
-      for (const [key, entry] of Object.entries(parsed.progress)) {
-        if (UNSAFE_KEYS.has(key)) continue;
-        const clean = sanitizeKanjiProgress(key, entry);
-        if (clean) {
-          progress[key] = clean;
-        }
-      }
-    }
-
-    return {
-      progress,
-      tutorialSeen: typeof parsed.tutorialSeen === 'boolean' ? parsed.tutorialSeen : false,
-    };
-  } catch (e) {
-    console.warn('Could not load kanji progress from local storage', e);
-    return fallback;
+  const uid = getActiveAuthenticatedUserId();
+  if (!uid) return fallback;
+  const cached = getInMemoryKanjiState(uid);
+  const progress: Record<string, KanjiProgress> = {};
+  for (const [key, entry] of Object.entries(cached.progress)) {
+    if (UNSAFE_KEYS.has(key)) continue;
+    const clean = sanitizeKanjiProgress(key, entry);
+    if (clean) progress[key] = clean;
   }
+  return {
+    progress,
+    tutorialSeen: cached.tutorialSeen,
+  };
 };
 
-const saveKanjiState = (state: KanjiState) => {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch (e) {
-    console.warn('Could not save kanji progress to local storage', e);
-  }
+const cacheKanjiInSession = (state: KanjiState) => {
+  const uid = getActiveAuthenticatedUserId();
+  if (!uid) return;
+  setInMemoryKanjiState(uid, {
+    progress: { ...state.progress },
+    tutorialSeen: state.tutorialSeen,
+  });
 };
 
 const initialState: KanjiState = loadInitialState();
@@ -88,10 +80,13 @@ const kanjiSlice = createSlice({
   initialState,
   reducers: {
     markTutorialSeen(state) {
+      if (!getActiveAuthenticatedUserId()) return;
       state.tutorialSeen = true;
-      saveKanjiState(state);
+      cacheKanjiInSession(state);
     },
     updateKanjiProgress(state, action: PayloadAction<{ kanjiId: string; correct: boolean }>) {
+      const uid = getActiveAuthenticatedUserId();
+      if (!uid) return;
       const { kanjiId, correct } = action.payload;
       if (!kanjiId || UNSAFE_KEYS.has(kanjiId)) return;
       if (!state.progress[kanjiId]) {
@@ -104,22 +99,24 @@ const kanjiSlice = createSlice({
           lastPracticedAt: new Date().toISOString(),
         };
       }
-      
+
       const p = state.progress[kanjiId];
       p.writingAttempts += 1;
       if (correct) {
         p.correctAttempts += 1;
       }
       p.lastPracticedAt = new Date().toISOString();
-      
-      // Auto-mark as learned if written correctly 3 times
+
       if (p.correctAttempts >= 3) {
         p.learned = true;
       }
 
-      saveKanjiState(state);
+      cacheKanjiInSession(state);
+      void writeKanjiItemDirectToSupabase(uid, kanjiId, { ...p });
     },
     markKanjiLearned(state, action: PayloadAction<{ kanjiId: string; learned: boolean }>) {
+      const uid = getActiveAuthenticatedUserId();
+      if (!uid) return;
       const { kanjiId, learned } = action.payload;
       if (!kanjiId || UNSAFE_KEYS.has(kanjiId)) return;
       if (!state.progress[kanjiId]) {
@@ -133,10 +130,14 @@ const kanjiSlice = createSlice({
         };
       } else {
         state.progress[kanjiId].learned = learned;
+        state.progress[kanjiId].lastPracticedAt = new Date().toISOString();
       }
-      saveKanjiState(state);
+      cacheKanjiInSession(state);
+      void writeKanjiItemDirectToSupabase(uid, kanjiId, { ...state.progress[kanjiId] });
     },
     resetKanjiProgress(state, action: PayloadAction<string>) {
+      const uid = getActiveAuthenticatedUserId();
+      if (!uid) return;
       const kanjiId = action.payload;
       if (!kanjiId || UNSAFE_KEYS.has(kanjiId)) return;
       if (state.progress[kanjiId]) {
@@ -148,8 +149,9 @@ const kanjiSlice = createSlice({
           correctAttempts: 0,
           lastPracticedAt: new Date().toISOString(),
         };
+        cacheKanjiInSession(state);
+        void writeKanjiItemDirectToSupabase(uid, kanjiId, { ...state.progress[kanjiId] });
       }
-      saveKanjiState(state);
     },
     hydrateKanjiState(state, action: PayloadAction<unknown>) {
       const incoming = action.payload;
@@ -164,12 +166,20 @@ const kanjiSlice = createSlice({
       }
       state.progress = progress;
       state.tutorialSeen = typeof incoming.tutorialSeen === 'boolean' ? incoming.tutorialSeen : false;
-      saveKanjiState(state);
+      cacheKanjiInSession(state);
     },
     resetAllKanjiProgress(state) {
+      const uid = getActiveAuthenticatedUserId();
       state.progress = {};
       state.tutorialSeen = false;
-      saveKanjiState(state);
+      if (!uid) return;
+      cacheKanjiInSession(state);
+      void deleteAllKanjiDirectFromSupabase(uid);
+    },
+    reloadKanjiFromSession(state) {
+      const loaded = loadInitialState();
+      state.progress = loaded.progress;
+      state.tutorialSeen = loaded.tutorialSeen;
     },
   },
 });
@@ -181,5 +191,6 @@ export const {
   resetKanjiProgress,
   hydrateKanjiState,
   resetAllKanjiProgress,
+  reloadKanjiFromSession,
 } = kanjiSlice.actions;
 export default kanjiSlice.reducer;

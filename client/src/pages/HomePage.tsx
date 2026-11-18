@@ -1,14 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlarmClock, ArrowRight } from 'lucide-react';
+import { AlarmClock, ArrowRight, Flame, Lock, LogIn } from 'lucide-react';
+import { LoginRequiredState } from '../components/auth/LoginRequiredState';
 import { StudyScheduleModal } from '../components/settings/StudyScheduleCard';
 import { Badge, Button, CardLink, Card, PageContainer, ProgressBar, QuizHistoryCard, Stat } from '../components/ui';
+import { buttonStyles } from '../components/ui/styles';
 import { useAuth } from '../context/auth-context';
 import { grammarBooks } from '../data/grammar';
 import kanjiDataRaw from '../data/kanji/kanjiDataset.json';
 import { cn } from '../lib/cn';
 import {
+  calculateStudyStreakStats,
+  formatOnlineDurationVi,
+  getLocalDateKey,
+  getTodayOnlineSeconds,
   loadStudySchedule,
+  ONLINE_TIME_SYNC_EVENT,
   STUDY_SCHEDULE_SYNC_EVENT,
   type StudyScheduleConfig,
 } from '../services/notificationService';
@@ -145,12 +152,27 @@ export const HomePage: React.FC = () => {
   const mistakes = useAppSelector((state) => state.mistake.mistakes);
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [schedule, setSchedule] = useState<StudyScheduleConfig>(() => loadStudySchedule());
+  const [todayOnlineSeconds, setTodayOnlineSeconds] = useState(() => getTodayOnlineSeconds());
 
   useEffect(() => {
     const onSync = () => setSchedule(loadStudySchedule());
+    const onOnlineSync = () => setTodayOnlineSeconds(getTodayOnlineSeconds());
     window.addEventListener(STUDY_SCHEDULE_SYNC_EVENT, onSync);
-    return () => window.removeEventListener(STUDY_SCHEDULE_SYNC_EVENT, onSync);
+    window.addEventListener(ONLINE_TIME_SYNC_EVENT, onOnlineSync);
+    return () => {
+      window.removeEventListener(STUDY_SCHEDULE_SYNC_EVENT, onSync);
+      window.removeEventListener(ONLINE_TIME_SYNC_EVENT, onOnlineSync);
+    };
   }, []);
+
+  const streakStats = calculateStudyStreakStats(
+    {
+      streakMode: 'every_day',
+      streakDaysOfWeek: [1, 2, 3, 4, 5, 6, 0],
+      completedDates: schedule.completedDates,
+    },
+    getLocalDateKey(),
+  );
 
   const kanjiLearned = Object.values(kanjiProgress).filter((item) => item.learned).length;
   const grammarPracticed = Object.values(grammarRecords).filter((record) =>
@@ -161,40 +183,56 @@ export const HomePage: React.FC = () => {
     <PageContainer>
       <section
         aria-label="Giới thiệu"
-        className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-glass px-4 py-3 shadow-card md:mb-5 md:px-5"
+        className="mb-4 flex flex-col gap-3 rounded-xl border border-line bg-glass px-3.5 py-3 shadow-card sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-4 md:mb-5 md:px-5"
       >
-        <div className="min-w-0">
-          <div className="flex items-center gap-2.5">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
             <span lang="ja" className="rounded-md bg-primary-soft px-2 py-0.5 text-xs font-semibold tracking-widest text-primary-fg">
               日本語道場
             </span>
-            <h1 className="text-xl font-bold tracking-tight text-fg md:text-2xl">
+            <h1 className="text-lg font-bold tracking-tight text-fg sm:text-xl md:text-2xl">
               Học tiếng Nhật mỗi ngày
             </h1>
           </div>
-          <p className="mt-1 text-sm text-muted">
+          <p className="mt-1 text-xs text-muted sm:text-sm">
             {user
               ? `Đang đồng bộ tiến độ tài khoản ${user.displayName} (${user.role}).`
-              : 'Chọn một mục để tiếp tục. Tiến độ được lưu trên thiết bị ở chế độ Khách.'}
+              : 'Chế độ Khách chỉ xem học liệu. Đăng nhập bằng Google hoặc tự tạo tài khoản để lưu tiến độ & câu sai.'}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {schedule.enabled && (
-            <Badge tone="primary">
-              <span className="font-mono tabular-nums">{schedule.primaryTime}</span>
-              <span className="ml-1">
-                · {schedule.isContinuousDaily ? 'Học liên tục mỗi ngày' : `${schedule.daysOfWeek.length} ngày/tuần`}
-              </span>
-            </Badge>
+          {user ? (
+            <>
+              <Badge tone={streakStats.completedToday ? 'success' : 'sakura'}>
+                <Flame className="size-3.5 shrink-0" aria-hidden />
+                <span className="tabular-nums">
+                  {streakStats.currentStreak} ngày · {formatOnlineDurationVi(todayOnlineSeconds)}
+                </span>
+              </Badge>
+              {schedule.enabled && (
+                <Badge tone="primary">
+                  <span className="font-mono tabular-nums">{schedule.primaryTime}</span>
+                </Badge>
+              )}
+            </>
+          ) : (
+            <Link
+              to="/login"
+              className={buttonStyles({ variant: 'primary', size: 'sm', className: 'w-full sm:w-auto' })}
+            >
+              <LogIn className="size-4 shrink-0" aria-hidden />
+              Đăng nhập lưu tiến độ
+            </Link>
           )}
           <Button
             variant="secondary"
             size="sm"
+            className="w-full sm:w-auto"
             leftIcon={<AlarmClock className="size-4 text-primary-fg shrink-0" aria-hidden />}
             onClick={() => setScheduleModalOpen(true)}
           >
-            ⏰ Lịch nhắc học
+            Lịch nhắc &amp; Mục tiêu
           </Button>
         </div>
       </section>
@@ -204,40 +242,56 @@ export const HomePage: React.FC = () => {
       />
 
       <Card as="section" aria-label="Tiến độ học tập" className="mb-5 md:mb-6" padding="md">
-        <div className="mb-3.5 flex items-center gap-2">
-          <span
-            lang="ja"
-            aria-hidden
-            className="grid size-7 place-items-center rounded-md bg-primary text-xs font-bold text-on-primary"
-          >
-            進
-          </span>
-          <h2 className="text-xs font-semibold tracking-wide text-muted uppercase">Tiến độ học tập</h2>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="flex flex-col gap-1.5">
-            <Stat label="Kanji đã thuộc" value={`${kanjiLearned}/${kanjiTotal}`} />
-            <ProgressBar value={kanjiLearned} max={kanjiTotal} label="Kanji đã thuộc" size="sm" />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Stat label="Ngữ pháp đã luyện" value={`${grammarPracticed}/${grammarTotal}`} />
-            <ProgressBar value={grammarPracticed} max={grammarTotal} label="Ngữ pháp đã luyện" size="sm" />
-          </div>
-          <Stat label="Câu sai cần ôn" value={mistakes.length} hint={mistakes.length > 0 ? undefined : 'Chưa có câu sai nào'} />
-          <div className="flex items-end">
-            <CardLink
-              to="/grammar/mistakes"
-              padding="sm"
-              className="flex w-full items-center justify-between gap-2 border-sakura/40 bg-sakura-soft text-sm font-semibold text-fg hover:border-sakura hover:bg-glass-hover"
+        <div className="mb-3.5 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span
+              lang="ja"
+              aria-hidden
+              className="grid size-7 place-items-center rounded-md bg-primary text-xs font-bold text-on-primary"
             >
-              <span className="flex items-center gap-2">
-                <span aria-hidden className="size-2 rounded-full bg-sakura" />
-                Ôn tập lỗi sai
-              </span>
-              <ArrowRight className="size-4 text-sakura" aria-hidden />
-            </CardLink>
+              進
+            </span>
+            <h2 className="text-xs font-semibold tracking-wide text-muted uppercase">Tiến độ học tập</h2>
           </div>
+          {!user && (
+            <Badge tone="neutral">
+              <Lock className="size-3 shrink-0" aria-hidden />
+              Yêu cầu đăng nhập
+            </Badge>
+          )}
         </div>
+        {user ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="flex flex-col gap-1.5">
+              <Stat label="Kanji đã thuộc" value={`${kanjiLearned}/${kanjiTotal}`} />
+              <ProgressBar value={kanjiLearned} max={kanjiTotal} label="Kanji đã thuộc" size="sm" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Stat label="Ngữ pháp đã luyện" value={`${grammarPracticed}/${grammarTotal}`} />
+              <ProgressBar value={grammarPracticed} max={grammarTotal} label="Ngữ pháp đã luyện" size="sm" />
+            </div>
+            <Stat label="Câu sai cần ôn" value={mistakes.length} hint={mistakes.length > 0 ? undefined : 'Chưa có câu sai nào'} />
+            <div className="flex items-end">
+              <CardLink
+                to="/grammar/mistakes"
+                padding="sm"
+                className="flex w-full items-center justify-between gap-2 border-sakura/40 bg-sakura-soft text-sm font-semibold text-fg hover:border-sakura hover:bg-glass-hover"
+              >
+                <span className="flex items-center gap-2">
+                  <span aria-hidden className="size-2 rounded-full bg-sakura" />
+                  Ôn tập lỗi sai
+                </span>
+                <ArrowRight className="size-4 text-sakura" aria-hidden />
+              </CardLink>
+            </div>
+          </div>
+        ) : (
+          <LoginRequiredState
+            compact
+            title="Đăng nhập để lưu & hiển thị tiến độ học tập"
+            description="Người chưa đăng nhập sẽ không lưu tiến độ làm bài, câu sai hay chuỗi ngày học. Hãy đăng nhập bằng Google hoặc tự tạo tài khoản."
+          />
+        )}
       </Card>
 
       {[
@@ -258,7 +312,7 @@ export const HomePage: React.FC = () => {
             </h2>
             {section.note && <p className="mt-0.5 text-xs text-muted md:text-sm">{section.note}</p>}
           </div>
-          <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 lg:gap-4">
             {section.list.map((area) => (
               <li key={area.to}>
                 <FeatureNavCard area={area} />

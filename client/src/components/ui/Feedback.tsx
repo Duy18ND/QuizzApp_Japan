@@ -2,6 +2,7 @@ import { cloneElement, useId, type HTMLAttributes, type ReactElement, type React
 import { CircleAlert, Inbox, LoaderCircle, RotateCw } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { Button } from './Button';
+import { SakuraSpinner } from './SakuraMark';
 
 /* ---------- ProgressBar ---------- */
 
@@ -87,8 +88,8 @@ export function Skeleton({ className, ...rest }: HTMLAttributes<HTMLDivElement>)
 export function LoadingState({ label = 'Đang tải...', className }: { label?: string; className?: string }) {
   return (
     <div role="status" aria-live="polite" className={cn('flex flex-col items-center justify-center gap-3 py-16 text-muted', className)}>
-      <Spinner className="size-6" />
-      <p className="text-sm">{label}</p>
+      <SakuraSpinner className="size-11" />
+      <p className="text-sky-legible rounded-full border border-line bg-glass px-4 py-1 text-sm font-medium text-fg shadow-card">{label}</p>
     </div>
   );
 }

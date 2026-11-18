@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { FlaskConical, KeyRound, LogIn, ShieldCheck, Sparkles, UserPlus, UserRound } from 'lucide-react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { GoogleSignInButton } from '../components/auth/LoginRequiredState';
 import { QuickTestLoginModal } from '../components/auth/QuickTestLoginModal';
 import { SupabaseStatusBadge } from '../components/common/SupabaseStatusBadge';
 import {
@@ -220,6 +221,22 @@ export function AuthPage({ initialMode = 'login' }: AuthPageProps) {
         )}
 
         <Card padding="lg" className="space-y-4">
+          {/* Google OAuth Login (requires Supabase Auth Google Provider enabled) */}
+          <div className="space-y-2.5">
+            <GoogleSignInButton
+              fullWidth
+              size="md"
+              variant="secondary"
+              label="Tiếp tục với Google"
+              onErrorMessage={(msg) => setFormError(msg)}
+            />
+            <div className="flex items-center gap-3 text-xs text-muted">
+              <span className="h-px flex-1 bg-line" />
+              <span>hoặc tự tạo tài khoản / đăng nhập bằng Email</span>
+              <span className="h-px flex-1 bg-line" />
+            </div>
+          </div>
+
           {/* Temporary Quick-Test Credentials Toggle (Dev / Localhost Only) */}
           {quickTestAllowed && (
           <div className="rounded-xl border border-line bg-surface-2 p-3.5 space-y-3">
@@ -397,15 +414,21 @@ export function AuthPage({ initialMode = 'login' }: AuthPageProps) {
               >
                 {mode === 'login' ? 'Đăng nhập' : 'Đăng ký tài khoản'}
               </Button>
-              <Button variant="secondary" fullWidth onClick={() => navigate('/')}>
-                Tiếp tục với chế độ Khách (Offline)
+              <Button
+                type="button"
+                variant="secondary"
+                fullWidth
+                className="h-auto min-h-10 py-2 whitespace-normal"
+                onClick={() => navigate('/')}
+              >
+                Xem thử với chế độ Khách (không lưu tiến độ)
               </Button>
             </div>
           </form>
 
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-4 text-xs text-muted">
             <span>
-              Tài khoản mới mặc định có quyền <strong>USER</strong>; Admin được cấp từ <code>profiles.role</code>.
+              Phiên đăng nhập được giữ đến khi bạn bấm <strong>Đăng xuất</strong>; dữ liệu làm bài &amp; câu sai lưu trực tiếp trên Supabase theo từng tài khoản.
             </span>
             <span className="inline-flex items-center gap-1">
               <ShieldCheck className="size-3.5 text-primary-fg" aria-hidden />

@@ -1,8 +1,15 @@
 import { createSlice } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
+import {
+  deleteAllMistakesDirectFromSupabase,
+  deleteMistakeItemDirectFromSupabase,
+  deleteMistakesByGrammarDirectFromSupabase,
+  getInMemoryMistakes,
+  setInMemoryMistakes,
+  writeMistakeItemDirectToSupabase,
+} from '../../services/cloudProgressWriter';
+import { getActiveAuthenticatedUserId } from '../../services/sessionScope';
 import type { GrammarMistake } from '../../types/grammar';
-
-const STORAGE_KEY = 'nihonmaster_grammar_mistakes';
 
 interface MistakeState {
   mistakes: GrammarMistake[];
@@ -25,7 +32,6 @@ const isSameMistake = (existing: GrammarMistake, incoming: GrammarMistake): bool
 
 const MAX_MISTAKES = 200;
 const MAX_FIELD_LEN = 600;
-const UNSAFE_JSON_PATTERN = /"(__proto__|constructor|prototype)"\s*:/;
 
 const isValidMistake = (item: unknown): item is GrammarMistake => {
   if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
@@ -48,42 +54,34 @@ const isValidMistake = (item: unknown): item is GrammarMistake => {
   );
 };
 
-const loadInitialMistakes = (): GrammarMistake[] => {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw || raw.length > 262_144 || UNSAFE_JSON_PATTERN.test(raw)) return [];
-    const parsed: unknown = JSON.parse(raw);
-    if (Array.isArray(parsed)) {
-      const deduped: GrammarMistake[] = [];
-      for (const item of parsed) {
-        if (!isValidMistake(item)) continue;
-        const normalizedItem: GrammarMistake = {
-          ...item,
-          questionId: stripSeedSuffix(item.questionId),
-        };
-        const idx = deduped.findIndex((m) => isSameMistake(m, normalizedItem));
-        if (idx >= 0) {
-          deduped[idx] = normalizedItem;
-        } else {
-          deduped.push(normalizedItem);
-        }
-      }
-      return deduped.slice(-MAX_MISTAKES);
+const dedupeMistakes = (items: unknown[]): GrammarMistake[] => {
+  const deduped: GrammarMistake[] = [];
+  for (const item of items) {
+    if (!isValidMistake(item)) continue;
+    const normalizedItem: GrammarMistake = {
+      ...item,
+      questionId: stripSeedSuffix(item.questionId),
+    };
+    const idx = deduped.findIndex((m) => isSameMistake(m, normalizedItem));
+    if (idx >= 0) {
+      deduped[idx] = normalizedItem;
+    } else {
+      deduped.push(normalizedItem);
     }
-  } catch {
-    // ignore corrupted localStorage data
   }
-  return [];
+  return deduped.slice(-MAX_MISTAKES);
 };
 
-const saveMistakes = (mistakes: GrammarMistake[]) => {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(mistakes.slice(-MAX_MISTAKES)));
-  } catch {
-    // ignore quota / private-mode storage errors
-  }
+const loadInitialMistakes = (): GrammarMistake[] => {
+  const uid = getActiveAuthenticatedUserId();
+  if (!uid) return [];
+  return dedupeMistakes(getInMemoryMistakes(uid));
+};
+
+const cacheMistakesInSession = (mistakes: GrammarMistake[]) => {
+  const uid = getActiveAuthenticatedUserId();
+  if (!uid) return;
+  setInMemoryMistakes(uid, mistakes.slice(-MAX_MISTAKES));
 };
 
 const initialState: MistakeState = {
@@ -95,6 +93,8 @@ const mistakeSlice = createSlice({
   initialState,
   reducers: {
     addMistake(state, action: PayloadAction<GrammarMistake>) {
+      const uid = getActiveAuthenticatedUserId();
+      if (!uid) return;
       const normalizedIncoming: GrammarMistake = {
         ...action.payload,
         questionId: stripSeedSuffix(action.payload.questionId),
@@ -104,42 +104,51 @@ const mistakeSlice = createSlice({
         state.mistakes.splice(existingIndex, 1);
       }
       state.mistakes.push(normalizedIncoming);
-      saveMistakes(state.mistakes);
+      state.mistakes = state.mistakes.slice(-MAX_MISTAKES);
+      cacheMistakesInSession(state.mistakes);
+      void writeMistakeItemDirectToSupabase(uid, normalizedIncoming);
     },
     removeMistake(state, action: PayloadAction<string>) {
+      const uid = getActiveAuthenticatedUserId();
+      if (!uid) return;
+      const target = state.mistakes.find((m) => m.id === action.payload);
       state.mistakes = state.mistakes.filter((m) => m.id !== action.payload);
-      saveMistakes(state.mistakes);
+      cacheMistakesInSession(state.mistakes);
+      if (target) {
+        void deleteMistakeItemDirectFromSupabase(uid, target.grammarId, target.questionId);
+      }
     },
     removeMistakesByGrammar(state, action: PayloadAction<string>) {
+      const uid = getActiveAuthenticatedUserId();
+      if (!uid) return;
       state.mistakes = state.mistakes.filter((m) => m.grammarId !== action.payload);
-      saveMistakes(state.mistakes);
+      cacheMistakesInSession(state.mistakes);
+      void deleteMistakesByGrammarDirectFromSupabase(uid, action.payload);
     },
     clearMistakes(state) {
+      const uid = getActiveAuthenticatedUserId();
       state.mistakes = [];
-      saveMistakes(state.mistakes);
+      if (!uid) return;
+      cacheMistakesInSession([]);
+      void deleteAllMistakesDirectFromSupabase(uid);
     },
     hydrateMistakes(state, action: PayloadAction<unknown>) {
       if (!Array.isArray(action.payload)) return;
-      const deduped: GrammarMistake[] = [];
-      for (const item of action.payload) {
-        if (!isValidMistake(item)) continue;
-        const normalizedItem: GrammarMistake = {
-          ...item,
-          questionId: stripSeedSuffix(item.questionId),
-        };
-        const idx = deduped.findIndex((m) => isSameMistake(m, normalizedItem));
-        if (idx >= 0) {
-          deduped[idx] = normalizedItem;
-        } else {
-          deduped.push(normalizedItem);
-        }
-      }
-      state.mistakes = deduped;
-      saveMistakes(state.mistakes);
+      state.mistakes = dedupeMistakes(action.payload);
+      cacheMistakesInSession(state.mistakes);
+    },
+    reloadMistakesFromSession(state) {
+      state.mistakes = loadInitialMistakes();
     },
   },
 });
 
-export const { addMistake, removeMistake, removeMistakesByGrammar, clearMistakes, hydrateMistakes } =
-  mistakeSlice.actions;
+export const {
+  addMistake,
+  removeMistake,
+  removeMistakesByGrammar,
+  clearMistakes,
+  hydrateMistakes,
+  reloadMistakesFromSession,
+} = mistakeSlice.actions;
 export default mistakeSlice.reducer;

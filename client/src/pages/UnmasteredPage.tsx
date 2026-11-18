@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Check, Pencil, Play, Volume2 } from 'lucide-react';
+import { LoginRequiredState } from '../components/auth/LoginRequiredState';
+import { useAuth } from '../context/auth-context';
 import kanjiDataRaw from '../data/kanji/kanjiDataset.json';
 import { useAppSettings } from '../hooks/useAppSettings';
 import { useUserProgress } from '../hooks/useUserProgress';
@@ -29,6 +31,7 @@ const LEVELS: Array<'All' | JLPTLevel> = ['All', 'N5', 'N4', 'N3', 'N2', 'N1'];
 const allKanji = (kanjiDataRaw || []) as KanjiItem[];
 
 export const UnmasteredPage: React.FC = () => {
+  const { user } = useAuth();
   const kanjiProgress = useAppSelector((state) => state.kanji.progress);
   const { progress, clearWrongWord } = useUserProgress();
   const { settings } = useAppSettings();
@@ -73,6 +76,26 @@ export const UnmasteredPage: React.FC = () => {
 
   const showVocab = tab === 'all' || tab === 'vocab';
   const showKanji = tab === 'all' || tab === 'kanji';
+
+  if (!user) {
+    return (
+      <PageContainer className="space-y-6">
+        <PageHeader
+          breadcrumbs={[
+            { label: 'Trang chủ', to: '/' },
+            { label: 'Từ vựng', to: '/vocabulary' },
+            { label: 'Chưa thuộc & Từ sai' },
+          ]}
+          title="Từ & Kanji chưa thuộc"
+          description="Theo dõi các từ vựng hay làm sai và chữ Kanji chưa hoàn thành để luyện lại nhanh."
+        />
+        <LoginRequiredState
+          title="Đăng nhập để lưu & xem từ / Kanji chưa thuộc"
+          description="Hệ thống chỉ lưu danh sách từ sai và tiến độ luyện Kanji theo từng tài khoản đã đăng nhập."
+        />
+      </PageContainer>
+    );
+  }
 
   return (
     <PageContainer className="space-y-6">

@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react';
+import { getInMemoryQuizHistory, setInMemoryQuizHistory } from './cloudProgressWriter';
 import { recordStudyCompletion } from './notificationService';
+import {
+  getActiveAuthenticatedUserId,
+  isSupabaseAccountUuid,
+  onActiveSessionUserChange,
+} from './sessionScope';
 import { supabase } from './supabaseClient';
 
 export const QUIZ_HISTORY_STORAGE_KEY = 'nihonmaster_quiz_history';
@@ -41,38 +47,33 @@ const isValidAttemptRecord = (raw: unknown): raw is QuizAttemptRecord => {
   );
 };
 
-export function loadQuizHistory(): QuizAttemptRecord[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = window.localStorage.getItem(QUIZ_HISTORY_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter(isValidAttemptRecord)
-      .map((item) => ({
-        ...item,
-        durationSeconds:
-          typeof item.durationSeconds === 'number' && Number.isFinite(item.durationSeconds)
-            ? Math.max(0, Math.round(item.durationSeconds))
-            : 0,
-        mistakesJson: Array.isArray(item.mistakesJson) ? item.mistakesJson : [],
-      }))
-      .slice(0, MAX_HISTORY_ITEMS);
-  } catch {
-    return [];
-  }
+export function loadQuizHistory(explicitUserId?: string | null): QuizAttemptRecord[] {
+  const uid = explicitUserId === undefined ? getActiveAuthenticatedUserId() : explicitUserId;
+  if (!uid) return [];
+  return getInMemoryQuizHistory(uid)
+    .filter(isValidAttemptRecord)
+    .map((item) => ({
+      ...item,
+      durationSeconds:
+        typeof item.durationSeconds === 'number' && Number.isFinite(item.durationSeconds)
+          ? Math.max(0, Math.round(item.durationSeconds))
+          : 0,
+      mistakesJson: Array.isArray(item.mistakesJson) ? item.mistakesJson : [],
+    }))
+    .slice(0, MAX_HISTORY_ITEMS);
 }
 
-export function saveQuizHistory(records: QuizAttemptRecord[]): void {
+export function saveQuizHistory(
+  records: QuizAttemptRecord[],
+  explicitUserId?: string | null,
+): void {
+  const uid = explicitUserId === undefined ? getActiveAuthenticatedUserId() : explicitUserId;
+  if (!uid) return;
   const clean = records.slice(0, MAX_HISTORY_ITEMS);
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(QUIZ_HISTORY_STORAGE_KEY, JSON.stringify(clean));
-  } catch {
-    // ignore quota / private mode storage errors
+  setInMemoryQuizHistory(uid, clean);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent<QuizAttemptRecord[]>(QUIZ_HISTORY_SYNC_EVENT, { detail: clean }));
   }
-  window.dispatchEvent(new CustomEvent<QuizAttemptRecord[]>(QUIZ_HISTORY_SYNC_EVENT, { detail: clean }));
 }
 
 export function mergeQuizHistoryRecords(
@@ -99,10 +100,19 @@ export function mergeQuizHistoryRecords(
     .slice(0, MAX_HISTORY_ITEMS);
 }
 
+/**
+ * Records a completed quiz attempt directly into Supabase (`public.quiz_attempts`) per account
+ * and updates active session memory (never writes to `localStorage`).
+ */
 export async function recordQuizAttempt(
   input: QuizAttemptInput,
   userId?: string | null,
-): Promise<QuizAttemptRecord> {
+): Promise<QuizAttemptRecord | null> {
+  const effectiveUid = userId === undefined ? getActiveAuthenticatedUserId() : userId;
+  if (!effectiveUid) {
+    return null;
+  }
+
   const record: QuizAttemptRecord = {
     id:
       typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -117,15 +127,15 @@ export async function recordQuizAttempt(
     createdAt: new Date().toISOString(),
   };
 
-  const current = loadQuizHistory();
-  saveQuizHistory([record, ...current]);
-  void recordStudyCompletion(undefined, userId);
+  const current = loadQuizHistory(effectiveUid);
+  saveQuizHistory([record, ...current], effectiveUid);
+  void recordStudyCompletion(undefined, effectiveUid);
 
-  if (supabase && userId) {
+  if (supabase && isSupabaseAccountUuid(effectiveUid)) {
     try {
       await supabase.from('quiz_attempts').insert({
         id: record.id,
-        user_id: userId,
+        user_id: effectiveUid,
         quiz_type: record.quizType,
         level: record.level,
         score: record.score,
@@ -135,7 +145,7 @@ export async function recordQuizAttempt(
         created_at: record.createdAt,
       });
     } catch (err) {
-      console.warn('Could not persist quiz attempt to Supabase (kept locally):', err);
+      console.warn('Could not persist quiz attempt to Supabase:', err);
     }
   }
 
@@ -147,20 +157,21 @@ export function useQuizHistory(): QuizAttemptRecord[] {
 
   useEffect(() => {
     const onSync = (event: Event) => {
+      if (!getActiveAuthenticatedUserId()) {
+        setHistory([]);
+        return;
+      }
       const custom = event as CustomEvent<QuizAttemptRecord[]>;
       setHistory(Array.isArray(custom.detail) ? custom.detail : loadQuizHistory());
     };
-    const onStorage = (event: StorageEvent) => {
-      if (event.key === QUIZ_HISTORY_STORAGE_KEY) {
-        setHistory(loadQuizHistory());
-      }
-    };
+    const unsubSession = onActiveSessionUserChange(() => {
+      setHistory(loadQuizHistory());
+    });
 
     window.addEventListener(QUIZ_HISTORY_SYNC_EVENT, onSync);
-    window.addEventListener('storage', onStorage);
     return () => {
+      unsubSession();
       window.removeEventListener(QUIZ_HISTORY_SYNC_EVENT, onSync);
-      window.removeEventListener('storage', onStorage);
     };
   }, []);
 
