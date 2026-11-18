@@ -5,6 +5,10 @@
   "scripts": {
     "dev": "npm run dev --prefix client",
     "build": "npm run build --prefix client",
+    "build:native": "npm run build:native --prefix client",
+    "cap:sync": "npm run cap:sync --prefix client",
+    "cap:ios": "npm run cap:ios --prefix client",
+    "cap:android": "npm run cap:android --prefix client",
     "install:all": "npm install && npm install --prefix client",
     "git:push": "git add . && git commit -m \"Auto update quiz app\" && git push -u origin main",
     "predeploy": "npm run build --prefix client",

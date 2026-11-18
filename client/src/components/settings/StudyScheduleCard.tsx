@@ -9,6 +9,7 @@ import {
   Flame,
   Pencil,
   Plus,
+  RefreshCw,
   Repeat,
   Smartphone,
   Trash2,
@@ -26,21 +27,26 @@ import {
   formatSlotWeekdays,
   formatVietnameseDateWithWeekday,
   getCurrentDeviceId,
+  getEffectiveNotificationPermissionState,
   getLocalDateKey,
   getNotificationPermissionState,
   JLPT_EXAM_LEVELS,
   listSubscribedDevices,
+  loadLastNativeSyncStatus,
   loadStudySchedule,
+  NATIVE_NOTIFICATION_SYNC_EVENT,
   recordStudyCompletion,
   requestStudyNotificationPermission,
   saveStudySchedule,
   sendTestPushNotification,
   STUDY_SCHEDULE_SYNC_EVENT,
   subscribeDeviceToWebPush,
+  syncNativeStudySchedules,
   syncStudyScheduleFromCloud,
   unsubscribeDeviceFromWebPush,
   upsertScheduleSlot,
   type JLPTExamLevelGoal,
+  type NativeScheduleSyncStatus,
   type NotificationPermissionStatus,
   type PushDeviceSubscriptionRecord,
   type RepeatIntervalMinutes,
@@ -89,6 +95,10 @@ export const StudyScheduleCard: React.FC = () => {
   const [permission, setPermission] = useState<NotificationPermissionStatus>(() =>
     getNotificationPermissionState(),
   );
+  const [nativeStatus, setNativeStatus] = useState<NativeScheduleSyncStatus>(() =>
+    loadLastNativeSyncStatus(),
+  );
+  const [syncingNative, setSyncingNative] = useState(false);
   const [subscribedDevices, setSubscribedDevices] = useState<PushDeviceSubscriptionRecord[]>([]);
   const [subscribingPush, setSubscribingPush] = useState(false);
 
@@ -116,6 +126,9 @@ export const StudyScheduleCard: React.FC = () => {
   const examDaysLeft = computeDaysUntilExam(schedule.targetExamDate, todayKey);
 
   useEffect(() => {
+    void getEffectiveNotificationPermissionState().then((perm) => {
+      setPermission(perm);
+    });
     void syncStudyScheduleFromCloud(user?.id).then((synced) => {
       setSchedule(synced);
     });
@@ -134,7 +147,17 @@ export const StudyScheduleCard: React.FC = () => {
         setSchedule(loadStudySchedule());
       }
     };
+    const onNativeSync = (event: Event) => {
+      const custom = event as CustomEvent<NativeScheduleSyncStatus>;
+      if (custom.detail) {
+        setNativeStatus(custom.detail);
+        setPermission(custom.detail.permission);
+      } else {
+        setNativeStatus(loadLastNativeSyncStatus());
+      }
+    };
     window.addEventListener(STUDY_SCHEDULE_SYNC_EVENT, onSync);
+    window.addEventListener(NATIVE_NOTIFICATION_SYNC_EVENT, onNativeSync);
 
     const rolloverTimer = window.setInterval(() => {
       const latestDateKey = getLocalDateKey();
@@ -148,6 +171,7 @@ export const StudyScheduleCard: React.FC = () => {
 
     return () => {
       window.removeEventListener(STUDY_SCHEDULE_SYNC_EVENT, onSync);
+      window.removeEventListener(NATIVE_NOTIFICATION_SYNC_EVENT, onNativeSync);
       window.clearInterval(rolloverTimer);
     };
   }, []);
@@ -248,13 +272,36 @@ export const StudyScheduleCard: React.FC = () => {
     const nextPerm = await requestStudyNotificationPermission();
     setPermission(nextPerm);
     if (nextPerm === 'granted') {
-      toast({ title: 'Đã cấp quyền thông báo thành công!', tone: 'success' });
+      if (compat.isNativeApp) {
+        const synced = await syncNativeStudySchedules(schedule);
+        setNativeStatus(synced);
+        toast({
+          title: `Đã cấp quyền và đồng bộ ${synced.scheduledCount} lịch vào hệ điều hành!`,
+          tone: 'success',
+        });
+      } else {
+        toast({ title: 'Đã cấp quyền thông báo thành công!', tone: 'success' });
+      }
     } else if (nextPerm === 'denied') {
       toast({
-        title: 'Quyền thông báo đang bị chặn trên trình duyệt. Hãy bật lại trong Cài đặt trình duyệt.',
+        title: compat.isNativeApp
+          ? 'Quyền thông báo đang bị tắt. Hãy mở Cài đặt điện thoại ➔ Thông báo ➔ Nihongo 問 để bật lại.'
+          : 'Quyền thông báo đang bị chặn trên trình duyệt. Hãy bật lại trong Cài đặt trình duyệt.',
         tone: 'warning',
       });
     }
+  };
+
+  const handleManualNativeSync = async () => {
+    setSyncingNative(true);
+    const synced = await syncNativeStudySchedules(schedule);
+    setNativeStatus(synced);
+    setPermission(synced.permission);
+    setSyncingNative(false);
+    toast({
+      title: synced.statusMessage,
+      tone: synced.error ? 'warning' : 'success',
+    });
   };
 
   const handleSubscribeCurrentDevice = async () => {
@@ -289,7 +336,9 @@ export const StudyScheduleCard: React.FC = () => {
     setSendingTest(true);
     if (delaySeconds > 0) {
       toast({
-        title: `Sẽ gửi Push sau ${delaySeconds} giây — hãy về Màn hình chính hoặc khóa màn hình iPhone để kiểm tra!`,
+        title: compat.isNativeApp
+          ? `Đã hẹn Test Local Notification sau ${delaySeconds} giây — hãy khóa màn hình, đóng App hoặc thử "Xóa khỏi Màn hình chính"!`
+          : `Sẽ gửi Push sau ${delaySeconds} giây — hãy về Màn hình chính hoặc khóa màn hình iPhone để kiểm tra!`,
         tone: 'info',
       });
     }
@@ -298,15 +347,17 @@ export const StudyScheduleCard: React.FC = () => {
       delaySeconds,
       schedulePrimaryTime: schedule.primaryTime,
     });
-    setPermission(getNotificationPermissionState());
+    setPermission(await getEffectiveNotificationPermissionState());
     setSendingTest(false);
 
     if (res.ok) {
       toast({
         title:
-          res.channel === 'server_web_push'
-            ? 'Đã gửi Background Web Push (APNs / FCM) tới thiết bị!'
-            : 'Đã hiển thị thông báo qua Service Worker (ServiceWorkerRegistration.showNotification)!',
+          res.channel === 'native_local'
+            ? `Đã đăng ký Test Local Notification (${delaySeconds || 2}s) trực tiếp với ${compat.nativePlatform === 'ios' ? 'iOS UNUserNotificationCenter' : 'Android AlarmManager'}!`
+            : res.channel === 'server_web_push'
+              ? 'Đã gửi Background Web Push (APNs / FCM) tới thiết bị!'
+              : 'Đã hiển thị thông báo qua Service Worker (ServiceWorkerRegistration.showNotification)!',
         tone: 'success',
       });
     } else {
@@ -356,17 +407,21 @@ export const StudyScheduleCard: React.FC = () => {
 
   return (
     <Card padding="lg" className="space-y-5">
-      {/* 0. Notification Settings & Cross-Platform Push Status */}
+      {/* 0. Notification Settings & Cross-Platform Native / Web Push Status */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <AlarmClock className="size-5 text-primary-fg shrink-0" aria-hidden />
             <h2 className="text-base font-semibold text-fg">
-              Cài đặt Thông báo & Lịch nhắc học (PC / iOS / Android PWA)
+              {compat.isNativeApp
+                ? 'Cài đặt Thông báo & Lịch nhắc học (Native Mobile App)'
+                : 'Cài đặt Thông báo & Lịch nhắc học (PC / iOS / Android PWA)'}
             </h2>
           </div>
           <p className="text-sm text-muted">
-            Nhận thông báo hệ thống trên Windows PC, Android Chrome và iPhone/iPad (iOS 16.4+ đã thêm vào Màn hình chính).
+            {compat.isNativeApp
+              ? 'Nhắc nhở trực tiếp qua hệ điều hành (iOS UNUserNotificationCenter / Android AlarmManager), hoạt động kể cả khi tắt app, khóa màn hình hoặc ẩn icon khỏi Màn hình chính.'
+              : 'Nhận thông báo hệ thống trên Windows PC, Android Chrome và iPhone/iPad (PWA Màn hình chính hoặc Ứng dụng Native iOS Capacitor).'}
           </p>
         </div>
 
@@ -376,15 +431,29 @@ export const StudyScheduleCard: React.FC = () => {
               <CheckCircle2 className="size-3.5 shrink-0" aria-hidden />
               Đã cấp quyền thông báo
             </span>
+          ) : permission === 'denied' ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-danger-line bg-danger-soft px-3 py-1 text-xs font-semibold text-danger-fg">
+              <BellOff className="size-3.5 shrink-0" aria-hidden />
+              Quyền thông báo đang bị chặn
+            </span>
           ) : (
             <span className="inline-flex items-center gap-1.5 rounded-full border border-warning-line bg-warning-soft px-3 py-1 text-xs font-semibold text-warning-fg">
               <Bell className="size-3.5 shrink-0" aria-hidden />
               Chưa cấp quyền
             </span>
           )}
-          <Badge tone={isCurrentDeviceSubscribed ? 'primary' : 'neutral'}>
-            {isCurrentDeviceSubscribed ? 'Web Push: Đã bật trên máy này' : 'Web Push: Chưa đăng ký'}
-          </Badge>
+
+          {compat.isNativeApp ? (
+            <Badge tone={nativeStatus.scheduledCount > 0 && permission === 'granted' ? 'success' : 'primary'}>
+              {compat.nativePlatform === 'ios'
+                ? `iOS UNUserNotificationCenter: ${nativeStatus.scheduledCount}/${nativeStatus.maxBudget}`
+                : `Android AlarmManager: ${nativeStatus.scheduledCount}`}
+            </Badge>
+          ) : (
+            <Badge tone={isCurrentDeviceSubscribed ? 'primary' : 'neutral'}>
+              {isCurrentDeviceSubscribed ? 'Web Push: Đã bật trên máy này' : 'Web Push: Chưa đăng ký'}
+            </Badge>
+          )}
         </div>
       </div>
 
@@ -400,41 +469,126 @@ export const StudyScheduleCard: React.FC = () => {
         description="Khi bật, hệ thống gửi thông báo theo lịch nhắc (múi giờ Asia/Ho_Chi_Minh). Gửi thông báo nhắc học không tự động cộng chuỗi Streak."
       />
 
-      {/* Device Compatibility, Push Subscription & iOS Guide */}
+      {/* Device Compatibility, Native Scheduling Status, Push Subscription & iOS Guide */}
       <div className="space-y-3 rounded-xl border border-line bg-surface-2 p-3.5">
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
           <span className="font-medium text-fg">
             Thiết bị hiện tại: <strong className="text-primary-fg">{compat.platformLabel}</strong>
           </span>
-          <Badge tone={compat.webPushSupported ? 'success' : 'warning'}>
-            {compat.webPushSupported ? 'Tương thích Web Push' : 'Cần cài PWA ra Màn hình chính'}
+          <Badge
+            tone={
+              compat.nativeLocalNotificationsSupported || compat.webPushSupported
+                ? 'success'
+                : 'warning'
+            }
+          >
+            {compat.nativeLocalNotificationsSupported
+              ? 'Native Local Notifications (Hoạt động cả khi ẩn icon)'
+              : compat.webPushSupported
+                ? 'Tương thích Web Push'
+                : 'Cần cài PWA ra Màn hình chính hoặc dùng App Native'}
           </Badge>
         </div>
 
         <p className="text-xs text-muted">{compat.compatibilitySummary}</p>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="primary"
-            size="sm"
-            loading={sendingTest}
-            className="h-auto min-h-8 max-w-full py-1.5 text-left whitespace-normal sm:whitespace-nowrap"
-            leftIcon={<BellRing className="size-4 shrink-0" aria-hidden />}
-            onClick={() => void handleTestNotification(0)}
-          >
-            🔔 Gửi thông báo thử nghiệm ngay (Test Notification)
-          </Button>
+        {/* Native iOS/Android Scheduling Status Breakdown */}
+        {compat.isNativeApp && (
+          <div className="space-y-2 rounded-lg border border-line bg-surface p-3 text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-semibold text-fg">
+                Trạng thái đồng bộ hệ điều hành ({compat.nativePlatform === 'ios' ? 'Apple UNUserNotificationCenter' : 'Android Exact Alarm'})
+              </span>
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={syncingNative}
+                leftIcon={<RefreshCw className="size-3.5 shrink-0" aria-hidden />}
+                onClick={() => void handleManualNativeSync()}
+              >
+                Đồng bộ lại lịch Native
+              </Button>
+            </div>
+            <p className="text-muted">{nativeStatus.statusMessage}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone="primary">
+                Lặp hàng tuần (Calendar): {nativeStatus.recurringTriggerCount}
+              </Badge>
+              <Badge tone="neutral">
+                Một lần: {nativeStatus.oneTimeTriggerCount}
+              </Badge>
+              <Badge tone="neutral">
+                Nhắc lặp hôm nay: {nativeStatus.repeatTriggerCount}
+              </Badge>
+              <Badge tone={nativeStatus.overflowCount > 0 ? 'warning' : 'success'}>
+                Slot OS: {nativeStatus.scheduledCount}/{nativeStatus.maxBudget} (Giới hạn iOS: {nativeStatus.systemLimit})
+              </Badge>
+            </div>
+            {nativeStatus.overflowCount > 0 && (
+              <Notice tone="warning">
+                Hiện có <strong>{nativeStatus.overflowCount}</strong> lịch nhắc tương lai đang chờ trong hàng đợi rolling window (hệ điều hành iOS giới hạn tối đa 64 thông báo chờ cùng lúc và sẽ tự động nạp tiếp khi các lịch gần nhất hoàn thành).
+              </Notice>
+            )}
+          </div>
+        )}
 
-          <Button
-            variant="secondary"
-            size="sm"
-            loading={sendingTest}
-            className="h-auto min-h-8 max-w-full py-1.5 text-left whitespace-normal sm:whitespace-nowrap"
-            leftIcon={<Smartphone className="size-4 shrink-0" aria-hidden />}
-            onClick={() => void handleTestNotification(5)}
-          >
-            📲 Test Push sau 5s (Khóa màn hình / Đóng App)
-          </Button>
+        {permission === 'denied' && (
+          <Notice tone="warning">
+            {compat.isNativeApp
+              ? 'Quyền thông báo đang bị tắt trên thiết bị. Hãy vào Cài đặt điện thoại ➔ Thông báo ➔ Nihongo 問 và bật "Cho phép thông báo", sau đó bấm "Đồng bộ lại lịch Native".'
+              : 'Quyền thông báo đang bị chặn trên trình duyệt. Hãy bật lại quyền Thông báo trong Cài đặt trang web của trình duyệt.'}
+          </Notice>
+        )}
+
+        <div className="flex flex-wrap items-center gap-2">
+          {compat.isNativeApp ? (
+            <>
+              <Button
+                variant="primary"
+                size="sm"
+                loading={sendingTest}
+                className="h-auto min-h-8 max-w-full py-1.5 text-left whitespace-normal sm:whitespace-nowrap"
+                leftIcon={<BellRing className="size-4 shrink-0" aria-hidden />}
+                onClick={() => void handleTestNotification(2)}
+              >
+                🔔 Test Local Notification (sau 2s)
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={sendingTest}
+                className="h-auto min-h-8 max-w-full py-1.5 text-left whitespace-normal sm:whitespace-nowrap"
+                leftIcon={<Smartphone className="size-4 shrink-0" aria-hidden />}
+                onClick={() => void handleTestNotification(5)}
+              >
+                📲 Test 5s (Khóa màn hình / Đóng App / Xóa khỏi MH chính)
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="primary"
+                size="sm"
+                loading={sendingTest}
+                className="h-auto min-h-8 max-w-full py-1.5 text-left whitespace-normal sm:whitespace-nowrap"
+                leftIcon={<BellRing className="size-4 shrink-0" aria-hidden />}
+                onClick={() => void handleTestNotification(0)}
+              >
+                🔔 Gửi thông báo thử nghiệm ngay (Test Notification)
+              </Button>
+
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={sendingTest}
+                className="h-auto min-h-8 max-w-full py-1.5 text-left whitespace-normal sm:whitespace-nowrap"
+                leftIcon={<Smartphone className="size-4 shrink-0" aria-hidden />}
+                onClick={() => void handleTestNotification(5)}
+              >
+                📲 Test Push sau 5s (Khóa màn hình / Đóng App)
+              </Button>
+            </>
+          )}
 
           {permission !== 'granted' && permission !== 'unsupported' && (
             <Button
@@ -444,53 +598,77 @@ export const StudyScheduleCard: React.FC = () => {
               leftIcon={<Bell className="size-4 shrink-0" aria-hidden />}
               onClick={() => void handleRequestPermission()}
             >
-              Cấp quyền thông báo trên trình duyệt
+              {compat.isNativeApp
+                ? 'Bật quyền thông báo (Enable Notifications)'
+                : 'Cấp quyền thông báo trên trình duyệt'}
             </Button>
           )}
 
-          {!isCurrentDeviceSubscribed ? (
-            <Button
-              variant="secondary"
-              size="sm"
-              loading={subscribingPush}
-              className="h-auto min-h-8 max-w-full py-1.5 text-left whitespace-normal sm:whitespace-nowrap"
-              leftIcon={<Smartphone className="size-4 shrink-0" aria-hidden />}
-              onClick={() => void handleSubscribeCurrentDevice()}
-            >
-              Đăng ký Web Push trên thiết bị này
-            </Button>
-          ) : (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-auto min-h-8 max-w-full py-1.5 text-left whitespace-normal sm:whitespace-nowrap"
-              leftIcon={<BellOff className="size-4 shrink-0 text-danger-fg" aria-hidden />}
-              onClick={() =>
-                void handleUnsubscribeDevice(currentDeviceId, 'thiết bị hiện tại')
-              }
-            >
-              <span className="text-danger-fg">Tắt Push trên thiết bị này</span>
-            </Button>
+          {!compat.isNativeApp && (
+            !isCurrentDeviceSubscribed ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={subscribingPush}
+                className="h-auto min-h-8 max-w-full py-1.5 text-left whitespace-normal sm:whitespace-nowrap"
+                leftIcon={<Smartphone className="size-4 shrink-0" aria-hidden />}
+                onClick={() => void handleSubscribeCurrentDevice()}
+              >
+                Đăng ký Web Push trên thiết bị này
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-auto min-h-8 max-w-full py-1.5 text-left whitespace-normal sm:whitespace-nowrap"
+                leftIcon={<BellOff className="size-4 shrink-0 text-danger-fg" aria-hidden />}
+                onClick={() =>
+                  void handleUnsubscribeDevice(currentDeviceId, 'thiết bị hiện tại')
+                }
+              >
+                <span className="text-danger-fg">Tắt Push trên thiết bị này</span>
+              </Button>
+            )
           )}
         </div>
 
-        {/* iOS 16.4+ Step-by-Step Home Screen Instructions */}
-        <div className="rounded-lg border border-line bg-surface p-3 text-xs text-muted space-y-1">
-          <p className="font-semibold text-fg">
-            <Smartphone className="mr-1 inline size-3.5 text-primary-fg" aria-hidden />
-            Hướng dẫn nhận thông báo trên iPhone / iPad (iOS/iPadOS 16.4+):
-          </p>
-          <ol className="list-decimal pl-4 space-y-0.5">
-            <li>Mở trang web trong trình duyệt <strong>Safari</strong>.</li>
-            <li>Bấm nút <strong>Chia sẻ (Share)</strong>.</li>
-            <li>Chọn <strong>Thêm vào MH chính (Add to Home Screen)</strong>.</li>
-            <li>Mở ứng dụng <strong>Nihongo 問</strong> từ Màn hình chính.</li>
-            <li>Bật quyền thông báo và bấm <strong>Đăng ký Web Push trên thiết bị này</strong>.</li>
-          </ol>
+        {/* iOS Native App vs iOS Safari PWA Instructions */}
+        <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-2">
+          <div className="rounded-lg border border-line bg-surface p-3 text-xs text-muted space-y-1.5">
+            <p className="font-semibold text-fg">
+              <Smartphone className="mr-1 inline size-3.5 text-primary-fg" aria-hidden />
+              Bản Ứng dụng iPhone Native (Capacitor iOS):
+            </p>
+            <ul className="list-disc pl-4 space-y-1">
+              <li>
+                Thông báo dùng <strong>Apple UNUserNotificationCenter</strong> (hoạt động cả khi mất mạng, khóa màn hình hoặc đóng hoàn toàn ứng dụng ở App Switcher).
+              </li>
+              <li>
+                Có thể giữ icon ➔ chọn <strong>"Xóa khỏi Màn hình chính (Remove from Home Screen)"</strong> để ẩn vào <strong>Thư viện ứng dụng (App Library)</strong> — lịch nhắc vẫn chạy bình thường.
+              </li>
+              <li>
+                <strong>Lưu ý:</strong> Không chọn <strong>"Xóa ứng dụng (Delete App)"</strong> nếu muốn tiếp tục nhận thông báo.
+              </li>
+            </ul>
+          </div>
+
+          <div className="rounded-lg border border-line bg-surface p-3 text-xs text-muted space-y-1.5">
+            <p className="font-semibold text-fg">
+              <Smartphone className="mr-1 inline size-3.5 text-primary-fg" aria-hidden />
+              Bản Web / PWA trên iPhone Safari (iOS 16.4+):
+            </p>
+            <ol className="list-decimal pl-4 space-y-0.5">
+              <li>Mở trang web trong <strong>Safari</strong> ➔ bấm <strong>Chia sẻ (Share)</strong> ➔ chọn <strong>Thêm vào MH chính</strong>.</li>
+              <li>Mở ứng dụng <strong>Nihongo 問</strong> từ Màn hình chính và bấm <strong>Đăng ký Web Push</strong>.</li>
+              <li>
+                <strong>Lưu ý PWA:</strong> Biểu tượng Web App phải <strong>giữ lại trên Màn hình chính</strong> — nếu xóa icon Web App khỏi Màn hình chính, Safari iOS sẽ gỡ Web App và ngừng Web Push.
+              </li>
+            </ol>
+          </div>
         </div>
 
         {/* Subscribed Multi-Device List */}
-        {subscribedDevices.length > 0 && (
+        {!compat.isNativeApp && subscribedDevices.length > 0 && (
           <div className="space-y-1.5 border-t border-line pt-2.5">
             <span className="text-xs font-semibold text-fg">
               Thiết bị đang nhận thông báo Push ({subscribedDevices.length}):

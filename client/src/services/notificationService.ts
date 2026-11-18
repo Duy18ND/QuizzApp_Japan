@@ -1,4 +1,29 @@
+import {
+  cancelNativeSlotNotifications,
+  getNativeNotificationPermissionState,
+  getNativePlatformKind,
+  isNativeCapacitorPlatform,
+  loadLastNativeSyncStatus,
+  NATIVE_NOTIFICATION_SYNC_EVENT,
+  requestNativeNotificationPermission,
+  sendTestNativeLocalNotification,
+  startNativeNotificationListeners,
+  syncNativeStudySchedules,
+  type NativePlatformKind,
+  type NativeScheduleSyncStatus,
+} from './nativeNotificationService';
 import { supabase } from './supabaseClient';
+
+export {
+  getNativeNotificationPermissionState,
+  getNativePlatformKind,
+  isNativeCapacitorPlatform,
+  loadLastNativeSyncStatus,
+  NATIVE_NOTIFICATION_SYNC_EVENT,
+  syncNativeStudySchedules,
+  type NativePlatformKind,
+  type NativeScheduleSyncStatus,
+};
 
 export const STUDY_SCHEDULE_STORAGE_KEY = 'nihonmaster_study_schedule';
 export const STUDY_SCHEDULE_FIRED_STORAGE_KEY = 'nihonmaster_study_fired_keys';
@@ -294,7 +319,7 @@ export function sanitizeTimeSlots(
   const seenIds = new Set<string>();
   const seenCanonicalKeys = new Set<string>();
 
-  for (let i = 0; i < raw.length && result.length < 30; i++) {
+  for (let i = 0; i < raw.length && result.length < 200; i++) {
     const item = raw[i];
     if (typeof item === 'string') {
       const t = sanitizeTime(item, '');
@@ -751,6 +776,10 @@ export async function saveStudySchedule(
     }
   }
 
+  if (isNativeCapacitorPlatform()) {
+    void syncNativeStudySchedules(merged);
+  }
+
   return merged;
 }
 
@@ -908,6 +937,9 @@ export async function deleteScheduleSlot(
   const current = loadStudySchedule(currentDateKey);
   const nextSlots = current.timeSlots.filter((s) => s.id !== slotId);
   clearFiredKeysForSlot(slotId);
+  if (isNativeCapacitorPlatform()) {
+    void cancelNativeSlotNotifications(slotId);
+  }
   return saveStudySchedule(
     {
       timeSlots: nextSlots,
@@ -1004,6 +1036,9 @@ export async function syncStudyScheduleFromCloud(
     } catch {
       // Ignore
     }
+    if (isNativeCapacitorPlatform()) {
+      void syncNativeStudySchedules(hydrated);
+    }
     return hydrated;
   } catch {
     return local;
@@ -1015,13 +1050,25 @@ export async function syncStudyScheduleFromCloud(
    ============================================================================ */
 
 export interface DeviceCompatibilityInfo {
-  platform: 'windows-pc' | 'mac-desktop' | 'ios-pwa' | 'ios-browser' | 'android' | 'other';
+  platform:
+    | 'windows-pc'
+    | 'mac-desktop'
+    | 'ios-native'
+    | 'android-native'
+    | 'ios-pwa'
+    | 'ios-browser'
+    | 'android'
+    | 'other';
   platformLabel: string;
-  browser: 'Chrome' | 'Edge' | 'Safari' | 'Firefox' | 'Other';
+  browser: 'Chrome' | 'Edge' | 'Safari' | 'Firefox' | 'Capacitor' | 'Other';
+  nativePlatform: NativePlatformKind;
+  isNativeApp: boolean;
   isIos: boolean;
   iosVersion: number | null;
   isStandalonePwa: boolean;
   requiresIosHomeScreenInstall: boolean;
+  nativeLocalNotificationsSupported: boolean;
+  supportsRemoveFromHomeScreen: boolean;
   webPushSupported: boolean;
   notificationSupported: boolean;
   compatibilitySummary: string;
@@ -1062,7 +1109,11 @@ export function getCurrentDeviceId(): string {
 export function detectDevicePushCompatibility(
   customUa?: string,
   customStandalone?: boolean,
+  customNativePlatform?: NativePlatformKind,
 ): DeviceCompatibilityInfo {
+  const nativePlatform = customNativePlatform ?? getNativePlatformKind();
+  const isNativeApp = nativePlatform === 'ios' || nativePlatform === 'android';
+
   const ua =
     customUa ??
     (typeof navigator !== 'undefined' ? navigator.userAgent || '' : '');
@@ -1075,15 +1126,17 @@ export function detectDevicePushCompatibility(
           window.matchMedia('(display-mode: standalone)').matches) ||
           Boolean((navigator as { standalone?: boolean }).standalone));
 
-  const isIos = /iPad|iPhone|iPod/.test(ua);
+  const isIos = nativePlatform === 'ios' || /iPad|iPhone|iPod/.test(ua);
   const iosMatch = ua.match(/OS (\d+)[._](\d+)/);
   const iosVersion = iosMatch ? Number(`${iosMatch[1]}.${iosMatch[2]}`) : null;
-  const isAndroid = /Android/i.test(ua);
+  const isAndroid = nativePlatform === 'android' || /Android/i.test(ua);
   const isWindows = /Windows NT/i.test(ua);
   const isMac = /Macintosh|Mac OS X/i.test(ua) && !isIos;
 
   let browser: DeviceCompatibilityInfo['browser'] = 'Other';
-  if (/Edg\//i.test(ua)) {
+  if (isNativeApp) {
+    browser = 'Capacitor';
+  } else if (/Edg\//i.test(ua)) {
     browser = 'Edge';
   } else if (/Chrome\//i.test(ua) && !/Edg\//i.test(ua)) {
     browser = 'Chrome';
@@ -1095,11 +1148,17 @@ export function detectDevicePushCompatibility(
 
   let platform: DeviceCompatibilityInfo['platform'] = 'other';
   let platformLabel = 'Thiết bị trình duyệt';
-  if (isIos) {
+  if (nativePlatform === 'ios') {
+    platform = 'ios-native';
+    platformLabel = 'iPhone / iPad Native App (iOS · UNUserNotificationCenter)';
+  } else if (nativePlatform === 'android') {
+    platform = 'android-native';
+    platformLabel = 'Android Native App (Capacitor · AlarmManager)';
+  } else if (isIos) {
     platform = isStandalonePwa ? 'ios-pwa' : 'ios-browser';
     platformLabel = isStandalonePwa
-      ? 'iPhone / iPad (Đã cài Màn hình chính PWA)'
-      : 'iPhone / iPad (Trình duyệt — Cần cài ra Màn hình chính)';
+      ? 'iPhone / iPad (PWA Màn hình chính · Web Push)'
+      : 'iPhone / iPad (Trình duyệt Safari — Cần cài Màn hình chính hoặc dùng App Native)';
   } else if (isAndroid) {
     platform = 'android';
     platformLabel = `Android (${browser})`;
@@ -1112,17 +1171,22 @@ export function detectDevicePushCompatibility(
   }
 
   const notificationSupported =
+    isNativeApp ||
     customUa !== undefined ||
     (typeof window !== 'undefined' && 'Notification' in window);
   const swAndPushSupported =
-    customUa !== undefined ||
-    (typeof window !== 'undefined' &&
-      'serviceWorker' in navigator &&
-      'PushManager' in window);
+    !isNativeApp &&
+    (customUa !== undefined ||
+      (typeof window !== 'undefined' &&
+        'serviceWorker' in navigator &&
+        'PushManager' in window));
 
-  const requiresIosHomeScreenInstall = isIos && !isStandalonePwa;
+  const requiresIosHomeScreenInstall = !isNativeApp && isIos && !isStandalonePwa;
   const iosVersionSupported = !isIos || iosVersion === null || iosVersion >= 16.4;
+  const nativeLocalNotificationsSupported = isNativeApp;
+  const supportsRemoveFromHomeScreen = isNativeApp;
   const webPushSupported =
+    !isNativeApp &&
     notificationSupported &&
     swAndPushSupported &&
     !requiresIosHomeScreenInstall &&
@@ -1130,9 +1194,18 @@ export function detectDevicePushCompatibility(
 
   let compatibilitySummary =
     'Hỗ trợ đầy đủ Web Push & Service Worker (nhận thông báo cả khi đóng tab).';
-  if (requiresIosHomeScreenInstall) {
+  if (platform === 'ios-native') {
     compatibilitySummary =
-      'Trên iPhone/iPad (iOS/iPadOS 16.4+): Web Push không chạy trong tab trình duyệt thường. Bạn cần bấm Chia sẻ ➔ Thêm vào Màn hình chính rồi mở ứng dụng từ Màn hình chính.';
+      'Ứng dụng iOS Native dùng Apple UNUserNotificationCenter & UNCalendarNotificationTrigger: tự động nhắc đúng giờ kể cả khi thoát app, khóa màn hình, đóng ở App Switcher, khởi động lại máy hoặc chọn "Xóa khỏi Màn hình chính" (giữ app trong Thư viện ứng dụng).';
+  } else if (platform === 'android-native') {
+    compatibilitySummary =
+      'Ứng dụng Android Native dùng AlarmManager chính xác và khôi phục lịch sau khi khởi động lại máy.';
+  } else if (requiresIosHomeScreenInstall) {
+    compatibilitySummary =
+      'Trên iPhone/iPad (iOS/iPadOS 16.4+): Bản Web cần bấm Chia sẻ ➔ Thêm vào Màn hình chính (và giữ biểu tượng PWA trên Màn hình chính). Nếu muốn xóa biểu tượng khỏi Màn hình chính mà vẫn nhận nhắc học, hãy dùng ứng dụng Native iOS (Capacitor).';
+  } else if (platform === 'ios-pwa') {
+    compatibilitySummary =
+      'Đang chạy PWA Màn hình chính: hỗ trợ Web Push (APNs). Lưu ý không xóa biểu tượng PWA khỏi Màn hình chính để giữ Web Push; chỉ ứng dụng iOS Native mới tiếp tục nhắc khi ẩn icon vào Thư viện ứng dụng.';
   } else if (isIos && !iosVersionSupported) {
     compatibilitySummary =
       'Thiết bị iOS/iPadOS cần phiên bản 16.4 trở lên và cài đặt ra Màn hình chính để nhận Web Push.';
@@ -1145,10 +1218,14 @@ export function detectDevicePushCompatibility(
     platform,
     platformLabel,
     browser,
+    nativePlatform,
+    isNativeApp,
     isIos,
     iosVersion,
     isStandalonePwa,
     requiresIosHomeScreenInstall,
+    nativeLocalNotificationsSupported,
+    supportsRemoveFromHomeScreen,
     webPushSupported,
     notificationSupported,
     compatibilitySummary,
@@ -1558,13 +1635,27 @@ export function clearFiredKeysForSlot(slotId: string): void {
 export type NotificationPermissionStatus = 'granted' | 'denied' | 'default' | 'unsupported';
 
 export function getNotificationPermissionState(): NotificationPermissionStatus {
-  if (typeof window === 'undefined' || !('Notification' in window)) {
+  if (typeof window === 'undefined') {
+    return 'unsupported';
+  }
+  if (isNativeCapacitorPlatform()) {
+    return loadLastNativeSyncStatus().permission;
+  }
+  if (!('Notification' in window)) {
     return 'unsupported';
   }
   return Notification.permission as NotificationPermissionStatus;
 }
 
+export async function getEffectiveNotificationPermissionState(): Promise<NotificationPermissionStatus> {
+  if (isNativeCapacitorPlatform()) {
+    return getNativeNotificationPermissionState();
+  }
+  return getNotificationPermissionState();
+}
+
 export function isIosDevice(): boolean {
+  if (isNativeCapacitorPlatform() && getNativePlatformKind() === 'ios') return true;
   if (typeof navigator === 'undefined') return false;
   return /iPad|iPhone|iPod/.test(navigator.userAgent);
 }
@@ -1572,7 +1663,11 @@ export function isIosDevice(): boolean {
 let swRegistrationPromise: Promise<ServiceWorkerRegistration | null> | null = null;
 
 export async function registerStudyServiceWorker(): Promise<ServiceWorkerRegistration | null> {
-  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+  if (
+    isNativeCapacitorPlatform() ||
+    typeof window === 'undefined' ||
+    !('serviceWorker' in navigator)
+  ) {
     return null;
   }
   if (!swRegistrationPromise) {
@@ -1584,6 +1679,9 @@ export async function registerStudyServiceWorker(): Promise<ServiceWorkerRegistr
 }
 
 export async function requestStudyNotificationPermission(): Promise<NotificationPermissionStatus> {
+  if (isNativeCapacitorPlatform()) {
+    return requestNativeNotificationPermission(loadStudySchedule());
+  }
   if (typeof window === 'undefined' || !('Notification' in window)) {
     return 'unsupported';
   }
@@ -1686,9 +1784,25 @@ export async function sendTestPushNotification(options: {
   schedulePrimaryTime?: string;
 } = {}): Promise<{
   ok: boolean;
-  channel: 'server_web_push' | 'service_worker';
+  channel: 'native_local' | 'server_web_push' | 'service_worker';
+  triggerAtIso?: string;
   reason?: string;
 }> {
+  const delaySec = Math.max(0, Math.min(10, Number(options.delaySeconds) || 0));
+
+  if (isNativeCapacitorPlatform()) {
+    const nativeRes = await sendTestNativeLocalNotification(
+      Math.max(1, delaySec || 2),
+      options.schedulePrimaryTime || '20:00',
+    );
+    return {
+      ok: nativeRes.ok,
+      channel: 'native_local',
+      triggerAtIso: nativeRes.triggerAtIso,
+      reason: nativeRes.reason,
+    };
+  }
+
   const permission = getNotificationPermissionState();
   if (permission !== 'granted') {
     return {
@@ -1698,8 +1812,6 @@ export async function sendTestPushNotification(options: {
         'Chưa cấp quyền thông báo. Vui lòng bấm nút "Bật quyền thông báo (Enable Notifications)" trước khi gửi Test Push.',
     };
   }
-
-  const delaySec = Math.max(0, Math.min(10, Number(options.delaySeconds) || 0));
   const currentDeviceId = getCurrentDeviceId();
   const currentSub = loadLocalPushDevices().find(
     (d) => d.deviceId === currentDeviceId && d.enabled,
@@ -1864,6 +1976,18 @@ export function evaluateScheduleTick(
 
 export function startStudyReminderLoop(): () => void {
   if (typeof window === 'undefined') return () => {};
+
+  if (isNativeCapacitorPlatform()) {
+    return startNativeNotificationListeners({
+      onScheduleRefreshRequested: async () => loadStudySchedule(),
+      onNavigate: (hashRoute) => {
+        const cleanHash = hashRoute.startsWith('#')
+          ? hashRoute
+          : `#/${hashRoute.replace(/^\.?\/?#?\/?/, '')}`;
+        window.location.hash = cleanHash;
+      },
+    });
+  }
 
   void registerStudyServiceWorker();
 
