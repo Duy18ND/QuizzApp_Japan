@@ -17,7 +17,27 @@ Tài liệu này giải thích kiến trúc **Capacitor Native iOS Local Notific
 
 ---
 
-## 2. Yêu cầu Môi trường Build & Signing cho iOS (Bắt buộc macOS + Xcode)
+## 2. 3 Cách Xóa/Ẩn Biểu Tượng Khỏi Màn Hình Chính iPhone Mà Vẫn Nhận Thông Báo
+
+### Cách 1 (Khuyên dùng): Cài App Native iOS (Capacitor) ➔ Chọn "Remove from Home Screen" vào App Library
+- Khi đã cài **Nihongo 問** dưới dạng App Native (`client/ios/`):
+  1. Bấm giữ biểu tượng trên Màn hình chính ➔ chọn **Xóa ứng dụng (Remove App)**.
+  2. Chọn **Xóa khỏi Màn hình chính (Remove from Home Screen)**. *(Tuyệt đối KHÔNG chọn "Xóa ứng dụng / Delete App" màu đỏ).*
+  3. Biểu tượng biến mất khỏi Màn hình chính nhưng app vẫn nằm trong **Thư viện ứng dụng (App Library)**. Thông báo từ `UNUserNotificationCenter` vẫn nổ đầy đủ ngay cả khi tắt app, khóa màn hình, mất mạng hay khởi động lại máy.
+
+### Cách 2 (Không cần Mac/Xcode — Tải `.ipa` trực tiếp từ GitHub Actions & cài bằng Windows)
+Workflow [`.github/workflows/build-native-apps.yml`](../.github/workflows/build-native-apps.yml) tự động chạy trên máy **macOS Cloud** của GitHub để đóng gói sẵn file **`Nihongo-QuizzApp-iOS-Unsigned.ipa`**:
+1. Vào tab **Actions** trên GitHub ➔ chọn workflow **Build Native iOS (.ipa) & Android (.apk)** ➔ tải artifact **`Nihongo-QuizzApp-iOS-Unsigned-IPA`**.
+2. Giải nén lấy file `Nihongo-QuizzApp-iOS-Unsigned.ipa`.
+3. Trên máy **Windows**, cài **Sideloadly** hoặc **AltServer / AltStore**, cắm iPhone qua USB, kéo file `.ipa` vào và ký bằng Apple ID thường miễn phí của bạn (tương tự Xcode Personal Team — Local Notifications hoạt động **100% không cần tài khoản Apple Developer trả phí \$99/năm**).
+
+### Cách 3 (Dùng Web Safari ngay lập tức — Không cần cài App `.ipa`)
+- **3A — Xóa hẳn icon Web, giao cho Apple Calendar (`.ics`) nhắc lịch:** Vào `/settings` trên Safari ➔ bấm **`📲 Cài vào Lịch Báo Thức Điện Thoại (iPhone .ics)`** để nạp toàn bộ lịch học vào ứng dụng **Lịch (Calendar)** gốc của iPhone. Sau đó bạn có thể xóa hẳn bookmark Web khỏi Màn hình chính mà Lịch iPhone vẫn reo chuông + hiện thông báo ngoài màn hình khóa kèm đường dẫn mở thẳng bài ôn tập.
+- **3B — Giấu icon Safari PWA nhưng vẫn nhận Web Push (APNs):** Sau khi *Thêm vào Màn hình chính* từ Safari, kéo icon sang 1 trang riêng ở cuối ➔ chạm giữ vùng trống Màn hình chính ➔ bấm dãy chấm trang (`•••`) ở dưới ➔ **bỏ dấu tích trang đó** ➔ bấm **Xong**. iPhone ẩn trang đó khỏi Màn hình chính nhưng không xóa Web App, nên Web Push APNs vẫn hoạt động.
+
+---
+
+## 3. Yêu cầu Môi trường Build trực tiếp bằng Xcode trên macOS
 
 > **Lưu ý giới hạn hiện tại trên Windows:** Do môi trường phát triển hiện tại là **Windows 11** (không có macOS và Xcode), toàn bộ mã nguồn Capacitor, cấu hình Swift Package Manager (`CapApp-SPM`), dự án Xcode `client/ios/App/App.xcodeproj`, và dịch vụ lập lịch `nativeNotificationService.ts` đã được chuẩn bị sẵn, **nhưng chưa biên dịch (compile), chưa ký (code-sign) và chưa cài lên iPhone thật**.
 

@@ -1,0 +1,120 @@
+name: Build Native iOS (.ipa) & Android (.apk)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main", "develop"]
+    paths:
+      - "client/src/**"
+      - "client/public/**"
+      - "client/ios/**"
+      - "client/android/**"
+      - "client/capacitor.config.ts"
+      - "client/package.json"
+      - ".github/workflows/build-native-apps.yml"
+
+jobs:
+  build-ios-unsigned:
+    name: Build Unsigned iOS App (.ipa) on macOS
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: "./client/package-lock.json"
+
+      - name: Install client dependencies
+        run: npm ci
+        working-directory: ./client
+
+      - name: Build web bundle & sync Capacitor iOS
+        run: npm run cap:ios
+        working-directory: ./client
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
+
+      - name: Resolve Swift Package Manager dependencies
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project ios/App/App.xcodeproj \
+            -scheme App
+        working-directory: ./client
+
+      - name: Build unsigned iOS Release bundle
+        run: |
+          xcodebuild clean build \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CONFIGURATION_BUILD_DIR="$PWD/ios_build"
+        working-directory: ./client
+
+      - name: Package unsigned .ipa for Sideloadly / AltStore
+        run: |
+          mkdir -p ios_ipa/Payload
+          cp -R ios_build/App.app ios_ipa/Payload/App.app
+          cd ios_ipa
+          zip -qry ../Nihongo-QuizzApp-iOS-Unsigned.ipa Payload
+        working-directory: ./client
+
+      - name: Upload iOS Unsigned .ipa Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nihongo-QuizzApp-iOS-Unsigned-IPA
+          path: client/Nihongo-QuizzApp-iOS-Unsigned.ipa
+
+  build-android-apk:
+    name: Build Android Debug APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: "./client/package-lock.json"
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
+      - name: Install client dependencies
+        run: npm ci
+        working-directory: ./client
+
+      - name: Build web bundle & sync Capacitor Android
+        run: npm run cap:android
+        working-directory: ./client
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
+
+      - name: Build Debug APK
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+        working-directory: ./client/android
+
+      - name: Upload Android APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nihongo-QuizzApp-Android-Debug-APK
+          path: client/android/app/build/outputs/apk/debug/app-debug.apk

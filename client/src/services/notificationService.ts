@@ -2072,6 +2072,23 @@ function formatIcsLocalDateTime(dateStrOrObj: Date | string, timeStr: string): s
   return `${dateKey.replace(/-/g, '')}T${hh}${mm}00`;
 }
 
+function addMinutesToDateAndTimeStr(
+  baseDateKey: string,
+  timeStr: string,
+  minutesToAdd: number,
+): { dateKey: string; timeStr: string } {
+  const [hh, mm] = sanitizeTime(timeStr, '20:00').split(':').map(Number);
+  const rawTotal = hh * 60 + mm + minutesToAdd;
+  const dayOffset = Math.floor(rawTotal / (24 * 60));
+  const total = ((rawTotal % (24 * 60)) + 24 * 60) % (24 * 60);
+  const nextH = String(Math.floor(total / 60)).padStart(2, '0');
+  const nextM = String(total % 60).padStart(2, '0');
+  return {
+    dateKey: dayOffset === 0 ? baseDateKey : addDaysToDateKey(baseDateKey, dayOffset),
+    timeStr: `${nextH}:${nextM}`,
+  };
+}
+
 function addMinutesToTimeStr(timeStr: string, minutesToAdd: number): string {
   const [hh, mm] = sanitizeTime(timeStr, '20:00').split(':').map(Number);
   const total = (hh * 60 + mm + minutesToAdd) % (24 * 60);
@@ -2127,9 +2144,10 @@ export function generateStudyScheduleIcs(config: StudyScheduleConfig): string {
   const events = slotsToExport.map((slot, idx) => {
     const isRecurring = slot.scheduleType === 'recurring';
     const baseDate = isRecurring ? todayKey : slot.date || todayKey;
+    const tzId = clean.timezone || DEFAULT_TIMEZONE;
     const dtStart = formatIcsLocalDateTime(baseDate, slot.time);
-    const endTime = addMinutesToTimeStr(slot.time, 30);
-    const dtEnd = formatIcsLocalDateTime(baseDate, endTime);
+    const endSlot = addMinutesToDateAndTimeStr(baseDate, slot.time, 30);
+    const dtEnd = formatIcsLocalDateTime(endSlot.dateKey, endSlot.timeStr);
     const summary = `🇯🇵 Học tiếng Nhật — ${slot.label} (Nihongo 問)`;
     const description = `Lịch học ${slot.time} trên Nihongo 問. Bấm vào link để ôn tập ngay: ${appUrl}`;
 
@@ -2137,8 +2155,8 @@ export function generateStudyScheduleIcs(config: StudyScheduleConfig): string {
       'BEGIN:VEVENT',
       `UID:nihongo-slot-${idx}-${slot.id}@quizzapp.nihon`,
       `DTSTAMP:${dtStamp}`,
-      `DTSTART:${dtStart}`,
-      `DTEND:${dtEnd}`,
+      `DTSTART;TZID=${tzId}:${dtStart}`,
+      `DTEND;TZID=${tzId}:${dtEnd}`,
     ];
     if (isRecurring) {
       const slotRrule =
@@ -2172,6 +2190,8 @@ export function generateStudyScheduleIcs(config: StudyScheduleConfig): string {
     'PRODID:-//Nihongo 問 QuizzApp//Study Schedule//VI',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
+    'X-WR-CALNAME:Nihongo 問 — Lịch học tiếng Nhật',
+    `X-WR-TIMEZONE:${clean.timezone || DEFAULT_TIMEZONE}`,
     ...events,
     'END:VCALENDAR',
   ].join('\r\n');
