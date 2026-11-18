@@ -6,11 +6,14 @@ import {
   BellRing,
   Calendar,
   CheckCircle2,
+  Copy,
+  ExternalLink,
   Flame,
   Pencil,
   Plus,
   RefreshCw,
   Repeat,
+  Send,
   Smartphone,
   Trash2,
   Trophy,
@@ -54,6 +57,15 @@ import {
   type StudyScheduleConfig,
   type StudyTimeSlot,
 } from '../../services/notificationService';
+import {
+  generateSecureNtfyTopic,
+  isValidNtfyTopic,
+  loadNtfyConfig,
+  pushUpcomingSchedulesToNtfy,
+  saveNtfyConfig,
+  sendNtfyNotification,
+  type NtfyChannelConfig,
+} from '../../services/thirdPartyPushService';
 import {
   Badge,
   Button,
@@ -99,8 +111,19 @@ export const StudyScheduleCard: React.FC = () => {
     loadLastNativeSyncStatus(),
   );
   const [syncingNative, setSyncingNative] = useState(false);
+  const [requestingPermission, setRequestingPermission] = useState(false);
+  const [actionFeedback, setActionFeedback] = useState<{
+    tone: 'success' | 'warning' | 'danger' | 'info';
+    message: string;
+  } | null>(null);
   const [subscribedDevices, setSubscribedDevices] = useState<PushDeviceSubscriptionRecord[]>([]);
   const [subscribingPush, setSubscribingPush] = useState(false);
+  const [ntfyConfig, setNtfyConfig] = useState<NtfyChannelConfig>(() => loadNtfyConfig());
+  const [ntfyBusy, setNtfyBusy] = useState(false);
+  const [ntfyFeedback, setNtfyFeedback] = useState<{
+    tone: 'success' | 'warning' | 'danger' | 'info';
+    message: string;
+  } | null>(null);
 
   // Add / Edit Schedule Form State
   const [editingSlotId, setEditingSlotId] = useState<string | null>(null);
@@ -269,27 +292,138 @@ export const StudyScheduleCard: React.FC = () => {
   };
 
   const handleRequestPermission = async () => {
+    setRequestingPermission(true);
+    setActionFeedback(null);
     const nextPerm = await requestStudyNotificationPermission();
     setPermission(nextPerm);
+    setRequestingPermission(false);
     if (nextPerm === 'granted') {
       if (compat.isNativeApp) {
         const synced = await syncNativeStudySchedules(schedule);
         setNativeStatus(synced);
-        toast({
-          title: `Đã cấp quyền và đồng bộ ${synced.scheduledCount} lịch vào hệ điều hành!`,
-          tone: 'success',
-        });
+        const msg = `Đã cấp quyền và đồng bộ ${synced.scheduledCount} lịch vào hệ điều hành!`;
+        setActionFeedback({ tone: 'success', message: msg });
+        toast({ title: msg, tone: 'success' });
       } else {
-        toast({ title: 'Đã cấp quyền thông báo thành công!', tone: 'success' });
+        const msg = 'Đã cấp quyền thông báo thành công!';
+        setActionFeedback({ tone: 'success', message: msg });
+        toast({ title: msg, tone: 'success' });
       }
     } else if (nextPerm === 'denied') {
-      toast({
-        title: compat.isNativeApp
-          ? 'Quyền thông báo đang bị tắt. Hãy mở Cài đặt điện thoại ➔ Thông báo ➔ Nihongo 問 để bật lại.'
-          : 'Quyền thông báo đang bị chặn trên trình duyệt. Hãy bật lại trong Cài đặt trình duyệt.',
-        tone: 'warning',
+      const msg = compat.isNativeApp
+        ? 'Không thể bật quyền tự động (iOS chỉ hiện hộp thoại 1 lần hoặc app cài sideload thiếu quyền thông báo). Hãy vào Cài đặt iPhone ➔ Thông báo ➔ kiểm tra mục Nihongo 問, hoặc dùng Google Calendar / app ntfy (mục 4 & 5 bên dưới).'
+        : 'Quyền thông báo đang bị chặn trên trình duyệt. Hãy bật lại trong Cài đặt trình duyệt.';
+      setActionFeedback({ tone: 'warning', message: msg });
+      toast({ title: msg, tone: 'warning' });
+    } else {
+      const msg = compat.isNativeApp
+        ? 'Trình bao Native iOS không nhận được phản hồi từ plugin LocalNotifications. Hãy dùng Google Calendar (mục 4) hoặc app thứ 3 ntfy (mục 5) — đảm bảo chạy ổn định 100%.'
+        : 'Trình duyệt hiện tại không bật hộp thoại quyền thông báo.';
+      setActionFeedback({ tone: 'warning', message: msg });
+      toast({ title: msg, tone: 'warning' });
+    }
+  };
+
+  const handleGenerateNtfyTopic = async () => {
+    const newTopic = generateSecureNtfyTopic();
+    const saved = await saveNtfyConfig(
+      { topic: newTopic, enabled: true },
+      { userId: user?.id, deviceId: currentDeviceId, schedule },
+    );
+    setNtfyConfig(saved);
+    setNtfyFeedback({
+      tone: 'success',
+      message: `Đã tạo kênh bảo mật riêng "${saved.topic}". Bấm "Copy tên kênh" và dán vào app ntfy trên iPhone để đăng ký (Subscribe).`,
+    });
+  };
+
+  const handleCopyNtfyTopic = async () => {
+    const cleanTopic = ntfyConfig.topic.trim();
+    if (!cleanTopic) return;
+    try {
+      await navigator.clipboard.writeText(cleanTopic);
+      toast({ title: `Đã copy tên kênh "${cleanTopic}"!`, tone: 'success' });
+    } catch {
+      setNtfyFeedback({
+        tone: 'info',
+        message: `Hãy copy thủ công tên kênh: ${cleanTopic}`,
       });
     }
+  };
+
+  const handleSendNtfyTest = async (delay?: string) => {
+    const cleanTopic = ntfyConfig.topic.trim();
+    if (!isValidNtfyTopic(cleanTopic)) {
+      setNtfyFeedback({
+        tone: 'warning',
+        message: 'Tên kênh ntfy cần dài từ 8 ký tự trở lên. Bấm "Tạo kênh bảo mật" trước nhé!',
+      });
+      return;
+    }
+    setNtfyBusy(true);
+    setNtfyFeedback(null);
+    const saved = await saveNtfyConfig(
+      { topic: cleanTopic, enabled: true },
+      { userId: user?.id, deviceId: currentDeviceId, schedule },
+    );
+    setNtfyConfig(saved);
+
+    const res = await sendNtfyNotification({
+      serverUrl: saved.serverUrl,
+      topic: saved.topic,
+      title: delay
+        ? '📲 Test Push nền (ntfy iOS) — Nihongo 問'
+        : '🔔 Test thông báo ntfy — Nihongo 問',
+      message: delay
+        ? `Thông báo hẹn sau ${delay} đã gửi thành công từ máy chủ ntfy! Bấm để mở bài học ngay.`
+        : 'Kết nối ntfy thành công! Từ giờ bạn có thể ẩn hoặc xóa icon web Nihongo 問 khỏi Màn hình chính.',
+      delay,
+      priority: 4,
+    });
+    setNtfyBusy(false);
+
+    if (res.ok) {
+      const msg = delay
+        ? `Đã hẹn ntfy gửi sau ${delay} tới kênh "${saved.topic}" — hãy khóa màn hình iPhone hoặc tắt Safari để chờ thông báo!`
+        : `Đã gửi thông báo thử nghiệm tới kênh "${saved.topic}" trên app ntfy!`;
+      setNtfyFeedback({ tone: 'success', message: msg });
+      toast({ title: msg, tone: 'success' });
+    } else {
+      const msg = res.error ?? 'Không thể gửi thông báo tới máy chủ ntfy.';
+      setNtfyFeedback({ tone: 'danger', message: msg });
+      toast({ title: msg, tone: 'warning' });
+    }
+  };
+
+  const handleSyncNtfy72h = async () => {
+    if (schedule.timeSlots.length === 0) {
+      setNtfyFeedback({
+        tone: 'warning',
+        message: 'Bạn chưa có khung giờ học nào trong lịch. Hãy thêm ít nhất 1 lịch ở mục 1 trước.',
+      });
+      return;
+    }
+    setNtfyBusy(true);
+    setNtfyFeedback(null);
+    const res = await pushUpcomingSchedulesToNtfy(ntfyConfig, schedule, {
+      userId: user?.id,
+      deviceId: currentDeviceId,
+    });
+    setNtfyConfig(loadNtfyConfig());
+    setNtfyBusy(false);
+    if (!res.ok) {
+      setNtfyFeedback({
+        tone: 'danger',
+        message: res.error ?? 'Không thể đẩy lịch lên ntfy.',
+      });
+      return;
+    }
+    const msg =
+      res.totalInWindow === 0
+        ? 'Không có khung giờ nào rơi vào 72 giờ sắp tới (hoặc các khung giờ hôm nay đều đã qua).'
+        : `Đã nạp ${res.scheduledCount} thông báo mới (tổng ${res.totalInWindow} lịch trong 72h tới) lên máy chủ ntfy. Kể cả bạn tắt Safari hoặc xóa icon web, iPhone vẫn nhận thông báo qua app ntfy!`;
+    setNtfyFeedback({ tone: 'success', message: msg });
+    toast({ title: 'Đã đẩy lịch 72h tới lên ntfy!', tone: 'success' });
   };
 
   const handleManualNativeSync = async () => {
@@ -391,8 +525,8 @@ export const StudyScheduleCard: React.FC = () => {
     });
   };
 
-  const handleOpenGoogleCalendar = () => {
-    const url = buildGoogleCalendarUrl(schedule);
+  const handleOpenGoogleCalendar = (slot?: StudyTimeSlot) => {
+    const url = buildGoogleCalendarUrl(schedule, slot);
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
@@ -594,6 +728,7 @@ export const StudyScheduleCard: React.FC = () => {
             <Button
               variant="secondary"
               size="sm"
+              loading={requestingPermission}
               className="h-auto min-h-8 max-w-full py-1.5 text-left whitespace-normal sm:whitespace-nowrap"
               leftIcon={<Bell className="size-4 shrink-0" aria-hidden />}
               onClick={() => void handleRequestPermission()}
@@ -631,6 +766,10 @@ export const StudyScheduleCard: React.FC = () => {
             )
           )}
         </div>
+
+        {actionFeedback && (
+          <Notice tone={actionFeedback.tone}>{actionFeedback.message}</Notice>
+        )}
 
         {/* iPhone Home Screen Removal Options: Native App vs Apple Calendar (.ics) vs Safari Hide Page */}
         <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-2">
@@ -767,6 +906,15 @@ export const StudyScheduleCard: React.FC = () => {
                   </div>
 
                   <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      aria-label={`Thêm lịch ${slot.time} vào Google Calendar`}
+                      leftIcon={<Calendar className="size-3.5 text-primary-fg" aria-hidden />}
+                      onClick={() => handleOpenGoogleCalendar(slot)}
+                    >
+                      Google Lịch
+                    </Button>
                     <Button
                       variant="secondary"
                       size="sm"
@@ -1250,14 +1398,14 @@ export const StudyScheduleCard: React.FC = () => {
         </div>
       </div>
 
-      {/* 4. One-Click Native Phone Alarm / Calendar Sync */}
+      {/* 4. One-Click Google Calendar & Native Phone Calendar (.ics) */}
       <div className="space-y-3 border-t border-line pt-4">
         <div>
           <h3 className="text-sm font-semibold text-fg">
-            4. Đồng bộ Báo thức Lịch Điện Thoại (iPhone / Android .ics & Google Calendar)
+            4. Liên kết Google Calendar (Google Lịch) &amp; Apple Calendar (.ics)
           </h3>
           <p className="text-xs text-muted">
-            Đảm bảo điện thoại luôn đổ chuông đúng giờ ngay cả khi bật chế độ tiết kiệm pin nghiêm ngặt.
+            Cách ổn định nhất trên iPhone mà <strong>không cần để icon QuizzApp trên Màn hình chính</strong>: đồng bộ lịch sang ứng dụng <strong>Google Calendar</strong> hoặc <strong>Apple Calendar (Lịch iPhone)</strong> để hệ thống tự đổ chuông &amp; hiện thông báo ngoài màn hình khóa.
           </p>
         </div>
 
@@ -1277,10 +1425,140 @@ export const StudyScheduleCard: React.FC = () => {
             size="sm"
             className="h-auto min-h-9 max-w-full py-2 text-left whitespace-normal sm:whitespace-nowrap"
             leftIcon={<Calendar className="size-4 shrink-0" aria-hidden />}
-            onClick={handleOpenGoogleCalendar}
+            rightIcon={<ExternalLink className="size-3.5 shrink-0" aria-hidden />}
+            onClick={() => handleOpenGoogleCalendar()}
           >
             🗓️ Thêm nhanh vào Google Calendar
           </Button>
+        </div>
+
+        <div className="rounded-xl border border-line bg-surface-2 p-3 text-xs text-muted space-y-1">
+          <p className="font-semibold text-fg">
+            Mẹo đồng bộ nhiều lịch cùng lúc vào ứng dụng Google Calendar trên iPhone:
+          </p>
+          <ol className="list-decimal pl-4 space-y-0.5">
+            <li>Bấm nút <strong>Google Lịch</strong> ở từng khung giờ trong Mục 1 để lưu nhanh từng lịch lặp, hoặc tải file <strong>.ics</strong> rồi nhập tại <em>calendar.google.com ➔ Cài đặt ➔ Nhập &amp; xuất</em>.</li>
+            <li>Trên iPhone: mở <strong>Cài đặt iPhone ➔ Thông báo ➔ Google Calendar</strong> và bật <strong>Thông báo nhạy cảm thời gian (Time-Sensitive)</strong> + bật <strong>Làm mới ứng dụng trong nền</strong> để báo đúng giây dù khóa máy.</li>
+          </ol>
+        </div>
+      </div>
+
+      {/* 5. 3rd-Party Push App on App Store (ntfy — Real iPhone Push without QuizzApp Icon) */}
+      <div className="space-y-3 border-t border-line pt-4">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <h3 className="text-sm font-semibold text-fg">
+              5. App Thứ 3 trên App Store: ntfy (Nhận Push iOS thật, không cần icon QuizzApp)
+            </h3>
+            <p className="text-xs text-muted">
+              Cài app <strong>ntfy</strong> miễn phí từ Apple App Store (hoặc Google Play) — không cần Apple ID dev, không cần Sideloadly. Sau khi đăng ký kênh bảo mật bên dưới, iPhone sẽ nhận thông báo nhắc học kể cả khi tắt Safari hoặc xóa hẳn shortcut web khỏi Màn hình chính.
+            </p>
+          </div>
+          <Badge tone={ntfyConfig.enabled && isValidNtfyTopic(ntfyConfig.topic) ? 'success' : 'neutral'}>
+            {ntfyConfig.enabled && isValidNtfyTopic(ntfyConfig.topic)
+              ? 'ntfy: Đã liên kết'
+              : 'ntfy: Chưa kích hoạt'}
+          </Badge>
+        </div>
+
+        <div className="space-y-3 rounded-xl border border-line bg-surface-2 p-3.5">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-12">
+            <div className="sm:col-span-4">
+              <Field label="Máy chủ ntfy (HTTPS)" htmlFor="ntfy-server-url">
+                <Input
+                  id="ntfy-server-url"
+                  type="url"
+                  value={ntfyConfig.serverUrl}
+                  onChange={(e) =>
+                    setNtfyConfig((prev) => ({ ...prev, serverUrl: e.target.value }))
+                  }
+                  placeholder="https://ntfy.sh"
+                />
+              </Field>
+            </div>
+            <div className="sm:col-span-8">
+              <Field
+                label="Tên kênh riêng bảo mật (Topic ngẫu nhiên >= 8 ký tự)"
+                htmlFor="ntfy-topic-input"
+                hint="Dán chính xác tên kênh này vào mục Subscribe (+) trong app ntfy trên iPhone."
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="min-w-44 flex-1">
+                    <Input
+                      id="ntfy-topic-input"
+                      type="text"
+                      value={ntfyConfig.topic}
+                      onChange={(e) =>
+                        setNtfyConfig((prev) => ({ ...prev, topic: e.target.value }))
+                      }
+                      placeholder="VD: nihongo-8f3c91a4b7d2..."
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => void handleGenerateNtfyTopic()}
+                  >
+                    Tạo kênh bảo mật
+                  </Button>
+                  {ntfyConfig.topic.trim() && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      leftIcon={<Copy className="size-3.5" aria-hidden />}
+                      onClick={() => void handleCopyNtfyTopic()}
+                    >
+                      Copy
+                    </Button>
+                  )}
+                </div>
+              </Field>
+            </div>
+          </div>
+
+          {ntfyFeedback && (
+            <Notice tone={ntfyFeedback.tone}>{ntfyFeedback.message}</Notice>
+          )}
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              loading={ntfyBusy}
+              className="h-auto min-h-8 max-w-full py-1.5 text-left whitespace-normal sm:whitespace-nowrap"
+              leftIcon={<Send className="size-3.5 shrink-0" aria-hidden />}
+              onClick={() => void handleSendNtfyTest()}
+            >
+              🔔 Bắn Test ntfy ngay
+            </Button>
+
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              loading={ntfyBusy}
+              className="h-auto min-h-8 max-w-full py-1.5 text-left whitespace-normal sm:whitespace-nowrap"
+              leftIcon={<Smartphone className="size-3.5 shrink-0" aria-hidden />}
+              onClick={() => void handleSendNtfyTest('15s')}
+            >
+              📲 Test ntfy sau 15s (Khóa màn hình / Tắt Safari)
+            </Button>
+
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              loading={ntfyBusy}
+              className="h-auto min-h-8 max-w-full py-1.5 text-left whitespace-normal sm:whitespace-nowrap"
+              leftIcon={<Calendar className="size-3.5 shrink-0" aria-hidden />}
+              onClick={() => void handleSyncNtfy72h()}
+            >
+              📅 Đẩy lịch 72h tới lên ntfy
+            </Button>
+          </div>
         </div>
       </div>
     </Card>

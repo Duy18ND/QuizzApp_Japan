@@ -437,7 +437,34 @@ Deno.serve(async (req: Request) => {
     });
     if (logErr) continue;
 
-    if (vapidPublicKey && vapidPrivateKey && sub.endpoint && sub.p256dh && sub.auth) {
+    if (
+      String(sub.platform || '') === 'ios-ntfy' ||
+      String(sub.p256dh || '') === 'ntfy'
+    ) {
+      try {
+        const endpointUrl = new URL(String(sub.endpoint));
+        const segments = endpointUrl.pathname.split('/').filter(Boolean);
+        const topic = segments.pop() ?? '';
+        const basePath = segments.length > 0 ? `/${segments.join('/')}` : '';
+        const rootUrl = `${endpointUrl.protocol}//${endpointUrl.host}${basePath}/`;
+        if (topic) {
+          await fetch(rootUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              topic,
+              title: due.title,
+              message: due.body,
+              priority: 4,
+              tags: ['alarm_clock', 'jp'],
+              click: 'https://duy18nd.github.io/QuizzApp_Japan/#/vocabulary/review',
+            }),
+          });
+        }
+      } catch (err) {
+        console.warn(`ntfy delivery failed for subscription ${sub.id}:`, err);
+      }
+    } else if (vapidPublicKey && vapidPrivateKey && sub.endpoint && sub.p256dh && sub.auth) {
       try {
         const pushRes = await dispatchEncryptedWebPush({
           endpoint: String(sub.endpoint),

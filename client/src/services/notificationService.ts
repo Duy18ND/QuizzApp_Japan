@@ -2089,14 +2089,6 @@ function addMinutesToDateAndTimeStr(
   };
 }
 
-function addMinutesToTimeStr(timeStr: string, minutesToAdd: number): string {
-  const [hh, mm] = sanitizeTime(timeStr, '20:00').split(':').map(Number);
-  const total = (hh * 60 + mm + minutesToAdd) % (24 * 60);
-  const nextH = String(Math.floor(total / 60)).padStart(2, '0');
-  const nextM = String(total % 60).padStart(2, '0');
-  return `${nextH}:${nextM}`;
-}
-
 export function buildRruleStringForDays(daysOfWeek: number[]): string {
   const cleanDays = sanitizeDaysArray(daysOfWeek);
   if (cleanDays.length >= 7) {
@@ -2230,7 +2222,8 @@ export function buildGoogleCalendarUrl(
   const isRecurring = activeSlot.scheduleType === 'recurring';
   const baseDate = isRecurring ? todayKey : activeSlot.date || todayKey;
   const dtStart = formatIcsLocalDateTime(baseDate, activeSlot.time);
-  const dtEnd = formatIcsLocalDateTime(baseDate, addMinutesToTimeStr(activeSlot.time, 30));
+  const endSlot = addMinutesToDateAndTimeStr(baseDate, activeSlot.time, 30);
+  const dtEnd = formatIcsLocalDateTime(endSlot.dateKey, endSlot.timeStr);
   const appUrl =
     typeof window !== 'undefined' && window.location
       ? `${window.location.origin}${window.location.pathname}#/vocabulary/review`
