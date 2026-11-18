@@ -1296,32 +1296,49 @@ export async function subscribeDeviceToWebPush(
       };
     }
 
-    const reg = await registerStudyServiceWorker();
+    const reg = (await registerStudyServiceWorker()) ??
+      (typeof navigator !== 'undefined' && 'serviceWorker' in navigator
+        ? await navigator.serviceWorker.ready.catch(() => null)
+        : null);
     const vapidPublicKey =
       (import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined)?.trim() || '';
 
-    if (reg && reg.pushManager && vapidPublicKey) {
-      try {
-        let sub = await reg.pushManager.getSubscription();
-        if (!sub) {
-          sub = await reg.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
-          });
-        }
-        const subJson = sub.toJSON();
-        endpoint = subJson.endpoint || '';
-        p256dh = subJson.keys?.p256dh || '';
-        auth = subJson.keys?.auth || '';
-      } catch {
-        // Fallback below if browser push service is unreachable in local/offline dev
-      }
+    if (!reg || !reg.pushManager) {
+      return {
+        ok: false,
+        error:
+          'Trình duyệt hiện tại không hỗ trợ Service Worker PushManager. Trên iPhone, hãy cài ứng dụng ra Màn hình chính (iOS 16.4+).',
+        devices: loadLocalPushDevices(),
+      };
     }
 
-    if (!endpoint) {
-      endpoint = `https://push.nihongo.local/sw/${deviceId}`;
-      p256dh = p256dh || `p256dh-${deviceId}`;
-      auth = auth || `auth-${deviceId}`;
+    if (!vapidPublicKey) {
+      return {
+        ok: false,
+        error: 'Chưa cấu hình khóa công khai VITE_VAPID_PUBLIC_KEY trong môi trường.',
+        devices: loadLocalPushDevices(),
+      };
+    }
+
+    try {
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+        });
+      }
+      const subJson = sub.toJSON();
+      endpoint = subJson.endpoint || '';
+      p256dh = subJson.keys?.p256dh || '';
+      auth = subJson.keys?.auth || '';
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'PushManager.subscribe failed';
+      return {
+        ok: false,
+        error: `Không thể đăng ký Web Push với máy chủ thông báo (APNs/FCM): ${msg}`,
+        devices: loadLocalPushDevices(),
+      };
     }
   }
 
@@ -1604,62 +1621,136 @@ export async function sendStudyNotification(
     };
   }
 
-  let activePermission: NotificationPermissionStatus = permission;
-  if (activePermission === 'default') {
-    activePermission = await requestStudyNotificationPermission();
-  }
-
-  if (activePermission !== 'granted') {
+  // Requirement 10: Never request permission automatically inside sendStudyNotification.
+  // Permission must ONLY be requested when the user explicitly clicks Enable Notifications.
+  if (permission !== 'granted') {
     return {
       ok: false,
-      reason: 'Bạn chưa cấp quyền thông báo trên trình duyệt / điện thoại.',
+      reason:
+        'Chưa cấp quyền thông báo. Vui lòng bấm nút "Bật quyền thông báo (Enable Notifications)" trước.',
     };
   }
 
   const targetUrl = payload.url || './#/vocabulary/review';
   const uniqueTag = payload.deliveryKey || payload.tag || 'nihongo-study-reminder';
-  const reg = await registerStudyServiceWorker();
+  const reg =
+    (await registerStudyServiceWorker()) ??
+    (typeof navigator !== 'undefined' && 'serviceWorker' in navigator
+      ? await navigator.serviceWorker.ready.catch(() => null)
+      : null);
 
-  if (reg && typeof reg.showNotification === 'function') {
-    try {
-      await reg.showNotification(payload.title, {
-        body: payload.body,
-        icon: './icons/icon-192.png',
-        badge: './icons/icon-192.png',
-        tag: uniqueTag,
-        requireInteraction: Boolean(payload.requireInteraction),
-        data: {
-          url: targetUrl,
-          deliveryKey: uniqueTag,
-          slotId: payload.slotId || null,
-          slotTime: payload.slotTime || null,
-          snoozeMinutes: payload.snoozeMinutes || 5,
-        },
-      });
-      return { ok: true };
-    } catch {
-      // Fallback to window Notification below
-    }
+  // Requirement 4: Always use ServiceWorkerRegistration.showNotification() (required on iOS/Android PWA)
+  // instead of the page-level `new Notification()` constructor.
+  if (!reg || typeof reg.showNotification !== 'function') {
+    return {
+      ok: false,
+      reason:
+        'Service Worker chưa sẵn sàng để hiển thị thông báo (ServiceWorkerRegistration.showNotification). Hãy tải lại trang hoặc mở từ Màn hình chính.',
+    };
   }
 
   try {
-    const notif = new Notification(payload.title, {
+    await reg.showNotification(payload.title, {
       body: payload.body,
       icon: './icons/icon-192.png',
+      badge: './icons/icon-192.png',
       tag: uniqueTag,
+      requireInteraction: Boolean(payload.requireInteraction),
+      data: {
+        url: targetUrl,
+        deliveryKey: uniqueTag,
+        slotId: payload.slotId || null,
+        slotTime: payload.slotTime || null,
+        snoozeMinutes: payload.snoozeMinutes || 5,
+      },
     });
-    notif.onclick = () => {
-      window.focus();
-      window.location.hash = '#/vocabulary/review';
-      notif.close();
-    };
     return { ok: true };
   } catch (err) {
     return {
       ok: false,
-      reason: err instanceof Error ? err.message : 'Không thể hiển thị thông báo.',
+      reason: err instanceof Error ? err.message : 'Không thể hiển thị thông báo qua Service Worker.',
     };
   }
+}
+
+/**
+ * Dedicated Test Push Notification dispatcher:
+ * 1. If the current device has a real Web Push subscription (APNs/FCM/WNS) and Supabase Edge Function
+ *    `send-study-reminders` is reachable, requests a real server-dispatched encrypted Web Push
+ *    (with optional `delaySeconds` so the user can lock the iPhone screen or close the PWA).
+ * 2. Otherwise falls back to ServiceWorkerRegistration.showNotification() and reports the exact channel used.
+ */
+export async function sendTestPushNotification(options: {
+  userId?: string | null;
+  delaySeconds?: number;
+  schedulePrimaryTime?: string;
+} = {}): Promise<{
+  ok: boolean;
+  channel: 'server_web_push' | 'service_worker';
+  reason?: string;
+}> {
+  const permission = getNotificationPermissionState();
+  if (permission !== 'granted') {
+    return {
+      ok: false,
+      channel: 'service_worker',
+      reason:
+        'Chưa cấp quyền thông báo. Vui lòng bấm nút "Bật quyền thông báo (Enable Notifications)" trước khi gửi Test Push.',
+    };
+  }
+
+  const delaySec = Math.max(0, Math.min(10, Number(options.delaySeconds) || 0));
+  const currentDeviceId = getCurrentDeviceId();
+  const currentSub = loadLocalPushDevices().find(
+    (d) => d.deviceId === currentDeviceId && d.enabled,
+  );
+
+  if (
+    supabase &&
+    currentSub &&
+    currentSub.endpoint.startsWith('https://') &&
+    currentSub.p256dh &&
+    currentSub.auth
+  ) {
+    try {
+      const { data, error } = await supabase.functions.invoke('send-study-reminders', {
+        body: {
+          action: 'test_push',
+          delaySeconds: delaySec,
+          title: '📲 Test Push Notification (APNs / Web Push) — Nihongo 問',
+          body: `Thông báo đẩy nền từ máy chủ (${options.schedulePrimaryTime || '20:00'}) đã gửi thành công tới thiết bị của bạn!`,
+          subscription: {
+            endpoint: currentSub.endpoint,
+            p256dh: currentSub.p256dh,
+            auth: currentSub.auth,
+          },
+        },
+      });
+      if (!error && data && data.ok) {
+        return { ok: true, channel: 'server_web_push' };
+      }
+    } catch {
+      // Fallback to ServiceWorkerRegistration below if Edge Function is not deployed yet
+    }
+  }
+
+  if (delaySec > 0) {
+    await new Promise((resolve) => setTimeout(resolve, delaySec * 1000));
+  }
+
+  const swRes = await sendStudyNotification({
+    title: '🔔 Thông báo thử nghiệm (Service Worker) — Nihongo 問',
+    body: `ServiceWorkerRegistration.showNotification (${options.schedulePrimaryTime || '20:00'}) đã hoạt động! Để nhận khi đóng hẳn PWA trên iPhone, hãy đăng ký Web Push & bật Edge Function send-study-reminders.`,
+    deliveryKey: `test-sw-${Date.now()}`,
+    slotTime: options.schedulePrimaryTime || '20:00',
+    requireInteraction: false,
+  });
+
+  return {
+    ok: swRes.ok,
+    channel: 'service_worker',
+    reason: swRes.reason,
+  };
 }
 
 /* ============================================================================
@@ -1779,6 +1870,22 @@ export function startStudyReminderLoop(): () => void {
   const onSwMessage = (event: MessageEvent) => {
     const msg = event.data;
     if (!msg || typeof msg !== 'object') return;
+    if (msg.type === 'PUSH_SUBSCRIPTION_CHANGED' && msg.subscription) {
+      const subObj = msg.subscription as {
+        endpoint?: string;
+        keys?: { p256dh?: string; auth?: string };
+      };
+      if (subObj.endpoint && subObj.keys?.p256dh && subObj.keys?.auth) {
+        void subscribeDeviceToWebPush({
+          customSubscription: {
+            endpoint: subObj.endpoint,
+            p256dh: subObj.keys.p256dh,
+            auth: subObj.keys.auth,
+          },
+        });
+      }
+      return;
+    }
     if (msg.type === 'SNOOZE_STUDY_REMINDER') {
       const mins = Number(msg.minutes) || 5;
       window.setTimeout(() => {

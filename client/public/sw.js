@@ -1,14 +1,14 @@
-/* Nihongo 問 — Cross-Platform Web Push & Study Reminder Service Worker */
+/* Nihongo 問 — iOS 16.4+ APNs, Android FCM & Desktop WNS Web Push Service Worker */
 
-const seenDeliveryKeys = new Set();
+const seenMessageDeliveryKeys = new Set();
 
-function recordDeliveryKeyOnce(key) {
+function recordMessageKeyOnce(key) {
   if (!key) return true;
-  if (seenDeliveryKeys.has(key)) return false;
-  seenDeliveryKeys.add(key);
-  if (seenDeliveryKeys.size > 200) {
-    const first = seenDeliveryKeys.values().next().value;
-    if (first) seenDeliveryKeys.delete(first);
+  if (seenMessageDeliveryKeys.has(key)) return false;
+  seenMessageDeliveryKeys.add(key);
+  if (seenMessageDeliveryKeys.size > 200) {
+    const first = seenMessageDeliveryKeys.values().next().value;
+    if (first) seenMessageDeliveryKeys.delete(first);
   }
   return true;
 }
@@ -32,6 +32,8 @@ function buildNotificationOptions(payload) {
     icon: './icons/icon-192.png',
     badge: './icons/icon-192.png',
     vibrate: [200, 100, 200],
+    // Using a deterministic `tag` with `renotify: false` deduplicates notifications at the OS level
+    // while always satisfying iOS WebKit's mandatory `userVisibleOnly: true` showNotification() call.
     tag: deliveryKey,
     renotify: Boolean(data.renotify),
     requireInteraction: Boolean(data.requireInteraction),
@@ -49,12 +51,16 @@ function buildNotificationOptions(payload) {
   };
 }
 
+// CRITICAL FOR iOS 16.4+ HOME SCREEN WEB APPS:
+// Every `push` event from APNs MUST call `event.waitUntil(self.registration.showNotification(...))`
+// unconditionally. Returning early without calling showNotification() causes iOS WebKit to penalize
+// or revoke background push delivery when the PWA is closed or the screen is locked.
 self.addEventListener('push', (event) => {
   let payload = {
     title: '⏰ Nhắc học Nihongo 問',
     body: 'Đã đến giờ học của bạn! Bấm để bắt đầu ôn tập ngay.',
     url: './#/vocabulary/review',
-    deliveryKey: '',
+    deliveryKey: 'nihongo-push-default',
   };
 
   if (event.data) {
@@ -66,10 +72,6 @@ self.addEventListener('push', (event) => {
     } catch {
       payload.body = event.data.text() || payload.body;
     }
-  }
-
-  if (payload.deliveryKey && !recordDeliveryKeyOnce(payload.deliveryKey)) {
-    return;
   }
 
   event.waitUntil(
@@ -85,7 +87,7 @@ self.addEventListener('message', (event) => {
   if (!msg || typeof msg !== 'object') return;
 
   if (msg.type === 'SHOW_STUDY_REMINDER') {
-    if (msg.deliveryKey && !recordDeliveryKeyOnce(msg.deliveryKey)) {
+    if (msg.deliveryKey && !recordMessageKeyOnce(msg.deliveryKey)) {
       return;
     }
     const title = msg.title || '⏰ Đến giờ học tiếng Nhật (Nihongo 問)';
@@ -97,15 +99,29 @@ self.addEventListener('message', (event) => {
 
 self.addEventListener('pushsubscriptionchange', (event) => {
   event.waitUntil(
-    self.clients
-      .matchAll({ type: 'window', includeUncontrolled: true })
-      .then((clientList) => {
-        for (const client of clientList) {
-          client.postMessage({
-            type: 'PUSH_SUBSCRIPTION_CHANGED',
-          });
+    (async () => {
+      let newSubJson = null;
+      try {
+        const options = event.oldSubscription ? event.oldSubscription.options : null;
+        if (options && options.applicationServerKey) {
+          const newSub = await self.registration.pushManager.subscribe(options);
+          newSubJson = newSub.toJSON();
         }
-      }),
+      } catch {
+        // Ignore if re-subscribe requires user gesture
+      }
+
+      const clientList = await self.clients.matchAll({
+        type: 'window',
+        includeUncontrolled: true,
+      });
+      for (const client of clientList) {
+        client.postMessage({
+          type: 'PUSH_SUBSCRIPTION_CHANGED',
+          subscription: newSubJson,
+        });
+      }
+    })(),
   );
 });
 
@@ -132,7 +148,6 @@ self.addEventListener('notificationclick', (event) => {
   }
 
   // Open/focus study page WITHOUT auto-completing the study streak.
-  // Study streak only increments when the user completes an actual study activity or clicks the completion button.
   event.waitUntil(
     self.clients
       .matchAll({ type: 'window', includeUncontrolled: true })

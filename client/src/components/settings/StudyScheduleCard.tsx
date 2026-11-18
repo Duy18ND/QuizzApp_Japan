@@ -34,7 +34,7 @@ import {
   recordStudyCompletion,
   requestStudyNotificationPermission,
   saveStudySchedule,
-  sendStudyNotification,
+  sendTestPushNotification,
   STUDY_SCHEDULE_SYNC_EVENT,
   subscribeDeviceToWebPush,
   syncStudyScheduleFromCloud,
@@ -285,23 +285,33 @@ export const StudyScheduleCard: React.FC = () => {
     });
   };
 
-  const handleTestNotification = async () => {
+  const handleTestNotification = async (delaySeconds = 0) => {
     setSendingTest(true);
-    const res = await sendStudyNotification({
-      title: '🔔 Thông báo thử nghiệm — Nihongo 問',
-      body: `Lịch nhắc học (${schedule.primaryTime}) đã hoạt động! Bấm để vào ôn tập ngay.`,
-      slotTime: schedule.primaryTime,
-      snoozeMinutes: schedule.continuousRepeatMinutes || 5,
-      requireInteraction: false,
+    if (delaySeconds > 0) {
+      toast({
+        title: `Sẽ gửi Push sau ${delaySeconds} giây — hãy về Màn hình chính hoặc khóa màn hình iPhone để kiểm tra!`,
+        tone: 'info',
+      });
+    }
+    const res = await sendTestPushNotification({
+      userId: user?.id,
+      delaySeconds,
+      schedulePrimaryTime: schedule.primaryTime,
     });
     setPermission(getNotificationPermissionState());
     setSendingTest(false);
 
     if (res.ok) {
-      toast({ title: 'Đã gửi thông báo thử nghiệm tới thiết bị!', tone: 'success' });
+      toast({
+        title:
+          res.channel === 'server_web_push'
+            ? 'Đã gửi Background Web Push (APNs / FCM) tới thiết bị!'
+            : 'Đã hiển thị thông báo qua Service Worker (ServiceWorkerRegistration.showNotification)!',
+        tone: 'success',
+      });
     } else {
       toast({
-        title: res.reason || 'Chưa thể gửi thông báo. Vui lòng cấp quyền thông báo trước.',
+        title: res.reason || 'Chưa thể gửi thông báo. Vui lòng bật quyền thông báo trước.',
         tone: 'warning',
       });
     }
@@ -410,9 +420,20 @@ export const StudyScheduleCard: React.FC = () => {
             loading={sendingTest}
             className="h-auto min-h-8 max-w-full py-1.5 text-left whitespace-normal sm:whitespace-nowrap"
             leftIcon={<BellRing className="size-4 shrink-0" aria-hidden />}
-            onClick={() => void handleTestNotification()}
+            onClick={() => void handleTestNotification(0)}
           >
             🔔 Gửi thông báo thử nghiệm ngay (Test Notification)
+          </Button>
+
+          <Button
+            variant="secondary"
+            size="sm"
+            loading={sendingTest}
+            className="h-auto min-h-8 max-w-full py-1.5 text-left whitespace-normal sm:whitespace-nowrap"
+            leftIcon={<Smartphone className="size-4 shrink-0" aria-hidden />}
+            onClick={() => void handleTestNotification(5)}
+          >
+            📲 Test Push sau 5s (Khóa màn hình / Đóng App)
           </Button>
 
           {permission !== 'granted' && permission !== 'unsupported' && (
