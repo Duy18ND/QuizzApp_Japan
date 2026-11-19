@@ -10,6 +10,8 @@ import {
   Star,
   Volume2,
 } from 'lucide-react';
+import { LoginRequiredState } from '../components/auth/LoginRequiredState';
+import { useAuth } from '../context/auth-context';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { removeMistake } from '../store/slices/mistakeSlice';
 import { useAppSettings } from '../hooks/useAppSettings';
@@ -17,7 +19,9 @@ import { useUserProgress } from '../hooks/useUserProgress';
 import type { GrammarMistake } from '../types/grammar';
 import type { VocabularyItem } from '../types/vocabulary';
 import { speakJapanese } from '../utils/tts';
-import { getAllLoadedVocabulary, getVocabularyDisplay } from '../utils/vocabularyHelpers';
+import { getVocabularyDisplay } from '../utils/vocabularyHelpers';
+import { useCurriculumSnapshot } from '../hooks/useCurriculumData';
+import { getLiveAllVocabulary } from '../services/curriculumStore';
 import {
   Badge,
   Button,
@@ -50,12 +54,14 @@ type ReviewQueueItem =
     };
 
 export const ReviewPage: React.FC = () => {
+  const { user } = useAuth();
   const dispatch = useAppDispatch();
   const mistakes = useAppSelector((state) => state.mistake.mistakes);
   const { progress, toggleStar, clearWrongWord } = useUserProgress();
   const { settings } = useAppSettings();
+  const cmsSnapshot = useCurriculumSnapshot();
 
-  const allVocab = useMemo(() => getAllLoadedVocabulary(), []);
+  const allVocab = useMemo(() => getLiveAllVocabulary(cmsSnapshot), [cmsSnapshot]);
   const [scope, setScope] = useState<ReviewScope>('all');
   const [sessionQueue, setSessionQueue] = useState<ReviewQueueItem[] | null>(null);
   const [sessionIdx, setSessionIdx] = useState(0);
@@ -109,6 +115,22 @@ export const ReviewPage: React.FC = () => {
   };
 
   const currentItem = sessionQueue?.[sessionIdx];
+
+  if (!user) {
+    return (
+      <PageContainer size="md" className="space-y-5">
+        <PageHeader
+          breadcrumbs={[{ label: 'Trang chủ', to: '/' }, { label: 'Ôn tập lỗi sai' }]}
+          title="Ôn tập từ vựng & lỗi sai"
+          description="Ôn tập thông minh các từ làm sai, từ đánh dấu sao và lỗi ngữ pháp JLPT."
+        />
+        <LoginRequiredState
+          title="Đăng nhập để lưu & ôn tập lỗi sai"
+          description="Các câu làm sai và từ vựng đánh dấu ★ chỉ được lưu và hiển thị khi bạn đăng nhập tài khoản."
+        />
+      </PageContainer>
+    );
+  }
 
   const handleRemembered = (markResolved: boolean) => {
     if (!sessionQueue || !currentItem) return;

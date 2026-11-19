@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { CircleCheck, Edit3, Volume2 } from 'lucide-react';
-import kanjiDataRaw from '../../data/kanji/kanjiDataset.json';
-import type { KanjiItem } from '../../types/kanji';
+import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
+import { getLiveKanjis } from '../../services/curriculumStore';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { markKanjiLearned } from '../../store/slices/kanjiSlice';
 import {
@@ -15,11 +15,11 @@ import {
   buttonStyles,
 } from '../../components/ui';
 
-const kanjiList = (kanjiDataRaw || []) as KanjiItem[];
-
 export const KanjiDetail: React.FC = () => {
   const { kanjiId } = useParams();
   const dispatch = useAppDispatch();
+  const cmsSnapshot = useCurriculumSnapshot();
+  const kanjiList = useMemo(() => getLiveKanjis(cmsSnapshot), [cmsSnapshot]);
   const progress = useAppSelector((state) => (kanjiId ? state.kanji.progress[kanjiId] : undefined));
 
   const kanji = kanjiList.find((k) => k.id === kanjiId);

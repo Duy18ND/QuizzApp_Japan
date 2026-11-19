@@ -1,5 +1,6 @@
-import { Cloud, LogIn, LogOut, RefreshCw, ShieldCheck, UserRound } from 'lucide-react';
+import { Cloud, LogIn, LogOut, RefreshCw, ShieldCheck, UserPlus, UserRound } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { GoogleSignInButton } from '../components/auth/LoginRequiredState';
 import {
   Badge,
   Button,
@@ -125,18 +126,20 @@ export function ProfilePage() {
                       </Badge>
                     </div>
                     <p className="text-sm text-muted">
-                      Tiến độ học tập và lịch sử làm bài được lưu trực tiếp trong trình duyệt này.
+                      Người chưa đăng nhập sẽ không lưu và không hiển thị tiến độ học tập. Hãy đăng nhập bằng Google hoặc tự tạo tài khoản để đồng bộ.
                     </p>
                   </div>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  <Link to="/login" className={buttonStyles({ variant: 'primary', size: 'sm' })}>
+                  <GoogleSignInButton variant="primary" size="sm" label="Đăng nhập Google" />
+                  <Link to="/login" className={buttonStyles({ variant: 'secondary', size: 'sm' })}>
                     <LogIn className="size-4" aria-hidden />
                     Đăng nhập
                   </Link>
-                  <Link to="/register" className={buttonStyles({ variant: 'secondary', size: 'sm' })}>
-                    Đăng ký
+                  <Link to="/register" className={buttonStyles({ variant: 'ghost', size: 'sm' })}>
+                    <UserPlus className="size-4" aria-hidden />
+                    Tự tạo tài khoản
                   </Link>
                 </div>
               </div>

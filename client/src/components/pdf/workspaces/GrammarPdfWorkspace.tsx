@@ -2,7 +2,8 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Book, Download } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
-import { grammarBooks } from '../../../data/grammar';
+import { useCurriculumSnapshot } from '../../../hooks/useCurriculumData';
+import { getLiveGrammarBooks } from '../../../services/curriculumStore';
 import { GrammarPdfBuilder } from './GrammarPdfBuilder';
 import { FontManager } from '../../../utils/fontManager';
 import { generateGrammarPdfDataset } from '../../../data/pdf/grammarPdfGenerator';
@@ -14,6 +15,8 @@ const COUNT_OPTIONS: (number | 'all')[] = [2, 3, 5, 10, 'all'];
 
 export const GrammarPdfWorkspace: React.FC = () => {
   const [searchParams] = useSearchParams();
+  const cmsSnapshot = useCurriculumSnapshot();
+  const grammarBooks = useMemo(() => getLiveGrammarBooks(cmsSnapshot), [cmsSnapshot]);
   const initBookId = searchParams.get('bookId') || grammarBooks[0]?.id || '';
   const initChapterId =
     searchParams.get('chapterId') ||
@@ -26,7 +29,7 @@ export const GrammarPdfWorkspace: React.FC = () => {
 
   const selectedBook = useMemo(
     () => grammarBooks.find((b) => b.id === selectedBookId),
-    [selectedBookId],
+    [grammarBooks, selectedBookId],
   );
   const selectedChapter = useMemo(
     () => selectedBook?.chapters.find((c) => c.id === selectedChapterId),

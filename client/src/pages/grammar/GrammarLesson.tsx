@@ -2,9 +2,9 @@ import React, { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ChevronDown, ChevronUp, FileDown, Play, RefreshCw } from 'lucide-react';
 import { JapaneseLookupButton } from '../../components/common/JapaneseLookupPopover';
-import { grammarBooks } from '../../data/grammar';
+import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
+import { getLiveAllVocabulary, getLiveGrammarBooks } from '../../services/curriculumStore';
 import { generateSmartQuestionSet } from '../../utils/grammarEngine/questionGenerator';
-import { unit1Data } from '../../data/n3/unit1';
 import type { ExampleQuestion } from '../../types/grammar';
 import {
   Badge,
@@ -30,13 +30,20 @@ export const GrammarLesson: React.FC = () => {
     grammarId: string;
   }>();
   const navigate = useNavigate();
+  const cmsSnapshot = useCurriculumSnapshot();
 
   const { chapter, rule } = useMemo(() => {
-    const book = grammarBooks.find((b) => b.id === bookId);
+    const books = getLiveGrammarBooks(cmsSnapshot);
+    const book = books.find((b) => b.id === bookId);
     const ch = book?.chapters.find((c) => c.id === chapterId);
     const gr = ch?.grammars.find((g) => g.id === grammarId);
     return { chapter: ch, rule: gr };
-  }, [bookId, chapterId, grammarId]);
+  }, [cmsSnapshot, bookId, chapterId, grammarId]);
+
+  const liveVocab = useMemo(
+    () => getLiveAllVocabulary(cmsSnapshot).filter((v) => v.level === (rule?.level ?? 'N3')),
+    [cmsSnapshot, rule?.level],
+  );
 
   const [customExamples, setCustomExamples] = useState<{
     grammarId?: string;
@@ -57,11 +64,11 @@ export const GrammarLesson: React.FC = () => {
       grammarRule: rule,
       count: 3,
       seed: 101,
-      rawVocabulary: unit1Data as unknown as Record<string, unknown>[],
+      rawVocabulary: liveVocab as unknown as Record<string, unknown>[],
       requestedPracticeTypes: ['example'],
     });
     return qs.questions as ExampleQuestion[];
-  }, [rule]);
+  }, [rule, liveVocab]);
 
   const examples =
     customExamples && customExamples.grammarId === grammarId
@@ -74,7 +81,7 @@ export const GrammarLesson: React.FC = () => {
       grammarRule: rule,
       count: 3,
       seed: Date.now() + Math.random(),
-      rawVocabulary: unit1Data as unknown as Record<string, unknown>[],
+      rawVocabulary: liveVocab as unknown as Record<string, unknown>[],
       requestedPracticeTypes: ['example'],
     });
     setCustomExamples({ grammarId, list: qs.questions as ExampleQuestion[] });

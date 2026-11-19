@@ -1,6 +1,8 @@
 import { Clock, History } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../context/auth-context';
 import { useQuizHistory } from '../../services/quizHistoryService';
+import { LoginRequiredState } from '../auth/LoginRequiredState';
 import { Badge, Card } from './Layout';
 import { buttonStyles } from './styles';
 
@@ -47,8 +49,9 @@ interface QuizHistoryCardProps {
 }
 
 export function QuizHistoryCard({ limit, showProfileLink = false, className }: QuizHistoryCardProps) {
+  const { user } = useAuth();
   const history = useQuizHistory();
-  const visibleItems = typeof limit === 'number' ? history.slice(0, limit) : history;
+  const visibleItems = user ? (typeof limit === 'number' ? history.slice(0, limit) : history) : [];
 
   return (
     <Card padding="lg" className={className}>
@@ -63,20 +66,28 @@ export function QuizHistoryCard({ limit, showProfileLink = false, className }: Q
           <div>
             <h2 className="text-base font-bold tracking-tight text-fg">Lịch sử làm bài</h2>
             <p className="text-xs text-muted">
-              {history.length > 0
-                ? `${history.length} lượt hoàn thành gần đây`
-                : 'Kết quả Quiz, Ngữ pháp, Luyện gõ và JLPT được lưu tự động'}
+              {!user
+                ? 'Chỉ lưu và hiển thị lịch sử làm bài khi bạn đã đăng nhập'
+                : history.length > 0
+                  ? `${history.length} lượt hoàn thành gần đây`
+                  : 'Kết quả Quiz, Ngữ pháp, Luyện gõ và JLPT được lưu theo tài khoản của bạn'}
             </p>
           </div>
         </div>
-        {showProfileLink && (
+        {user && showProfileLink && (
           <Link to="/profile" className={buttonStyles({ variant: 'secondary', size: 'sm' })}>
             Xem tất cả ({history.length})
           </Link>
         )}
       </div>
 
-      {visibleItems.length === 0 ? (
+      {!user ? (
+        <LoginRequiredState
+          compact
+          title="Đăng nhập để xem lịch sử làm bài"
+          description="Phiên Khách không lưu điểm số hay lịch sử làm bài. Hãy đăng nhập Google hoặc tự tạo tài khoản."
+        />
+      ) : visibleItems.length === 0 ? (
         <div className="rounded-lg border border-dashed border-line-strong bg-glass-soft px-4 py-6 text-center text-sm text-muted">
           Chưa có lịch sử làm bài. Hãy hoàn thành một bài Quiz hoặc Luyện tập để ghi nhận kết quả đầu tiên.
         </div>

@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Book, ChevronDown, ChevronRight, ChevronUp, FileText, LayoutList } from 'lucide-react';
 import type { JLPTLevel } from '../../types/grammar';
-import { grammarBooks } from '../../data/grammar';
+import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
+import { getLiveGrammarBooks } from '../../services/curriculumStore';
 import {
   Badge,
   Card,
@@ -28,6 +29,8 @@ export const GrammarDashboard: React.FC = () => {
     }));
   };
 
+  const cmsSnapshot = useCurriculumSnapshot();
+  const grammarBooks = getLiveGrammarBooks(cmsSnapshot);
   const filteredBooks = grammarBooks.filter(
     (book) => selectedLevel === 'All' || book.level === selectedLevel,
   );

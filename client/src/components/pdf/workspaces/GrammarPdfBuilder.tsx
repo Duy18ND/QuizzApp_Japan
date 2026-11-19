@@ -1,5 +1,6 @@
 import React from 'react';
-import { grammarBooks } from '../../../data/grammar';
+import { useCurriculumSnapshot } from '../../../hooks/useCurriculumData';
+import { getLiveGrammarBooks } from '../../../services/curriculumStore';
 import type { GrammarPdfSet } from '../../../data/pdf/grammarPdfGenerator';
 
 interface PdfBuilderProps {
@@ -19,7 +20,8 @@ export const GrammarPdfBuilder: React.FC<PdfBuilderProps> = ({
   linesCount,
   pdfMode,
 }) => {
-  const book = grammarBooks.find((b) => b.id === bookId);
+  const cmsSnapshot = useCurriculumSnapshot();
+  const book = getLiveGrammarBooks(cmsSnapshot).find((b) => b.id === bookId);
   const chapter = book?.chapters.find((c) => c.id === chapterId);
 
   const getModeTitle = () => {

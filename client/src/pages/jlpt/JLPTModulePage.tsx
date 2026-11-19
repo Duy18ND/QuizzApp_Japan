@@ -29,16 +29,19 @@ import { JlptReadingView, type JlptMistakePayload } from '../../components/jlpt/
 import { McqQuestionBlock } from '../../components/jlpt/McqQuestionBlock';
 import { StarQuestionComp } from '../../components/practice/StarQuestionComp';
 import {
-  getJLPTListeningItems,
-  getJLPTMcqQuestions,
-  getJLPTReadingPassages,
-  getJLPTStarQuestions,
   JLPT_MODULES,
   toStarQuestionShape,
   type JLPTLevelFilter,
   type JLPTModuleId,
   type JLPTModuleMeta,
 } from '../../data/jlpt/jlptDataset';
+import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
+import {
+  getLiveJlptListeningItems,
+  getLiveJlptMcqQuestions,
+  getLiveJlptReadingPassages,
+  getLiveJlptStarQuestions,
+} from '../../services/curriculumStore';
 import { useAuth } from '../../context/auth-context';
 import { recordQuizAttempt } from '../../services/quizHistoryService';
 import { useAppDispatch } from '../../store/hooks';
@@ -152,19 +155,21 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
     [dispatch],
   );
 
+  const cmsSnapshot = useCurriculumSnapshot();
+
   const mcqItems = useMemo(() => {
     void sessionSeed;
     if (meta.id !== 'kanji' && meta.id !== 'vocab' && meta.id !== 'grammar') return [];
-    const pool = shuffleArray(getJLPTMcqQuestions(meta.id, levelFilter));
+    const pool = shuffleArray(getLiveJlptMcqQuestions(cmsSnapshot, meta.id, levelFilter));
     return questionLimit > 0 ? pool.slice(0, questionLimit) : pool;
-  }, [meta.id, levelFilter, questionLimit, sessionSeed]);
+  }, [cmsSnapshot, meta.id, levelFilter, questionLimit, sessionSeed]);
 
   const starItems = useMemo(() => {
     void sessionSeed;
     if (meta.id !== 'star') return [];
-    const pool = shuffleArray(getJLPTStarQuestions(levelFilter));
+    const pool = shuffleArray(getLiveJlptStarQuestions(cmsSnapshot, levelFilter));
     return questionLimit > 0 ? pool.slice(0, questionLimit) : pool;
-  }, [meta.id, levelFilter, questionLimit, sessionSeed]);
+  }, [cmsSnapshot, meta.id, levelFilter, questionLimit, sessionSeed]);
 
   const readingPassages = useMemo(() => {
     if (
@@ -174,15 +179,15 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
     ) {
       return [];
     }
-    return getJLPTReadingPassages(meta.id, levelFilter);
-  }, [meta.id, levelFilter]);
+    return getLiveJlptReadingPassages(cmsSnapshot, meta.id, levelFilter);
+  }, [cmsSnapshot, meta.id, levelFilter]);
 
   const listeningItems = useMemo(() => {
     void sessionSeed;
     if (meta.id !== 'listening') return [];
-    const pool = shuffleArray(getJLPTListeningItems(levelFilter));
+    const pool = shuffleArray(getLiveJlptListeningItems(cmsSnapshot, levelFilter));
     return questionLimit > 0 ? pool.slice(0, questionLimit) : pool;
-  }, [meta.id, levelFilter, questionLimit, sessionSeed]);
+  }, [cmsSnapshot, meta.id, levelFilter, questionLimit, sessionSeed]);
 
   const isMcqMode = meta.id === 'kanji' || meta.id === 'vocab' || meta.id === 'grammar';
   const isStarMode = meta.id === 'star';

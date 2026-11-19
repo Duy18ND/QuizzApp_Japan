@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { CircleCheck } from 'lucide-react';
-import kanjiDataRaw from '../../data/kanji/kanjiDataset.json';
-import type { KanjiItem } from '../../types/kanji';
+import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
+import { getLiveKanjis } from '../../services/curriculumStore';
 import { useAppSelector } from '../../store/hooks';
 import {
   Badge,
@@ -16,10 +16,11 @@ import {
 } from '../../components/ui';
 import { cn } from '../../lib/cn';
 
-const kanjiList = (kanjiDataRaw || []) as KanjiItem[];
 const LEVELS = ['All', 'N5', 'N4', 'N3', 'N2', 'N1'];
 
 export const KanjiDashboard: React.FC = () => {
+  const cmsSnapshot = useCurriculumSnapshot();
+  const kanjiList = useMemo(() => getLiveKanjis(cmsSnapshot), [cmsSnapshot]);
   const progress = useAppSelector((state) => state.kanji.progress);
 
   const [searchTerm, setSearchTerm] = useState('');

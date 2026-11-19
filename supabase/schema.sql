@@ -12,9 +12,15 @@ create table if not exists public.profiles (
   email text not null unique,
   display_name text,
   role text not null default 'USER' check (role in ('SUPER_ADMIN', 'ADMIN', 'USER')),
+  auth_provider text not null default 'email',
+  has_client_hash boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.profiles
+  add column if not exists auth_provider text not null default 'email',
+  add column if not exists has_client_hash boolean not null default false;
 
 alter table public.profiles enable row level security;
 
@@ -62,31 +68,101 @@ as $$
   );
 $$;
 
--- Auto-provision profile on user registration (always forced to 'USER')
+-- Auto-provision & keep profile provider/hash metadata synced with auth.users
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  resolved_provider text;
+  resolved_has_hash boolean;
 begin
-  insert into public.profiles (id, email, display_name, role)
+  resolved_provider := coalesce(nullif(trim(new.raw_app_meta_data ->> 'provider'), ''), 'email');
+  resolved_has_hash := coalesce((new.raw_user_meta_data ->> 'password_hash_scheme') is not null, false);
+
+  insert into public.profiles (id, email, display_name, role, auth_provider, has_client_hash)
   values (
     new.id,
     coalesce(new.email, ''),
-    nullif(trim(coalesce(new.raw_user_meta_data ->> 'display_name', '')), ''),
-    'USER'
+    nullif(
+      trim(
+        coalesce(
+          new.raw_user_meta_data ->> 'display_name',
+          new.raw_user_meta_data ->> 'full_name',
+          new.raw_user_meta_data ->> 'name',
+          ''
+        )
+      ),
+      ''
+    ),
+    'USER',
+    resolved_provider,
+    resolved_has_hash
   )
   on conflict (id) do update
-    set email = excluded.email;
+    set email = excluded.email,
+        auth_provider = excluded.auth_provider,
+        has_client_hash = (public.profiles.has_client_hash or excluded.has_client_hash);
   return new;
 end;
 $$;
 
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
-  after insert on auth.users
+  after insert or update of email, raw_app_meta_data, raw_user_meta_data on auth.users
   for each row execute function public.handle_new_user();
+
+-- Backfill existing profiles with provider & client-hash metadata from auth.users
+update public.profiles p
+set
+  auth_provider = coalesce(nullif(trim(u.raw_app_meta_data ->> 'provider'), ''), 'email'),
+  has_client_hash = coalesce((u.raw_user_meta_data ->> 'password_hash_scheme') is not null, false)
+from auth.users u
+where u.id = p.id;
+
+-- Safe Admin/SuperAdmin aggregate statistics directly from auth.users
+create or replace function public.get_admin_account_summary()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public, auth
+as $$
+declare
+  v_total bigint;
+  v_google bigint;
+  v_email bigint;
+  v_hashed bigint;
+begin
+  if not public.is_admin_or_super() then
+    raise exception 'Forbidden: ADMIN or SUPER_ADMIN required';
+  end if;
+
+  select
+    count(*)::bigint,
+    count(*) filter (
+      where (u.raw_app_meta_data ->> 'provider') = 'google'
+         or coalesce(u.raw_app_meta_data -> 'providers', '[]'::jsonb) ? 'google'
+    )::bigint,
+    count(*) filter (
+      where coalesce(u.raw_app_meta_data ->> 'provider', 'email') = 'email'
+    )::bigint,
+    count(*) filter (
+      where (u.raw_user_meta_data ->> 'password_hash_scheme') is not null
+    )::bigint
+  into v_total, v_google, v_email, v_hashed
+  from auth.users u;
+
+  return jsonb_build_object(
+    'total', v_total,
+    'google', v_google,
+    'email', v_email,
+    'hashed', v_hashed
+  );
+end;
+$$;
 
 -- Anti-privilege-escalation & last-SUPER_ADMIN protection trigger
 create or replace function public.protect_profiles_rbac()
@@ -417,61 +493,5 @@ create policy "user_reminders_owner_all"
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
--- Multi-device Web Push Subscriptions (PC Chrome/Edge, iOS 16.4+ Home Screen PWA, Android Chrome)
-create table if not exists public.push_subscriptions (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users (id) on delete cascade,
-  device_id text not null,
-  device_label text not null default 'Thiết bị học tập',
-  platform text not null default 'unknown',
-  browser text not null default 'unknown',
-  endpoint text not null unique,
-  p256dh text not null,
-  auth text not null,
-  enabled boolean not null default true,
-  timezone text not null default 'Asia/Ho_Chi_Minh',
-  schedule_snapshot jsonb not null default '{}'::jsonb,
-  last_notified_key text,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  constraint uq_push_subscriptions_user_device unique (user_id, device_id)
-);
-
-create index if not exists idx_push_subscriptions_user_enabled
-  on public.push_subscriptions (user_id, enabled);
-
-alter table public.push_subscriptions enable row level security;
-
-drop policy if exists "push_subscriptions_owner_all" on public.push_subscriptions;
-create policy "push_subscriptions_owner_all"
-  on public.push_subscriptions
-  for all
-  to authenticated
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
-
--- Server-side push delivery log to guarantee zero duplicate notifications
-create table if not exists public.push_delivery_logs (
-  id uuid primary key default gen_random_uuid(),
-  subscription_id uuid not null references public.push_subscriptions (id) on delete cascade,
-  delivery_key text not null,
-  delivered_at timestamptz not null default now(),
-  constraint uq_push_delivery_once unique (subscription_id, delivery_key)
-);
-
-alter table public.push_delivery_logs enable row level security;
-
-drop policy if exists "push_delivery_logs_owner_select" on public.push_delivery_logs;
-create policy "push_delivery_logs_owner_select"
-  on public.push_delivery_logs
-  for select
-  to authenticated
-  using (
-    exists (
-      select 1 from public.push_subscriptions s
-      where s.id = push_delivery_logs.subscription_id
-        and s.user_id = auth.uid()
-    )
-  );
 
 

@@ -9,10 +9,11 @@ import type { VocabularyItem } from '../types/vocabulary';
 import { shuffleArray } from '../utils/shuffle';
 import { speakJapanese, stopJapaneseSpeech } from '../utils/tts';
 import {
-  getAllLoadedVocabulary,
   getVocabularyDisplay,
   matchesVocabularyAnswer,
 } from '../utils/vocabularyHelpers';
+import { useCurriculumSnapshot } from '../hooks/useCurriculumData';
+import { getLiveAllVocabulary } from '../services/curriculumStore';
 import {
   Badge,
   Button,
@@ -37,7 +38,8 @@ interface SessionFeedback {
 }
 
 export const WritingPage: React.FC = () => {
-  const allWords = useMemo(() => getAllLoadedVocabulary(), []);
+  const cmsSnapshot = useCurriculumSnapshot();
+  const allWords = useMemo(() => getLiveAllVocabulary(cmsSnapshot), [cmsSnapshot]);
   const { user } = useAuth();
   const { progress, addWrongWord } = useUserProgress();
   const { settings } = useAppSettings();

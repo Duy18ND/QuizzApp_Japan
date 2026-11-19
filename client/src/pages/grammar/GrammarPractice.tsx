@@ -15,7 +15,8 @@ import { updateProgress } from '../../store/slices/grammarProgressSlice';
 import { addMistake } from '../../store/slices/mistakeSlice';
 import { PracticeQuestionRenderer } from '../../components/practice/PracticeQuestionRenderer';
 import type { PracticeQuestion, PracticeType } from '../../types/grammar';
-import { grammarBooks } from '../../data/grammar';
+import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
+import { getLiveGrammarBooks } from '../../services/curriculumStore';
 import { shuffleArray } from '../../utils/shuffle';
 import {
   lesson01PracticeBank,
@@ -76,9 +77,11 @@ export const GrammarPractice: React.FC = () => {
   const sessionMistakesRef = useRef<Array<Record<string, string>>>([]);
 
   const practice = useSelector((state: RootState) => state.practice);
+  const cmsSnapshot = useCurriculumSnapshot();
 
   const { isInvalidTarget, rulesToPractice } = useMemo(() => {
-    const b = grammarBooks.find((bk) => bk.id === bookId);
+    const books = getLiveGrammarBooks(cmsSnapshot);
+    const b = books.find((bk) => bk.id === bookId);
     const c = b?.chapters.find((ch) => ch.id === chapterId);
 
     let rules = c?.grammars || [];
@@ -89,7 +92,7 @@ export const GrammarPractice: React.FC = () => {
       isInvalidTarget: !b || !c || rules.length === 0,
       rulesToPractice: rules,
     };
-  }, [bookId, chapterId, grammarId]);
+  }, [cmsSnapshot, bookId, chapterId, grammarId]);
 
   const [feedback, setFeedback] = useState<FeedbackState | null>(null);
 

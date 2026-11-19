@@ -1,7 +1,8 @@
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import { BookOpen, ChevronRight } from 'lucide-react';
-import { UNIT_DATA } from '../../data/unitData';
+import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
+import { getLiveUnitsForLevel } from '../../services/curriculumStore';
 import type { JLPTLevel } from '../../types/quiz';
 import { Badge, Card, CardLink, EmptyState, PageContainer, PageHeader } from '../../components/ui';
 
@@ -17,7 +18,8 @@ export const VocabularyUnitsPage: React.FC<Props> = ({
 }) => {
   const { level } = useParams<{ level: string }>();
   const levelKey = (level?.toUpperCase() || 'N3') as JLPTLevel;
-  const units = UNIT_DATA[levelKey] || [];
+  const cmsSnapshot = useCurriculumSnapshot();
+  const units = getLiveUnitsForLevel(cmsSnapshot, levelKey);
   const levelSegment = level || levelKey.toLowerCase();
 
   return (

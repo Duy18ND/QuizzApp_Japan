@@ -1,38 +1,47 @@
 import { Moon, Sun } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { useTheme } from '../../hooks/useTheme';
-import { Tooltip } from './Feedback';
 
-/** Sun/Moon switch. Both icons stay visible so the control reads as a mode toggle at a glance. */
+/** Sun/Moon switch. Symmetrical 30×30 slots around a 24×24 sliding knob, no hover tooltip clutter. */
 export function ThemeToggle({ className }: { className?: string }) {
   const { theme, toggleTheme } = useTheme();
   const dark = theme === 'dark';
 
   return (
-    <Tooltip content={dark ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'}>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={dark}
-        aria-label="Giao diện tối"
-        onClick={toggleTheme}
+    <button
+      type="button"
+      role="switch"
+      aria-checked={dark}
+      aria-label={dark ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'}
+      onClick={toggleTheme}
+      className={cn(
+        'relative inline-grid h-8 w-[62px] shrink-0 grid-cols-2 items-center rounded-full border border-line-strong bg-glass-soft p-0 shadow-card',
+        'transition-colors duration-150 hover:border-primary/50 hover:bg-glass',
+        className,
+      )}
+    >
+      <span
+        aria-hidden
         className={cn(
-          'relative inline-grid h-9 w-[4.5rem] grid-cols-2 items-center rounded-full border border-line-strong bg-glass-soft p-0.5 shadow-card',
-          'transition-colors duration-150 hover:border-primary/50 hover:bg-glass',
-          className,
+          'pointer-events-none absolute top-[3px] left-[3px] size-6 rounded-full bg-glass-hover shadow-card ring-1 ring-line-strong',
+          'transition-transform duration-200 ease-out-soft',
+          dark && 'translate-x-[30px]',
         )}
-      >
-        <span
-          aria-hidden
-          className={cn(
-            'absolute top-0.5 left-0.5 size-7 rounded-full bg-glass-hover shadow-card ring-1 ring-line-strong',
-            'transition-transform duration-200 ease-out-soft',
-            dark && 'translate-x-9',
-          )}
-        />
-        <Sun className={cn('relative z-10 mx-auto size-4 transition-colors', dark ? 'text-subtle' : 'text-primary-fg')} aria-hidden />
-        <Moon className={cn('relative z-10 mx-auto size-4 transition-colors', dark ? 'text-primary-fg' : 'text-subtle')} aria-hidden />
-      </button>
-    </Tooltip>
+      />
+      <Sun
+        className={cn(
+          'pointer-events-none relative z-10 mx-auto size-3.5 transition-colors',
+          dark ? 'text-subtle' : 'text-primary-fg',
+        )}
+        aria-hidden
+      />
+      <Moon
+        className={cn(
+          'pointer-events-none relative z-10 mx-auto size-3.5 transition-colors',
+          dark ? 'text-primary-fg' : 'text-subtle',
+        )}
+        aria-hidden
+      />
+    </button>
   );
 }

@@ -134,13 +134,13 @@ const BG_IMAGE_LAYERS = [
     key: 'day',
     src: dayLandscapeUrl,
     className:
-      'bg-day-layer fixed inset-0 h-full w-full object-cover object-bottom opacity-100 select-none transition-opacity duration-700 ease-in-out',
+      'bg-day-layer bg-landscape-responsive absolute inset-0 h-full w-full opacity-100 select-none transition-opacity duration-700 ease-in-out',
   },
   {
     key: 'night',
     src: nightLandscapeUrl,
     className:
-      'bg-night-layer fixed inset-0 h-full w-full object-cover object-bottom opacity-0 select-none transition-opacity duration-700 ease-in-out',
+      'bg-night-layer bg-landscape-responsive absolute inset-0 h-full w-full opacity-0 select-none transition-opacity duration-700 ease-in-out',
   },
 ] as const;
 
@@ -150,7 +150,7 @@ export const JapaneseLandscapeBg: React.FC = () => {
       aria-hidden
       className="pointer-events-none fixed inset-0 -z-10 h-dvh w-screen overflow-hidden select-none print:hidden"
     >
-      {/* 1. Content-Hashed 2K Dual Japanese Landscape Image Layers (cache-busted per deploy, high-quality scaling) */}
+      {/* 1. Primary Dual Japanese Landscape Layers (aspect-preserved panoramic view, zero stretch) */}
       {BG_IMAGE_LAYERS.map((layer) => (
         <img
           key={layer.key}

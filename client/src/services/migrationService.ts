@@ -13,9 +13,12 @@ import type { AuthUser } from '../store/slices/authSlice';
 import type {
   AdminGrammarExample,
   AdminGrammarRecord,
+  AdminJlptModuleId,
   AdminJlptRecord,
   AdminKanjiRecord,
+  AdminUnitRecord,
   AdminVocabRecord,
+  CmsTableName,
 } from '../types/admin';
 import type { KanjiItem } from '../types/kanji';
 import type { JLPTLevel } from '../types/quiz';
@@ -28,12 +31,13 @@ export interface StaticDatasetCounts {
   kanjis: number;
   grammarRules: number;
   jlptQuestions: number;
+  profiles?: number;
 }
 
 export interface MigrationProgressUpdate {
   completedSteps: number;
   totalSteps: number;
-  currentTable: 'units' | 'vocabularies' | 'kanjis' | 'grammar_rules' | 'jlpt_questions';
+  currentTable: CmsTableName;
   label: string;
 }
 
@@ -56,11 +60,11 @@ export interface SupabaseUnitRow {
 const MIGRATION_BATCH_SIZE = 50;
 
 export const toDbUnitId = (level: JLPTLevel, unitId: number): string =>
-  `${level.toLowerCase()}-unit-${Math.max(1, unitId)}`;
+  `${level.toUpperCase()}-U${Math.max(1, unitId)}`;
 
 export const parseDbUnitNumber = (unitKey: string | null | undefined): number => {
   if (!unitKey) return 1;
-  const match = unitKey.match(/-(\d+)$/);
+  const match = unitKey.match(/(?:-|u)(\d+)$/i);
   return match ? Math.max(1, Number(match[1])) : 1;
 };
 
@@ -73,31 +77,30 @@ export function chunkArray<T>(items: T[], size: number): T[][] {
   return chunks;
 }
 
-export function buildStaticUnits(): SupabaseUnitRow[] {
-  const unitRows: SupabaseUnitRow[] = [];
+export function buildStaticUnits(): AdminUnitRecord[] {
+  const unitRows: AdminUnitRecord[] = [];
   let orderCounter = 1;
   for (const [level, list] of Object.entries(UNIT_DATA)) {
     for (const u of list) {
       unitRows.push({
         id: toDbUnitId(level as JLPTLevel, u.id),
         level: level as JLPTLevel,
-        unit_number: u.id,
+        unitNumber: u.id,
         title: u.name,
         description: u.totalWords > 0 ? `${u.totalWords} từ vựng chuẩn JLPT ${level}` : 'Sắp ra mắt',
-        order_index: orderCounter++,
-        is_published: u.totalWords > 0,
+        orderIndex: orderCounter++,
+        isPublished: u.totalWords > 0,
       });
     }
   }
   return unitRows;
 }
 
-export function buildStaticVocab(): Array<
-  AdminVocabRecord & { tags?: string[]; semanticRoles?: string[] }
-> {
+export function buildStaticVocab(): AdminVocabRecord[] {
   return getAllLoadedVocabulary().map((v) => ({
     id: v.id,
     unitId: v.unitId,
+    dbUnitId: toDbUnitId(v.level, v.unitId),
     level: v.level,
     wordNumber: v.wordNumber,
     kanji: v.kanji,
@@ -108,8 +111,8 @@ export function buildStaticVocab(): Array<
     exampleSentence: v.exampleSentence,
     exampleMeaning: v.exampleMeaning,
     notes: v.notes,
-    tags: v.tags,
-    semanticRoles: v.semanticRoles,
+    tags: Array.isArray(v.tags) ? v.tags : [],
+    semanticRoles: Array.isArray(v.semanticRoles) ? v.semanticRoles : [],
   }));
 }
 
@@ -140,6 +143,8 @@ export function buildStaticGrammar(): AdminGrammarRecord[] {
             japanese: s.japanese,
             hiragana: s.hiragana,
             vietnamese: s.vietnamese,
+            jp: s.japanese,
+            vi: s.vietnamese,
           }));
         const structure =
           Array.isArray(g.patterns) && g.patterns.length > 0
@@ -222,8 +227,8 @@ export function buildStaticJlpt(): AdminJlptRecord[] {
       moduleId: 'listening',
       level: l.level,
       questionType: 'listening',
-      prompt: `${l.situation} — ${l.questionPrompt}`,
-      passage: null,
+      prompt: l.questionPrompt,
+      passage: l.situation,
       options: [...l.options],
       correctIndex: l.correctIndex,
       explanation: l.explanation,
@@ -233,11 +238,30 @@ export function buildStaticJlpt(): AdminJlptRecord[] {
   return items;
 }
 
-export const mapVocabToDb = (
-  r: AdminVocabRecord & { tags?: string[]; semanticRoles?: string[] },
-) => ({
+export const mapUnitToDb = (r: AdminUnitRecord): SupabaseUnitRow => ({
   id: r.id,
-  unit_id: toDbUnitId(r.level, r.unitId),
+  level: r.level,
+  unit_number: r.unitNumber,
+  title: r.title,
+  description: r.description ?? '',
+  order_index: r.orderIndex,
+  is_published: Boolean(r.isPublished),
+});
+
+export const mapUnitFromDb = (r: Record<string, unknown>): AdminUnitRecord => ({
+  id: String(r.id),
+  level: (r.level ?? 'N3') as JLPTLevel,
+  unitNumber: Number(r.unit_number ?? parseDbUnitNumber(String(r.id))),
+  title: String(r.title ?? ''),
+  description: String(r.description ?? ''),
+  orderIndex: Number(r.order_index ?? 0),
+  isPublished: r.is_published !== false,
+  createdAt: r.created_at ? String(r.created_at) : undefined,
+});
+
+export const mapVocabToDb = (r: AdminVocabRecord) => ({
+  id: r.id,
+  unit_id: r.dbUnitId || toDbUnitId(r.level, r.unitId),
   word_number: r.wordNumber,
   kanji: r.kanji,
   hiragana: r.hiragana,
@@ -252,6 +276,24 @@ export const mapVocabToDb = (
   semantic_roles: Array.isArray(r.semanticRoles) ? r.semanticRoles : [],
 });
 
+export const mapVocabFromDb = (r: Record<string, unknown>): AdminVocabRecord => ({
+  id: Number(r.id),
+  unitId: parseDbUnitNumber(String(r.unit_id ?? '')),
+  dbUnitId: String(r.unit_id ?? ''),
+  level: (r.level ?? 'N3') as JLPTLevel,
+  wordNumber: Number(r.word_number ?? r.id),
+  kanji: r.kanji == null ? null : String(r.kanji),
+  hiragana: String(r.hiragana ?? ''),
+  hanViet: r.han_viet == null ? null : String(r.han_viet),
+  meaning: String(r.meaning ?? ''),
+  wordType: String(r.word_type ?? 'Danh từ'),
+  exampleSentence: r.example_sentence == null ? null : String(r.example_sentence),
+  exampleMeaning: r.example_meaning == null ? null : String(r.example_meaning),
+  notes: r.notes == null ? null : String(r.notes),
+  tags: Array.isArray(r.tags) ? r.tags.map(String) : [],
+  semanticRoles: Array.isArray(r.semantic_roles) ? r.semantic_roles.map(String) : [],
+});
+
 export const mapKanjiToDb = (r: AdminKanjiRecord) => ({
   id: r.id,
   character: r.kanji,
@@ -264,6 +306,26 @@ export const mapKanjiToDb = (r: AdminKanjiRecord) => ({
   examples: r.examples,
 });
 
+export const mapKanjiFromDb = (r: Record<string, unknown>): AdminKanjiRecord => ({
+  id: String(r.id),
+  kanji: String(r.character ?? r.kanji ?? r.id),
+  hanViet: String(r.han_viet ?? r.hanViet ?? ''),
+  meanings: Array.isArray(r.meanings) ? r.meanings.map(String) : [],
+  onReadings: Array.isArray(r.onyomi)
+    ? r.onyomi.map(String)
+    : Array.isArray(r.onReadings)
+      ? r.onReadings.map(String)
+      : [],
+  kunReadings: Array.isArray(r.kunyomi)
+    ? r.kunyomi.map(String)
+    : Array.isArray(r.kunReadings)
+      ? r.kunReadings.map(String)
+      : [],
+  strokeCount: Number(r.stroke_count ?? r.strokeCount ?? 0),
+  jlptLevel: (r.jlpt_level ?? r.jlptLevel ?? 'N3') as JLPTLevel,
+  examples: Array.isArray(r.examples) ? (r.examples as AdminKanjiRecord['examples']) : [],
+});
+
 export const mapGrammarToDb = (r: AdminGrammarRecord) => ({
   id: r.id,
   book_id: r.bookId,
@@ -274,7 +336,43 @@ export const mapGrammarToDb = (r: AdminGrammarRecord) => ({
   meaning: r.meaning,
   explanation: r.explanation,
   notes: r.notes,
-  examples: r.examples,
+  examples: (r.examples ?? []).map((ex) => {
+    const japanese = ex.japanese || ex.jp || '';
+    const vietnamese = ex.vietnamese || ex.vi || '';
+    return {
+      jp: japanese,
+      vi: vietnamese,
+      japanese,
+      hiragana: ex.hiragana ?? '',
+      vietnamese,
+    };
+  }),
+});
+
+export const mapGrammarFromDb = (r: Record<string, unknown>): AdminGrammarRecord => ({
+  id: String(r.id),
+  bookId: String(r.book_id ?? r.bookId ?? 'SHINKANZEN_N3'),
+  chapterId: String(r.chapter_id ?? r.chapterId ?? 'L01'),
+  level: (r.level ?? 'N3') as JLPTLevel,
+  title: String(r.title ?? ''),
+  structure: String(r.structure ?? ''),
+  meaning: String(r.meaning ?? ''),
+  explanation: String(r.explanation ?? ''),
+  notes: String(r.notes ?? ''),
+  examples: Array.isArray(r.examples)
+    ? r.examples.map((raw) => {
+        const ex = (raw ?? {}) as Record<string, unknown>;
+        const japanese = String(ex.japanese ?? ex.jp ?? '');
+        const vietnamese = String(ex.vietnamese ?? ex.vi ?? '');
+        return {
+          japanese,
+          hiragana: String(ex.hiragana ?? ''),
+          vietnamese,
+          jp: japanese,
+          vi: vietnamese,
+        };
+      })
+    : [],
 });
 
 export const mapJlptToDb = (r: AdminJlptRecord) => ({
@@ -288,6 +386,19 @@ export const mapJlptToDb = (r: AdminJlptRecord) => ({
   correct_index: r.correctIndex,
   explanation: r.explanation,
   audio_text: r.audioText,
+});
+
+export const mapJlptFromDb = (r: Record<string, unknown>): AdminJlptRecord => ({
+  id: String(r.id),
+  moduleId: (r.module_id ?? r.moduleId ?? 'vocab') as AdminJlptModuleId,
+  level: (r.level ?? 'N3') as JLPTLevel,
+  questionType: (r.question_type ?? r.questionType ?? 'mcq') as AdminJlptRecord['questionType'],
+  prompt: String(r.prompt ?? ''),
+  passage: r.passage == null ? null : String(r.passage),
+  options: Array.isArray(r.options) ? r.options.map(String) : [],
+  correctIndex: Number(r.correct_index ?? r.correctIndex ?? 0),
+  explanation: String(r.explanation ?? ''),
+  audioText: r.audio_text == null ? (r.audioText == null ? null : String(r.audioText)) : String(r.audio_text),
 });
 
 export function getLocalStaticCounts(): StaticDatasetCounts {
@@ -350,6 +461,40 @@ export async function fetchSupabaseTableCounts(): Promise<{
   }
 }
 
+export async function fetchSupabaseProfilesCount(): Promise<number | null> {
+  if (!supabase) return null;
+  try {
+    const res = await supabase.from('profiles').select('*', { count: 'exact', head: true });
+    if (res.error) return null;
+    return res.count ?? 0;
+  } catch {
+    return null;
+  }
+}
+
+const LOCAL_AUDIT_BUFFER_KEY = 'nihonmaster_local_audit_logs_v1';
+const LOCAL_AUDIT_LIMIT = 50;
+
+export function getLocalAuditLogs(): Array<{
+  id: string;
+  actorId: string | null;
+  action: string;
+  entityType: string;
+  entityId: string;
+  detailsJson: Record<string, unknown>;
+  createdAt: string;
+}> {
+  if (typeof window === 'undefined' || !window.localStorage) return [];
+  try {
+    const raw = window.localStorage.getItem(LOCAL_AUDIT_BUFFER_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function writeAuditLog(
   actor: AuthUser | null | undefined,
   action: string,
@@ -357,7 +502,30 @@ export async function writeAuditLog(
   entityId: string,
   details: Record<string, unknown> = {},
 ): Promise<void> {
-  if (!supabase || !actor) return;
+  if (!actor) return;
+  const createdAt = new Date().toISOString();
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      const next = [
+        {
+          id: `local-audit-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          actorId: actor.id,
+          action,
+          entityType,
+          entityId,
+          detailsJson: details,
+          createdAt,
+        },
+        ...getLocalAuditLogs(),
+      ].slice(0, LOCAL_AUDIT_LIMIT);
+      window.localStorage.setItem(LOCAL_AUDIT_BUFFER_KEY, JSON.stringify(next));
+    } catch {
+      // ignore storage quota errors
+    }
+  }
+
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(actor.id);
+  if (!supabase || !isUuid) return;
   try {
     await supabase.from('audit_logs').insert({
       actor_id: actor.id,
@@ -371,25 +539,61 @@ export async function writeAuditLog(
   }
 }
 
-export async function migrateAllStaticDataToSupabase(params: {
-  actor: AuthUser | null;
-  onProgress?: (progress: MigrationProgressUpdate) => void;
-}): Promise<MigrationResult> {
-  const { actor, onProgress } = params;
+interface MigrationStageSpec {
+  table: CmsTableName;
+  label: string;
+  rows: Array<Record<string, unknown>>;
+}
 
-  const emptyCounts: StaticDatasetCounts = {
+function buildMigrationStages(): Record<CmsTableName, MigrationStageSpec> {
+  return {
+    units: {
+      table: 'units',
+      label: 'Units bài học',
+      rows: buildStaticUnits().map((u) => mapUnitToDb(u) as unknown as Record<string, unknown>),
+    },
+    vocabularies: {
+      table: 'vocabularies',
+      label: 'Từ vựng N3',
+      rows: buildStaticVocab().map((r) => mapVocabToDb(r) as unknown as Record<string, unknown>),
+    },
+    kanjis: {
+      table: 'kanjis',
+      label: 'Chữ Hán (Kanji)',
+      rows: buildStaticKanji().map((r) => mapKanjiToDb(r) as unknown as Record<string, unknown>),
+    },
+    grammar_rules: {
+      table: 'grammar_rules',
+      label: 'Ngữ pháp',
+      rows: buildStaticGrammar().map((r) => mapGrammarToDb(r) as unknown as Record<string, unknown>),
+    },
+    jlpt_questions: {
+      table: 'jlpt_questions',
+      label: 'Câu hỏi JLPT',
+      rows: buildStaticJlpt().map((r) => mapJlptToDb(r) as unknown as Record<string, unknown>),
+    },
+  };
+}
+
+async function runMigrationStages(params: {
+  actor: AuthUser | null;
+  stages: MigrationStageSpec[];
+  onProgress?: (progress: MigrationProgressUpdate) => void;
+}): Promise<{ ok: boolean; error?: string; syncedCounts: Record<CmsTableName, number> }> {
+  const { actor, stages, onProgress } = params;
+  const syncedCounts: Record<CmsTableName, number> = {
     units: 0,
     vocabularies: 0,
     kanjis: 0,
-    grammarRules: 0,
-    jlptQuestions: 0,
+    grammar_rules: 0,
+    jlpt_questions: 0,
   };
 
   if (!supabase) {
     return {
       ok: false,
       error: 'Chưa cấu hình kết nối Supabase Cloud (kiểm tra client/.env).',
-      counts: emptyCounts,
+      syncedCounts,
     };
   }
 
@@ -397,55 +601,21 @@ export async function migrateAllStaticDataToSupabase(params: {
     return {
       ok: false,
       error: 'Chỉ tài khoản ADMIN hoặc SUPER_ADMIN mới có quyền Migrate dữ liệu lên Cloud.',
-      counts: emptyCounts,
+      syncedCounts,
     };
   }
 
-  const unitRows = buildStaticUnits();
-  const vocabRows = buildStaticVocab().map((r) => mapVocabToDb(r));
-  const kanjiRows = buildStaticKanji().map((r) => mapKanjiToDb(r));
-  const grammarRows = buildStaticGrammar().map((r) => mapGrammarToDb(r));
-  const jlptRows = buildStaticJlpt().map((r) => mapJlptToDb(r));
-
-  const stages: Array<{
-    table: MigrationProgressUpdate['currentTable'];
-    label: string;
-    chunks: Array<Array<Record<string, unknown>>>;
-  }> = [
-    {
-      table: 'units',
-      label: 'Units bài học',
-      chunks: chunkArray(unitRows as unknown as Array<Record<string, unknown>>, MIGRATION_BATCH_SIZE),
-    },
-    {
-      table: 'vocabularies',
-      label: 'Từ vựng N3',
-      chunks: chunkArray(vocabRows, MIGRATION_BATCH_SIZE),
-    },
-    {
-      table: 'kanjis',
-      label: 'Chữ Hán (Kanji)',
-      chunks: chunkArray(kanjiRows as unknown as Array<Record<string, unknown>>, MIGRATION_BATCH_SIZE),
-    },
-    {
-      table: 'grammar_rules',
-      label: 'Ngữ pháp',
-      chunks: chunkArray(grammarRows as unknown as Array<Record<string, unknown>>, MIGRATION_BATCH_SIZE),
-    },
-    {
-      table: 'jlpt_questions',
-      label: 'Câu hỏi JLPT',
-      chunks: chunkArray(jlptRows as unknown as Array<Record<string, unknown>>, MIGRATION_BATCH_SIZE),
-    },
-  ];
-
+  const chunkedStages = stages.map((stage) => ({
+    ...stage,
+    chunks: chunkArray(stage.rows, MIGRATION_BATCH_SIZE),
+  }));
   const totalSteps = Math.max(
     1,
-    stages.reduce((sum, s) => sum + s.chunks.length, 0),
+    chunkedStages.reduce((sum, s) => sum + s.chunks.length, 0),
   );
   let completedSteps = 0;
 
-  for (const stage of stages) {
+  for (const stage of chunkedStages) {
     for (let idx = 0; idx < stage.chunks.length; idx += 1) {
       onProgress?.({
         completedSteps,
@@ -465,7 +635,7 @@ export async function migrateAllStaticDataToSupabase(params: {
           error: isRls
             ? `[${stage.table}] Bị từ chối bởi RLS: hãy đảm bảo tài khoản đang đăng nhập có role ADMIN / SUPER_ADMIN trong bảng public.profiles.`
             : `[${stage.table}] ${error.message}`,
-          counts: emptyCounts,
+          syncedCounts,
         };
       }
 
@@ -477,18 +647,71 @@ export async function migrateAllStaticDataToSupabase(params: {
         label: `Đã chuyển ${stage.label} (lô ${idx + 1}/${stage.chunks.length})`,
       });
     }
+    syncedCounts[stage.table] = stage.rows.length;
+  }
+
+  return { ok: true, syncedCounts };
+}
+
+export async function migrateSingleTableToSupabase(params: {
+  table: CmsTableName;
+  actor: AuthUser | null;
+  onProgress?: (progress: MigrationProgressUpdate) => void;
+}): Promise<{ ok: boolean; count: number; error?: string }> {
+  const stageMap = buildMigrationStages();
+  const stage = stageMap[params.table];
+  const stages = params.table === 'vocabularies' ? [stageMap.units, stage] : [stage];
+  const res = await runMigrationStages({
+    actor: params.actor,
+    stages,
+    onProgress: params.onProgress,
+  });
+  if (!res.ok) {
+    return { ok: false, count: 0, error: res.error };
+  }
+  await writeAuditLog(params.actor, 'MIGRATE_SINGLE_TABLE', params.table, params.table, {
+    count: stage.rows.length,
+  });
+  return { ok: true, count: stage.rows.length };
+}
+
+export async function migrateAllStaticDataToSupabase(params: {
+  actor: AuthUser | null;
+  onProgress?: (progress: MigrationProgressUpdate) => void;
+}): Promise<MigrationResult> {
+  const emptyCounts: StaticDatasetCounts = {
+    units: 0,
+    vocabularies: 0,
+    kanjis: 0,
+    grammarRules: 0,
+    jlptQuestions: 0,
+  };
+  const stageMap = buildMigrationStages();
+  const res = await runMigrationStages({
+    actor: params.actor,
+    stages: [
+      stageMap.units,
+      stageMap.vocabularies,
+      stageMap.kanjis,
+      stageMap.grammar_rules,
+      stageMap.jlpt_questions,
+    ],
+    onProgress: params.onProgress,
+  });
+  if (!res.ok) {
+    return { ok: false, error: res.error, counts: emptyCounts };
   }
 
   const finalCounts: StaticDatasetCounts = {
-    units: unitRows.length,
-    vocabularies: vocabRows.length,
-    kanjis: kanjiRows.length,
-    grammarRules: grammarRows.length,
-    jlptQuestions: jlptRows.length,
+    units: res.syncedCounts.units,
+    vocabularies: res.syncedCounts.vocabularies,
+    kanjis: res.syncedCounts.kanjis,
+    grammarRules: res.syncedCounts.grammar_rules,
+    jlptQuestions: res.syncedCounts.jlpt_questions,
   };
 
   await writeAuditLog(
-    actor,
+    params.actor,
     'MIGRATE_ALL_STATIC_DATA',
     'database',
     'all',

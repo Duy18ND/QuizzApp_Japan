@@ -1,15 +1,17 @@
 import { UNIT_DATA } from '../data/unitData';
 import type { AuthUser, AccountRole } from '../store/slices/authSlice';
 import type {
-  AdminGrammarExample,
+  AccountProviderSummary,
   AdminGrammarRecord,
-  AdminJlptModuleId,
   AdminJlptRecord,
   AdminKanjiRecord,
+  AdminUnitRecord,
   AdminVocabRecord,
+  AuditLogRecord,
   BatchExecutionSummary,
   BatchImportMode,
   CmsEntityType,
+  CmsTableName,
   ManagedUserProfile,
 } from '../types/admin';
 import type { JLPTLevel } from '../types/quiz';
@@ -21,13 +23,20 @@ import {
   buildStaticGrammar,
   buildStaticJlpt,
   buildStaticKanji,
+  buildStaticUnits,
   buildStaticVocab,
+  getLocalAuditLogs,
+  mapGrammarFromDb,
   mapGrammarToDb,
+  mapJlptFromDb,
   mapJlptToDb,
+  mapKanjiFromDb,
   mapKanjiToDb,
+  mapUnitFromDb,
+  mapUnitToDb,
+  mapVocabFromDb,
   mapVocabToDb,
   migrateAllStaticDataToSupabase,
-  parseDbUnitNumber,
   toDbUnitId,
   writeAuditLog,
   type MigrationProgressUpdate,
@@ -35,16 +44,31 @@ import {
 } from './migrationService';
 import { supabase } from './supabaseClient';
 
-const CMS_STORAGE_KEY = 'nihonmaster_admin_cms_v1';
-const CMS_SYNC_EVENT = 'nihonmaster:cms-sync';
+export const CMS_STORAGE_KEY = 'nihonmaster_admin_cms_v1';
+export const CMS_SYNC_EVENT = 'nihonmaster:cms-sync';
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
+const canWriteCloud = (actor: AuthUser | null): boolean =>
+  Boolean(supabase && actor && !actor.id.startsWith('quick-test-'));
+
+const isQuickTestSession = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  try {
+    return Boolean(window.sessionStorage?.getItem('nihongo_quick_test_user_v1'));
+  } catch {
+    return false;
+  }
+};
+
 export interface CmsSnapshot extends ExistingCmsLookup {
+  units: AdminUnitRecord[];
   source: 'supabase' | 'local';
   remoteError?: string;
 }
 
 interface LocalCmsOverlay {
+  unitOverrides: Record<string, AdminUnitRecord>;
+  unitDeletedIds: string[];
   vocabOverrides: Record<string, AdminVocabRecord>;
   vocabDeletedIds: number[];
   kanjiOverrides: Record<string, AdminKanjiRecord>;
@@ -88,6 +112,8 @@ const DEFAULT_DEMO_USERS: ManagedUserProfile[] = [
 ];
 
 const emptyOverlay = (): LocalCmsOverlay => ({
+  unitOverrides: {},
+  unitDeletedIds: [],
   vocabOverrides: {},
   vocabDeletedIds: [],
   kanjiOverrides: {},
@@ -118,6 +144,10 @@ function loadLocalOverlay(): LocalCmsOverlay {
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return emptyOverlay();
     const obj = parsed as Record<string, unknown>;
     return {
+      unitOverrides: sanitizeRecordMap<AdminUnitRecord>(obj.unitOverrides),
+      unitDeletedIds: Array.isArray(obj.unitDeletedIds)
+        ? obj.unitDeletedIds.filter((s): s is string => typeof s === 'string')
+        : [],
       vocabOverrides: sanitizeRecordMap<AdminVocabRecord>(obj.vocabOverrides),
       vocabDeletedIds: Array.isArray(obj.vocabDeletedIds)
         ? obj.vocabDeletedIds.filter((n): n is number => typeof n === 'number' && Number.isFinite(n))
@@ -145,6 +175,11 @@ function loadLocalOverlay(): LocalCmsOverlay {
   }
 }
 
+export function invalidateCmsQueries(): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(CMS_SYNC_EVENT));
+}
+
 function saveLocalOverlay(overlay: LocalCmsOverlay): void {
   if (typeof window === 'undefined') return;
   try {
@@ -152,7 +187,7 @@ function saveLocalOverlay(overlay: LocalCmsOverlay): void {
   } catch {
     // ignore storage quota errors
   }
-  window.dispatchEvent(new CustomEvent(CMS_SYNC_EVENT));
+  invalidateCmsQueries();
 }
 
 function mergeByKey<K extends string | number, T extends object>(
@@ -177,6 +212,12 @@ export function getCmsSnapshotSync(): CmsSnapshot {
   const overlay = loadLocalOverlay();
   return {
     source: 'local',
+    units: mergeByKey<string, AdminUnitRecord>(
+      buildStaticUnits(),
+      'id',
+      overlay.unitOverrides,
+      overlay.unitDeletedIds,
+    ),
     vocabularies: mergeByKey<number, AdminVocabRecord>(
       buildStaticVocab(),
       'id',
@@ -206,19 +247,21 @@ export function getCmsSnapshotSync(): CmsSnapshot {
 
 async function ensureUnitsExist(records: AdminVocabRecord[]): Promise<{ ok: boolean; error?: string }> {
   if (!supabase || records.length === 0) return { ok: true };
+  const overlay = loadLocalOverlay();
   const unitRows = new Map<string, Record<string, unknown>>();
   for (const r of records) {
-    const dbUnitId = toDbUnitId(r.level, r.unitId);
+    const dbUnitId = r.dbUnitId || toDbUnitId(r.level, r.unitId);
     if (unitRows.has(dbUnitId)) continue;
+    const customUnit = overlay.unitOverrides[dbUnitId];
     const meta = UNIT_DATA[r.level]?.find((u) => u.id === r.unitId);
     unitRows.set(dbUnitId, {
       id: dbUnitId,
       level: r.level,
-      unit_number: r.unitId,
-      title: meta?.name ?? `Unit ${r.unitId} (${r.level})`,
-      description: meta ? `${meta.totalWords} từ vựng ${r.level}` : `Unit ${r.unitId}`,
-      order_index: r.unitId,
-      is_published: true,
+      unit_number: customUnit?.unitNumber ?? r.unitId,
+      title: customUnit?.title ?? meta?.name ?? `Unit ${r.unitId} (${r.level})`,
+      description: customUnit?.description ?? (meta ? `${meta.totalWords} từ vựng ${r.level}` : `Unit ${r.unitId}`),
+      order_index: customUnit?.orderIndex ?? r.unitId,
+      is_published: customUnit?.isPublished ?? true,
     });
   }
   const { error } = await supabase.from('units').upsert(Array.from(unitRows.values()), { onConflict: 'id' });
@@ -231,14 +274,16 @@ export async function loadCmsSnapshot(): Promise<CmsSnapshot> {
   if (!supabase) return local;
 
   try {
-    const [vocabRes, kanjiRes, grammarRes, jlptRes] = await Promise.all([
+    const [unitRes, vocabRes, kanjiRes, grammarRes, jlptRes] = await Promise.all([
+      supabase.from('units').select('*').order('order_index', { ascending: true }),
       supabase.from('vocabularies').select('*').order('id', { ascending: true }),
       supabase.from('kanjis').select('*').order('id', { ascending: true }),
       supabase.from('grammar_rules').select('*').order('id', { ascending: true }),
       supabase.from('jlpt_questions').select('*').order('id', { ascending: true }),
     ]);
 
-    const queryError = vocabRes.error || kanjiRes.error || grammarRes.error || jlptRes.error;
+    const queryError =
+      unitRes.error || vocabRes.error || kanjiRes.error || grammarRes.error || jlptRes.error;
     if (queryError) {
       return {
         ...local,
@@ -247,65 +292,38 @@ export async function loadCmsSnapshot(): Promise<CmsSnapshot> {
       };
     }
 
-    const remoteVocabs: AdminVocabRecord[] = (vocabRes.data ?? []).map((r) => ({
-      id: Number(r.id),
-      unitId: parseDbUnitNumber(r.unit_id),
-      level: (r.level ?? 'N3') as JLPTLevel,
-      wordNumber: Number(r.word_number ?? r.id),
-      kanji: r.kanji ?? null,
-      hiragana: String(r.hiragana ?? ''),
-      hanViet: r.han_viet ?? null,
-      meaning: String(r.meaning ?? ''),
-      wordType: String(r.word_type ?? 'Danh từ'),
-      exampleSentence: r.example_sentence ?? null,
-      exampleMeaning: r.example_meaning ?? null,
-      notes: r.notes ?? null,
-    }));
+    const remoteUnits = (unitRes.data ?? []).map((r) => mapUnitFromDb(r as Record<string, unknown>));
+    const remoteVocabs = (vocabRes.data ?? []).map((r) => mapVocabFromDb(r as Record<string, unknown>));
+    const remoteKanjis = (kanjiRes.data ?? []).map((r) => mapKanjiFromDb(r as Record<string, unknown>));
+    const remoteGrammars = (grammarRes.data ?? []).map((r) => mapGrammarFromDb(r as Record<string, unknown>));
+    const remoteJlpt = (jlptRes.data ?? []).map((r) => mapJlptFromDb(r as Record<string, unknown>));
 
-    const remoteKanjis: AdminKanjiRecord[] = (kanjiRes.data ?? []).map((r) => ({
-      id: String(r.id),
-      kanji: String(r.character),
-      hanViet: String(r.han_viet ?? ''),
-      meanings: Array.isArray(r.meanings) ? r.meanings.map(String) : [],
-      onReadings: Array.isArray(r.onyomi) ? r.onyomi.map(String) : [],
-      kunReadings: Array.isArray(r.kunyomi) ? r.kunyomi.map(String) : [],
-      strokeCount: Number(r.stroke_count ?? 0),
-      jlptLevel: (r.jlpt_level ?? 'N3') as JLPTLevel,
-      examples: Array.isArray(r.examples) ? (r.examples as AdminKanjiRecord['examples']) : [],
-    }));
+    const applyQuickOverlay = isQuickTestSession();
+    const overlay = applyQuickOverlay ? loadLocalOverlay() : null;
 
-    const remoteGrammars: AdminGrammarRecord[] = (grammarRes.data ?? []).map((r) => ({
-      id: String(r.id),
-      bookId: String(r.book_id ?? 'SHINKANZEN_N3'),
-      chapterId: String(r.chapter_id ?? 'L01'),
-      level: (r.level ?? 'N3') as JLPTLevel,
-      title: String(r.title ?? ''),
-      structure: String(r.structure ?? ''),
-      meaning: String(r.meaning ?? ''),
-      explanation: String(r.explanation ?? ''),
-      notes: String(r.notes ?? ''),
-      examples: Array.isArray(r.examples) ? (r.examples as AdminGrammarExample[]) : [],
-    }));
-
-    const remoteJlpt: AdminJlptRecord[] = (jlptRes.data ?? []).map((r) => ({
-      id: String(r.id),
-      moduleId: (r.module_id ?? 'vocab') as AdminJlptModuleId,
-      level: (r.level ?? 'N3') as JLPTLevel,
-      questionType: (r.question_type ?? 'mcq') as AdminJlptRecord['questionType'],
-      prompt: String(r.prompt ?? ''),
-      passage: r.passage ?? null,
-      options: Array.isArray(r.options) ? r.options.map(String) : [],
-      correctIndex: Number(r.correct_index ?? 0),
-      explanation: String(r.explanation ?? ''),
-      audioText: r.audio_text ?? null,
-    }));
+    const baseUnits = remoteUnits.length > 0 ? remoteUnits : local.units;
+    const baseVocabs = remoteVocabs.length > 0 ? remoteVocabs : local.vocabularies;
+    const baseKanjis = remoteKanjis.length > 0 ? remoteKanjis : local.kanjis;
+    const baseGrammars = remoteGrammars.length > 0 ? remoteGrammars : local.grammars;
+    const baseJlpt = remoteJlpt.length > 0 ? remoteJlpt : local.jlptQuestions;
 
     return {
       source: 'supabase',
-      vocabularies: remoteVocabs,
-      kanjis: remoteKanjis,
-      grammars: remoteGrammars,
-      jlptQuestions: remoteJlpt,
+      units: overlay
+        ? mergeByKey<string, AdminUnitRecord>(baseUnits, 'id', overlay.unitOverrides, overlay.unitDeletedIds)
+        : baseUnits,
+      vocabularies: overlay
+        ? mergeByKey<number, AdminVocabRecord>(baseVocabs, 'id', overlay.vocabOverrides, overlay.vocabDeletedIds)
+        : baseVocabs,
+      kanjis: overlay
+        ? mergeByKey<string, AdminKanjiRecord>(baseKanjis, 'id', overlay.kanjiOverrides, overlay.kanjiDeletedIds)
+        : baseKanjis,
+      grammars: overlay
+        ? mergeByKey<string, AdminGrammarRecord>(baseGrammars, 'id', overlay.grammarOverrides, overlay.grammarDeletedIds)
+        : baseGrammars,
+      jlptQuestions: overlay
+        ? mergeByKey<string, AdminJlptRecord>(baseJlpt, 'id', overlay.jlptOverrides, overlay.jlptDeletedIds)
+        : baseJlpt,
     };
   } catch (err) {
     return {
@@ -316,6 +334,55 @@ export async function loadCmsSnapshot(): Promise<CmsSnapshot> {
   }
 }
 
+export async function saveUnitItem(
+  record: AdminUnitRecord,
+  actor: AuthUser | null,
+  options?: { isNew?: boolean },
+): Promise<{ ok: boolean; error?: string; item?: AdminUnitRecord }> {
+  const cleanRecord: AdminUnitRecord = {
+    ...record,
+    id: record.id.trim() || toDbUnitId(record.level, record.unitNumber),
+  };
+
+  if (supabase && canWriteCloud(actor)) {
+    const dbRow = mapUnitToDb(cleanRecord);
+    const { error } = options?.isNew
+      ? await supabase.from('units').insert(dbRow)
+      : await supabase.from('units').update(dbRow).eq('id', cleanRecord.id);
+    if (error) return { ok: false, error: error.message };
+    await writeAuditLog(
+      actor,
+      options?.isNew ? 'INSERT_UNIT' : 'UPDATE_UNIT',
+      'unit',
+      cleanRecord.id,
+      { level: cleanRecord.level, title: cleanRecord.title },
+    );
+  }
+
+  const overlay = loadLocalOverlay();
+  overlay.unitOverrides[cleanRecord.id] = cleanRecord;
+  overlay.unitDeletedIds = overlay.unitDeletedIds.filter((id) => id !== cleanRecord.id);
+  saveLocalOverlay(overlay);
+  return { ok: true, item: cleanRecord };
+}
+
+export async function deleteUnitItem(
+  id: string,
+  actor: AuthUser | null,
+): Promise<{ ok: boolean; error?: string }> {
+  if (supabase && canWriteCloud(actor)) {
+    const { error } = await supabase.from('units').delete().eq('id', id);
+    if (error) return { ok: false, error: error.message };
+    await writeAuditLog(actor, 'DELETE_UNIT', 'unit', id);
+  }
+
+  const overlay = loadLocalOverlay();
+  delete overlay.unitOverrides[id];
+  if (!overlay.unitDeletedIds.includes(id)) overlay.unitDeletedIds.push(id);
+  saveLocalOverlay(overlay);
+  return { ok: true };
+}
+
 export async function saveVocabItem(
   record: AdminVocabRecord,
   actor: AuthUser | null,
@@ -323,7 +390,7 @@ export async function saveVocabItem(
 ): Promise<{ ok: boolean; error?: string; item?: AdminVocabRecord }> {
   let finalRecord = record;
 
-  if (supabase && actor) {
+  if (supabase && canWriteCloud(actor)) {
     const unitRes = await ensureUnitsExist([record]);
     if (!unitRes.ok) {
       return { ok: false, error: `[units] ${unitRes.error}` };
@@ -356,6 +423,13 @@ export async function saveVocabItem(
         level: finalRecord.level,
       });
     }
+  } else if (options?.isNew && (!finalRecord.id || finalRecord.id <= 0)) {
+    const maxLocalId = Math.max(130, ...getCmsSnapshotSync().vocabularies.map((v) => v.id));
+    finalRecord = {
+      ...finalRecord,
+      id: maxLocalId + 1,
+      wordNumber: finalRecord.wordNumber || maxLocalId + 1,
+    };
   }
 
   const overlay = loadLocalOverlay();
@@ -369,7 +443,7 @@ export async function deleteVocabItem(
   id: number,
   actor: AuthUser | null,
 ): Promise<{ ok: boolean; error?: string }> {
-  if (supabase && actor) {
+  if (supabase && canWriteCloud(actor)) {
     const { error } = await supabase.from('vocabularies').delete().eq('id', id);
     if (error) return { ok: false, error: error.message };
     await writeAuditLog(actor, 'DELETE_VOCAB', 'vocabulary', String(id));
@@ -382,12 +456,84 @@ export async function deleteVocabItem(
   return { ok: true };
 }
 
+export async function bulkDeleteVocabItems(
+  ids: number[],
+  actor: AuthUser | null,
+): Promise<{ ok: boolean; error?: string; count: number }> {
+  const uniqueIds = Array.from(new Set(ids));
+  if (uniqueIds.length === 0) return { ok: true, count: 0 };
+
+  if (supabase && canWriteCloud(actor)) {
+    const { error } = await supabase.from('vocabularies').delete().in('id', uniqueIds);
+    if (error) return { ok: false, error: error.message, count: 0 };
+    await writeAuditLog(actor, 'BULK_DELETE_VOCAB', 'vocabulary', `bulk-${uniqueIds.length}`, {
+      ids: uniqueIds,
+    });
+  }
+
+  const overlay = loadLocalOverlay();
+  for (const id of uniqueIds) {
+    delete overlay.vocabOverrides[String(id)];
+    if (!overlay.vocabDeletedIds.includes(id)) overlay.vocabDeletedIds.push(id);
+  }
+  saveLocalOverlay(overlay);
+  return { ok: true, count: uniqueIds.length };
+}
+
+export async function bulkUpdateVocabItems(
+  items: AdminVocabRecord[],
+  patch: {
+    level?: JLPTLevel;
+    unitId?: number;
+    dbUnitId?: string;
+    wordType?: string;
+  },
+  actor: AuthUser | null,
+): Promise<{ ok: boolean; error?: string; count: number }> {
+  if (items.length === 0) return { ok: true, count: 0 };
+  const updatedList = items.map((item) => {
+    const nextLevel = patch.level ?? item.level;
+    const nextUnitId = patch.unitId ?? item.unitId;
+    const nextDbUnitId =
+      patch.dbUnitId ??
+      (patch.unitId !== undefined || patch.level !== undefined
+        ? toDbUnitId(nextLevel, nextUnitId)
+        : item.dbUnitId || toDbUnitId(nextLevel, nextUnitId));
+    return {
+      ...item,
+      level: nextLevel,
+      unitId: nextUnitId,
+      dbUnitId: nextDbUnitId,
+      wordType: patch.wordType ?? item.wordType,
+    };
+  });
+
+  if (supabase && canWriteCloud(actor)) {
+    const unitRes = await ensureUnitsExist(updatedList);
+    if (!unitRes.ok) return { ok: false, error: unitRes.error, count: 0 };
+    const { error } = await supabase
+      .from('vocabularies')
+      .upsert(updatedList.map((r) => mapVocabToDb(r)), { onConflict: 'id' });
+    if (error) return { ok: false, error: error.message, count: 0 };
+    await writeAuditLog(actor, 'BULK_UPDATE_VOCAB', 'vocabulary', `bulk-${updatedList.length}`, {
+      patch,
+    });
+  }
+
+  const overlay = loadLocalOverlay();
+  for (const item of updatedList) {
+    overlay.vocabOverrides[String(item.id)] = item;
+  }
+  saveLocalOverlay(overlay);
+  return { ok: true, count: updatedList.length };
+}
+
 export async function saveKanjiItem(
   record: AdminKanjiRecord,
   actor: AuthUser | null,
   options?: { isNew?: boolean },
 ): Promise<{ ok: boolean; error?: string }> {
-  if (supabase && actor) {
+  if (supabase && canWriteCloud(actor)) {
     const { error } = options?.isNew
       ? await supabase.from('kanjis').insert(mapKanjiToDb(record))
       : await supabase.from('kanjis').update(mapKanjiToDb(record)).eq('id', record.id);
@@ -412,7 +558,7 @@ export async function deleteKanjiItem(
   id: string,
   actor: AuthUser | null,
 ): Promise<{ ok: boolean; error?: string }> {
-  if (supabase && actor) {
+  if (supabase && canWriteCloud(actor)) {
     const { error } = await supabase.from('kanjis').delete().eq('id', id);
     if (error) return { ok: false, error: error.message };
     await writeAuditLog(actor, 'DELETE_KANJI', 'kanji', id);
@@ -430,7 +576,7 @@ export async function saveGrammarRule(
   actor: AuthUser | null,
   options?: { isNew?: boolean },
 ): Promise<{ ok: boolean; error?: string }> {
-  if (supabase && actor) {
+  if (supabase && canWriteCloud(actor)) {
     const { error } = options?.isNew
       ? await supabase.from('grammar_rules').insert(mapGrammarToDb(record))
       : await supabase.from('grammar_rules').update(mapGrammarToDb(record)).eq('id', record.id);
@@ -455,7 +601,7 @@ export async function deleteGrammarRule(
   id: string,
   actor: AuthUser | null,
 ): Promise<{ ok: boolean; error?: string }> {
-  if (supabase && actor) {
+  if (supabase && canWriteCloud(actor)) {
     const { error } = await supabase.from('grammar_rules').delete().eq('id', id);
     if (error) return { ok: false, error: error.message };
     await writeAuditLog(actor, 'DELETE_GRAMMAR', 'grammar_rule', id);
@@ -473,7 +619,7 @@ export async function saveJlptQuestion(
   actor: AuthUser | null,
   options?: { isNew?: boolean },
 ): Promise<{ ok: boolean; error?: string }> {
-  if (supabase && actor) {
+  if (supabase && canWriteCloud(actor)) {
     const { error } = options?.isNew
       ? await supabase.from('jlpt_questions').insert(mapJlptToDb(record))
       : await supabase.from('jlpt_questions').update(mapJlptToDb(record)).eq('id', record.id);
@@ -498,7 +644,7 @@ export async function deleteJlptQuestion(
   id: string,
   actor: AuthUser | null,
 ): Promise<{ ok: boolean; error?: string }> {
-  if (supabase && actor) {
+  if (supabase && canWriteCloud(actor)) {
     const { error } = await supabase.from('jlpt_questions').delete().eq('id', id);
     if (error) return { ok: false, error: error.message };
     await writeAuditLog(actor, 'DELETE_JLPT', 'jlpt_question', id);
@@ -561,7 +707,7 @@ export async function executeBatchImport(params: {
 
   const commitBatch = [...toInsert, ...toUpdate];
 
-  if (supabase && actor && commitBatch.length > 0) {
+  if (supabase && canWriteCloud(actor) && commitBatch.length > 0) {
     if (entityType === 'vocabulary') {
       const vocabRows = commitBatch as AdminVocabRecord[];
       await ensureUnitsExist(vocabRows);
@@ -677,9 +823,23 @@ export async function executeBatchImport(params: {
   };
 }
 
+function summarizeManagedUsers(users: ManagedUserProfile[]): AccountProviderSummary {
+  return users.reduce<AccountProviderSummary>(
+    (acc, user) => {
+      acc.total += 1;
+      if (user.authProvider === 'google') acc.google += 1;
+      else acc.email += 1;
+      if (user.hasClientHash) acc.hashed += 1;
+      return acc;
+    },
+    { total: 0, google: 0, email: 0, hashed: 0 },
+  );
+}
+
 export async function fetchManagedUsers(actor: AuthUser | null): Promise<{
   ok: boolean;
   users: ManagedUserProfile[];
+  summary: AccountProviderSummary;
   source: 'supabase' | 'local';
   error?: string;
 }> {
@@ -687,30 +847,65 @@ export async function fetchManagedUsers(actor: AuthUser | null): Promise<{
     return {
       ok: false,
       users: [],
+      summary: { total: 0, google: 0, email: 0, hashed: 0 },
       source: supabase ? 'supabase' : 'local',
       error: 'Forbidden: chỉ tài khoản SUPER_ADMIN mới được xem danh sách phân quyền người dùng.',
     };
   }
 
   if (supabase) {
-    const { data, error } = await supabase
+    const res = await supabase
       .from('profiles')
-      .select('id, email, display_name, role, created_at')
+      .select('*')
       .order('created_at', { ascending: true });
 
-    if (error) {
-      return { ok: false, users: [], source: 'supabase', error: error.message };
+    if (res.error) {
+      return {
+        ok: false,
+        users: [],
+        summary: { total: 0, google: 0, email: 0, hashed: 0 },
+        source: 'supabase',
+        error: res.error.message,
+      };
     }
 
-    const users: ManagedUserProfile[] = (data ?? []).map((row) => ({
-      id: String(row.id),
-      email: String(row.email ?? ''),
-      displayName: String(row.display_name || String(row.email ?? '').split('@')[0] || 'Học viên'),
-      role: (row.role === 'SUPER_ADMIN' || row.role === 'ADMIN' ? row.role : 'USER') as AccountRole,
-      createdAt: String(row.created_at ?? new Date().toISOString()),
-    }));
+    const rows = (res.data ?? []) as Array<Record<string, unknown>>;
+    const users: ManagedUserProfile[] = rows.map((row) => {
+      const rawProv = String(row.auth_provider ?? 'email').toLowerCase();
+      const authProvider: ManagedUserProfile['authProvider'] =
+        rawProv === 'google' ? 'google' : rawProv === 'email' || !row.auth_provider ? 'email' : 'other';
+      return {
+        id: String(row.id),
+        email: String(row.email ?? ''),
+        displayName: String(row.display_name || String(row.email ?? '').split('@')[0] || 'Học viên'),
+        role: (row.role === 'SUPER_ADMIN' || row.role === 'ADMIN' ? row.role : 'USER') as AccountRole,
+        authProvider,
+        hasClientHash: Boolean(row.has_client_hash),
+        createdAt: String(row.created_at ?? new Date().toISOString()),
+      };
+    });
 
-    return { ok: true, users, source: 'supabase' };
+    let summary = summarizeManagedUsers(users);
+    const hasExtendedSchema =
+      rows.length > 0 && 'auth_provider' in rows[0] && !actor.id.startsWith('quick-test-');
+    if (hasExtendedSchema) {
+      try {
+        const rpcRes = await supabase.rpc('get_admin_account_summary');
+        if (!rpcRes.error && rpcRes.data && typeof rpcRes.data === 'object') {
+          const d = rpcRes.data as Record<string, unknown>;
+          summary = {
+            total: Number(d.total ?? users.length),
+            google: Number(d.google ?? summary.google),
+            email: Number(d.email ?? summary.email),
+            hashed: Number(d.hashed ?? summary.hashed),
+          };
+        }
+      } catch {
+        // Fall back cleanly to mapped profile counts
+      }
+    }
+
+    return { ok: true, users, summary, source: 'supabase' };
   }
 
   const overlay = loadLocalOverlay();
@@ -721,10 +916,12 @@ export async function fetchManagedUsers(actor: AuthUser | null): Promise<{
       email: actor.email,
       displayName: actor.displayName,
       role: actor.role,
+      authProvider: 'email',
+      hasClientHash: true,
       createdAt: new Date().toISOString(),
     });
   }
-  return { ok: true, users: list, source: 'local' };
+  return { ok: true, users: list, summary: summarizeManagedUsers(list), source: 'local' };
 }
 
 export async function updateManagedUserRole(params: {
@@ -792,6 +989,125 @@ export async function updateManagedUserRole(params: {
   return { ok: true, users: updated };
 }
 
+export async function fetchAuditLogs(actor: AuthUser | null, limit = 50): Promise<{
+  ok: boolean;
+  logs: AuditLogRecord[];
+  source: 'supabase' | 'local';
+  error?: string;
+}> {
+  if (!actor || (actor.role !== 'ADMIN' && actor.role !== 'SUPER_ADMIN')) {
+    return {
+      ok: false,
+      logs: [],
+      source: supabase ? 'supabase' : 'local',
+      error: 'Forbidden: chỉ ADMIN hoặc SUPER_ADMIN mới xem được nhật ký hệ thống.',
+    };
+  }
+
+  if (supabase && !actor.id.startsWith('quick-test-')) {
+    const { data, error } = await supabase
+      .from('audit_logs')
+      .select('id, actor_id, action, entity_type, entity_id, details_json, created_at')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (!error && data) {
+      return {
+        ok: true,
+        source: 'supabase',
+        logs: data.map((r) => ({
+          id: String(r.id),
+          actorId: r.actor_id ? String(r.actor_id) : null,
+          action: String(r.action),
+          entityType: String(r.entity_type),
+          entityId: String(r.entity_id),
+          detailsJson: (r.details_json ?? {}) as Record<string, unknown>,
+          createdAt: String(r.created_at),
+        })),
+      };
+    }
+  }
+
+  return {
+    ok: true,
+    source: 'local',
+    logs: getLocalAuditLogs().slice(0, limit),
+  };
+}
+
+export async function importUniversalJsonArray(params: {
+  table: CmsTableName;
+  rawItems: unknown[];
+  actor: AuthUser | null;
+}): Promise<{ ok: boolean; count: number; error?: string }> {
+  const { table, rawItems, actor } = params;
+  if (!actor || (actor.role !== 'ADMIN' && actor.role !== 'SUPER_ADMIN')) {
+    return { ok: false, count: 0, error: 'Chỉ ADMIN hoặc SUPER_ADMIN mới được nhập dữ liệu JSON.' };
+  }
+  if (!Array.isArray(rawItems) || rawItems.length === 0) {
+    return { ok: false, count: 0, error: 'Dữ liệu JSON phải là mảng khác rỗng ([...]).' };
+  }
+
+  const normalizedRecords = rawItems
+    .filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === 'object' && !Array.isArray(row))
+    .map((row) => {
+      if (table === 'units') return mapUnitFromDb(row);
+      if (table === 'vocabularies') return mapVocabFromDb(row);
+      if (table === 'kanjis') return mapKanjiFromDb(row);
+      if (table === 'grammar_rules') return mapGrammarFromDb(row);
+      return mapJlptFromDb(row);
+    });
+
+  if (normalizedRecords.length === 0) {
+    return { ok: false, count: 0, error: 'Không tìm thấy bản ghi hợp lệ trong mảng JSON.' };
+  }
+
+  const dbPayload = normalizedRecords.map((rec) => {
+    if (table === 'units') return mapUnitToDb(rec as AdminUnitRecord);
+    if (table === 'vocabularies') return mapVocabToDb(rec as AdminVocabRecord);
+    if (table === 'kanjis') return mapKanjiToDb(rec as AdminKanjiRecord);
+    if (table === 'grammar_rules') return mapGrammarToDb(rec as AdminGrammarRecord);
+    return mapJlptToDb(rec as AdminJlptRecord);
+  });
+
+  if (supabase && canWriteCloud(actor)) {
+    if (table === 'vocabularies') {
+      await ensureUnitsExist(normalizedRecords as AdminVocabRecord[]);
+    }
+    const { error } = await supabase.from(table).upsert(dbPayload, { onConflict: 'id' });
+    if (error) return { ok: false, count: 0, error: error.message };
+    await writeAuditLog(actor, 'UNIVERSAL_JSON_UPSERT', table, `json-${normalizedRecords.length}`, {
+      count: normalizedRecords.length,
+    });
+  }
+
+  const overlay = loadLocalOverlay();
+  for (const rec of normalizedRecords) {
+    if (table === 'units') {
+      const u = rec as AdminUnitRecord;
+      overlay.unitOverrides[u.id] = u;
+      overlay.unitDeletedIds = overlay.unitDeletedIds.filter((id) => id !== u.id);
+    } else if (table === 'vocabularies') {
+      const v = rec as AdminVocabRecord;
+      overlay.vocabOverrides[String(v.id)] = v;
+      overlay.vocabDeletedIds = overlay.vocabDeletedIds.filter((id) => id !== v.id);
+    } else if (table === 'kanjis') {
+      const k = rec as AdminKanjiRecord;
+      overlay.kanjiOverrides[k.id] = k;
+      overlay.kanjiDeletedIds = overlay.kanjiDeletedIds.filter((id) => id !== k.id);
+    } else if (table === 'grammar_rules') {
+      const g = rec as AdminGrammarRecord;
+      overlay.grammarOverrides[g.id] = g;
+      overlay.grammarDeletedIds = overlay.grammarDeletedIds.filter((id) => id !== g.id);
+    } else {
+      const j = rec as AdminJlptRecord;
+      overlay.jlptOverrides[j.id] = j;
+      overlay.jlptDeletedIds = overlay.jlptDeletedIds.filter((id) => id !== j.id);
+    }
+  }
+  saveLocalOverlay(overlay);
+  return { ok: true, count: normalizedRecords.length };
+}
+
 export type SeedProgressUpdate = MigrationProgressUpdate;
 export type SeedCloudResult = MigrationResult;
 
@@ -799,7 +1115,7 @@ export const seedStaticDataToSupabase = migrateAllStaticDataToSupabase;
 
 export interface CrudAutoTestStep {
   name: string;
-  target: 'vocabularies' | 'kanjis';
+  target: CmsTableName;
   status: 'PASS' | 'FAIL';
   durationMs: number;
   detail: string;
@@ -850,14 +1166,17 @@ export async function runAdminCrudAutoTest(actor: AuthUser | null): Promise<Crud
     };
   }
 
-  const uniqueSuffix = String(Date.now()).slice(-6);
-  let createdVocabId: number | null = null;
-  const createdKanjiId = `__autotest_k_${uniqueSuffix}__`;
-  const testKanjiChar = `試${uniqueSuffix}`;
+  const sb = supabase;
+  const suffix = String(Date.now()).slice(-6);
+  const testUnitId = `N3-U999${suffix.slice(-2)}`;
+  let testVocabId: number | null = null;
+  const testKanjiId = `__autotest_k_${suffix}__`;
+  const testGrammarId = `__autotest_g_${suffix}__`;
+  const testJlptId = `__autotest_j_${suffix}__`;
 
   const runStep = async (
     name: string,
-    target: 'vocabularies' | 'kanjis',
+    target: CmsTableName,
     fn: () => Promise<string>,
   ): Promise<boolean> => {
     const t0 = Date.now();
@@ -877,185 +1196,243 @@ export async function runAdminCrudAutoTest(actor: AuthUser | null): Promise<Crud
     }
   };
 
+  const runLifecycle = async (params: {
+    prefix: string;
+    table: CmsTableName;
+    checkCol: string;
+    expectedUpdated: unknown;
+    insertRow: () => Promise<{ id: string | number; label: string }>;
+    updatePatch: Record<string, unknown>;
+    cleanupId: () => string | number | null;
+  }) => {
+    const { prefix, table, checkCol, expectedUpdated, insertRow, updatePatch, cleanupId } = params;
+    let idVal: string | number | null = null;
+    const inserted = await runStep(`${prefix} INSERT`, table, async () => {
+      const res = await insertRow();
+      idVal = res.id;
+      return res.label;
+    });
+    if (!inserted || idVal === null) return;
+
+    await runStep(`${prefix} SELECT`, table, async () => {
+      const { data, error } = await sb.from(table).select(`id, ${checkCol}`).eq('id', idVal!).single();
+      if (error) throw new Error(error.message);
+      const val = (data as unknown as Record<string, unknown>)[checkCol];
+      return `Selected ${checkCol}=${JSON.stringify(val)}`;
+    });
+
+    await runStep(`${prefix} UPDATE`, table, async () => {
+      const { data, error } = await sb
+        .from(table)
+        .update(updatePatch)
+        .eq('id', idVal!)
+        .select(checkCol)
+        .single();
+      if (error) throw new Error(error.message);
+      const val = (data as unknown as Record<string, unknown>)[checkCol];
+      if (val !== expectedUpdated) throw new Error(`Update không khớp: ${String(val)}`);
+      return `Updated ${checkCol}=${JSON.stringify(val)}`;
+    });
+
+    await runStep(`${prefix} DELETE`, table, async () => {
+      const targetId = cleanupId() ?? idVal!;
+      const { error } = await sb.from(table).delete().eq('id', targetId);
+      if (error) throw new Error(error.message);
+      const { data: gone } = await sb.from(table).select('id').eq('id', targetId).maybeSingle();
+      if (gone) throw new Error('Bản ghi vẫn tồn tại sau khi DELETE.');
+      return `Deleted & verified gone (id=${targetId})`;
+    });
+  };
+
   try {
-    // Prepare unit FK
-    const unitCheck = await ensureUnitsExist([
-      {
-        id: 1,
-        unitId: 1,
-        level: 'N3',
-        wordNumber: 1,
-        kanji: null,
-        hiragana: 'test',
-        hanViet: null,
-        meaning: 'test',
-        wordType: 'Danh từ',
-        exampleSentence: null,
-        exampleMeaning: null,
-        notes: null,
+    // Prepare parent test Unit first cleanly so vocabulary FK succeeds
+    await runLifecycle({
+      prefix: '1. UNIT',
+      table: 'units',
+      checkCol: 'title',
+      expectedUpdated: `AutoTest Unit Updated ${suffix}`,
+      insertRow: async () => {
+        const { data, error } = await sb
+          .from('units')
+          .upsert({
+            id: testUnitId,
+            level: 'N3',
+            unit_number: 999,
+            title: `AutoTest Unit ${suffix}`,
+            description: 'Temp E2E Unit',
+            order_index: 999,
+            is_published: false,
+          }, { onConflict: 'id' })
+          .select('id, title')
+          .single();
+        if (error) throw new Error(error.message);
+        return { id: String(data.id), label: `Inserted unit id=${data.id}` };
       },
-    ]);
-    if (!unitCheck.ok) {
-      steps.push({
-        name: 'PREPARE_UNIT',
-        target: 'vocabularies',
-        status: 'FAIL',
-        durationMs: Date.now() - startedAt,
-        detail: unitCheck.error ?? 'Không thể chuẩn bị unit n3-unit-1.',
-      });
-      return {
-        ok: false,
-        summary: 'Auto-Test thất bại ở bước chuẩn bị Unit.',
-        totalDurationMs: Date.now() - startedAt,
-        steps,
-      };
-    }
-
-    // Vocab: INSERT -> SELECT -> UPDATE -> DELETE
-    const vInsertOk = await runStep('1. VOCAB INSERT', 'vocabularies', async () => {
-      const { data: maxRow } = await supabase!
-        .from('vocabularies')
-        .select('id')
-        .order('id', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      const testId = Math.max(900000, Number(maxRow?.id ?? 0) + 1);
-      const { data, error } = await supabase!
-        .from('vocabularies')
-        .insert({
-          id: testId,
-          unit_id: 'n3-unit-1',
-          word_number: testId,
-          kanji: `自動試${uniqueSuffix}`,
-          hiragana: `じどうし${uniqueSuffix}`,
-          han_viet: 'TỰ ĐỘNG THÍ',
-          meaning: 'AutoTest Initial Meaning',
-          word_type: 'Danh từ',
-          level: 'N3',
-        })
-        .select('id, meaning')
-        .single();
-      if (error) throw new Error(error.message);
-      createdVocabId = Number(data.id);
-      return `Inserted vocab id=${createdVocabId}`;
+      updatePatch: { title: `AutoTest Unit Updated ${suffix}` },
+      cleanupId: () => testUnitId,
     });
 
-    if (vInsertOk && createdVocabId !== null) {
-      await runStep('2. VOCAB SELECT', 'vocabularies', async () => {
-        const { data, error } = await supabase!
+    // Re-ensure unit temporarily while vocab test runs, then clean up unit at very end
+    await sb.from('units').upsert({
+      id: testUnitId,
+      level: 'N3',
+      unit_number: 999,
+      title: `Temp FK Unit ${suffix}`,
+      description: 'Temp E2E FK Unit',
+      order_index: 999,
+      is_published: false,
+    }, { onConflict: 'id' });
+
+    await runLifecycle({
+      prefix: '2. VOCAB',
+      table: 'vocabularies',
+      checkCol: 'meaning',
+      expectedUpdated: 'AutoTest Updated Meaning',
+      insertRow: async () => {
+        const { data: maxRow } = await sb
           .from('vocabularies')
+          .select('id')
+          .order('id', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const candidateId = Math.max(900000, Number(maxRow?.id ?? 0) + 1);
+        const { data, error } = await sb
+          .from('vocabularies')
+          .insert({
+            id: candidateId,
+            unit_id: testUnitId,
+            word_number: candidateId,
+            kanji: `自動試${suffix}`,
+            hiragana: `じどうし${suffix}`,
+            han_viet: 'TỰ ĐỘNG THÍ',
+            meaning: 'AutoTest Initial Meaning',
+            word_type: 'Danh từ',
+            level: 'N3',
+            tags: ['autotest'],
+            semantic_roles: ['task'],
+          })
           .select('id, meaning')
-          .eq('id', createdVocabId!)
           .single();
         if (error) throw new Error(error.message);
-        if (data.meaning !== 'AutoTest Initial Meaning') {
-          throw new Error(`Sai giá trị meaning: ${data.meaning}`);
-        }
-        return `Selected meaning="${data.meaning}"`;
-      });
-
-      await runStep('3. VOCAB UPDATE', 'vocabularies', async () => {
-        const { data, error } = await supabase!
-          .from('vocabularies')
-          .update({ meaning: 'AutoTest Updated Meaning' })
-          .eq('id', createdVocabId!)
-          .select('meaning')
-          .single();
-        if (error) throw new Error(error.message);
-        if (data.meaning !== 'AutoTest Updated Meaning') {
-          throw new Error(`Update không phản ánh: ${data.meaning}`);
-        }
-        return `Updated meaning="${data.meaning}"`;
-      });
-
-      await runStep('4. VOCAB DELETE', 'vocabularies', async () => {
-        const { error } = await supabase!.from('vocabularies').delete().eq('id', createdVocabId!);
-        if (error) throw new Error(error.message);
-        const { data: verifyGone } = await supabase!
-          .from('vocabularies')
-          .select('id')
-          .eq('id', createdVocabId!)
-          .maybeSingle();
-        if (verifyGone) throw new Error('Row vẫn tồn tại sau khi xóa.');
-        const deletedId = createdVocabId;
-        createdVocabId = null;
-        return `Deleted & verified gone (id=${deletedId})`;
-      });
-    }
-
-    // Kanji: INSERT -> SELECT -> UPDATE -> DELETE
-    const kInsertOk = await runStep('5. KANJI INSERT', 'kanjis', async () => {
-      const { data, error } = await supabase!
-        .from('kanjis')
-        .insert({
-          id: createdKanjiId,
-          character: testKanjiChar,
-          han_viet: 'THÍ TEST',
-          meanings: ['Kiểm thử ban đầu'],
-          onyomi: ['シ'],
-          kunyomi: ['ため.す'],
-          stroke_count: 13,
-          jlpt_level: 'N3',
-          examples: [],
-        })
-        .select('id, character')
-        .single();
-      if (error) throw new Error(error.message);
-      return `Inserted kanji id=${data.id} (${data.character})`;
+        testVocabId = Number(data.id);
+        return { id: testVocabId, label: `Inserted vocab id=${testVocabId}` };
+      },
+      updatePatch: { meaning: 'AutoTest Updated Meaning' },
+      cleanupId: () => {
+        const id = testVocabId;
+        testVocabId = null;
+        return id;
+      },
     });
 
-    if (kInsertOk) {
-      await runStep('6. KANJI SELECT', 'kanjis', async () => {
-        const { data, error } = await supabase!
+    await runLifecycle({
+      prefix: '3. KANJI',
+      table: 'kanjis',
+      checkCol: 'han_viet',
+      expectedUpdated: 'ĐÃ CẬP NHẬT',
+      insertRow: async () => {
+        const { data, error } = await sb
           .from('kanjis')
-          .select('id, han_viet')
-          .eq('id', createdKanjiId)
+          .insert({
+            id: testKanjiId,
+            character: `試${suffix}`,
+            han_viet: 'THÍ TEST',
+            meanings: ['Kiểm thử ban đầu'],
+            onyomi: ['シ'],
+            kunyomi: ['ため.す'],
+            stroke_count: 13,
+            jlpt_level: 'N3',
+            examples: [],
+          })
+          .select('id, character')
           .single();
         if (error) throw new Error(error.message);
-        return `Selected han_viet="${data.han_viet}"`;
-      });
+        return { id: String(data.id), label: `Inserted kanji id=${data.id}` };
+      },
+      updatePatch: { han_viet: 'ĐÃ CẬP NHẬT', meanings: ['Kiểm thử sau cập nhật'] },
+      cleanupId: () => testKanjiId,
+    });
 
-      await runStep('7. KANJI UPDATE', 'kanjis', async () => {
-        const { data, error } = await supabase!
-          .from('kanjis')
-          .update({ han_viet: 'ĐÃ CẬP NHẬT', meanings: ['Kiểm thử sau cập nhật'] })
-          .eq('id', createdKanjiId)
-          .select('han_viet')
+    await runLifecycle({
+      prefix: '4. GRAMMAR',
+      table: 'grammar_rules',
+      checkCol: 'meaning',
+      expectedUpdated: 'AutoTest Grammar Updated',
+      insertRow: async () => {
+        const { data, error } = await sb
+          .from('grammar_rules')
+          .insert({
+            id: testGrammarId,
+            book_id: 'SHINKANZEN_N3',
+            chapter_id: 'L01',
+            level: 'N3',
+            title: `～テスト${suffix}`,
+            structure: 'Vる + テスト',
+            meaning: 'AutoTest Grammar Initial',
+            explanation: 'Giải thích test',
+            notes: '',
+            examples: [{ jp: 'テストする。', vi: 'Kiểm thử.' }],
+          })
+          .select('id, title')
           .single();
         if (error) throw new Error(error.message);
-        if (data.han_viet !== 'ĐÃ CẬP NHẬT') throw new Error('Update Kanji không khớp.');
-        return `Updated han_viet="${data.han_viet}"`;
-      });
+        return { id: String(data.id), label: `Inserted grammar id=${data.id}` };
+      },
+      updatePatch: { meaning: 'AutoTest Grammar Updated' },
+      cleanupId: () => testGrammarId,
+    });
 
-      await runStep('8. KANJI DELETE', 'kanjis', async () => {
-        const { error } = await supabase!.from('kanjis').delete().eq('id', createdKanjiId);
-        if (error) throw new Error(error.message);
-        const { data: verifyGone } = await supabase!
-          .from('kanjis')
+    await runLifecycle({
+      prefix: '5. JLPT',
+      table: 'jlpt_questions',
+      checkCol: 'prompt',
+      expectedUpdated: `AutoTest JLPT Updated ${suffix}`,
+      insertRow: async () => {
+        const { data, error } = await sb
+          .from('jlpt_questions')
+          .insert({
+            id: testJlptId,
+            module_id: 'vocab',
+            level: 'N3',
+            question_type: 'mcq',
+            prompt: `AutoTest JLPT Prompt ${suffix}`,
+            passage: null,
+            options: ['A', 'B', 'C', 'D'],
+            correct_index: 0,
+            explanation: 'AutoTest',
+            audio_text: null,
+          })
           .select('id')
-          .eq('id', createdKanjiId)
-          .maybeSingle();
-        if (verifyGone) throw new Error('Kanji vẫn tồn tại sau khi xóa.');
-        return `Deleted & verified gone (id=${createdKanjiId})`;
-      });
-    }
+          .single();
+        if (error) throw new Error(error.message);
+        return { id: String(data.id), label: `Inserted jlpt id=${data.id}` };
+      },
+      updatePatch: { prompt: `AutoTest JLPT Updated ${suffix}` },
+      cleanupId: () => testJlptId,
+    });
   } finally {
-    if (createdVocabId !== null && supabase) {
-      await supabase.from('vocabularies').delete().eq('id', createdVocabId);
-    }
-    if (supabase) {
-      await supabase.from('kanjis').delete().eq('id', createdKanjiId);
-    }
+    if (testVocabId !== null) await sb.from('vocabularies').delete().eq('id', testVocabId);
+    await sb.from('kanjis').delete().eq('id', testKanjiId);
+    await sb.from('grammar_rules').delete().eq('id', testGrammarId);
+    await sb.from('jlpt_questions').delete().eq('id', testJlptId);
+    await sb.from('units').delete().eq('id', testUnitId);
   }
 
   const passed = steps.filter((s) => s.status === 'PASS').length;
   const totalDurationMs = Date.now() - startedAt;
   const allPassed = passed === steps.length && steps.length > 0;
 
+  await writeAuditLog(actor, 'CRUD_AUTO_TEST', 'database', 'all', {
+    passed,
+    total: steps.length,
+    durationMs: totalDurationMs,
+    ok: allPassed,
+  });
+
   return {
     ok: allPassed,
     summary: allPassed
-      ? `Tất cả ${passed}/${steps.length} bước CRUD Supabase (INSERT → SELECT → UPDATE → DELETE) đều PASS trong ${totalDurationMs}ms!`
+      ? `Tất cả ${passed}/${steps.length} bước CRUD 5 bảng Supabase (INSERT → SELECT → UPDATE → DELETE) đều PASS trong ${totalDurationMs}ms!`
       : `${passed}/${steps.length} bước PASS (${steps.length - passed} bước FAIL). Kiểm tra RLS hoặc kết nối Supabase.`,
     totalDurationMs,
     steps,

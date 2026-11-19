@@ -6,16 +6,22 @@ import { hydrateMistakes } from '../store/slices/mistakeSlice';
 import type { GrammarMistake, GrammarProgress, PracticeType } from '../types/grammar';
 import type { UserProgress } from '../types/quiz';
 import {
-  loadQuizHistory,
-  mergeQuizHistoryRecords,
+  bulkUpsertProgressDirectToSupabase,
+  deleteAllAccountProgressDirectFromSupabase,
+  getInMemoryGrammarMap,
+  getInMemoryKanjiState,
+  getInMemoryMistakes,
+  PRACTICE_TYPE_KEYS,
+  serializeToCloudRows,
+} from './cloudProgressWriter';
+import { syncStudyScheduleFromCloud } from './notificationService';
+import {
   saveQuizHistory,
   type QuizAttemptRecord,
 } from './quizHistoryService';
+import { isSupabaseAccountUuid } from './sessionScope';
 import { supabase } from './supabaseClient';
 
-const KANJI_STORAGE_KEY = 'nihonmaster_kanji_progress';
-const GRAMMAR_STORAGE_KEY = 'nihonmaster_grammar_progress';
-const MISTAKES_STORAGE_KEY = 'nihonmaster_grammar_mistakes';
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
 export interface CloudProgressRow {
@@ -77,21 +83,6 @@ export function mergeKanjiProgressRecords(
   return merged;
 }
 
-const PRACTICE_KEYS: Array<keyof GrammarProgress> = [
-  'multiple_choice',
-  'fill_blank',
-  'star_question',
-  'conjugation',
-  'sentence_ordering',
-  'ja_to_vi',
-  'vi_to_ja',
-  'sentence_transformation',
-  'grammar_selection',
-  'text_input',
-  'free_writing',
-  'mixed',
-];
-
 export function mergeGrammarProgressRecords(
   local: Record<string, GrammarProgress>,
   remote: Record<string, GrammarProgress>,
@@ -107,7 +98,7 @@ export function mergeGrammarProgressRecords(
     }
 
     const next = { ...l };
-    for (const key of PRACTICE_KEYS) {
+    for (const key of PRACTICE_TYPE_KEYS) {
       next[key] = Math.max(Number(l[key] ?? 0), Number(r[key] ?? 0));
     }
     merged[grammarId] = next;
@@ -138,16 +129,6 @@ export function mergeMistakeRecords(
   remote.forEach(add);
   local.forEach(add);
   return Array.from(map.values());
-}
-
-function readLocalJson<T>(key: string, fallback: T): T {
-  if (typeof window === 'undefined') return fallback;
-  try {
-    const raw = window.localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
-  }
 }
 
 function parseRemoteRows(rows: CloudProgressRow[]) {
@@ -191,7 +172,7 @@ function parseRemoteRows(rows: CloudProgressRow[]) {
         free_writing: 0,
         mixed: 0,
       };
-      for (const k of PRACTICE_KEYS) {
+      for (const k of PRACTICE_TYPE_KEYS) {
         const val = scoresMeta[k as PracticeType];
         if (typeof val === 'number' && Number.isFinite(val)) {
           record[k] = val;
@@ -209,96 +190,16 @@ function parseRemoteRows(rows: CloudProgressRow[]) {
   return { remoteUser, remoteKanji, remoteGrammar, remoteMistakes };
 }
 
-function serializeToCloudRows(
-  userId: string,
-  userProgress: UserProgress,
-  kanjiMap: Record<string, KanjiProgress>,
-  grammarMap: Record<string, GrammarProgress>,
-  mistakes: GrammarMistake[],
-) {
-  const now = new Date().toISOString();
-  const rows: Array<Record<string, unknown>> = [];
-
-  const vocabIds = new Set<number>([
-    ...userProgress.starredWords,
-    ...Object.keys(userProgress.wrongWords).map(Number).filter(Number.isFinite),
-  ]);
-  for (const wordId of vocabIds) {
-    const starred = userProgress.starredWords.includes(wordId);
-    const wrongCount = userProgress.wrongWords[wordId] || 0;
-    rows.push({
-      user_id: userId,
-      item_type: 'vocab',
-      item_id: String(wordId),
-      status: starred && wrongCount === 0 ? 'starred' : wrongCount > 0 ? 'needs_review' : 'learning',
-      score: starred ? 100 : 0,
-      attempts: wrongCount,
-      starred,
-      wrong_count: wrongCount,
-      metadata_json: {},
-      updated_at: now,
-    });
-  }
-
-  for (const [kanjiId, k] of Object.entries(kanjiMap)) {
-    rows.push({
-      user_id: userId,
-      item_type: 'kanji',
-      item_id: kanjiId,
-      status: k.learned ? 'mastered' : 'learning',
-      score: k.correctAttempts,
-      attempts: k.writingAttempts,
-      starred: false,
-      wrong_count: Math.max(0, k.writingAttempts - k.correctAttempts),
-      metadata_json: {
-        tutorialSeen: k.tutorialSeen,
-        correctAttempts: k.correctAttempts,
-        lastPracticedAt: k.lastPracticedAt,
-      },
-      updated_at: now,
-    });
-  }
-
-  for (const [grammarId, rec] of Object.entries(grammarMap)) {
-    const bestScore = Math.max(0, ...PRACTICE_KEYS.map((k) => Number(rec[k] ?? 0)));
-    rows.push({
-      user_id: userId,
-      item_type: 'grammar',
-      item_id: grammarId,
-      status: bestScore >= 80 ? 'mastered' : bestScore > 0 ? 'learning' : 'new',
-      score: bestScore,
-      attempts: bestScore > 0 ? 1 : 0,
-      starred: false,
-      wrong_count: 0,
-      metadata_json: { scores: rec },
-      updated_at: now,
-    });
-  }
-
-  for (const m of mistakes) {
-    rows.push({
-      user_id: userId,
-      item_type: 'mistake',
-      item_id: `${m.grammarId}::${m.questionId}`,
-      status: 'needs_review',
-      score: 0,
-      attempts: 1,
-      starred: false,
-      wrong_count: 1,
-      metadata_json: { mistake: m },
-      updated_at: now,
-    });
-  }
-
-  return rows;
-}
-
+/**
+ * Fetches all progress, wrong answers, Kanji, Grammar, Quiz history, and Study schedule
+ * straight from Supabase for the active account into RAM stores & Redux (zero `localStorage` usage).
+ */
 export async function syncLocalProgressWithCloud(
   userId: string,
   dispatch: AppDispatch,
 ): Promise<{ ok: boolean; syncedAt?: string; reason?: string }> {
-  if (!supabase || !userId) {
-    return { ok: false, reason: 'offline_guest_mode' };
+  if (!supabase || !userId || !isSupabaseAccountUuid(userId)) {
+    return { ok: false, reason: 'offline_or_local_preview_mode' };
   }
 
   const [{ data: remoteRows, error: progressErr }, { data: attemptRows, error: attemptsErr }] =
@@ -323,29 +224,15 @@ export async function syncLocalProgressWithCloud(
     (remoteRows || []) as CloudProgressRow[],
   );
 
-  const localUser = loadUserProgress();
-  const localKanjiRaw = readLocalJson<{ progress?: Record<string, KanjiProgress>; tutorialSeen?: boolean }>(
-    KANJI_STORAGE_KEY,
-    { progress: {}, tutorialSeen: false },
-  );
-  const localKanji = localKanjiRaw?.progress && typeof localKanjiRaw.progress === 'object' ? localKanjiRaw.progress : {};
-  const localGrammar = readLocalJson<Record<string, GrammarProgress>>(GRAMMAR_STORAGE_KEY, {});
-  const localMistakes = readLocalJson<GrammarMistake[]>(MISTAKES_STORAGE_KEY, []);
-
-  const mergedUser = mergeUserProgressRecords(localUser, remoteUser);
-  const mergedKanji = mergeKanjiProgressRecords(localKanji, remoteKanji);
-  const mergedGrammar = mergeGrammarProgressRecords(localGrammar, remoteGrammar);
-  const mergedMistakes = mergeMistakeRecords(localMistakes, remoteMistakes);
-
-  commitUserProgress(mergedUser);
+  commitUserProgress(remoteUser, userId);
   dispatch(
     hydrateKanjiState({
-      progress: mergedKanji,
-      tutorialSeen: Boolean(localKanjiRaw?.tutorialSeen || Object.keys(mergedKanji).length > 0),
+      progress: remoteKanji,
+      tutorialSeen: Object.keys(remoteKanji).length > 0,
     }),
   );
-  dispatch(hydrateGrammarProgress(mergedGrammar));
-  dispatch(hydrateMistakes(mergedMistakes));
+  dispatch(hydrateGrammarProgress(remoteGrammar));
+  dispatch(hydrateMistakes(remoteMistakes));
 
   if (!attemptsErr && Array.isArray(attemptRows)) {
     const remoteAttempts: QuizAttemptRecord[] = attemptRows.map((r) => ({
@@ -358,25 +245,31 @@ export async function syncLocalProgressWithCloud(
       mistakesJson: Array.isArray(r.mistakes_json) ? r.mistakes_json : [],
       createdAt: String(r.created_at),
     }));
-    const mergedHistory = mergeQuizHistoryRecords(loadQuizHistory(), remoteAttempts);
-    saveQuizHistory(mergedHistory);
+    saveQuizHistory(remoteAttempts, userId);
   }
 
-  const upsertRows = serializeToCloudRows(
-    userId,
-    mergedUser,
-    mergedKanji,
-    mergedGrammar,
-    mergedMistakes,
-  );
-  if (upsertRows.length > 0) {
-    const { error: upsertErr } = await supabase
-      .from('user_progress')
-      .upsert(upsertRows, { onConflict: 'user_id,item_type,item_id' });
-    if (upsertErr) {
-      throw upsertErr;
-    }
-  }
+  await syncStudyScheduleFromCloud(userId);
 
   return { ok: true, syncedAt: new Date().toISOString() };
+}
+
+/**
+ * Persists a full restored backup (e.g. from SettingsPage JSON import) straight to Supabase.
+ */
+export async function pushRestoredProgressToCloud(userId: string): Promise<void> {
+  if (!supabase || !isSupabaseAccountUuid(userId)) return;
+  const userProg = loadUserProgress(userId);
+  const kanjiProg = getInMemoryKanjiState(userId).progress;
+  const grammarProg = getInMemoryGrammarMap(userId);
+  const mistakes = getInMemoryMistakes(userId);
+
+  const rows = serializeToCloudRows(userId, userProg, kanjiProg, grammarProg, mistakes);
+  if (rows.length > 0) {
+    await bulkUpsertProgressDirectToSupabase(userId, rows);
+  }
+}
+
+export async function clearAllCloudAccountData(userId: string): Promise<void> {
+  await deleteAllAccountProgressDirectFromSupabase(userId);
+  saveQuizHistory([], userId);
 }
