@@ -103,7 +103,7 @@ export const MistakesReview: React.FC = () => {
       {!user ? (
         <LoginRequiredState
           title="Đăng nhập để lưu & ôn tập lỗi sai"
-          description="Câu làm sai khi luyện tập được lưu trực tiếp vào tài khoản Supabase riêng của bạn (Google hoặc tự tạo tài khoản)."
+          description="Câu làm sai khi luyện tập được lưu vào tài khoản cá nhân của bạn (Google hoặc tài khoản Email) để bạn ôn lại bất cứ lúc nào."
         />
       ) : entries.length === 0 ? (
         <EmptyState

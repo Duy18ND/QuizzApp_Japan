@@ -84,7 +84,7 @@ export const VocabularyPdfWorkspace: React.FC = () => {
         let words = getLiveVocabForUnit(cmsSnapshot, level, unitId);
 
         if (words.length === 0) {
-          throw new Error(`Dữ liệu cho ${level} - Unit ${unitId} chưa được nạp sẵn offline.`);
+          throw new Error(`Dữ liệu cho ${level} - Unit ${unitId} hiện chưa có sẵn.`);
         }
 
         if (source !== 'all') {

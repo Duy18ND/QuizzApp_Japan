@@ -12,6 +12,7 @@ create table if not exists public.profiles (
   email text not null unique,
   display_name text,
   role text not null default 'USER' check (role in ('SUPER_ADMIN', 'ADMIN', 'USER')),
+  study_level text check (study_level in ('N5', 'N4', 'N3', 'N2', 'N1')),
   auth_provider text not null default 'email',
   has_client_hash boolean not null default false,
   created_at timestamptz not null default now(),
@@ -19,6 +20,7 @@ create table if not exists public.profiles (
 );
 
 alter table public.profiles
+  add column if not exists study_level text check (study_level in ('N5', 'N4', 'N3', 'N2', 'N1')),
   add column if not exists auth_provider text not null default 'email',
   add column if not exists has_client_hash boolean not null default false;
 

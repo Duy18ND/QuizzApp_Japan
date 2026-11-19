@@ -81,10 +81,7 @@ function deleteCookie(name: string): void {
 function hasBackingAuthSessionToken(): boolean {
   if (typeof window === 'undefined') return false;
   try {
-    const hasSupabase = Boolean(window.localStorage?.getItem('nihonmaster_sb_auth_v1'));
-    const hasQuickLocal = Boolean(window.localStorage?.getItem('nihongo_quick_test_user_v1'));
-    const hasQuickSession = Boolean(window.sessionStorage?.getItem('nihongo_quick_test_user_v1'));
-    return hasSupabase || hasQuickLocal || hasQuickSession;
+    return Boolean(window.localStorage?.getItem('nihonmaster_sb_auth_v1'));
   } catch {
     return false;
   }

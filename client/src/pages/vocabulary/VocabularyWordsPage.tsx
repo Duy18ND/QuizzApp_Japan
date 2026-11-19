@@ -181,7 +181,7 @@ export const VocabularyWordsPage: React.FC = () => {
           <div className="p-6">
             <EmptyState
               title="Chưa có dữ liệu từ vựng"
-              description="Bài học này chưa có dữ liệu offline."
+              description="Bài học này hiện chưa có dữ liệu từ vựng."
             />
           </div>
         ) : filteredWords.length === 0 ? (

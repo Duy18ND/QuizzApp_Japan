@@ -31,9 +31,11 @@ export function Modal({ open, onClose, title, description, children, footer, siz
   return (
     <dialog
       ref={ref}
-      onClose={onClose}
+      onClose={() => {
+        if (open) onClose();
+      }}
       onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
+        if (event.target === event.currentTarget && open) onClose();
       }}
       className={cn(
         'm-auto max-h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] overflow-hidden rounded-xl border border-line bg-surface p-0 text-fg shadow-pop sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100%-2.5rem)] sm:rounded-2xl',
