@@ -182,6 +182,28 @@ export const useUserProgress = () => {
     void writeVocabItemDirectToSupabase(uid, wordId, clean.starredWords.includes(wordId), 0);
   }, []);
 
+  const clearAllWrongWords = useCallback(() => {
+    const uid = getActiveAuthenticatedUserId();
+    if (!uid) return;
+    const latest = loadUserProgress(uid);
+    const wrongIds = Object.keys(latest.wrongWords)
+      .map(Number)
+      .filter(Number.isFinite);
+    if (wrongIds.length === 0) return;
+
+    const clean = commitUserProgress(
+      {
+        ...latest,
+        wrongWords: {},
+      },
+      uid,
+    );
+    setProgress(clean);
+    for (const wordId of wrongIds) {
+      void writeVocabItemDirectToSupabase(uid, wordId, clean.starredWords.includes(wordId), 0);
+    }
+  }, []);
+
   const resetProgress = useCallback(() => {
     const uid = getActiveAuthenticatedUserId();
     if (!uid) return;
@@ -195,6 +217,7 @@ export const useUserProgress = () => {
     toggleStar,
     addWrongWord,
     clearWrongWord,
+    clearAllWrongWords,
     resetProgress,
   };
 };

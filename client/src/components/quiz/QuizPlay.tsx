@@ -2,7 +2,11 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { quizConfig } from '../../config/quizConfig';
 import { useAuth } from '../../context/auth-context';
+import { clearAttemptMistakeGroup } from '../../services/attemptMistakeService';
+import { saveLastPracticeTarget } from '../../services/lastPracticeService';
 import { recordQuizAttempt } from '../../services/quizHistoryService';
+import { useAppDispatch } from '../../store/hooks';
+import { addMistake } from '../../store/slices/mistakeSlice';
 import type {
   AnswerOption as AnswerOptionType,
   Question,
@@ -29,24 +33,55 @@ export type MergedQuestion = Question & {
 
 const LABELS = ['A', 'B', 'C', 'D', 'E', 'F'];
 
+const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
+  vi_to_hiragana: 'Nghĩa → Hiragana',
+  vi_to_kanji: 'Nghĩa → Kanji',
+  kanji_to_hiragana: 'Kanji → Hiragana',
+  kanji_to_vi: 'Kanji → Nghĩa',
+  hiragana_to_kanji: 'Hiragana → Kanji',
+  hiragana_to_vi: 'Hiragana → Nghĩa',
+};
+
 interface Props {
   config: QuizConfig;
+  retryAttemptId?: string;
   onExit: () => void;
 }
 
-export const QuizPlay: React.FC<Props> = ({ config, onExit }) => {
+export const QuizPlay: React.FC<Props> = ({ config, retryAttemptId, onExit }) => {
   const { toast } = useToast();
   const { user } = useAuth();
+  const dispatch = useAppDispatch();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [quizSessionKey] = useState<number>(0);
   const { progress, addWrongWord } = useUserProgress();
   const sessionStartRef = useRef<number>(0);
   const recordedSessionRef = useRef<boolean>(false);
+  const replaceAttemptIdRef = useRef<string | undefined>(retryAttemptId);
+
+  useEffect(() => {
+    replaceAttemptIdRef.current = retryAttemptId;
+  }, [retryAttemptId]);
 
   useEffect(() => {
     sessionStartRef.current = Date.now();
-  }, []);
+    const unitLabel = config.isCustom
+      ? 'Tự do'
+      : config.unitId === 'all'
+        ? config.level
+        : `${config.level} · Unit ${config.unitId}`;
+    saveLastPracticeTarget(
+      {
+        path: '/vocabulary/quiz?replay=last',
+        label: `Quiz Từ vựng · ${unitLabel}`,
+        level: config.level,
+        quizType: 'vocabulary',
+        quizConfig: config,
+      },
+      user?.id,
+    );
+  }, [config, user?.id]);
 
   const [quizQuestions, setQuizQuestions] = useState<MergedQuestion[]>([]);
   const [state, setState] = useState<QuizState>({
@@ -104,8 +139,60 @@ export const QuizPlay: React.FC<Props> = ({ config, onExit }) => {
       if (!currentQ) return;
       const isCorrect = answerId === currentQ.answerData.correctAnswerId;
 
-      if (!isCorrect && typeof currentQ.wordId === 'number') {
-        addWrongWord(currentQ.wordId);
+      if (!isCorrect) {
+        if (typeof currentQ.wordId === 'number') {
+          addWrongWord(currentQ.wordId);
+        }
+        const chosenText =
+          currentQ.answers.find((a) => a.id === answerId)?.text || answerId;
+        const correctText =
+          currentQ.answers.find((a) => a.id === currentQ.answerData.correctAnswerId)?.text ||
+          currentQ.answerData.meaning ||
+          currentQ.answerData.hiragana;
+        const typeLabel = QUESTION_TYPE_LABELS[currentQ.type] || 'Từ vựng';
+        const kanjiPart = currentQ.answerData.kanji || '';
+        const hiraPart = currentQ.answerData.hiragana || '';
+        const hvPart = currentQ.answerData.hanViet || currentQ.answerData.hanviet || '';
+        const wordSummary = kanjiPart && hiraPart
+          ? `${kanjiPart}（${hiraPart}）`
+          : kanjiPart || hiraPart;
+        const explanationText = [
+          wordSummary,
+          hvPart ? `[${hvPart}]` : '',
+          currentQ.answerData.meaning ? `— ${currentQ.answerData.meaning}` : '',
+        ]
+          .filter(Boolean)
+          .join(' ');
+        const unitLabel = config.isCustom
+          ? 'Tự do'
+          : config.unitId === 'all'
+            ? config.level
+            : `${config.level} · Unit ${config.unitId}`;
+        const grammarId = config.isCustom
+          ? 'VOCAB_QUIZ_CUSTOM'
+          : `VOCAB_QUIZ_${config.level}_U${config.unitId}`;
+        const practicePath = config.isCustom
+          ? '/vocabulary/quiz'
+          : `/vocabulary/quiz?level=${config.level}&unit=${config.unitId}&source=wrong&autoStart=1`;
+
+        dispatch(
+          addMistake({
+            id: `vocab_${currentQ.wordId}_${currentQ.type}_${Date.now()}`,
+            grammarId,
+            questionId: `vocab-quiz-${currentQ.wordId}-${currentQ.type}`,
+            userAnswer: chosenText,
+            correctAnswer: correctText,
+            errorType: 'missing_word',
+            createdAt: new Date().toISOString(),
+            prompt: `[${typeLabel}] ${currentQ.question}`,
+            categoryLabel: `Quiz Từ vựng · ${unitLabel}`,
+            practicePath,
+            explanation: explanationText || currentQ.answerData.explanation,
+            level: config.level,
+            options: currentQ.answers.map((a) => a.text),
+            wordId: typeof currentQ.wordId === 'number' ? currentQ.wordId : undefined,
+          }),
+        );
       }
 
       setState((prev: QuizState) => {
@@ -124,7 +211,16 @@ export const QuizPlay: React.FC<Props> = ({ config, onExit }) => {
         };
       });
     },
-    [quizQuestions, state.currentIndex, state.userAnswers, addWrongWord],
+    [
+      quizQuestions,
+      state.currentIndex,
+      state.userAnswers,
+      addWrongWord,
+      config.isCustom,
+      config.level,
+      config.unitId,
+      dispatch,
+    ],
   );
 
   const handleNext = useCallback(() => {
@@ -164,19 +260,55 @@ export const QuizPlay: React.FC<Props> = ({ config, onExit }) => {
       sessionStartRef.current > 0
         ? Math.max(1, Math.round((Date.now() - sessionStartRef.current) / 1000))
         : 0;
+    const unitLabel = config.isCustom
+      ? 'Tự do'
+      : config.unitId === 'all'
+        ? config.level
+        : `${config.level} · Unit ${config.unitId}`;
+    const practicePath = config.isCustom
+      ? '/vocabulary/quiz'
+      : `/vocabulary/quiz?level=${config.level}&unit=${config.unitId}&autoStart=1`;
+
     const mistakes = quizQuestions
       .map((q, idx) => {
         const chosen = state.userAnswers[idx];
         if (!chosen || chosen === q.answerData.correctAnswerId) return null;
+        const chosenText = q.answers.find((a) => a.id === chosen)?.text || chosen;
+        const correctText =
+          q.answers.find((a) => a.id === q.answerData.correctAnswerId)?.text ||
+          q.answerData.meaning ||
+          q.answerData.hiragana;
+        const typeLabel = QUESTION_TYPE_LABELS[q.type] || 'Từ vựng';
+        const kanjiPart = q.answerData.kanji || '';
+        const hiraPart = q.answerData.hiragana || '';
+        const hvPart = q.answerData.hanViet || q.answerData.hanviet || '';
+        const wordSummary = kanjiPart && hiraPart
+          ? `${kanjiPart}（${hiraPart}）`
+          : kanjiPart || hiraPart;
+        const explanationText = [
+          wordSummary,
+          hvPart ? `[${hvPart}]` : '',
+          q.answerData.meaning ? `— ${q.answerData.meaning}` : '',
+        ]
+          .filter(Boolean)
+          .join(' ');
         return {
-          questionId: q.id,
+          id: `vocab-${q.wordId}-${q.type}-${idx}`,
+          questionId: `vocab-quiz-${q.wordId}-${q.type}`,
           wordId: q.wordId,
-          chosen,
-          correct: q.answerData.correctAnswerId,
+          prompt: `[${typeLabel}] ${q.question}`,
+          userAnswer: chosenText,
+          correctAnswer: correctText,
+          explanation: explanationText || q.answerData.explanation,
+          options: q.answers.map((a) => a.text),
+          level: config.level,
+          categoryLabel: `Quiz Từ vựng · ${unitLabel}`,
+          practicePath,
         };
       })
       .filter((item): item is NonNullable<typeof item> => item !== null);
 
+    const targetToReplace = replaceAttemptIdRef.current;
     void recordQuizAttempt(
       {
         quizType: 'vocabulary',
@@ -187,13 +319,22 @@ export const QuizPlay: React.FC<Props> = ({ config, onExit }) => {
         mistakesJson: mistakes,
       },
       user?.id,
-    );
+    ).then((created) => {
+      if (targetToReplace) {
+        clearAttemptMistakeGroup(targetToReplace, user?.id);
+      }
+      if (created?.id) {
+        replaceAttemptIdRef.current = created.id;
+      }
+    });
   }, [
     state.isFinished,
     state.score.correct,
     state.userAnswers,
     quizQuestions,
+    config.isCustom,
     config.level,
+    config.unitId,
     user?.id,
   ]);
 

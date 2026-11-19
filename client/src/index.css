@@ -80,10 +80,10 @@
   --danger-soft: rgba(239, 68, 68, 0.10);
   --danger-line: rgba(239, 68, 68, 0.28);
 
-  /* Overlay + elevation (Top specular highlight + clean ambient shadow) */
+  /* Overlay + elevation (Clean hairline elevation without muddy drop shadows) */
   --scrim: rgb(12 35 64 / 0.45);
-  --elev-card: inset 0 1px 0 rgba(255, 255, 255, 0.92), 0 6px 20px -6px rgb(12 52 92 / 0.11), 0 1px 3px rgb(12 52 92 / 0.06);
-  --elev-pop: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 14px 32px -8px rgb(12 52 92 / 0.18), 0 2px 6px rgb(12 52 92 / 0.06);
+  --elev-card: none;
+  --elev-pop: 0 10px 24px -12px rgb(12 52 92 / 0.16);
 }
 
 .dark {
@@ -147,8 +147,8 @@
   --danger-line: rgba(251, 113, 133, 0.36);
 
   --scrim: rgb(4 15 28 / 0.68);
-  --elev-card: inset 0 1px 0 rgba(255, 255, 255, 0.11), 0 8px 24px -8px rgb(2 10 24 / 0.56), 0 2px 6px rgb(2 10 24 / 0.32);
-  --elev-pop: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 16px 36px -10px rgb(0 0 0 / 0.66), 0 0 0 1px rgb(56 189 248 / 0.26);
+  --elev-card: none;
+  --elev-pop: 0 0 0 1px rgb(56 189 248 / 0.28);
 }
 
 /* ---------- 2. Tailwind mapping (semantic utilities only) ---------- */
@@ -453,17 +453,7 @@
 
 @layer utilities {
   .text-sky-legible {
-    text-shadow: 0 1px 8px rgba(255, 255, 255, 0.72);
-  }
-  html.dark .text-sky-legible {
-    text-shadow: 0 1px 10px rgba(4, 14, 30, 0.72);
-  }
-  /* Optical micro-contrast halo inside sheer translucent glass surfaces */
-  :root:not(.dark) :is(.bg-glass, .bg-glass-soft, .bg-glass-header) {
-    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.58);
-  }
-  html.dark :is(.bg-glass, .bg-glass-soft, .bg-glass-header) {
-    text-shadow: 0 1px 5px rgba(3, 10, 24, 0.75);
+    text-shadow: none;
   }
   .hide-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
   .hide-scrollbar::-webkit-scrollbar { display: none; }

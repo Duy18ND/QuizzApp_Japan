@@ -1,6 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlarmClock, ArrowRight, Compass, Flame, GraduationCap, Lock, LogIn } from 'lucide-react';
+import {
+  AlarmClock,
+  ArrowRight,
+  Compass,
+  Flame,
+  GraduationCap,
+  Lock,
+  LogIn,
+} from 'lucide-react';
 import { LoginRequiredState } from '../components/auth/LoginRequiredState';
 import { StudyScheduleModal } from '../components/settings/StudyScheduleCard';
 import {
@@ -23,7 +31,16 @@ import {
   STUDY_ROADMAPS,
 } from '../data/studyRoadmaps';
 import { useCurriculumSnapshot } from '../hooks/useCurriculumData';
-import { getLiveGrammarBooks, getLiveKanjis } from '../services/curriculumStore';
+import {
+  buildAttemptMistakeGroups,
+  useAttemptMistakeResolutions,
+} from '../services/attemptMistakeService';
+import {
+  getLiveAllVocabulary,
+  getLiveGrammarBooks,
+  getLiveKanjis,
+} from '../services/curriculumStore';
+import { useQuizHistory } from '../services/quizHistoryService';
 import { cn } from '../lib/cn';
 import {
   calculateStudyStreakStats,
@@ -187,17 +204,20 @@ export const HomePage: React.FC = () => {
   const { toast } = useToast();
   const cmsSnapshot = useCurriculumSnapshot();
   const kanjiTotal = useMemo(() => getLiveKanjis(cmsSnapshot).length, [cmsSnapshot]);
+  const allVocab = useMemo(() => getLiveAllVocabulary(cmsSnapshot), [cmsSnapshot]);
+  const liveGrammarBooks = useMemo(() => getLiveGrammarBooks(cmsSnapshot), [cmsSnapshot]);
   const grammarTotal = useMemo(
     () =>
-      getLiveGrammarBooks(cmsSnapshot).reduce(
+      liveGrammarBooks.reduce(
         (sum, book) => sum + book.chapters.reduce((chapterSum, chapter) => chapterSum + chapter.grammars.length, 0),
         0,
       ),
-    [cmsSnapshot],
+    [liveGrammarBooks],
   );
   const kanjiProgress = useAppSelector((state) => state.kanji.progress);
   const grammarRecords = useAppSelector((state) => state.grammarProgress.records);
-  const mistakes = useAppSelector((state) => state.mistake.mistakes);
+  const quizHistory = useQuizHistory();
+  const mistakeResolutions = useAttemptMistakeResolutions();
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [schedule, setSchedule] = useState<StudyScheduleConfig>(() => loadStudySchedule());
   const [todayOnlineSeconds, setTodayOnlineSeconds] = useState(() => getTodayOnlineSeconds());
@@ -216,6 +236,16 @@ export const HomePage: React.FC = () => {
       window.removeEventListener(ROADMAP_PROGRESS_SYNC_EVENT, onRoadmapSync);
     };
   }, []);
+
+  const attemptMistakeGroups = useMemo(
+    () => buildAttemptMistakeGroups(quizHistory, allVocab, liveGrammarBooks, mistakeResolutions),
+    [quizHistory, allVocab, liveGrammarBooks, mistakeResolutions],
+  );
+
+  const totalMistakeCount = useMemo(
+    () => attemptMistakeGroups.reduce((sum, group) => sum + group.mistakes.length, 0),
+    [attemptMistakeGroups],
+  );
 
   const streakStats = calculateStudyStreakStats(
     {
@@ -476,7 +506,15 @@ export const HomePage: React.FC = () => {
                 <Stat label="Ngữ pháp đã luyện" value={`${grammarPracticed}/${grammarTotal}`} />
                 <ProgressBar value={grammarPracticed} max={grammarTotal} label="Ngữ pháp đã luyện" size="sm" />
               </div>
-              <Stat label="Câu sai cần ôn" value={mistakes.length} hint={mistakes.length > 0 ? undefined : 'Chưa có câu sai nào'} />
+              <Stat
+                label="Bài sai cần ôn"
+                value={attemptMistakeGroups.length}
+                hint={
+                  attemptMistakeGroups.length > 0
+                    ? `${totalMistakeCount} câu sai cần ôn`
+                    : 'Chưa có bài sai nào'
+                }
+              />
               <div className="flex items-end">
                 <CardLink
                   to="/grammar/mistakes"
@@ -486,8 +524,13 @@ export const HomePage: React.FC = () => {
                   <span className="flex items-center gap-2">
                     <span aria-hidden className="size-2 rounded-full bg-sakura" />
                     Ôn tập lỗi sai
+                    {attemptMistakeGroups.length > 0 && (
+                      <Badge tone="danger" className="tabular">
+                        {attemptMistakeGroups.length}
+                      </Badge>
+                    )}
                   </span>
-                  <ArrowRight className="size-4 text-sakura" aria-hidden />
+                  <ArrowRight className="size-4 shrink-0 text-sakura" aria-hidden />
                 </CardLink>
               </div>
             </div>

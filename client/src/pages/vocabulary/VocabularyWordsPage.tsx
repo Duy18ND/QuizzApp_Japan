@@ -2,6 +2,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Star, Volume2 } from 'lucide-react';
 import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
+import {
+  buildVocabToolQuery,
+  findVocabTextbook,
+  parseVocabLevelParam,
+} from '../../data/vocabTextbooks';
 import { getLiveUnitsForLevel, getLiveVocabForUnit } from '../../services/curriculumStore';
 import { useAppSettings } from '../../hooks/useAppSettings';
 import { useUserProgress } from '../../hooks/useUserProgress';
@@ -73,7 +78,7 @@ const FILTER_OPTIONS = [
 ];
 
 export const VocabularyWordsPage: React.FC = () => {
-  const { level, unitId } = useParams<{ level: string; unitId: string }>();
+  const { level, bookId, unitId } = useParams<{ level: string; bookId?: string; unitId: string }>();
   const { progress, toggleStar } = useUserProgress();
   const { settings } = useAppSettings();
 
@@ -81,9 +86,12 @@ export const VocabularyWordsPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   const cmsSnapshot = useCurriculumSnapshot();
-  const levelKey = (level?.toUpperCase() || 'N3') as JLPTLevel;
+  const levelKey = parseVocabLevelParam(level) ?? ('N3' as JLPTLevel);
+  const levelSegment = levelKey.toLowerCase();
+  const textbook = bookId ? findVocabTextbook(levelKey, bookId) : undefined;
   const numericUnitId = Number(unitId);
   const unitInfo = getLiveUnitsForLevel(cmsSnapshot, levelKey).find((u) => u.id === numericUnitId);
+  const toolQuery = buildVocabToolQuery(levelKey, textbook?.id);
 
   const words = useMemo<VocabRow[]>(() => {
     const data = getLiveVocabForUnit(cmsSnapshot, levelKey, numericUnitId);
@@ -130,22 +138,31 @@ export const VocabularyWordsPage: React.FC = () => {
   return (
     <PageContainer>
       <PageHeader
-        breadcrumbs={[
-          { label: 'Từ vựng', to: '/vocabulary' },
-          { label: `Trình độ ${levelKey}`, to: `/vocabulary/${level || levelKey.toLowerCase()}` },
-          { label: unitInfo?.name || `Unit ${numericUnitId}` },
-        ]}
+        breadcrumbs={
+          textbook
+            ? [
+                { label: 'Từ vựng', to: '/vocabulary' },
+                { label: `Trình độ ${levelKey}`, to: `/vocabulary/${levelSegment}` },
+                { label: textbook.title, to: `/vocabulary/${levelSegment}/book/${textbook.id}` },
+                { label: unitInfo?.name || `Unit ${numericUnitId}` },
+              ]
+            : [
+                { label: 'Từ vựng', to: '/vocabulary' },
+                { label: `Trình độ ${levelKey}`, to: `/vocabulary/${levelSegment}` },
+                { label: unitInfo?.name || `Unit ${numericUnitId}` },
+              ]
+        }
         title={unitInfo?.name || `Unit ${numericUnitId}`}
-        description={`Danh sách ${filteredWords.length} / ${words.length} từ vựng`}
+        description={`Danh sách ${filteredWords.length} / ${words.length} từ vựng${textbook ? ` · ${textbook.title} (${levelKey})` : ''}`}
         actions={
           <div className="flex flex-wrap gap-2">
-            <Link to="/vocabulary/writing" className={buttonStyles({ variant: 'secondary', size: 'sm' })}>
+            <Link to={`/vocabulary/writing${toolQuery}`} className={buttonStyles({ variant: 'secondary', size: 'sm' })}>
               Luyện gõ từ
             </Link>
-            <Link to="/vocabulary/review" className={buttonStyles({ variant: 'secondary', size: 'sm' })}>
+            <Link to={`/vocabulary/review${toolQuery}`} className={buttonStyles({ variant: 'secondary', size: 'sm' })}>
               Ôn tập ★ & sai
             </Link>
-            <Link to="/vocabulary/unmastered" className={buttonStyles({ variant: 'ghost', size: 'sm' })}>
+            <Link to={`/vocabulary/unmastered${toolQuery}`} className={buttonStyles({ variant: 'ghost', size: 'sm' })}>
               Chưa thuộc
             </Link>
           </div>

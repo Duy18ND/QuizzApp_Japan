@@ -10,7 +10,7 @@ import { supabase } from './supabaseClient';
 
 export const QUIZ_HISTORY_STORAGE_KEY = 'nihonmaster_quiz_history';
 const QUIZ_HISTORY_SYNC_EVENT = 'nihonmaster:quiz-history-sync';
-const MAX_HISTORY_ITEMS = 50;
+export const MAX_HISTORY_ITEMS = 10;
 
 export interface QuizAttemptInput {
   quizType: string;
@@ -128,7 +128,9 @@ export async function recordQuizAttempt(
   };
 
   const current = loadQuizHistory(effectiveUid);
-  saveQuizHistory([record, ...current], effectiveUid);
+  const combined = [record, ...current];
+  const overflowIds = combined.slice(MAX_HISTORY_ITEMS).map((item) => item.id).filter(Boolean);
+  saveQuizHistory(combined, effectiveUid);
   void recordStudyCompletion(undefined, effectiveUid);
 
   if (supabase && isSupabaseAccountUuid(effectiveUid)) {
@@ -144,6 +146,13 @@ export async function recordQuizAttempt(
         mistakes_json: record.mistakesJson,
         created_at: record.createdAt,
       });
+      if (overflowIds.length > 0) {
+        await supabase
+          .from('quiz_attempts')
+          .delete()
+          .eq('user_id', effectiveUid)
+          .in('id', overflowIds);
+      }
     } catch (err) {
       console.warn('Could not persist quiz attempt to Supabase:', err);
     }

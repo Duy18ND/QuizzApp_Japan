@@ -11,9 +11,12 @@ import {
   getInMemoryGrammarMap,
   getInMemoryKanjiState,
   getInMemoryMistakes,
+  MISTAKE_RESOLUTIONS_ITEM_ID,
   PRACTICE_TYPE_KEYS,
   serializeToCloudRows,
+  type AttemptMistakeResolutions,
 } from './cloudProgressWriter';
+import { hydrateAttemptMistakeResolutions } from './attemptMistakeService';
 import { syncStudyScheduleFromCloud } from './notificationService';
 import {
   saveQuizHistory,
@@ -136,6 +139,10 @@ function parseRemoteRows(rows: CloudProgressRow[]) {
   const remoteKanji: Record<string, KanjiProgress> = {};
   const remoteGrammar: Record<string, GrammarProgress> = {};
   const remoteMistakes: GrammarMistake[] = [];
+  const remoteResolutions: AttemptMistakeResolutions = {
+    resolvedItemKeys: [],
+    clearedAttemptIds: [],
+  };
 
   for (const row of rows) {
     if (!row || UNSAFE_KEYS.has(row.item_id)) continue;
@@ -182,12 +189,23 @@ function parseRemoteRows(rows: CloudProgressRow[]) {
         record.mixed = Math.max(record.mixed ?? 0, row.score);
       }
       remoteGrammar[row.item_id] = record;
+    } else if (row.item_type === 'mistake' && row.item_id === MISTAKE_RESOLUTIONS_ITEM_ID) {
+      if (Array.isArray(meta.resolvedItemKeys)) {
+        remoteResolutions.resolvedItemKeys = meta.resolvedItemKeys.filter(
+          (k): k is string => typeof k === 'string',
+        );
+      }
+      if (Array.isArray(meta.clearedAttemptIds)) {
+        remoteResolutions.clearedAttemptIds = meta.clearedAttemptIds.filter(
+          (id): id is string => typeof id === 'string',
+        );
+      }
     } else if (row.item_type === 'mistake' && meta.mistake && typeof meta.mistake === 'object') {
       remoteMistakes.push(meta.mistake as GrammarMistake);
     }
   }
 
-  return { remoteUser, remoteKanji, remoteGrammar, remoteMistakes };
+  return { remoteUser, remoteKanji, remoteGrammar, remoteMistakes, remoteResolutions };
 }
 
 /**
@@ -213,18 +231,19 @@ export async function syncLocalProgressWithCloud(
         .select('id, quiz_type, level, score, total_questions, duration_seconds, mistakes_json, created_at')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
-        .limit(50),
+        .limit(10),
     ]);
 
   if (progressErr) {
     throw progressErr;
   }
 
-  const { remoteUser, remoteKanji, remoteGrammar, remoteMistakes } = parseRemoteRows(
+  const { remoteUser, remoteKanji, remoteGrammar, remoteMistakes, remoteResolutions } = parseRemoteRows(
     (remoteRows || []) as CloudProgressRow[],
   );
 
   commitUserProgress(remoteUser, userId);
+  hydrateAttemptMistakeResolutions(remoteResolutions, userId);
   dispatch(
     hydrateKanjiState({
       progress: remoteKanji,

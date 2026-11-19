@@ -13,12 +13,12 @@ const buttonBase =
 
 const buttonVariants: Record<ButtonVariant, string> = {
   primary:
-    'border border-transparent bg-primary text-on-primary shadow-card ' +
+    'border border-transparent bg-primary text-on-primary ' +
     'hover:bg-primary-hover active:bg-primary-active ' +
-    'disabled:border-line disabled:bg-glass-soft disabled:text-subtle disabled:shadow-none ' +
-    'aria-disabled:border-line aria-disabled:bg-glass-soft aria-disabled:text-subtle aria-disabled:shadow-none',
+    'disabled:border-line disabled:bg-glass-soft disabled:text-subtle ' +
+    'aria-disabled:border-line aria-disabled:bg-glass-soft aria-disabled:text-subtle',
   secondary:
-    'border border-line-strong bg-glass text-fg shadow-card ' +
+    'border border-line-strong bg-glass text-fg ' +
     'hover:border-primary/50 hover:bg-glass-hover disabled:opacity-45 aria-disabled:opacity-45',
   soft:
     'border border-primary/25 bg-primary-soft text-primary-fg ' +

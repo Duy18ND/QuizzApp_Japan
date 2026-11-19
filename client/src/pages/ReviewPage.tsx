@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowRight,
   BookOpen,
@@ -12,6 +12,12 @@ import {
 } from 'lucide-react';
 import { LoginRequiredState } from '../components/auth/LoginRequiredState';
 import { useAuth } from '../context/auth-context';
+import {
+  buildVocabToolQuery,
+  findVocabTextbook,
+  getWordsForVocabTextbook,
+  parseVocabLevelParam,
+} from '../data/vocabTextbooks';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { removeMistake } from '../store/slices/mistakeSlice';
 import { useAppSettings } from '../hooks/useAppSettings';
@@ -56,12 +62,29 @@ type ReviewQueueItem =
 export const ReviewPage: React.FC = () => {
   const { user } = useAuth();
   const dispatch = useAppDispatch();
+  const [searchParams, setSearchParams] = useSearchParams();
   const mistakes = useAppSelector((state) => state.mistake.mistakes);
   const { progress, toggleStar, clearWrongWord } = useUserProgress();
   const { settings } = useAppSettings();
   const cmsSnapshot = useCurriculumSnapshot();
 
-  const allVocab = useMemo(() => getLiveAllVocabulary(cmsSnapshot), [cmsSnapshot]);
+  const levelParam = parseVocabLevelParam(searchParams.get('level'));
+  const textbook = useMemo(
+    () => findVocabTextbook(levelParam, searchParams.get('book')),
+    [levelParam, searchParams],
+  );
+  const activeLevel = textbook?.level ?? levelParam;
+
+  const allVocab = useMemo(() => {
+    if (textbook) {
+      return getWordsForVocabTextbook(cmsSnapshot, textbook.level, textbook);
+    }
+    const all = getLiveAllVocabulary(cmsSnapshot);
+    if (activeLevel) {
+      return all.filter((w) => w.level === activeLevel);
+    }
+    return all;
+  }, [cmsSnapshot, textbook, activeLevel]);
   const [scope, setScope] = useState<ReviewScope>('all');
   const [sessionQueue, setSessionQueue] = useState<ReviewQueueItem[] | null>(null);
   const [sessionIdx, setSessionIdx] = useState(0);
@@ -92,12 +115,14 @@ export const ReviewPage: React.FC = () => {
 
   const grammarReviewItems = useMemo<ReviewQueueItem[]>(
     () =>
-      mistakes.map((mistake) => ({
-        kind: 'grammar',
-        uid: `grammar-${mistake.id}`,
-        mistake,
-      })),
-    [mistakes],
+      mistakes
+        .filter((mistake) => !activeLevel || !mistake.level || mistake.level === activeLevel)
+        .map((mistake) => ({
+          kind: 'grammar',
+          uid: `grammar-${mistake.id}`,
+          mistake,
+        })),
+    [mistakes, activeLevel],
   );
 
   const activeItems = useMemo(() => {
@@ -379,19 +404,51 @@ export const ReviewPage: React.FC = () => {
     );
   }
 
-  return (
-    <PageContainer size="md" className="space-y-6">
-      <PageHeader
-        breadcrumbs={[
+  const scopeTitle = textbook
+    ? `${textbook.title} (${textbook.level})`
+    : activeLevel
+      ? `JLPT ${activeLevel}`
+      : null;
+  const toolQuery = activeLevel ? buildVocabToolQuery(activeLevel, textbook?.id) : '';
+  const overviewBreadcrumbs = textbook
+    ? [
+        { label: 'Trang chủ', to: '/' },
+        { label: 'Từ vựng', to: '/vocabulary' },
+        { label: `Trình độ ${textbook.level}`, to: `/vocabulary/${textbook.level.toLowerCase()}` },
+        { label: textbook.title, to: `/vocabulary/${textbook.level.toLowerCase()}/book/${textbook.id}` },
+        { label: 'Ôn tập tổng hợp' },
+      ]
+    : activeLevel
+      ? [
+          { label: 'Trang chủ', to: '/' },
+          { label: 'Từ vựng', to: '/vocabulary' },
+          { label: `Trình độ ${activeLevel}`, to: `/vocabulary/${activeLevel.toLowerCase()}` },
+          { label: 'Ôn tập tổng hợp' },
+        ]
+      : [
           { label: 'Trang chủ', to: '/' },
           { label: 'Từ vựng', to: '/vocabulary' },
           { label: 'Ôn tập tổng hợp' },
-        ]}
-        title="Ôn tập thông minh"
-        description="Gom từ vựng đánh dấu (★), từ hay làm sai và lỗi ngữ pháp/JLPT thành phiên ôn tập tập trung."
+        ];
+
+  return (
+    <PageContainer size="md" className="space-y-6">
+      <PageHeader
+        breadcrumbs={overviewBreadcrumbs}
+        title={
+          <span className="flex flex-wrap items-center gap-2.5">
+            <span>Ôn tập thông minh</span>
+            {scopeTitle && <Badge tone="primary">{scopeTitle}</Badge>}
+          </span>
+        }
+        description={
+          scopeTitle
+            ? `Đang lọc mục cần ôn thuộc ${scopeTitle} (từ ★, từ làm sai và lỗi cấp ${activeLevel}).`
+            : 'Gom từ vựng đánh dấu (★), từ hay làm sai và lỗi ngữ pháp/JLPT thành phiên ôn tập tập trung.'
+        }
         actions={
           <div className="flex flex-wrap gap-2">
-            <Link to="/vocabulary/writing" className={buttonStyles({ variant: 'secondary', size: 'sm' })}>
+            <Link to={`/vocabulary/writing${toolQuery}`} className={buttonStyles({ variant: 'secondary', size: 'sm' })}>
               Luyện gõ từ
             </Link>
             <Link to="/grammar/mistakes" className={buttonStyles({ variant: 'ghost', size: 'sm' })}>
@@ -401,6 +458,26 @@ export const ReviewPage: React.FC = () => {
           </div>
         }
       />
+
+      {scopeTitle && (
+        <Notice tone="info" className="flex flex-wrap items-center justify-between gap-2">
+          <span>
+            Đang lọc theo giáo trình &amp; trình độ: <strong>{scopeTitle}</strong>
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              const next = new URLSearchParams(searchParams);
+              next.delete('level');
+              next.delete('book');
+              setSearchParams(next, { replace: true });
+            }}
+          >
+            Xem tất cả cấp độ
+          </Button>
+        </Notice>
+      )}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2">

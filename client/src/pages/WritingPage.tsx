@@ -1,10 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowRight, CheckCircle2, Eye, Play, RefreshCw, Volume2, XCircle } from 'lucide-react';
 import { useAuth } from '../context/auth-context';
 import { useAppSettings } from '../hooks/useAppSettings';
 import { useUserProgress } from '../hooks/useUserProgress';
+import { clearAttemptMistakeGroup } from '../services/attemptMistakeService';
+import { saveLastPracticeTarget } from '../services/lastPracticeService';
 import { recordQuizAttempt } from '../services/quizHistoryService';
+import { useAppDispatch } from '../store/hooks';
+import { addMistake } from '../store/slices/mistakeSlice';
 import type { VocabularyItem } from '../types/vocabulary';
 import { shuffleArray } from '../utils/shuffle';
 import { speakJapanese, stopJapaneseSpeech } from '../utils/tts';
@@ -12,6 +16,11 @@ import {
   getVocabularyDisplay,
   matchesVocabularyAnswer,
 } from '../utils/vocabularyHelpers';
+import {
+  findVocabTextbook,
+  getWordsForVocabTextbook,
+  parseVocabLevelParam,
+} from '../data/vocabTextbooks';
 import { useCurriculumSnapshot } from '../hooks/useCurriculumData';
 import { getLiveAllVocabulary } from '../services/curriculumStore';
 import {
@@ -39,13 +48,35 @@ interface SessionFeedback {
 
 export const WritingPage: React.FC = () => {
   const cmsSnapshot = useCurriculumSnapshot();
-  const allWords = useMemo(() => getLiveAllVocabulary(cmsSnapshot), [cmsSnapshot]);
   const { user } = useAuth();
+  const dispatch = useAppDispatch();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { progress, addWrongWord } = useUserProgress();
   const { settings } = useAppSettings();
   const sessionStartRef = useRef<number>(0);
 
-  const [sourceScope, setSourceScope] = useState<SourceScope>('all');
+  const levelParam = parseVocabLevelParam(searchParams.get('level'));
+  const textbook = useMemo(
+    () => findVocabTextbook(levelParam, searchParams.get('book')),
+    [levelParam, searchParams],
+  );
+  const activeLevel = textbook?.level ?? levelParam;
+
+  const allWords = useMemo(() => {
+    if (textbook) {
+      return getWordsForVocabTextbook(cmsSnapshot, textbook.level, textbook);
+    }
+    const all = getLiveAllVocabulary(cmsSnapshot);
+    if (activeLevel) {
+      return all.filter((w) => w.level === activeLevel);
+    }
+    return all;
+  }, [cmsSnapshot, textbook, activeLevel]);
+
+  const [sourceScope, setSourceScope] = useState<SourceScope>(() => {
+    const raw = searchParams.get('source');
+    return raw === 'wrong' || raw === 'starred' ? raw : 'all';
+  });
   const [promptMode, setPromptMode] = useState<PromptMode>('meaning');
   const [limit, setLimit] = useState<number>(10);
 
@@ -55,6 +86,7 @@ export const WritingPage: React.FC = () => {
   const [showHint, setShowHint] = useState(false);
   const [feedback, setFeedback] = useState<SessionFeedback | null>(null);
   const [wrongIds, setWrongIds] = useState<number[]>([]);
+  const [sessionMistakes, setSessionMistakes] = useState<Array<Record<string, unknown>>>([]);
   const [correctCount, setCorrectCount] = useState(0);
   const [isActive, setIsActive] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
@@ -79,17 +111,26 @@ export const WritingPage: React.FC = () => {
       const chosen = limit > 0 ? shuffled.slice(0, limit) : shuffled;
 
       sessionStartRef.current = Date.now();
+      saveLastPracticeTarget(
+        {
+          path: '/vocabulary/writing',
+          label: 'Luyện gõ Từ vựng',
+          quizType: 'writing',
+        },
+        user?.id,
+      );
       setSessionWords(chosen);
       setCurrentIndex(0);
       setInputValue('');
       setShowHint(false);
       setFeedback(null);
       setWrongIds([]);
+      setSessionMistakes([]);
       setCorrectCount(0);
       setIsFinished(false);
       setIsActive(true);
     },
-    [candidateWords, limit],
+    [candidateWords, limit, user?.id],
   );
 
   useEffect(() => {
@@ -119,6 +160,7 @@ export const WritingPage: React.FC = () => {
           : 0;
       const levels = Array.from(new Set(sessionWords.map((w) => w.level).filter(Boolean)));
       const level = levels.length === 1 ? levels[0] : 'ALL';
+      const retryAttemptId = searchParams.get('retryAttemptId')?.trim() || undefined;
       void recordQuizAttempt(
         {
           quizType: 'writing',
@@ -126,15 +168,19 @@ export const WritingPage: React.FC = () => {
           score: correctCount,
           totalQuestions: Math.max(1, sessionWords.length),
           durationSeconds,
-          mistakesJson: wrongIds.map((wordId) => ({ wordId })),
+          mistakesJson: sessionMistakes,
         },
         user?.id,
-      );
+      ).then(() => {
+        if (retryAttemptId) {
+          clearAttemptMistakeGroup(retryAttemptId, user?.id);
+        }
+      });
       setIsFinished(true);
     } else {
       setCurrentIndex((prev) => prev + 1);
     }
-  }, [currentIndex, sessionWords, correctCount, wrongIds, user?.id]);
+  }, [currentIndex, sessionWords, correctCount, sessionMistakes, user?.id, searchParams]);
 
   useEffect(() => {
     if (!feedback) return;
@@ -161,25 +207,108 @@ export const WritingPage: React.FC = () => {
     } else {
       setWrongIds((prev) => (prev.includes(currentWord.id) ? prev : [...prev, currentWord.id]));
       addWrongWord(currentWord.id);
+      const jpDisplay = currentWord.kanji
+        ? `${currentWord.kanji}（${currentWord.hiragana}）`
+        : currentWord.hiragana;
+      const writingMistake = {
+        id: `writing_${currentWord.id}_${Date.now()}`,
+        questionId: `vocab-writing-${currentWord.id}`,
+        wordId: currentWord.id,
+        prompt: `Gõ từ tiếng Nhật cho nghĩa: "${currentWord.meaning}"`,
+        userAnswer: inputValue.trim(),
+        correctAnswer: jpDisplay,
+        explanation: `${jpDisplay}${currentWord.hanViet ? ` [${currentWord.hanViet}]` : ''} — ${currentWord.meaning}`,
+        level: currentWord.level,
+        categoryLabel: `Luyện gõ Từ vựng · ${currentWord.level || 'Tổng hợp'}`,
+        practicePath: '/vocabulary/writing',
+      };
+      setSessionMistakes((prev) => [...prev, writingMistake]);
+      dispatch(
+        addMistake({
+          id: writingMistake.id,
+          grammarId: `VOCAB_WRITING_${currentWord.level || 'ALL'}`,
+          questionId: writingMistake.questionId,
+          userAnswer: writingMistake.userAnswer,
+          correctAnswer: writingMistake.correctAnswer,
+          errorType: 'missing_word',
+          createdAt: new Date().toISOString(),
+          prompt: writingMistake.prompt,
+          categoryLabel: writingMistake.categoryLabel,
+          practicePath: '/vocabulary/writing?source=wrong',
+          explanation: writingMistake.explanation,
+          level: currentWord.level,
+          wordId: currentWord.id,
+        }),
+      );
     }
 
     speakJapanese(currentWord.hiragana || currentWord.kanji || '', settings.ttsRate);
   };
 
   if (!isActive) {
-    return (
-      <PageContainer size="md">
-        <PageHeader
-          breadcrumbs={[
+    const scopeTitle = textbook
+      ? `${textbook.title} (${textbook.level})`
+      : activeLevel
+        ? `JLPT ${activeLevel}`
+        : null;
+    const breadcrumbs = textbook
+      ? [
+          { label: 'Trang chủ', to: '/' },
+          { label: 'Từ vựng', to: '/vocabulary' },
+          { label: `Trình độ ${textbook.level}`, to: `/vocabulary/${textbook.level.toLowerCase()}` },
+          { label: textbook.title, to: `/vocabulary/${textbook.level.toLowerCase()}/book/${textbook.id}` },
+          { label: 'Luyện gõ & nhớ từ' },
+        ]
+      : activeLevel
+        ? [
+            { label: 'Trang chủ', to: '/' },
+            { label: 'Từ vựng', to: '/vocabulary' },
+            { label: `Trình độ ${activeLevel}`, to: `/vocabulary/${activeLevel.toLowerCase()}` },
+            { label: 'Luyện gõ & nhớ từ' },
+          ]
+        : [
             { label: 'Trang chủ', to: '/' },
             { label: 'Từ vựng', to: '/vocabulary' },
             { label: 'Luyện gõ & nhớ từ' },
-          ]}
-          title="Luyện viết & gõ từ vựng"
-          description="Nhìn nghĩa tiếng Việt hoặc nghe phát âm rồi gõ lại từ tiếng Nhật (Hiragana hoặc Kanji)."
+          ];
+
+    return (
+      <PageContainer size="md">
+        <PageHeader
+          breadcrumbs={breadcrumbs}
+          title={
+            <span className="flex flex-wrap items-center gap-2.5">
+              <span>Luyện viết &amp; gõ từ vựng</span>
+              {scopeTitle && <Badge tone="primary">{scopeTitle}</Badge>}
+            </span>
+          }
+          description={
+            scopeTitle
+              ? `Đang lọc đúng từ vựng thuộc ${scopeTitle}. Nhìn nghĩa tiếng Việt hoặc nghe phát âm rồi gõ lại từ tiếng Nhật.`
+              : 'Nhìn nghĩa tiếng Việt hoặc nghe phát âm rồi gõ lại từ tiếng Nhật (Hiragana hoặc Kanji).'
+          }
         />
 
         <Card padding="lg" className="space-y-6">
+          {scopeTitle && (
+            <Notice tone="info" className="flex flex-wrap items-center justify-between gap-2">
+              <span>
+                Phạm vi hiện tại: <strong>{scopeTitle}</strong> ({allWords.length} từ vựng)
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  const next = new URLSearchParams(searchParams);
+                  next.delete('level');
+                  next.delete('book');
+                  setSearchParams(next, { replace: true });
+                }}
+              >
+                Xem tất cả cấp độ
+              </Button>
+            </Notice>
+          )}
           <div className="space-y-2">
             <p className="text-sm font-medium text-fg">Nguồn từ vựng</p>
             <div className="flex flex-wrap gap-2">
@@ -188,17 +317,17 @@ export const WritingPage: React.FC = () => {
               </Chip>
               <Chip
                 selected={sourceScope === 'starred'}
-                disabled={progress.starredWords.length === 0}
+                disabled={allWords.filter((w) => progress.starredWords.includes(w.id)).length === 0}
                 onClick={() => setSourceScope('starred')}
               >
-                Đã lưu ★ ({progress.starredWords.length})
+                Đã lưu ★ ({allWords.filter((w) => progress.starredWords.includes(w.id)).length})
               </Chip>
               <Chip
                 selected={sourceScope === 'wrong'}
-                disabled={Object.keys(progress.wrongWords).length === 0}
+                disabled={allWords.filter((w) => (progress.wrongWords[w.id] || 0) > 0).length === 0}
                 onClick={() => setSourceScope('wrong')}
               >
-                Hay làm sai ({Object.keys(progress.wrongWords).length})
+                Hay làm sai ({allWords.filter((w) => (progress.wrongWords[w.id] || 0) > 0).length})
               </Chip>
             </div>
           </div>
@@ -228,8 +357,16 @@ export const WritingPage: React.FC = () => {
 
           {candidateWords.length === 0 ? (
             <EmptyState
-              title="Chưa có từ vựng trong mục này"
-              description="Hãy chọn nguồn tất cả từ vựng hoặc đánh dấu sao / làm quiz trước."
+              title={
+                scopeTitle
+                  ? `Chưa có từ vựng cho ${scopeTitle}`
+                  : 'Chưa có từ vựng trong mục này'
+              }
+              description={
+                scopeTitle
+                  ? `Dữ liệu từ vựng của ${scopeTitle} đang được cập nhật. Bạn có thể chuyển sang giáo trình khác hoặc xem tất cả cấp độ.`
+                  : 'Hãy chọn nguồn tất cả từ vựng hoặc đánh dấu sao / làm quiz trước.'
+              }
             />
           ) : (
             <Button

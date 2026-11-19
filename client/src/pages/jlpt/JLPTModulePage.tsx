@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   ArrowRight,
   CheckCircle2,
@@ -43,6 +43,8 @@ import {
   getLiveJlptStarQuestions,
 } from '../../services/curriculumStore';
 import { useAuth } from '../../context/auth-context';
+import { clearAttemptMistakeGroup } from '../../services/attemptMistakeService';
+import { saveLastPracticeTarget } from '../../services/lastPracticeService';
 import { recordQuizAttempt } from '../../services/quizHistoryService';
 import { useAppDispatch } from '../../store/hooks';
 import { addMistake } from '../../store/slices/mistakeSlice';
@@ -83,15 +85,33 @@ export const JLPTModulePage: React.FC = () => {
 const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
   const dispatch = useAppDispatch();
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const retryAttemptId = searchParams.get('retryAttemptId')?.trim() || undefined;
   const sessionStartRef = useRef<number>(0);
+  const sessionMistakesRef = useRef<Array<Record<string, unknown>>>([]);
+
+  const [levelFilter, setLevelFilter] = useState<JLPTLevelFilter>(() => {
+    const raw = (searchParams.get('level') || '').toUpperCase();
+    if (raw === 'N5' || raw === 'N4' || raw === 'N3') return raw;
+    return 'ALL';
+  });
+  const [questionLimit, setQuestionLimit] = useState<number>(5);
+  const [sessionSeed, setSessionSeed] = useState<number>(0);
 
   useEffect(() => {
     sessionStartRef.current = Date.now();
-  }, []);
-
-  const [levelFilter, setLevelFilter] = useState<JLPTLevelFilter>('ALL');
-  const [questionLimit, setQuestionLimit] = useState<number>(5);
-  const [sessionSeed, setSessionSeed] = useState<number>(0);
+    sessionMistakesRef.current = [];
+    const qs = levelFilter !== 'ALL' ? `?level=${levelFilter}` : '';
+    saveLastPracticeTarget(
+      {
+        path: `/jlpt/${meta.id}${qs}`,
+        label: levelFilter !== 'ALL' ? `${meta.title} · ${levelFilter}` : meta.title,
+        level: levelFilter !== 'ALL' ? levelFilter : undefined,
+        quizType: meta.id === 'full-test' ? 'jlpt-full' : `jlpt-${meta.id}`,
+      },
+      user?.id,
+    );
+  }, [meta.id, meta.title, levelFilter, user?.id]);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
@@ -109,6 +129,7 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
 
   const resetSequentialSession = useCallback(() => {
     sessionStartRef.current = Date.now();
+    sessionMistakesRef.current = [];
     setCurrentIndex(0);
     setCorrectCount(0);
     setWrongCount(0);
@@ -135,9 +156,23 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
 
   const recordJlptMistake = useCallback(
     (payload: JlptMistakePayload) => {
+      const mistakeId = `${payload.grammarId}_${payload.questionId}_${Date.now()}_${sessionMistakesRef.current.length}`;
+      sessionMistakesRef.current.push({
+        id: mistakeId,
+        grammarId: payload.grammarId,
+        questionId: payload.questionId,
+        prompt: payload.prompt,
+        userAnswer: payload.userAnswer,
+        correctAnswer: payload.correctAnswer,
+        explanation: payload.explanation,
+        options: payload.options,
+        level: payload.level,
+        categoryLabel: payload.categoryLabel,
+        practicePath: payload.practicePath,
+      });
       dispatch(
         addMistake({
-          id: `${payload.grammarId}_${payload.questionId}_${Date.now()}`,
+          id: mistakeId,
           grammarId: payload.grammarId,
           questionId: payload.questionId,
           userAnswer: payload.userAnswer,
@@ -149,6 +184,7 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
           practicePath: payload.practicePath,
           explanation: payload.explanation,
           level: payload.level,
+          options: payload.options,
         }),
       );
     },
@@ -226,10 +262,14 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
           score: correctCount,
           totalQuestions: Math.max(1, sequentialTotal),
           durationSeconds,
-          mistakesJson: [],
+          mistakesJson: [...sessionMistakesRef.current],
         },
         user?.id,
-      );
+      ).then(() => {
+        if (retryAttemptId) {
+          clearAttemptMistakeGroup(retryAttemptId, user?.id);
+        }
+      });
       setFinished(true);
     } else {
       setCurrentIndex((prev) => prev + 1);
@@ -237,7 +277,7 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
       setStarResult(null);
       setShowTranscript(false);
     }
-  }, [currentIndex, sequentialTotal, meta.id, levelFilter, correctCount, user?.id]);
+  }, [currentIndex, sequentialTotal, meta.id, levelFilter, correctCount, user?.id, retryAttemptId]);
 
   useEffect(() => {
     if (!hasAnsweredCurrent || finished) return;
@@ -321,6 +361,7 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
           key={`${meta.id}-${levelFilter}`}
           passages={readingPassages}
           moduleMeta={meta}
+          retryAttemptId={retryAttemptId}
           onRecordMistake={recordJlptMistake}
         />
       )}
@@ -328,6 +369,7 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
       {isFullTestMode && (
         <JlptFullTestView
           levelFilter={levelFilter}
+          retryAttemptId={retryAttemptId}
           onRecordMistake={recordJlptMistake}
         />
       )}
@@ -436,9 +478,10 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
                             errorType: meta.errorType,
                             prompt: q.prompt,
                             categoryLabel: meta.categoryLabel,
-                            practicePath: `/jlpt/${meta.id}`,
+                            practicePath: `/jlpt/${meta.id}?level=${q.level}`,
                             explanation: q.explanation,
                             level: q.level,
+                            options: [...q.options],
                           });
                         }
                       }}
@@ -589,9 +632,10 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
                               errorType: meta.errorType,
                               prompt: `${item.situation} — ${item.questionPrompt}`,
                               categoryLabel: meta.categoryLabel,
-                              practicePath: '/jlpt/listening',
+                              practicePath: `/jlpt/listening?level=${item.level}`,
                               explanation: item.explanation,
                               level: item.level,
+                              options: [...item.options],
                             });
                           }
                         }}

@@ -49,10 +49,18 @@ export const PRACTICE_TYPE_KEYS: Array<keyof GrammarProgress> = [
   'mixed',
 ];
 
+export const MISTAKE_RESOLUTIONS_ITEM_ID = '__attempt_mistake_resolutions__';
+
+export interface AttemptMistakeResolutions {
+  resolvedItemKeys: string[];
+  clearedAttemptIds: string[];
+}
+
 const ramVocabProgress = new Map<string, UserProgress>();
 const ramKanjiState = new Map<string, { progress: Record<string, KanjiProgressEntry>; tutorialSeen: boolean }>();
 const ramGrammarRecords = new Map<string, Record<string, GrammarProgress>>();
 const ramMistakes = new Map<string, GrammarMistake[]>();
+const ramMistakeResolutions = new Map<string, AttemptMistakeResolutions>();
 const ramQuizHistory = new Map<string, QuizHistoryAttemptEntry[]>();
 const ramStudySchedules = new Map<string, Record<string, unknown>>();
 const ramOnlineTime = new Map<string, Record<string, number>>();
@@ -95,6 +103,43 @@ export function setInMemoryMistakes(uid: string, value: GrammarMistake[]): void 
   ramMistakes.set(uid, value);
 }
 
+export function getInMemoryMistakeResolutions(uid: string): AttemptMistakeResolutions {
+  return ramMistakeResolutions.get(uid) ?? { resolvedItemKeys: [], clearedAttemptIds: [] };
+}
+
+export function setInMemoryMistakeResolutions(uid: string, value: AttemptMistakeResolutions): void {
+  ramMistakeResolutions.set(uid, value);
+}
+
+export async function writeMistakeResolutionsDirectToSupabase(
+  userId: string,
+  resolutions: AttemptMistakeResolutions,
+): Promise<void> {
+  if (!supabase || !isSupabaseAccountUuid(userId)) return;
+  try {
+    await supabase.from('user_progress').upsert(
+      {
+        user_id: userId,
+        item_type: 'mistake',
+        item_id: MISTAKE_RESOLUTIONS_ITEM_ID,
+        status: 'resolved',
+        score: 0,
+        attempts: 0,
+        starred: false,
+        wrong_count: 0,
+        metadata_json: {
+          resolvedItemKeys: resolutions.resolvedItemKeys.slice(-500),
+          clearedAttemptIds: resolutions.clearedAttemptIds.slice(-100),
+        },
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id,item_type,item_id' },
+    );
+  } catch (err) {
+    console.warn('Could not persist mistake resolutions to Supabase:', err);
+  }
+}
+
 export function getInMemoryQuizHistory(uid: string): QuizHistoryAttemptEntry[] {
   return ramQuizHistory.get(uid) ?? [];
 }
@@ -125,6 +170,7 @@ export function clearInMemoryAccountData(uid?: string | null): void {
     ramKanjiState.delete(uid);
     ramGrammarRecords.delete(uid);
     ramMistakes.delete(uid);
+    ramMistakeResolutions.delete(uid);
     ramQuizHistory.delete(uid);
     ramStudySchedules.delete(uid);
     ramOnlineTime.delete(uid);
@@ -134,6 +180,7 @@ export function clearInMemoryAccountData(uid?: string | null): void {
   ramKanjiState.clear();
   ramGrammarRecords.clear();
   ramMistakes.clear();
+  ramMistakeResolutions.clear();
   ramQuizHistory.clear();
   ramStudySchedules.clear();
   ramOnlineTime.clear();

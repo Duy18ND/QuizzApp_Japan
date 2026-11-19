@@ -1,11 +1,17 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { CheckCircle2, Play, Trash2, X } from 'lucide-react';
+import {
+  findVocabTextbook,
+  getUnitsForVocabTextbook,
+  getVocabTextbooksForLevel,
+  parseVocabLevelParam,
+} from '../../data/vocabTextbooks';
 import type { JLPTLevel, QuestionType, QuizConfig, QuizSource } from '../../types/quiz';
 import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
-import { getLiveUnitsForLevel } from '../../services/curriculumStore';
 import { CustomDataImport } from '../common/CustomDataImport';
 import {
+  Badge,
   Button,
   Card,
   Chip,
@@ -57,10 +63,18 @@ const QUESTION_TYPE_OPTIONS: { value: 'all' | QuestionType; label: string }[] = 
 export const QuizSetup: React.FC<Props> = ({ onStart }) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialKanji = searchParams.get('kanji')?.trim() || undefined;
+  const initialLevelParam = parseVocabLevelParam(searchParams.get('level'));
+  const initialBookSpec = findVocabTextbook(initialLevelParam, searchParams.get('book'));
+  const resolvedInitialLevel: JLPTLevel = initialBookSpec?.level ?? initialLevelParam ?? 'N3';
+  const defaultBookForInitialLevel =
+    initialBookSpec ?? getVocabTextbooksForLevel(resolvedInitialLevel)[0];
 
+  const [selectedBookId, setSelectedBookId] = useState<string>(
+    () => defaultBookForInitialLevel?.id ?? '',
+  );
   const [config, setConfig] = useState<QuizConfig>(() => ({
-    level: 'N3',
-    unitId: 1,
+    level: resolvedInitialLevel,
+    unitId: defaultBookForInitialLevel?.unitIds[0] ?? 1,
     source: 'all',
     wordType: 'all',
     rangeType: 'fixed',
@@ -78,13 +92,42 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
   const [customWords, setCustomWords] = useState<Record<string, unknown>[]>([]);
   const cmsSnapshot = useCurriculumSnapshot();
 
-  const activeUnits = getLiveUnitsForLevel(cmsSnapshot, config.level);
+  const levelTextbooks = useMemo(
+    () => getVocabTextbooksForLevel(config.level),
+    [config.level],
+  );
+  const activeBook = useMemo(
+    () =>
+      levelTextbooks.find((b) => b.id === selectedBookId) ?? levelTextbooks[0],
+    [levelTextbooks, selectedBookId],
+  );
+  const activeUnits = useMemo(
+    () => (activeBook ? getUnitsForVocabTextbook(cmsSnapshot, config.level, activeBook) : []),
+    [cmsSnapshot, config.level, activeBook],
+  );
   const systemTotalWords = activeUnits.find((u) => u.id === config.unitId)?.totalWords ?? 0;
   const currentTotalWords = tab === 'custom' ? customWords.length : systemTotalWords;
 
   const handleLevelChange = (newLevel: JLPTLevel) => {
-    const defaultUnitId = getLiveUnitsForLevel(cmsSnapshot, newLevel)[0]?.id || 1;
+    const nextBooks = getVocabTextbooksForLevel(newLevel);
+    const nextBook = nextBooks[0];
+    const nextUnits = nextBook ? getUnitsForVocabTextbook(cmsSnapshot, newLevel, nextBook) : [];
+    const defaultUnitId = nextUnits[0]?.id ?? 1;
+    setSelectedBookId(nextBook?.id ?? '');
+    setError(null);
     setConfig({ ...config, level: newLevel, unitId: defaultUnitId, customRange: { start: 1, end: 20 } });
+  };
+
+  const handleBookChange = (nextBookId: string) => {
+    const nextBook = levelTextbooks.find((b) => b.id === nextBookId);
+    const nextUnits = nextBook ? getUnitsForVocabTextbook(cmsSnapshot, config.level, nextBook) : [];
+    setSelectedBookId(nextBookId);
+    setError(null);
+    setConfig((prev) => ({
+      ...prev,
+      unitId: nextUnits[0]?.id ?? 1,
+      customRange: { start: 1, end: 20 },
+    }));
   };
 
   const handleTabChange = (nextTab: 'system' | 'custom') => {
@@ -102,7 +145,11 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
     }
 
     if (tab === 'system' && systemTotalWords === 0) {
-      setError('Unit này hiện chưa có dữ liệu từ vựng (Sắp ra mắt). Vui lòng chọn N3 Unit 1.');
+      setError(
+        activeBook
+          ? `Giáo trình ${activeBook.title} (${config.level}) hiện chưa có dữ liệu từ vựng (Sắp ra mắt).`
+          : 'Unit này hiện chưa có dữ liệu từ vựng (Sắp ra mắt).',
+      );
       return;
     }
 
@@ -121,11 +168,35 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
     onStart({ ...config, isCustom: tab === 'custom', customData: customWords });
   };
 
+  const quizBreadcrumbs = activeBook
+    ? [
+        { label: 'Trang chủ', to: '/' },
+        { label: 'Từ vựng', to: '/vocabulary' },
+        { label: `Trình độ ${config.level}`, to: `/vocabulary/${config.level.toLowerCase()}` },
+        { label: activeBook.title, to: `/vocabulary/${config.level.toLowerCase()}/book/${activeBook.id}` },
+        { label: 'Luyện Quiz từ vựng' },
+      ]
+    : [
+        { label: 'Trang chủ', to: '/' },
+        { label: 'Từ vựng', to: '/vocabulary' },
+        { label: 'Cài đặt Quiz' },
+      ];
+
   return (
     <PageContainer size="md">
       <PageHeader
-        title="Cài đặt Quiz"
-        description="Tùy chỉnh cấp độ, phạm vi từ vựng và cách hiển thị trước khi bắt đầu."
+        breadcrumbs={quizBreadcrumbs}
+        title={
+          <span className="flex flex-wrap items-center gap-2.5">
+            <span>Cài đặt Quiz</span>
+            {activeBook && (
+              <Badge tone="primary">
+                {activeBook.title} · {config.level}
+              </Badge>
+            )}
+          </span>
+        }
+        description="Tùy chỉnh trình độ, giáo trình, phạm vi từ vựng và cách hiển thị trước khi bắt đầu."
       />
 
       <Card padding="lg" className="space-y-6">
@@ -167,8 +238,8 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
               </Notice>
             )}
 
-            {/* 1. Trình độ & Bài học */}
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {/* 1. Trình độ, Giáo trình & Bài học */}
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <Field label="Trình độ (JLPT)" htmlFor="quiz-level">
                 <Select
                   id="quiz-level"
@@ -183,10 +254,25 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
                 </Select>
               </Field>
 
+              <Field label="Giáo trình" htmlFor="quiz-book">
+                <Select
+                  id="quiz-book"
+                  value={activeBook?.id || ''}
+                  onChange={(e) => handleBookChange(e.target.value)}
+                >
+                  {levelTextbooks.map((book) => (
+                    <option key={book.id} value={book.id}>
+                      {book.title}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+
               <Field label="Bài học (Unit)" htmlFor="quiz-unit">
                 <Select
                   id="quiz-unit"
-                  value={config.unitId}
+                  value={activeUnits.length > 0 ? config.unitId : ''}
+                  disabled={activeUnits.length === 0}
                   onChange={(e) =>
                     setConfig({
                       ...config,
@@ -194,14 +280,20 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
                     })
                   }
                 >
-                  {activeUnits.map((unit) => (
-                    <option key={unit.id} value={unit.id} disabled={unit.totalWords === 0}>
-                      {unit.name} ({unit.totalWords > 0 ? `${unit.totalWords} từ` : 'Sắp ra mắt'})
-                    </option>
-                  ))}
-                  <option value="all" disabled>
-                    Tất cả (Sắp ra mắt)
-                  </option>
+                  {activeUnits.length === 0 ? (
+                    <option value="">Sắp ra mắt (0 từ)</option>
+                  ) : (
+                    <>
+                      {activeUnits.map((unit) => (
+                        <option key={unit.id} value={unit.id} disabled={unit.totalWords === 0}>
+                          {unit.name} ({unit.totalWords > 0 ? `${unit.totalWords} từ` : 'Sắp ra mắt'})
+                        </option>
+                      ))}
+                      <option value="all" disabled>
+                        Tất cả (Sắp ra mắt)
+                      </option>
+                    </>
+                  )}
                 </Select>
               </Field>
             </div>
