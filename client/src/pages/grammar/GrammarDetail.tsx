@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { BookOpen, FileText, PlayCircle } from 'lucide-react';
-import { grammarBooks } from '../../data/grammar';
+import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
+import { getLiveGrammarBooks } from '../../services/curriculumStore';
 import { useAppSelector } from '../../store/hooks';
 import {
   Badge,
@@ -17,13 +18,15 @@ import {
 export const GrammarDetail: React.FC = () => {
   const { bookId, chapterId } = useParams<{ bookId: string; chapterId: string }>();
   const navigate = useNavigate();
+  const cmsSnapshot = useCurriculumSnapshot();
   const progressRecords = useAppSelector((state) => state.grammarProgress.records);
 
   const { book, chapter } = useMemo(() => {
-    const b = grammarBooks.find((bk) => bk.id === bookId);
+    const books = getLiveGrammarBooks(cmsSnapshot);
+    const b = books.find((bk) => bk.id === bookId);
     const c = b?.chapters.find((ch) => ch.id === chapterId);
     return { book: b, chapter: c };
-  }, [bookId, chapterId]);
+  }, [cmsSnapshot, bookId, chapterId]);
 
   if (!book || !chapter) {
     return (

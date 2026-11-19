@@ -532,7 +532,8 @@
   .animate-petal-burst {
     animation: petalBurst 700ms var(--ease-out-soft) forwards;
   }
-  .bg-day-layer {
+  .bg-day-layer,
+  .bg-day-ambient {
     opacity: 1;
     transition: opacity 700ms ease-in-out !important;
   }
@@ -541,10 +542,12 @@
     transition: opacity 700ms ease-in-out !important;
   }
   html.dark .bg-day-layer,
+  html.dark .bg-day-ambient,
   html.dark .sky-day-layer {
     opacity: 0;
   }
-  .bg-night-layer {
+  .bg-night-layer,
+  .bg-night-ambient {
     opacity: 0;
     transition: opacity 700ms ease-in-out !important;
   }
@@ -553,6 +556,7 @@
     transition: opacity 700ms ease-in-out !important;
   }
   html.dark .bg-night-layer,
+  html.dark .bg-night-ambient,
   html.dark .sky-night-layer {
     opacity: 1;
   }
@@ -621,18 +625,6 @@
     object-fit: cover;
     object-position: center center;
   }
-  @media (min-width: 1024px) and (min-aspect-ratio: 14 / 10) {
-    .bg-landscape-responsive {
-      object-fit: fill;
-      object-position: center center;
-    }
-  }
-  @media (min-width: 1024px) and (min-aspect-ratio: 185 / 100) {
-    .bg-landscape-responsive {
-      object-fit: cover;
-      object-position: center 68%;
-    }
-  }
   .sakura-ball-draggable {
     touch-action: none;
     cursor: grab;
@@ -646,7 +638,7 @@
 /* Short colour cross-fade only while the theme is being toggled (set from JS),
    excluding landscape/celestial transition layers so cross-fade (700ms) and rise/set (900ms) run smoothly. */
 html.theme-transition,
-html.theme-transition *:not(.bg-day-layer):not(.bg-night-layer):not(.sky-day-layer):not(.sky-night-layer):not(.celestial-sun):not(.celestial-moon),
+html.theme-transition *:not(.bg-day-layer):not(.bg-night-layer):not(.bg-day-ambient):not(.bg-night-ambient):not(.sky-day-layer):not(.sky-night-layer):not(.celestial-sun):not(.celestial-moon),
 html.theme-transition *::before,
 html.theme-transition *::after {
   transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease, fill 180ms ease, stroke 180ms ease !important;

@@ -19,7 +19,9 @@ import { useUserProgress } from '../hooks/useUserProgress';
 import type { GrammarMistake } from '../types/grammar';
 import type { VocabularyItem } from '../types/vocabulary';
 import { speakJapanese } from '../utils/tts';
-import { getAllLoadedVocabulary, getVocabularyDisplay } from '../utils/vocabularyHelpers';
+import { getVocabularyDisplay } from '../utils/vocabularyHelpers';
+import { useCurriculumSnapshot } from '../hooks/useCurriculumData';
+import { getLiveAllVocabulary } from '../services/curriculumStore';
 import {
   Badge,
   Button,
@@ -57,8 +59,9 @@ export const ReviewPage: React.FC = () => {
   const mistakes = useAppSelector((state) => state.mistake.mistakes);
   const { progress, toggleStar, clearWrongWord } = useUserProgress();
   const { settings } = useAppSettings();
+  const cmsSnapshot = useCurriculumSnapshot();
 
-  const allVocab = useMemo(() => getAllLoadedVocabulary(), []);
+  const allVocab = useMemo(() => getLiveAllVocabulary(cmsSnapshot), [cmsSnapshot]);
   const [scope, setScope] = useState<ReviewScope>('all');
   const [sessionQueue, setSessionQueue] = useState<ReviewQueueItem[] | null>(null);
   const [sessionIdx, setSessionIdx] = useState(0);

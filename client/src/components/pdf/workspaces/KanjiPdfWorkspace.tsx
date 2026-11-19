@@ -2,16 +2,16 @@ import React, { useMemo, useRef, useState } from 'react';
 import { Printer, RefreshCw } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { KanjiPdfBuilder } from './KanjiPdfBuilder';
-import type { KanjiItem } from '../../../types/kanji';
-import kanjiDataRaw from '../../../data/kanji/kanjiDataset.json';
+import { useCurriculumSnapshot } from '../../../hooks/useCurriculumData';
+import { getLiveKanjis } from '../../../services/curriculumStore';
 import { FontManager } from '../../../utils/fontManager';
 import { Badge, Button, Card, Field, Select } from '../../ui';
-
-const kanjiList = (kanjiDataRaw || []) as KanjiItem[];
 
 type KanjiPdfMode = 'mode1' | 'mode2' | 'mode3';
 
 export const KanjiPdfWorkspace: React.FC = () => {
+  const cmsSnapshot = useCurriculumSnapshot();
+  const kanjiList = useMemo(() => getLiveKanjis(cmsSnapshot), [cmsSnapshot]);
   const [level, setLevel] = useState<string>('N3');
   const [count, setCount] = useState<number>(20);
   const [mode, setMode] = useState<KanjiPdfMode>('mode1');
@@ -38,7 +38,7 @@ export const KanjiPdfWorkspace: React.FC = () => {
     }
 
     return array.slice(0, count);
-  }, [level, count, seed]);
+  }, [kanjiList, level, count, seed]);
 
   const handlePrint = async () => {
     if (selectedKanji.length === 0 || isExportingRef.current) return;

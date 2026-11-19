@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AlarmClock, ArrowRight, Flame, Lock, LogIn } from 'lucide-react';
 import { LoginRequiredState } from '../components/auth/LoginRequiredState';
@@ -6,8 +6,8 @@ import { StudyScheduleModal } from '../components/settings/StudyScheduleCard';
 import { Badge, Button, CardLink, Card, PageContainer, ProgressBar, QuizHistoryCard, Stat } from '../components/ui';
 import { buttonStyles } from '../components/ui/styles';
 import { useAuth } from '../context/auth-context';
-import { grammarBooks } from '../data/grammar';
-import kanjiDataRaw from '../data/kanji/kanjiDataset.json';
+import { useCurriculumSnapshot } from '../hooks/useCurriculumData';
+import { getLiveGrammarBooks, getLiveKanjis } from '../services/curriculumStore';
 import { cn } from '../lib/cn';
 import {
   calculateStudyStreakStats,
@@ -19,14 +19,7 @@ import {
   STUDY_SCHEDULE_SYNC_EVENT,
   type StudyScheduleConfig,
 } from '../services/notificationService';
-import type { KanjiItem } from '../types/kanji';
 import { useAppSelector } from '../store/hooks';
-
-const kanjiTotal = ((kanjiDataRaw || []) as KanjiItem[]).length;
-const grammarTotal = grammarBooks.reduce(
-  (sum, book) => sum + book.chapters.reduce((chapterSum, chapter) => chapterSum + chapter.grammars.length, 0),
-  0,
-);
 
 interface Area {
   to: string;
@@ -147,6 +140,16 @@ function FeatureNavCard({ area }: { area: Area }) {
 
 export const HomePage: React.FC = () => {
   const { user } = useAuth();
+  const cmsSnapshot = useCurriculumSnapshot();
+  const kanjiTotal = useMemo(() => getLiveKanjis(cmsSnapshot).length, [cmsSnapshot]);
+  const grammarTotal = useMemo(
+    () =>
+      getLiveGrammarBooks(cmsSnapshot).reduce(
+        (sum, book) => sum + book.chapters.reduce((chapterSum, chapter) => chapterSum + chapter.grammars.length, 0),
+        0,
+      ),
+    [cmsSnapshot],
+  );
   const kanjiProgress = useAppSelector((state) => state.kanji.progress);
   const grammarRecords = useAppSelector((state) => state.grammarProgress.records);
   const mistakes = useAppSelector((state) => state.mistake.mistakes);

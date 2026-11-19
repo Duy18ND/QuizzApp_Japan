@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { CheckCircle2, Play, Trash2, X } from 'lucide-react';
 import type { JLPTLevel, QuestionType, QuizConfig, QuizSource } from '../../types/quiz';
-import { UNIT_DATA } from '../../data/unitData';
+import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
+import { getLiveUnitsForLevel } from '../../services/curriculumStore';
 import { CustomDataImport } from '../common/CustomDataImport';
 import {
   Button,
@@ -75,13 +76,14 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<'system' | 'custom'>('system');
   const [customWords, setCustomWords] = useState<Record<string, unknown>[]>([]);
+  const cmsSnapshot = useCurriculumSnapshot();
 
-  const activeUnits = UNIT_DATA[config.level] || UNIT_DATA.N3;
+  const activeUnits = getLiveUnitsForLevel(cmsSnapshot, config.level);
   const systemTotalWords = activeUnits.find((u) => u.id === config.unitId)?.totalWords ?? 0;
   const currentTotalWords = tab === 'custom' ? customWords.length : systemTotalWords;
 
   const handleLevelChange = (newLevel: JLPTLevel) => {
-    const defaultUnitId = UNIT_DATA[newLevel]?.[0]?.id || 1;
+    const defaultUnitId = getLiveUnitsForLevel(cmsSnapshot, newLevel)[0]?.id || 1;
     setConfig({ ...config, level: newLevel, unitId: defaultUnitId, customRange: { start: 1, end: 20 } });
   };
 

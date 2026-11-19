@@ -6,7 +6,8 @@ import { useAuth } from '../../context/auth-context';
 import { LoginRequiredState } from '../../components/auth/LoginRequiredState';
 import type { RootState } from '../../store';
 import { clearMistakes, removeMistakesByGrammar } from '../../store/slices/mistakeSlice';
-import { grammarBooks } from '../../data/grammar';
+import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
+import { getLiveGrammarBooks } from '../../services/curriculumStore';
 import {
   Badge,
   Button,
@@ -27,6 +28,8 @@ interface ResolvedRuleMeta {
 export const MistakesReview: React.FC = () => {
   const { user } = useAuth();
   const dispatch = useDispatch();
+  const cmsSnapshot = useCurriculumSnapshot();
+  const liveGrammarBooks = getLiveGrammarBooks(cmsSnapshot);
   const mistakes = useSelector((state: RootState) => state.mistake.mistakes);
 
   const mistakesByGrammar = mistakes.reduce(
@@ -52,7 +55,7 @@ export const MistakesReview: React.FC = () => {
       };
     }
 
-    for (const book of grammarBooks) {
+    for (const book of liveGrammarBooks) {
       for (const chapter of book.chapters) {
         const found = chapter.grammars.find((g) => g.id === grammarId);
         if (found) {

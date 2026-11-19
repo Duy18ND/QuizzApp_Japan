@@ -1,12 +1,11 @@
-import React, { Suspense, useEffect, useRef, useState } from 'react';
+import React, { Suspense, useEffect, useRef } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { FlaskConical, LogIn, LogOut, Settings, ShieldCheck, UserRound } from 'lucide-react';
-import { isQuickTestAllowed, useAuth } from '../../context/auth-context';
+import { LogIn, LogOut, Settings, ShieldCheck, UserRound } from 'lucide-react';
+import { useAuth } from '../../context/auth-context';
 import {
   startStudyReminderLoop,
   startWebOnlineTimeTracker,
 } from '../../services/notificationService';
-import { QuickTestLoginModal } from '../auth/QuickTestLoginModal';
 import { JapaneseLookupProvider } from '../common/JapaneseLookupPopover';
 import { Badge, LoadingState } from '../ui';
 import { buttonStyles } from '../ui/styles';
@@ -32,8 +31,6 @@ export const AppLayout: React.FC = () => {
     userIdRef.current = user?.id;
   }, [user?.id]);
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
-  const quickTestAllowed = isQuickTestAllowed();
-  const [quickTestModalOpen, setQuickTestModalOpen] = useState(false);
 
   useEffect(() => {
     const stopReminders = startStudyReminderLoop();
@@ -158,19 +155,6 @@ export const AppLayout: React.FC = () => {
               </>
             )}
 
-            {quickTestAllowed && (
-              <button
-                type="button"
-                onClick={() => setQuickTestModalOpen(true)}
-                aria-label="Test Nhanh (User / Admin)"
-                title="Đăng nhập nhanh & Chuyển quyền Test (User / Admin)"
-                className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'h-8 w-8 px-0 sm:w-auto sm:gap-1.5 sm:px-2.5' })}
-              >
-                <FlaskConical className="size-3.5 shrink-0 text-primary-fg" aria-hidden />
-                <span className="hidden lg:inline text-xs">Test Nhanh</span>
-              </button>
-            )}
-
             <Link
               to="/settings"
               aria-label="Cài đặt"
@@ -183,12 +167,6 @@ export const AppLayout: React.FC = () => {
           </div>
         </div>
       </header>
-      {quickTestAllowed && (
-        <QuickTestLoginModal
-          open={quickTestModalOpen}
-          onClose={() => setQuickTestModalOpen(false)}
-        />
-      )}
 
       <main
         ref={mainRef}

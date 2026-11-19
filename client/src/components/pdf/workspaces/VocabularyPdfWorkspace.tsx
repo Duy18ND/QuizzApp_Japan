@@ -4,8 +4,8 @@ import { createPortal } from 'react-dom';
 import { DraggableColumnList, type ColumnOption } from '../DraggableColumnList';
 import { CustomDataImport } from '../../common/CustomDataImport';
 import { VocabularyPdfBuilder } from './VocabularyPdfBuilder';
-import { UNIT_DATA } from '../../../data/unitData';
-import { allVocabularyData } from '../../../data/index';
+import { useCurriculumSnapshot } from '../../../hooks/useCurriculumData';
+import { getLiveUnitsForLevel, getLiveVocabForUnit } from '../../../services/curriculumStore';
 import { useUserProgress } from '../../../hooks/useUserProgress';
 import { FontManager } from '../../../utils/fontManager';
 import type { JLPTLevel, QuizRangeType, QuizSource } from '../../../types/quiz';
@@ -44,11 +44,12 @@ export const VocabularyPdfWorkspace: React.FC = () => {
   const [rangeType, setRangeType] = useState<QuizRangeType>('fixed');
   const [customRange, setCustomRange] = useState({ start: 1, end: 20 });
   const [manualWords, setManualWords] = useState<Record<string, unknown>[]>([]);
+  const cmsSnapshot = useCurriculumSnapshot();
 
-  const activeUnits = UNIT_DATA[level] || UNIT_DATA.N3;
+  const activeUnits = getLiveUnitsForLevel(cmsSnapshot, level);
 
   const handleLevelChange = (newLevel: JLPTLevel) => {
-    const defaultUnitId = UNIT_DATA[newLevel]?.[0]?.id || 1;
+    const defaultUnitId = getLiveUnitsForLevel(cmsSnapshot, newLevel)[0]?.id || 1;
     setLevel(newLevel);
     setUnitId(defaultUnitId);
   };
@@ -80,14 +81,11 @@ export const VocabularyPdfWorkspace: React.FC = () => {
               ? Object.keys(progress.wrongWords).map(Number)
               : [];
 
-        const levelKey = level.toLowerCase();
-        const unitDataObj = allVocabularyData[levelKey];
+        let words = getLiveVocabForUnit(cmsSnapshot, level, unitId);
 
-        if (!unitDataObj || !unitDataObj[unitId.toString()]) {
+        if (words.length === 0) {
           throw new Error(`Dữ liệu cho ${level} - Unit ${unitId} chưa được nạp sẵn offline.`);
         }
-
-        let words = unitDataObj[unitId.toString()];
 
         if (source !== 'all') {
           words =

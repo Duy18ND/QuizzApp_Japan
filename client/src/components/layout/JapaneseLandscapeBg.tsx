@@ -150,7 +150,7 @@ export const JapaneseLandscapeBg: React.FC = () => {
       aria-hidden
       className="pointer-events-none fixed inset-0 -z-10 h-dvh w-screen overflow-hidden select-none print:hidden"
     >
-      {/* 1. Content-Hashed 2K Dual Japanese Landscape Image Layers (cache-busted per deploy, high-quality scaling) */}
+      {/* 1. Primary Dual Japanese Landscape Layers (aspect-preserved panoramic view, zero stretch) */}
       {BG_IMAGE_LAYERS.map((layer) => (
         <img
           key={layer.key}

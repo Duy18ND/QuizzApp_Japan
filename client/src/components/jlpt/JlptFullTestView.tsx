@@ -11,14 +11,17 @@ import {
   type TabItem,
 } from '../ui';
 import {
-  getJLPTListeningItems,
-  getJLPTMcqQuestions,
-  getJLPTReadingPassages,
-  getJLPTStarQuestions,
   JLPT_MODULES,
   toStarQuestionShape,
   type JLPTLevelFilter,
 } from '../../data/jlpt/jlptDataset';
+import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
+import {
+  getLiveJlptListeningItems,
+  getLiveJlptMcqQuestions,
+  getLiveJlptReadingPassages,
+  getLiveJlptStarQuestions,
+} from '../../services/curriculumStore';
 import { useAuth } from '../../context/auth-context';
 import { recordQuizAttempt } from '../../services/quizHistoryService';
 import { shuffleArray } from '../../utils/shuffle';
@@ -73,6 +76,7 @@ const JlptFullTestSession: React.FC<JlptFullTestSessionProps> = ({
   onRecordMistake,
 }) => {
   const { user } = useAuth();
+  const cmsSnapshot = useCurriculumSnapshot();
   const [activeSection, setActiveSection] = useState<ExamSectionId>('s1');
   const [secondsLeft, setSecondsLeft] = useState(DEFAULT_DURATION_SECONDS);
   const [timerPaused, setTimerPaused] = useState(false);
@@ -87,18 +91,18 @@ const JlptFullTestSession: React.FC<JlptFullTestSessionProps> = ({
 
   const examSet = useMemo(() => {
     void attemptKey;
-    const kanjiPool = shuffleArray(getJLPTMcqQuestions('kanji', levelFilter)).slice(0, 4);
-    const vocabPool = shuffleArray(getJLPTMcqQuestions('vocab', levelFilter)).slice(0, 4);
-    const grammarPool = shuffleArray(getJLPTMcqQuestions('grammar', levelFilter)).slice(0, 4);
-    const starPool = shuffleArray(getJLPTStarQuestions(levelFilter)).slice(0, 2);
+    const kanjiPool = shuffleArray(getLiveJlptMcqQuestions(cmsSnapshot, 'kanji', levelFilter)).slice(0, 4);
+    const vocabPool = shuffleArray(getLiveJlptMcqQuestions(cmsSnapshot, 'vocab', levelFilter)).slice(0, 4);
+    const grammarPool = shuffleArray(getLiveJlptMcqQuestions(cmsSnapshot, 'grammar', levelFilter)).slice(0, 4);
+    const starPool = shuffleArray(getLiveJlptStarQuestions(cmsSnapshot, levelFilter)).slice(0, 2);
 
     const readingCandidates = [
-      ...getJLPTReadingPassages('reading-short', levelFilter),
-      ...getJLPTReadingPassages('reading-medium', levelFilter),
-      ...getJLPTReadingPassages('reading-long', levelFilter),
+      ...getLiveJlptReadingPassages(cmsSnapshot, 'reading-short', levelFilter),
+      ...getLiveJlptReadingPassages(cmsSnapshot, 'reading-medium', levelFilter),
+      ...getLiveJlptReadingPassages(cmsSnapshot, 'reading-long', levelFilter),
     ];
     const readingPassages = shuffleArray(readingCandidates).slice(0, 1);
-    const listeningItems = shuffleArray(getJLPTListeningItems(levelFilter)).slice(0, 2);
+    const listeningItems = shuffleArray(getLiveJlptListeningItems(cmsSnapshot, levelFilter)).slice(0, 2);
 
     return {
       s1: [...kanjiPool, ...vocabPool],
@@ -107,7 +111,7 @@ const JlptFullTestSession: React.FC<JlptFullTestSessionProps> = ({
       readingPassages,
       listeningItems,
     };
-  }, [levelFilter, attemptKey]);
+  }, [cmsSnapshot, levelFilter, attemptKey]);
 
   const readingQuestions = useMemo(
     () => examSet.readingPassages.flatMap((p) => p.questions.map((q) => ({ passage: p, question: q }))),

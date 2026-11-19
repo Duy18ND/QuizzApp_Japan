@@ -1,8 +1,8 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { Printer, RefreshCw } from 'lucide-react';
 import { createPortal } from 'react-dom';
-import { allVocabularyData } from '../../../data';
-import { UNIT_DATA } from '../../../data/unitData';
+import { useCurriculumSnapshot } from '../../../hooks/useCurriculumData';
+import { getLiveUnitsForLevel, getLiveVocabForUnit } from '../../../services/curriculumStore';
 import { useUserProgress } from '../../../hooks/useUserProgress';
 import type { JLPTLevel, QuizSource } from '../../../types/quiz';
 import { FontManager } from '../../../utils/fontManager';
@@ -23,11 +23,12 @@ export const FlashcardPdfWorkspace: React.FC = () => {
   const [seed, setSeed] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
   const isExportingRef = useRef(false);
+  const cmsSnapshot = useCurriculumSnapshot();
 
-  const activeUnits = UNIT_DATA[level] || UNIT_DATA.N3;
+  const activeUnits = getLiveUnitsForLevel(cmsSnapshot, level);
 
   const selectedCards = useMemo(() => {
-    const rawList = allVocabularyData[level.toLowerCase()]?.[String(unitId)] || [];
+    const rawList = getLiveVocabForUnit(cmsSnapshot, level, unitId);
     let filtered = [...rawList];
 
     if (source === 'starred') {
@@ -47,11 +48,11 @@ export const FlashcardPdfWorkspace: React.FC = () => {
     }
 
     return count > 0 ? filtered.slice(0, count) : filtered;
-  }, [count, level, progress.starredWords, progress.wrongWords, seed, source, unitId]);
+  }, [cmsSnapshot, count, level, progress.starredWords, progress.wrongWords, seed, source, unitId]);
 
   const handleLevelChange = (nextLevel: JLPTLevel) => {
     setLevel(nextLevel);
-    setUnitId(UNIT_DATA[nextLevel]?.[0]?.id || 1);
+    setUnitId(getLiveUnitsForLevel(cmsSnapshot, nextLevel)[0]?.id || 1);
   };
 
   const handlePrint = async () => {

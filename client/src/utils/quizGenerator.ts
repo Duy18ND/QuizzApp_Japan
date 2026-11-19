@@ -1,5 +1,5 @@
-import { allVocabularyData } from '../data';
-import type { QuizConfig, QuestionType } from '../types/quiz';
+import { getCurriculumSnapshotSync, getLiveAllVocabulary, getLiveVocabForUnit } from '../services/curriculumStore';
+import type { JLPTLevel, QuizConfig, QuestionType } from '../types/quiz';
 
 const QUESTION_TYPES: QuestionType[] = [
   "vi_to_hiragana",
@@ -72,8 +72,12 @@ export function generateQuizSession(config: QuizConfig, starredWords: number[], 
       id: w.id || `C-${Date.now()}-${index}`
     }));
   } else {
-    const levelKey = level.toLowerCase();
-    unitData = allVocabularyData[levelKey]?.[unitId.toString()] || [];
+    const snap = getCurriculumSnapshotSync();
+    const targetLevel = level.toUpperCase() as JLPTLevel;
+    unitData =
+      unitId === 'all'
+        ? getLiveAllVocabulary(snap).filter((w) => w.level === targetLevel)
+        : getLiveVocabForUnit(snap, targetLevel, Number(unitId));
   }
 
   if (!unitData || unitData.length === 0) {

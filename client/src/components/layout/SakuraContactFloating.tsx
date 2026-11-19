@@ -259,10 +259,13 @@ export const SakuraContactFloating: React.FC = () => {
     // Always schedule return-home 5s after release so tossing + rest settles back cleanly around 5s
     scheduleReturnHome();
 
-    const THROW_GAIN = 1.55;
-    const MAX_THROW_SPEED = 3600;
-    const WALL_RESTITUTION = 0.9;
-    const AIR_DRAG_PER_SEC = 0.28;
+    const THROW_GAIN = 1.8;
+    const MAX_THROW_SPEED = 4200;
+    const WALL_RESTITUTION = 0.94;
+    const FLOOR_RESTITUTION = 0.89;
+    const AIR_DRAG_PER_SEC = 0.78;
+    const GROUND_DRAG_PER_SEC = 0.45;
+    const GRAVITY = 1380;
 
     const releaseNow = performance.now();
     const latest = d.samples[d.samples.length - 1];
@@ -284,77 +287,90 @@ export const SakuraContactFloating: React.FC = () => {
     const { minX, maxX, minY, maxY } = d.bounds;
     // Slingshot inward if released in rubber-band overscroll zone
     if (x < minX) {
-      vx = Math.max(vx, (minX - x) * 18);
+      vx = Math.max(vx, (minX - x) * 20);
       x = minX;
     } else if (x > maxX) {
-      vx = Math.min(vx, (maxX - x) * 18);
+      vx = Math.min(vx, (maxX - x) * 20);
       x = maxX;
     }
     if (y < minY) {
-      vy = Math.max(vy, (minY - y) * 18);
+      vy = Math.max(vy, (minY - y) * 20);
       y = minY;
     } else if (y > maxY) {
-      vy = Math.min(vy, (maxY - y) * 18);
+      vy = Math.min(vy, (maxY - y) * 20);
       y = maxY;
+    }
+
+    // Sideways flick near bottom hops into a bouncy arc instead of skimming flat
+    if (Math.abs(vx) > 200 && vy > -220 && y > maxY - 28) {
+      vy = Math.min(vy, -Math.min(620, Math.abs(vx) * 0.3));
     }
 
     let scaleX = 1;
     let scaleY = 1;
-    let spinSpeed = vx * 0.52 - vy * 0.22;
+    let spinSpeed = vx * 0.56 - vy * 0.24;
     let lastTime = performance.now();
+
+    const applyWallSquash = (hitSpeed: number, horizontalWall: boolean) => {
+      if (hitSpeed < 95) return;
+      const deform = 0.08 + 0.16 * Math.min(1, hitSpeed / 1200);
+      if (horizontalWall) {
+        scaleX = 1 - deform;
+        scaleY = 1 + deform;
+      } else {
+        scaleX = 1 + deform;
+        scaleY = 1 - deform;
+      }
+    };
 
     const bounceStep = (now: number) => {
       const dt = Math.min(0.032, Math.max(0.008, (now - lastTime) / 1000));
       lastTime = now;
 
+      vy += GRAVITY * dt;
       x += vx * dt;
       y += vy * dt;
       rot = (rot + spinSpeed * dt) % 360;
 
-      // High-energy rubber ball wall ricochets with subtle squash-and-stretch impulse
       if (x < minX) {
         x = minX;
         const hitSpeed = Math.abs(vx);
         vx = hitSpeed * WALL_RESTITUTION;
-        spinSpeed = vy * 0.45 - spinSpeed * 0.65;
-        if (hitSpeed > 180) {
-          scaleX = 0.84;
-          scaleY = 1.18;
-        }
+        spinSpeed = vy * 0.48 - spinSpeed * 0.6;
+        applyWallSquash(hitSpeed, true);
       } else if (x > maxX) {
         x = maxX;
         const hitSpeed = Math.abs(vx);
         vx = -hitSpeed * WALL_RESTITUTION;
-        spinSpeed = -vy * 0.45 - spinSpeed * 0.65;
-        if (hitSpeed > 180) {
-          scaleX = 0.84;
-          scaleY = 1.18;
-        }
+        spinSpeed = -vy * 0.48 - spinSpeed * 0.6;
+        applyWallSquash(hitSpeed, true);
       }
+
       if (y < minY) {
         y = minY;
         const hitSpeed = Math.abs(vy);
         vy = hitSpeed * WALL_RESTITUTION;
-        spinSpeed = -vx * 0.45 - spinSpeed * 0.65;
-        if (hitSpeed > 180) {
-          scaleX = 1.18;
-          scaleY = 0.84;
-        }
-      } else if (y > maxY) {
+        spinSpeed = -vx * 0.48 - spinSpeed * 0.6;
+        applyWallSquash(hitSpeed, false);
+      } else if (y >= maxY) {
         y = maxY;
         const hitSpeed = Math.abs(vy);
-        vy = -hitSpeed * WALL_RESTITUTION;
-        spinSpeed = vx * 0.45 - spinSpeed * 0.65;
-        if (hitSpeed > 180) {
-          scaleX = 1.18;
-          scaleY = 0.84;
+        if (hitSpeed > 95) {
+          vy = -hitSpeed * FLOOR_RESTITUTION;
+          spinSpeed = vx * 0.58;
+          applyWallSquash(hitSpeed, false);
+        } else {
+          vy = 0;
         }
       }
 
-      const dampingFactor = Math.pow(AIR_DRAG_PER_SEC, dt);
-      vx *= dampingFactor;
-      vy *= dampingFactor;
-      spinSpeed *= Math.pow(0.45, dt);
+      const grounded = y >= maxY - 0.5 && vy === 0;
+      const dragFactor = Math.pow(grounded ? GROUND_DRAG_PER_SEC : AIR_DRAG_PER_SEC, dt);
+      vx *= dragFactor;
+      if (!grounded) {
+        vy *= dragFactor;
+      }
+      spinSpeed = grounded ? vx * 0.55 : spinSpeed * Math.pow(0.55, dt);
 
       const squashRecovery = Math.min(1, dt * 18);
       scaleX += (1 - scaleX) * squashRecovery;
@@ -362,7 +378,12 @@ export const SakuraContactFloating: React.FC = () => {
 
       applyBallTransform(x, y, rot, scaleX, scaleY);
 
-      if (Math.hypot(vx, vy) < 24 && Math.abs(scaleX - 1) < 0.01 && Math.abs(scaleY - 1) < 0.01) {
+      if (
+        grounded &&
+        Math.abs(vx) < 20 &&
+        Math.abs(scaleX - 1) < 0.01 &&
+        Math.abs(scaleY - 1) < 0.01
+      ) {
         applyBallTransform(x, y, rot, 1, 1);
         rafRef.current = null;
         return;

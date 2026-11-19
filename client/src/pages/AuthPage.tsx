@@ -30,19 +30,23 @@ interface AuthPageProps {
 }
 
 const resolvePostAuthRoute = (role?: AccountRole, requestedFrom?: string): string => {
-  if (requestedFrom && requestedFrom.startsWith('/') && requestedFrom !== '/login' && requestedFrom !== '/register') {
-    if (requestedFrom.startsWith('/admin') && role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
-      return '/';
-    }
+  if (role === 'ADMIN' || role === 'SUPER_ADMIN') return '/admin';
+  if (
+    requestedFrom &&
+    requestedFrom.startsWith('/') &&
+    requestedFrom !== '/login' &&
+    requestedFrom !== '/register' &&
+    !requestedFrom.startsWith('/admin')
+  ) {
     return requestedFrom;
   }
-  if (role === 'ADMIN' || role === 'SUPER_ADMIN') return '/admin';
   return '/';
 };
 
 export function AuthPage({ initialMode = 'login' }: AuthPageProps) {
   const {
     user,
+    error: authError,
     isSupabaseConfigured,
     signInWithEmail,
     signUpWithEmail,
@@ -335,7 +339,7 @@ export function AuthPage({ initialMode = 'login' }: AuthPageProps) {
           />
 
           <form onSubmit={handleSubmit} className="grid gap-4" noValidate>
-            {formError && <Notice tone="danger">{formError}</Notice>}
+            {(formError || authError) && <Notice tone="danger">{formError ?? authError}</Notice>}
             {infoNotice && <Notice tone="success">{infoNotice}</Notice>}
 
             {mode === 'register' && (
@@ -432,7 +436,7 @@ export function AuthPage({ initialMode = 'login' }: AuthPageProps) {
             </span>
             <span className="inline-flex items-center gap-1">
               <ShieldCheck className="size-3.5 text-primary-fg" aria-hidden />
-              Supabase Auth + RLS
+              Mã băm PBKDF2-SHA256 + Supabase Auth &amp; RLS
             </span>
           </div>
         </Card>

@@ -12,9 +12,15 @@ create table if not exists public.profiles (
   email text not null unique,
   display_name text,
   role text not null default 'USER' check (role in ('SUPER_ADMIN', 'ADMIN', 'USER')),
+  auth_provider text not null default 'email',
+  has_client_hash boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.profiles
+  add column if not exists auth_provider text not null default 'email',
+  add column if not exists has_client_hash boolean not null default false;
 
 alter table public.profiles enable row level security;
 
@@ -62,15 +68,21 @@ as $$
   );
 $$;
 
--- Auto-provision profile on user registration (always forced to 'USER')
+-- Auto-provision & keep profile provider/hash metadata synced with auth.users
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  resolved_provider text;
+  resolved_has_hash boolean;
 begin
-  insert into public.profiles (id, email, display_name, role)
+  resolved_provider := coalesce(nullif(trim(new.raw_app_meta_data ->> 'provider'), ''), 'email');
+  resolved_has_hash := coalesce((new.raw_user_meta_data ->> 'password_hash_scheme') is not null, false);
+
+  insert into public.profiles (id, email, display_name, role, auth_provider, has_client_hash)
   values (
     new.id,
     coalesce(new.email, ''),
@@ -85,18 +97,72 @@ begin
       ),
       ''
     ),
-    'USER'
+    'USER',
+    resolved_provider,
+    resolved_has_hash
   )
   on conflict (id) do update
-    set email = excluded.email;
+    set email = excluded.email,
+        auth_provider = excluded.auth_provider,
+        has_client_hash = (public.profiles.has_client_hash or excluded.has_client_hash);
   return new;
 end;
 $$;
 
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
-  after insert on auth.users
+  after insert or update of email, raw_app_meta_data, raw_user_meta_data on auth.users
   for each row execute function public.handle_new_user();
+
+-- Backfill existing profiles with provider & client-hash metadata from auth.users
+update public.profiles p
+set
+  auth_provider = coalesce(nullif(trim(u.raw_app_meta_data ->> 'provider'), ''), 'email'),
+  has_client_hash = coalesce((u.raw_user_meta_data ->> 'password_hash_scheme') is not null, false)
+from auth.users u
+where u.id = p.id;
+
+-- Safe Admin/SuperAdmin aggregate statistics directly from auth.users
+create or replace function public.get_admin_account_summary()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public, auth
+as $$
+declare
+  v_total bigint;
+  v_google bigint;
+  v_email bigint;
+  v_hashed bigint;
+begin
+  if not public.is_admin_or_super() then
+    raise exception 'Forbidden: ADMIN or SUPER_ADMIN required';
+  end if;
+
+  select
+    count(*)::bigint,
+    count(*) filter (
+      where (u.raw_app_meta_data ->> 'provider') = 'google'
+         or coalesce(u.raw_app_meta_data -> 'providers', '[]'::jsonb) ? 'google'
+    )::bigint,
+    count(*) filter (
+      where coalesce(u.raw_app_meta_data ->> 'provider', 'email') = 'email'
+    )::bigint,
+    count(*) filter (
+      where (u.raw_user_meta_data ->> 'password_hash_scheme') is not null
+    )::bigint
+  into v_total, v_google, v_email, v_hashed
+  from auth.users u;
+
+  return jsonb_build_object(
+    'total', v_total,
+    'google', v_google,
+    'email', v_email,
+    'hashed', v_hashed
+  );
+end;
+$$;
 
 -- Anti-privilege-escalation & last-SUPER_ADMIN protection trigger
 create or replace function public.protect_profiles_rbac()

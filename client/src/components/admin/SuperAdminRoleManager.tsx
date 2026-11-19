@@ -4,7 +4,7 @@ import {
   fetchManagedUsers,
   updateManagedUserRole,
 } from '../../services/adminCmsService';
-import type { ManagedUserProfile } from '../../types/admin';
+import type { AccountProviderSummary, ManagedUserProfile } from '../../types/admin';
 import type { AccountRole, AuthUser } from '../../store/slices/authSlice';
 import {
   Badge,
@@ -30,6 +30,12 @@ interface SuperAdminRoleManagerProps {
 
 export function SuperAdminRoleManager({ actor }: SuperAdminRoleManagerProps) {
   const [users, setUsers] = useState<ManagedUserProfile[]>([]);
+  const [summary, setSummary] = useState<AccountProviderSummary>({
+    total: 0,
+    google: 0,
+    email: 0,
+    hashed: 0,
+  });
   const [source, setSource] = useState<'supabase' | 'local'>('local');
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -50,6 +56,7 @@ export function SuperAdminRoleManager({ actor }: SuperAdminRoleManagerProps) {
     fetchManagedUsers(actor).then((res) => {
       if (cancelled) return;
       setUsers(res.users);
+      setSummary(res.summary);
       setSource(res.source);
       if (!res.ok && res.error) {
         setBanner({ tone: 'danger', text: res.error });
@@ -127,6 +134,10 @@ export function SuperAdminRoleManager({ actor }: SuperAdminRoleManagerProps) {
           className="w-full sm:w-80"
         />
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
+          <Badge tone="neutral">Tổng TK: {summary.total}</Badge>
+          <Badge tone="primary">Google: {summary.google}</Badge>
+          <Badge tone="neutral">Email: {summary.email}</Badge>
+          <Badge tone="success">Mã băm: {summary.hashed}</Badge>
           <Badge tone="sakura">SUPER_ADMIN: {users.filter((u) => u.role === 'SUPER_ADMIN').length}</Badge>
           <Badge tone="primary">ADMIN: {users.filter((u) => u.role === 'ADMIN').length}</Badge>
           <Badge tone="success">USER: {users.filter((u) => u.role === 'USER').length}</Badge>
@@ -145,6 +156,7 @@ export function SuperAdminRoleManager({ actor }: SuperAdminRoleManagerProps) {
               <thead className="border-b border-line bg-surface-2 text-xs text-muted uppercase">
                 <tr>
                   <th className="px-4 py-3 font-semibold">Người dùng</th>
+                  <th className="px-4 py-3 font-semibold">Phương thức</th>
                   <th className="px-4 py-3 font-semibold">Vai trò hiện tại</th>
                   <th className="px-4 py-3 text-right font-semibold">Phân quyền</th>
                 </tr>
@@ -162,6 +174,14 @@ export function SuperAdminRoleManager({ actor }: SuperAdminRoleManagerProps) {
                           {isSelf && <Badge tone="neutral">Bạn</Badge>}
                         </div>
                         <p className="text-xs text-muted">{u.email}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <Badge tone={u.authProvider === 'google' ? 'primary' : 'neutral'}>
+                            {u.authProvider === 'google' ? 'Google' : 'Email'}
+                          </Badge>
+                          {u.hasClientHash && <Badge tone="success">PBKDF2</Badge>}
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <Badge tone={ROLE_TONE[u.role]}>{u.role}</Badge>

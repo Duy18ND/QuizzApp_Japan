@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Shuffle, Star, Volume2 } from 'lucide-react';
-import { allVocabularyData } from '../../data';
+import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
+import { getLiveVocabForUnit } from '../../services/curriculumStore';
+import type { JLPTLevel } from '../../types/quiz';
 import { useAppSettings } from '../../hooks/useAppSettings';
 import { useUserProgress } from '../../hooks/useUserProgress';
 import { speakJapanese, stopJapaneseSpeech } from '../../utils/tts';
@@ -30,14 +32,19 @@ interface FlashcardWord {
 
 export const FlashcardViewer: React.FC = () => {
   const { level, unitId } = useParams<{ level: string; unitId: string }>();
+  const cmsSnapshot = useCurriculumSnapshot();
   const levelKey = level?.toLowerCase() || 'n3';
   const unitKey = unitId || '1';
   const deckKey = `${levelKey}:${unitKey}`;
 
   const baseWords = useMemo<FlashcardWord[]>(() => {
-    const unitWords = allVocabularyData[levelKey]?.[unitKey];
-    return Array.isArray(unitWords) ? (unitWords as FlashcardWord[]) : [];
-  }, [levelKey, unitKey]);
+    const unitWords = getLiveVocabForUnit(
+      cmsSnapshot,
+      levelKey.toUpperCase() as JLPTLevel,
+      Number(unitKey) || 1,
+    );
+    return unitWords as unknown as FlashcardWord[];
+  }, [cmsSnapshot, levelKey, unitKey]);
 
   const [shuffledDeck, setShuffledDeck] = useState<{
     deckKey: string;

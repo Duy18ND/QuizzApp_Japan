@@ -3,13 +3,32 @@ import type { JLPTLevel } from './quiz';
 
 export type CmsEntityType = 'vocabulary' | 'kanji' | 'grammar' | 'jlpt';
 
+export type CmsTableName =
+  | 'units'
+  | 'vocabularies'
+  | 'kanjis'
+  | 'grammar_rules'
+  | 'jlpt_questions';
+
 export type BatchImportMode = 'insert_only' | 'upsert' | 'all_or_nothing';
 
 export type BatchRowStatus = 'valid' | 'duplicate' | 'invalid';
 
+export interface AdminUnitRecord {
+  id: string;
+  level: JLPTLevel;
+  unitNumber: number;
+  title: string;
+  description: string;
+  orderIndex: number;
+  isPublished: boolean;
+  createdAt?: string;
+}
+
 export interface AdminVocabRecord {
   id: number;
   unitId: number;
+  dbUnitId?: string;
   level: JLPTLevel;
   wordNumber: number;
   kanji: string | null;
@@ -20,6 +39,8 @@ export interface AdminVocabRecord {
   exampleSentence: string | null;
   exampleMeaning: string | null;
   notes: string | null;
+  tags?: string[];
+  semanticRoles?: string[];
 }
 
 export interface AdminKanjiExample {
@@ -43,8 +64,10 @@ export interface AdminKanjiRecord {
 
 export interface AdminGrammarExample {
   japanese: string;
-  hiragana: string;
+  hiragana?: string;
   vietnamese: string;
+  jp?: string;
+  vi?: string;
 }
 
 export interface AdminGrammarRecord {
@@ -118,10 +141,29 @@ export interface BatchExecutionSummary {
   storage: 'supabase' | 'local';
 }
 
+export interface AccountProviderSummary {
+  total: number;
+  google: number;
+  email: number;
+  hashed: number;
+}
+
 export interface ManagedUserProfile {
   id: string;
   email: string;
   displayName: string;
   role: AccountRole;
+  authProvider?: 'google' | 'email' | 'other';
+  hasClientHash?: boolean;
+  createdAt: string;
+}
+
+export interface AuditLogRecord {
+  id: string;
+  actorId: string | null;
+  action: string;
+  entityType: string;
+  entityId: string;
+  detailsJson: Record<string, unknown>;
   createdAt: string;
 }

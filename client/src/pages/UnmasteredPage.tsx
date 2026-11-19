@@ -3,14 +3,14 @@ import { Link } from 'react-router-dom';
 import { Check, Pencil, Play, Volume2 } from 'lucide-react';
 import { LoginRequiredState } from '../components/auth/LoginRequiredState';
 import { useAuth } from '../context/auth-context';
-import kanjiDataRaw from '../data/kanji/kanjiDataset.json';
+import { useCurriculumSnapshot } from '../hooks/useCurriculumData';
+import { getLiveAllVocabulary, getLiveKanjis } from '../services/curriculumStore';
 import { useAppSettings } from '../hooks/useAppSettings';
 import { useUserProgress } from '../hooks/useUserProgress';
 import { useAppSelector } from '../store/hooks';
-import type { KanjiItem } from '../types/kanji';
 import type { JLPTLevel } from '../types/quiz';
 import { speakJapanese } from '../utils/tts';
-import { getAllLoadedVocabulary, getVocabularyDisplay } from '../utils/vocabularyHelpers';
+import { getVocabularyDisplay } from '../utils/vocabularyHelpers';
 import {
   Badge,
   Button,
@@ -28,19 +28,19 @@ import {
 type FilterTab = 'all' | 'vocab' | 'kanji';
 const LEVELS: Array<'All' | JLPTLevel> = ['All', 'N5', 'N4', 'N3', 'N2', 'N1'];
 
-const allKanji = (kanjiDataRaw || []) as KanjiItem[];
-
 export const UnmasteredPage: React.FC = () => {
   const { user } = useAuth();
   const kanjiProgress = useAppSelector((state) => state.kanji.progress);
   const { progress, clearWrongWord } = useUserProgress();
   const { settings } = useAppSettings();
+  const cmsSnapshot = useCurriculumSnapshot();
 
   const [tab, setTab] = useState<FilterTab>('all');
   const [search, setSearch] = useState('');
   const [levelFilter, setLevelFilter] = useState<'All' | JLPTLevel>('All');
 
-  const allVocab = useMemo(() => getAllLoadedVocabulary(), []);
+  const allKanji = useMemo(() => getLiveKanjis(cmsSnapshot), [cmsSnapshot]);
+  const allVocab = useMemo(() => getLiveAllVocabulary(cmsSnapshot), [cmsSnapshot]);
 
   const missedVocab = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -72,7 +72,7 @@ export const UnmasteredPage: React.FC = () => {
           k.meanings.some((m) => m.toLowerCase().includes(q))
         );
       });
-  }, [kanjiProgress, levelFilter, search]);
+  }, [allKanji, kanjiProgress, levelFilter, search]);
 
   const showVocab = tab === 'all' || tab === 'vocab';
   const showKanji = tab === 'all' || tab === 'kanji';

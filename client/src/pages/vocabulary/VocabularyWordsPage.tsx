@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Star, Volume2 } from 'lucide-react';
-import { UNIT_DATA } from '../../data/unitData';
+import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
+import { getLiveUnitsForLevel, getLiveVocabForUnit } from '../../services/curriculumStore';
 import { useAppSettings } from '../../hooks/useAppSettings';
 import { useUserProgress } from '../../hooks/useUserProgress';
 import type { JLPTLevel, WordType } from '../../types/quiz';
-import { allVocabularyData } from '../../data';
 import { speakJapanese, stopJapaneseSpeech } from '../../utils/tts';
 import { getVocabularyDisplay } from '../../utils/vocabularyHelpers';
 import {
@@ -80,12 +80,13 @@ export const VocabularyWordsPage: React.FC = () => {
   const [selectedType, setSelectedType] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
+  const cmsSnapshot = useCurriculumSnapshot();
   const levelKey = (level?.toUpperCase() || 'N3') as JLPTLevel;
   const numericUnitId = Number(unitId);
-  const unitInfo = UNIT_DATA[levelKey]?.find((u) => u.id === numericUnitId);
+  const unitInfo = getLiveUnitsForLevel(cmsSnapshot, levelKey).find((u) => u.id === numericUnitId);
 
   const words = useMemo<VocabRow[]>(() => {
-    const data = allVocabularyData[levelKey.toLowerCase()]?.[numericUnitId.toString()];
+    const data = getLiveVocabForUnit(cmsSnapshot, levelKey, numericUnitId);
     if (!Array.isArray(data)) return [];
     return data.map((w) => ({
       id: Number(w.id),
@@ -95,7 +96,7 @@ export const VocabularyWordsPage: React.FC = () => {
       meaning: w.meaning || '',
       wordType: mapVietnameseWordTypeToEnglish(w.wordType),
     }));
-  }, [numericUnitId, levelKey]);
+  }, [cmsSnapshot, numericUnitId, levelKey]);
 
   const filteredWords = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();

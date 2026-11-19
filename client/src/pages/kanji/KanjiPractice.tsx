@@ -12,8 +12,8 @@ import {
 } from 'lucide-react';
 import { KanjiCanvas } from '../../components/kanji/KanjiCanvas';
 import type { KanjiCanvasRef } from '../../components/kanji/KanjiCanvas';
-import kanjiDataRaw from '../../data/kanji/kanjiDataset.json';
-import type { KanjiItem } from '../../types/kanji';
+import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
+import { getLiveKanjis } from '../../services/curriculumStore';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { markTutorialSeen, updateKanjiProgress } from '../../store/slices/kanjiSlice';
 import {
@@ -29,8 +29,6 @@ import {
   buttonStyles,
 } from '../../components/ui';
 import { cn } from '../../lib/cn';
-
-const kanjiList = (kanjiDataRaw || []) as KanjiItem[];
 
 const MODES: {
   id: 'show' | 'trace' | 'test';
@@ -51,6 +49,8 @@ const MODES: {
 export const KanjiPractice: React.FC = () => {
   const { kanjiId } = useParams();
   const dispatch = useAppDispatch();
+  const cmsSnapshot = useCurriculumSnapshot();
+  const kanjiList = React.useMemo(() => getLiveKanjis(cmsSnapshot), [cmsSnapshot]);
 
   const canvasRef = useRef<KanjiCanvasRef>(null);
 

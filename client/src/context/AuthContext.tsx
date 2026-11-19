@@ -1,6 +1,10 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 import { broadcastUserProgressReset } from '../hooks/useUserProgress';
 import { clearInMemoryAccountData } from '../services/cloudProgressWriter';
+import {
+  deriveClientPasswordHash,
+  PASSWORD_HASH_SCHEME,
+} from '../services/passwordHash';
 import { syncLocalProgressWithCloud } from '../services/progressSyncService';
 import {
   isSupabaseAccountUuid,
@@ -8,7 +12,11 @@ import {
   setActiveAuthenticatedUserId,
 } from '../services/sessionScope';
 import {
+  consumeOAuthLoginPending,
+  consumePendingImplicitOAuthTokens,
+  consumePendingOAuthCallbackError,
   isSupabaseConfigured,
+  markOAuthLoginPending,
   supabase,
   supabasePublicAnonKey,
   supabasePublicUrl,
@@ -184,6 +192,46 @@ function extractMetadataDisplayName(meta?: Record<string, unknown> | null): stri
   return typeof candidate === 'string' ? candidate.trim().slice(0, 80) : '';
 }
 
+/**
+ * Signs in with a deterministic PBKDF2-SHA256 client-side password digest first so
+ * raw passwords never traverse the wire; transparently upgrades pre-existing unhashed
+ * accounts on their first successful legacy login without locking anyone out.
+ */
+async function signInWithHashedOrLegacyPassword(
+  sbClient: NonNullable<typeof supabase>,
+  rawEmail: string,
+  rawPassword: string,
+) {
+  const normalizedEmail = rawEmail.trim();
+  const hashedPassword = await deriveClientPasswordHash(normalizedEmail, rawPassword);
+  const hashedAttempt = await sbClient.auth.signInWithPassword({
+    email: normalizedEmail,
+    password: hashedPassword,
+  });
+
+  if (!hashedAttempt.error || !hashedAttempt.error.message.toLowerCase().includes('invalid login credentials')) {
+    return hashedAttempt;
+  }
+
+  const legacyAttempt = await sbClient.auth.signInWithPassword({
+    email: normalizedEmail,
+    password: rawPassword,
+  });
+
+  if (!legacyAttempt.error && legacyAttempt.data.user) {
+    const scheme = (legacyAttempt.data.user.user_metadata as Record<string, unknown> | undefined)
+      ?.password_hash_scheme;
+    if (scheme !== PASSWORD_HASH_SCHEME) {
+      void sbClient.auth.updateUser({
+        password: hashedPassword,
+        data: { password_hash_scheme: PASSWORD_HASH_SCHEME },
+      });
+    }
+  }
+
+  return legacyAttempt;
+}
+
 async function fetchProfileForUser(
   userId: string,
   fallbackEmail: string,
@@ -227,6 +275,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     count: 0,
     lockedUntil: 0,
   });
+  const syncInFlightUserRef = useRef<string | null>(null);
+  const pendingOAuthErrRef = useRef<string | null>(null);
 
   const rehydrateScopedStores = useCallback(() => {
     dispatch(reloadKanjiFromSession());
@@ -259,6 +309,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const runCloudSync = useCallback(
     async (userId: string) => {
       if (!isSupabaseAccountUuid(userId)) return;
+      if (syncInFlightUserRef.current === userId) return;
+      syncInFlightUserRef.current = userId;
       dispatch(setSyncStatus({ status: 'syncing' }));
       try {
         const res = await syncLocalProgressWithCloud(userId, dispatch);
@@ -275,6 +327,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (err) {
         console.warn('Cloud progress sync failed:', err);
         dispatch(setSyncStatus({ status: 'error' }));
+      } finally {
+        if (syncInFlightUserRef.current === userId) {
+          syncInFlightUserRef.current = null;
+        }
       }
     },
     [dispatch],
@@ -283,15 +339,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     purgeAllLocalLearningData();
     const savedQuickUser = loadQuickTestUser();
+    const oauthCallbackError = consumePendingOAuthCallbackError();
+    const implicitTokens = consumePendingImplicitOAuthTokens();
+
     if (!supabase) {
       if (savedQuickUser) {
         applyAuthenticatedSession(savedQuickUser, 'guest');
       } else {
         applyGuestSession('guest');
       }
+      if (oauthCallbackError) {
+        dispatch(setAuthError(translateSupabaseAuthError(oauthCallbackError)));
+      }
       return;
     }
 
+    const sbClient = supabase;
     let cancelled = false;
     if (savedQuickUser) {
       applyAuthenticatedSession(savedQuickUser, 'supabase');
@@ -299,8 +362,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       dispatch(setAuthLoading({ mode: 'supabase' }));
     }
 
-    supabase.auth
-      .getSession()
+    if (oauthCallbackError) {
+      pendingOAuthErrRef.current = translateSupabaseAuthError(oauthCallbackError);
+    }
+
+    const restorePendingOAuthError = () => {
+      if (pendingOAuthErrRef.current) {
+        dispatch(setAuthError(pendingOAuthErrRef.current));
+      }
+    };
+
+    const bootstrapSession = async () => {
+      if (implicitTokens) {
+        const { error: setErr } = await sbClient.auth.setSession(implicitTokens);
+        if (setErr && !cancelled) {
+          pendingOAuthErrRef.current = translateSupabaseAuthError(setErr.message);
+          dispatch(setAuthError(pendingOAuthErrRef.current));
+        }
+      }
+      return sbClient.auth.getSession();
+    };
+
+    bootstrapSession()
       .then(async ({ data }) => {
         if (cancelled) return;
         const sessionUser = data.session?.user;
@@ -310,9 +393,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             applyAuthenticatedSession(activeQuick, 'supabase');
           } else {
             applyGuestSession('supabase');
+            restorePendingOAuthError();
           }
           return;
         }
+        pendingOAuthErrRef.current = null;
         const metaName = extractMetadataDisplayName(
           sessionUser.user_metadata as Record<string, unknown> | undefined,
         );
@@ -333,11 +418,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             applyAuthenticatedSession(activeQuick, 'supabase');
           } else {
             applyGuestSession('supabase');
+            restorePendingOAuthError();
           }
         }
       });
 
-    const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: sub } = sbClient.auth.onAuthStateChange(async (event, session) => {
       if (cancelled) return;
       if (!session?.user) {
         const activeQuick = loadQuickTestUser();
@@ -346,9 +432,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
           saveQuickTestUser(null);
           applyGuestSession('supabase');
+          if (event === 'INITIAL_SESSION') {
+            restorePendingOAuthError();
+          } else {
+            pendingOAuthErrRef.current = null;
+          }
         }
         return;
       }
+      pendingOAuthErrRef.current = null;
       const metaName = extractMetadataDisplayName(
         session.user.user_metadata as Record<string, unknown> | undefined,
       );
@@ -386,11 +478,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       saveQuickTestUser(null);
+      pendingOAuthErrRef.current = null;
       dispatch(setAuthError(null));
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      });
+      const { data, error } = await signInWithHashedOrLegacyPassword(supabase, email, password);
       if (error) {
         failedAttemptsRef.current.count += 1;
         if (failedAttemptsRef.current.count >= MAX_FAILED_ATTEMPTS) {
@@ -431,14 +521,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { ok: false, error: 'Chưa cấu hình kết nối Supabase.' };
       }
       saveQuickTestUser(null);
+      pendingOAuthErrRef.current = null;
       dispatch(setAuthError(null));
+      const cleanEmail = email.trim();
       const cleanName = displayName.trim().slice(0, 80);
+      const hashedPassword = await deriveClientPasswordHash(cleanEmail, password);
       const { data, error } = await supabase.auth.signUp({
-        email: email.trim(),
-        password,
+        email: cleanEmail,
+        password: hashedPassword,
         options: {
           data: {
             display_name: cleanName,
+            password_hash_scheme: PASSWORD_HASH_SCHEME,
           },
         },
       });
@@ -475,6 +569,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { ok: false, error: 'Chưa cấu hình kết nối Supabase.' };
     }
     saveQuickTestUser(null);
+    pendingOAuthErrRef.current = null;
     dispatch(setAuthError(null));
 
     // Pre-check Supabase external provider status so users never get dumped onto a raw 400 JSON page
@@ -501,6 +596,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       typeof window !== 'undefined' && window.location
         ? `${window.location.origin}${window.location.pathname}`
         : undefined;
+    markOAuthLoginPending();
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -512,6 +608,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       },
     });
     if (error) {
+      consumeOAuthLoginPending();
       const msg = translateSupabaseAuthError(error.message);
       dispatch(setAuthError(msg));
       return { ok: false, error: msg };
@@ -554,11 +651,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { ok: true, user: fallbackUser };
       }
 
+      pendingOAuthErrRef.current = null;
       dispatch(setAuthError(null));
-      const signInRes = await supabase.auth.signInWithPassword({
-        email: preset.email,
-        password: preset.password,
-      });
+      const signInRes = await signInWithHashedOrLegacyPassword(supabase, preset.email, preset.password);
 
       if (!signInRes.error && signInRes.data.user) {
         const profile = await fetchProfileForUser(signInRes.data.user.id, preset.email, preset.displayName);
@@ -573,12 +668,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { ok: true, user: effectiveUser };
       }
 
+      const hashedPresetPassword = await deriveClientPasswordHash(preset.email, preset.password);
       const signUpRes = await supabase.auth.signUp({
         email: preset.email,
-        password: preset.password,
+        password: hashedPresetPassword,
         options: {
           data: {
             display_name: preset.displayName,
+            password_hash_scheme: PASSWORD_HASH_SCHEME,
           },
         },
       });

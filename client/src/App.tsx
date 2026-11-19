@@ -1,9 +1,11 @@
-import { Suspense, lazy } from 'react';
-import { HashRouter, Routes, Route, Link } from 'react-router-dom';
+import { Suspense, lazy, useEffect } from 'react';
+import { HashRouter, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { AppLayout } from './components/layout/AppLayout';
 import { EmptyState, LoadingState, PageContainer, buttonStyles } from './components/ui';
 import { ToastProvider } from './components/ui/Toast';
+import { useAuth } from './context/auth-context';
+import { consumeOAuthLoginPending } from './services/supabaseClient';
 import './index.css';
 
 const HomePage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m.HomePage })));
@@ -77,10 +79,27 @@ function RouteFallback() {
   );
 }
 
+function AdminPostLoginRedirector() {
+  const { user, status } = useAuth();
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (status !== 'authenticated' || !user) return;
+    if (!consumeOAuthLoginPending()) return;
+    if ((user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') && pathname !== '/admin') {
+      navigate('/admin', { replace: true });
+    }
+  }, [user, status, pathname, navigate]);
+
+  return null;
+}
+
 function App() {
   return (
     <ToastProvider>
       <HashRouter>
+        <AdminPostLoginRedirector />
         <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route path="/" element={<AppLayout />}>

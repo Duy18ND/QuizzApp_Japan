@@ -9,7 +9,8 @@ import {
   XCircle,
 } from 'lucide-react';
 import { validateBatchImport } from '../../utils/batchImportUtils';
-import { getAllLoadedVocabulary } from '../../utils/vocabularyHelpers';
+import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
+import { getLiveAllVocabulary } from '../../services/curriculumStore';
 import { Badge, Button, Card, Field, Notice, Textarea } from '../ui';
 
 export interface ImportedData {
@@ -31,14 +32,15 @@ export const CustomDataImport: React.FC<CustomDataImportProps> = ({ onDataImport
   const [successMsg, setSuccessMsg] = useState<{ vocabCount: number; skippedInvalid: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const cmsSnapshot = useCurriculumSnapshot();
   const existingVocab = useMemo(
     () => ({
-      vocabularies: getAllLoadedVocabulary(),
+      vocabularies: getLiveAllVocabulary(cmsSnapshot),
       kanjis: [],
       grammars: [],
       jlptQuestions: [],
     }),
-    [],
+    [cmsSnapshot],
   );
 
   const report = useMemo(() => {
