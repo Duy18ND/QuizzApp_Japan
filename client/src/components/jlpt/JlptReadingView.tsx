@@ -1,6 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { BookOpenText, RotateCcw } from 'lucide-react';
+import { useAuth } from '../../context/auth-context';
 import { cn } from '../../lib/cn';
+import { clearAttemptMistakeGroup } from '../../services/attemptMistakeService';
+import { recordQuizAttempt } from '../../services/quizHistoryService';
 import { Badge, Button, Card, Chip, EmptyState, Switch } from '../ui';
 import type { JLPTModuleMeta, JLPTReadingPassage } from '../../data/jlpt/jlptDataset';
 import {
@@ -22,11 +25,13 @@ export interface JlptMistakePayload {
   practicePath: string;
   explanation?: string;
   level?: string;
+  options?: string[];
 }
 
 interface JlptReadingViewProps {
   passages: JLPTReadingPassage[];
   moduleMeta: JLPTModuleMeta;
+  retryAttemptId?: string;
   onRecordMistake: (payload: JlptMistakePayload) => void;
   controlledAnswers?: Record<string, number>;
   revealAll?: boolean;
@@ -36,17 +41,25 @@ interface JlptReadingViewProps {
 export const JlptReadingView: React.FC<JlptReadingViewProps> = ({
   passages,
   moduleMeta,
+  retryAttemptId,
   onRecordMistake,
   controlledAnswers,
   revealAll = false,
   onControlledAnswer,
 }) => {
   const isControlled = controlledAnswers !== undefined && onControlledAnswer !== undefined;
+  const { user } = useAuth();
   const [activePassageIdx, setActivePassageIdx] = useState(0);
   const [showFurigana, setShowFurigana] = useState(true);
   const [hoverTranslate, setHoverTranslate] = useState(true);
   const [showSupport, setShowSupport] = useState(false);
   const [localAnswers, setLocalAnswers] = useState<Record<string, number>>({});
+  const passageStartRef = useRef<number>(0);
+  const recordedPassagesRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    passageStartRef.current = Date.now();
+  }, [activePassageIdx]);
   const {
     openLookup,
     scheduleHoverLookup,
@@ -93,7 +106,8 @@ export const JlptReadingView: React.FC<JlptReadingViewProps> = ({
     }
 
     if (localAnswers[q.id] !== undefined) return;
-    setLocalAnswers((prev) => ({ ...prev, [q.id]: optIdx }));
+    const nextAnswers = { ...localAnswers, [q.id]: optIdx };
+    setLocalAnswers(nextAnswers);
 
     if (optIdx !== q.correctIndex) {
       onRecordMistake({
@@ -104,14 +118,64 @@ export const JlptReadingView: React.FC<JlptReadingViewProps> = ({
         errorType: moduleMeta.errorType,
         prompt: `[${passage.title}] ${q.prompt}`,
         categoryLabel: moduleMeta.categoryLabel,
-        practicePath: `/jlpt/${moduleMeta.id}`,
+        practicePath: `/jlpt/${moduleMeta.id}?level=${passage.level}`,
         explanation: q.explanation,
         level: passage.level,
+        options: [...q.options],
+      });
+    }
+
+    const allAnswered = passage.questions.every((item) => nextAnswers[item.id] !== undefined);
+    if (allAnswered && !recordedPassagesRef.current.has(passage.id)) {
+      recordedPassagesRef.current.add(passage.id);
+      const durationSeconds =
+        passageStartRef.current > 0
+          ? Math.max(1, Math.round((Date.now() - passageStartRef.current) / 1000))
+          : 0;
+      const scoreCount = passage.questions.filter(
+        (item) => nextAnswers[item.id] === item.correctIndex,
+      ).length;
+      const passageMistakes = passage.questions
+        .map((item, idx) => {
+          const picked = nextAnswers[item.id];
+          if (picked === undefined || picked === item.correctIndex) return null;
+          return {
+            id: `${moduleMeta.mistakeGrammarId}_${item.id}_${idx}`,
+            grammarId: moduleMeta.mistakeGrammarId,
+            questionId: item.id,
+            prompt: `[${passage.title}] ${item.prompt}`,
+            userAnswer: item.options[picked],
+            correctAnswer: item.options[item.correctIndex],
+            explanation: item.explanation,
+            options: [...item.options],
+            level: passage.level,
+            categoryLabel: `${moduleMeta.categoryLabel} · ${passage.title}`,
+            practicePath: `/jlpt/${moduleMeta.id}?level=${passage.level}`,
+          };
+        })
+        .filter((m): m is NonNullable<typeof m> => m !== null);
+
+      void recordQuizAttempt(
+        {
+          quizType: `jlpt-${moduleMeta.id}`,
+          level: passage.level,
+          score: scoreCount,
+          totalQuestions: Math.max(1, passage.questions.length),
+          durationSeconds,
+          mistakesJson: passageMistakes,
+        },
+        user?.id,
+      ).then(() => {
+        if (retryAttemptId) {
+          clearAttemptMistakeGroup(retryAttemptId, user?.id);
+        }
       });
     }
   };
 
   const handleResetPassage = () => {
+    recordedPassagesRef.current.delete(passage.id);
+    passageStartRef.current = Date.now();
     setLocalAnswers((prev) => {
       const next = { ...prev };
       passage.questions.forEach((q) => {

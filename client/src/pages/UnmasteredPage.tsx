@@ -1,8 +1,14 @@
 import React, { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Check, Pencil, Play, Volume2 } from 'lucide-react';
 import { LoginRequiredState } from '../components/auth/LoginRequiredState';
 import { useAuth } from '../context/auth-context';
+import {
+  buildVocabToolQuery,
+  findVocabTextbook,
+  getWordsForVocabTextbook,
+  parseVocabLevelParam,
+} from '../data/vocabTextbooks';
 import { useCurriculumSnapshot } from '../hooks/useCurriculumData';
 import { getLiveAllVocabulary, getLiveKanjis } from '../services/curriculumStore';
 import { useAppSettings } from '../hooks/useAppSettings';
@@ -18,6 +24,7 @@ import {
   Chip,
   EmptyState,
   IconButton,
+  Notice,
   PageContainer,
   PageHeader,
   SearchInput,
@@ -30,17 +37,30 @@ const LEVELS: Array<'All' | JLPTLevel> = ['All', 'N5', 'N4', 'N3', 'N2', 'N1'];
 
 export const UnmasteredPage: React.FC = () => {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const kanjiProgress = useAppSelector((state) => state.kanji.progress);
   const { progress, clearWrongWord } = useUserProgress();
   const { settings } = useAppSettings();
   const cmsSnapshot = useCurriculumSnapshot();
 
+  const levelParam = parseVocabLevelParam(searchParams.get('level'));
+  const textbook = useMemo(
+    () => findVocabTextbook(levelParam, searchParams.get('book')),
+    [levelParam, searchParams],
+  );
+  const initialLevel = textbook?.level ?? levelParam ?? 'All';
+
   const [tab, setTab] = useState<FilterTab>('all');
   const [search, setSearch] = useState('');
-  const [levelFilter, setLevelFilter] = useState<'All' | JLPTLevel>('All');
+  const [levelFilter, setLevelFilter] = useState<'All' | JLPTLevel>(initialLevel);
 
   const allKanji = useMemo(() => getLiveKanjis(cmsSnapshot), [cmsSnapshot]);
-  const allVocab = useMemo(() => getLiveAllVocabulary(cmsSnapshot), [cmsSnapshot]);
+  const allVocab = useMemo(() => {
+    if (textbook) {
+      return getWordsForVocabTextbook(cmsSnapshot, textbook.level, textbook);
+    }
+    return getLiveAllVocabulary(cmsSnapshot);
+  }, [cmsSnapshot, textbook]);
 
   const missedVocab = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -77,16 +97,54 @@ export const UnmasteredPage: React.FC = () => {
   const showVocab = tab === 'all' || tab === 'vocab';
   const showKanji = tab === 'all' || tab === 'kanji';
 
+  const scopedWrongVocabCount = useMemo(
+    () =>
+      allVocab.filter(
+        (w) => (progress.wrongWords[w.id] || 0) > 0 && (levelFilter === 'All' || w.level === levelFilter),
+      ).length,
+    [allVocab, progress.wrongWords, levelFilter],
+  );
+  const scopedTotalKanji = useMemo(
+    () => allKanji.filter((k) => levelFilter === 'All' || k.jlptLevel === levelFilter),
+    [allKanji, levelFilter],
+  );
+  const scopedUnmasteredKanjiCount = useMemo(
+    () => scopedTotalKanji.filter((k) => !kanjiProgress[k.id]?.learned).length,
+    [scopedTotalKanji, kanjiProgress],
+  );
+
+  const scopeTitle = textbook
+    ? `${textbook.title} (${textbook.level})`
+    : levelFilter !== 'All'
+      ? `JLPT ${levelFilter}`
+      : null;
+  const toolQuery =
+    levelFilter !== 'All' ? buildVocabToolQuery(levelFilter, textbook?.id) : '';
+  const pageBreadcrumbs = textbook
+    ? [
+        { label: 'Trang chủ', to: '/' },
+        { label: 'Từ vựng', to: '/vocabulary' },
+        { label: `Trình độ ${textbook.level}`, to: `/vocabulary/${textbook.level.toLowerCase()}` },
+        { label: textbook.title, to: `/vocabulary/${textbook.level.toLowerCase()}/book/${textbook.id}` },
+        { label: 'Chưa thuộc & Từ sai' },
+      ]
+    : [
+        { label: 'Trang chủ', to: '/' },
+        { label: 'Từ vựng', to: '/vocabulary' },
+        { label: 'Chưa thuộc & Từ sai' },
+      ];
+
   if (!user) {
     return (
       <PageContainer className="space-y-6">
         <PageHeader
-          breadcrumbs={[
-            { label: 'Trang chủ', to: '/' },
-            { label: 'Từ vựng', to: '/vocabulary' },
-            { label: 'Chưa thuộc & Từ sai' },
-          ]}
-          title="Từ & Kanji chưa thuộc"
+          breadcrumbs={pageBreadcrumbs}
+          title={
+            <span className="flex flex-wrap items-center gap-2.5">
+              <span>Từ &amp; Kanji chưa thuộc</span>
+              {scopeTitle && <Badge tone="primary">{scopeTitle}</Badge>}
+            </span>
+          }
           description="Theo dõi các từ vựng hay làm sai và chữ Kanji chưa hoàn thành để luyện lại nhanh."
         />
         <LoginRequiredState
@@ -100,20 +158,25 @@ export const UnmasteredPage: React.FC = () => {
   return (
     <PageContainer className="space-y-6">
       <PageHeader
-        breadcrumbs={[
-          { label: 'Trang chủ', to: '/' },
-          { label: 'Từ vựng', to: '/vocabulary' },
-          { label: 'Chưa thuộc & Từ sai' },
-        ]}
-        title="Từ & Kanji chưa thuộc"
-        description="Theo dõi các từ vựng hay làm sai và chữ Kanji chưa hoàn thành để luyện lại nhanh."
+        breadcrumbs={pageBreadcrumbs}
+        title={
+          <span className="flex flex-wrap items-center gap-2.5">
+            <span>Từ &amp; Kanji chưa thuộc</span>
+            {scopeTitle && <Badge tone="primary">{scopeTitle}</Badge>}
+          </span>
+        }
+        description={
+          scopeTitle
+            ? `Theo dõi từ vựng làm sai và Kanji chưa thuộc theo phạm vi ${scopeTitle}.`
+            : 'Theo dõi các từ vựng hay làm sai và chữ Kanji chưa hoàn thành để luyện lại nhanh.'
+        }
         actions={
           <div className="flex flex-wrap gap-2">
-            <Link to="/vocabulary/quiz" className={buttonStyles({ variant: 'secondary', size: 'sm' })}>
+            <Link to={`/vocabulary/quiz${toolQuery}`} className={buttonStyles({ variant: 'secondary', size: 'sm' })}>
               <Play className="size-4" aria-hidden />
               Làm Quiz
             </Link>
-            <Link to="/vocabulary/writing" className={buttonStyles({ variant: 'primary', size: 'sm' })}>
+            <Link to={`/vocabulary/writing${toolQuery}`} className={buttonStyles({ variant: 'primary', size: 'sm' })}>
               <Pencil className="size-4" aria-hidden />
               Luyện gõ từ
             </Link>
@@ -121,14 +184,35 @@ export const UnmasteredPage: React.FC = () => {
         }
       />
 
+      {textbook && (
+        <Notice tone="info" className="flex flex-wrap items-center justify-between gap-2">
+          <span>
+            Đang lọc theo giáo trình: <strong>{textbook.title} ({textbook.level})</strong>
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              const next = new URLSearchParams(searchParams);
+              next.delete('level');
+              next.delete('book');
+              setSearchParams(next, { replace: true });
+              setLevelFilter('All');
+            }}
+          >
+            Xem tất cả giáo trình
+          </Button>
+        </Notice>
+      )}
+
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Card padding="md">
-          <Stat label="Từ vựng làm sai cần ôn" value={Object.keys(progress.wrongWords).length} />
+          <Stat label="Từ vựng làm sai cần ôn" value={scopedWrongVocabCount} />
         </Card>
         <Card padding="md">
           <Stat
             label="Kanji chưa thuộc"
-            value={`${allKanji.filter((k) => !kanjiProgress[k.id]?.learned).length} / ${allKanji.length}`}
+            value={`${scopedUnmasteredKanjiCount} / ${scopedTotalKanji.length}`}
           />
         </Card>
       </div>

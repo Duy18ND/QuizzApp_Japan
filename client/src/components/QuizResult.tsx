@@ -1,6 +1,7 @@
 import React from 'react';
-import { CheckCircle2, Play, RefreshCw, XCircle } from 'lucide-react';
-import { Button, Card, PageContainer, ProgressBar } from './ui';
+import { Link } from 'react-router-dom';
+import { BookOpen, CheckCircle2, Play, RefreshCw, XCircle } from 'lucide-react';
+import { Button, Card, Notice, PageContainer, ProgressBar, buttonStyles } from './ui';
 
 interface QuizResultProps {
   score: { correct: number; wrong: number };
@@ -53,7 +54,13 @@ export const QuizResult: React.FC<QuizResultProps> = ({ score, total, onRetry, o
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+        {score.wrong > 0 && (
+          <Notice tone="info" title="Câu sai đã được tự động lưu lại">
+            {score.wrong} câu làm sai đã được lưu vào mục <strong>Ôn tập lỗi sai</strong> để bạn xem và làm lại bất cứ lúc nào.
+          </Notice>
+        )}
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
           <Button
             variant="secondary"
             size="lg"
@@ -63,6 +70,15 @@ export const QuizResult: React.FC<QuizResultProps> = ({ score, total, onRetry, o
           >
             Làm lại
           </Button>
+          {score.wrong > 0 && (
+            <Link
+              to="/grammar/mistakes"
+              className={buttonStyles({ variant: 'soft', size: 'lg', className: 'sm:min-w-40' })}
+            >
+              <BookOpen className="size-4" aria-hidden />
+              Ôn câu sai ({score.wrong})
+            </Link>
+          )}
           <Button
             variant="primary"
             size="lg"

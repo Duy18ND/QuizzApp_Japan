@@ -3,6 +3,8 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { ArrowLeft, ArrowRight, CheckCircle2, FileText, RefreshCw, XCircle } from 'lucide-react';
 import { useAuth } from '../../context/auth-context';
+import { clearAttemptMistakeGroup } from '../../services/attemptMistakeService';
+import { saveLastPracticeTarget } from '../../services/lastPracticeService';
 import { recordQuizAttempt } from '../../services/quizHistoryService';
 import type { RootState } from '../../store';
 import {
@@ -74,7 +76,7 @@ export const GrammarPractice: React.FC = () => {
   const dispatch = useDispatch();
   const { user } = useAuth();
   const sessionStartRef = useRef<number>(0);
-  const sessionMistakesRef = useRef<Array<Record<string, string>>>([]);
+  const sessionMistakesRef = useRef<Array<Record<string, unknown>>>([]);
 
   const practice = useSelector((state: RootState) => state.practice);
   const cmsSnapshot = useCurriculumSnapshot();
@@ -158,9 +160,22 @@ export const GrammarPractice: React.FC = () => {
 
       sessionStartRef.current = Date.now();
       sessionMistakesRef.current = [];
+      const practiceRoute = `/grammar/${bookId}/${chapterId}/practice${grammarId ? `/${grammarId}` : ''}?mode=${mode}&count=${questionCount}`;
+      const labelTitle = grammarId
+        ? rulesToPractice[0]?.name || grammarId
+        : `Luyện Ngữ pháp · ${rulesToPractice[0]?.level || 'N3'}`;
+      saveLastPracticeTarget(
+        {
+          path: practiceRoute,
+          label: labelTitle,
+          level: rulesToPractice[0]?.level,
+          quizType: 'grammar',
+        },
+        user?.id,
+      );
       dispatch(startPractice({ mode, questions: shuffled }));
     }
-  }, [rulesToPractice, mode, questionCount, currentSeed, practice.isActive, practice.isFinished, dispatch, grammarId]);
+  }, [rulesToPractice, mode, questionCount, currentSeed, practice.isActive, practice.isFinished, dispatch, grammarId, bookId, chapterId, user?.id]);
 
   const handleSubmit = (answer: string, isCorrect: boolean, feedbackMsg?: string) => {
     const currentQ = practice.questions[practice.currentQuestionIndex];
@@ -174,24 +189,45 @@ export const GrammarPractice: React.FC = () => {
     dispatch(submitAnswer({ questionId: currentQ.id, answer, isCorrect }));
 
     if (!isCorrect) {
+      const matchedRule = rulesToPractice.find((r) => r.id === currentQ.grammarId) ?? rulesToPractice[0];
+      const practicePath = `/grammar/${bookId}/${chapterId}/practice/${currentQ.grammarId}?mode=${mode}`;
+      const mcqOptions =
+        'answers' in currentQ && Array.isArray(currentQ.answers) && currentQ.answers.length >= 2
+          ? currentQ.answers
+          : undefined;
+      const correctText = Array.isArray(currentQ.correctAnswer)
+        ? currentQ.correctAnswer[0]
+        : currentQ.correctAnswer;
+      const mistakeId = `grammar_${currentQ.grammarId}_${Date.now()}_${sessionMistakesRef.current.length}`;
+      const categoryLabel = matchedRule ? `Ngữ pháp · ${matchedRule.name}` : 'Luyện Ngữ pháp';
       sessionMistakesRef.current.push({
+        id: mistakeId,
         grammarId: currentQ.grammarId,
-        questionId: currentQ.id,
+        questionId: currentQ.id.replace(/-\d{10,}$/, ''),
+        prompt: currentQ.question || currentQ.instruction || matchedRule?.name || currentQ.grammarId,
         userAnswer: answer,
+        correctAnswer: correctText,
+        explanation: currentQ.explanation,
+        options: mcqOptions,
+        level: matchedRule?.level,
+        categoryLabel,
+        practicePath,
       });
       dispatch(
         addMistake({
-          id: Date.now().toString(),
+          id: mistakeId,
           grammarId: currentQ.grammarId,
           questionId: currentQ.id.replace(/-\d{10,}$/, ''),
           userAnswer: answer,
-          correctAnswer: Array.isArray(currentQ.correctAnswer)
-            ? currentQ.correctAnswer[0]
-            : currentQ.correctAnswer,
+          correctAnswer: correctText,
           errorType: 'wrong_grammar',
           createdAt: new Date().toISOString(),
           prompt: currentQ.question || currentQ.instruction,
+          categoryLabel,
+          practicePath,
           explanation: currentQ.explanation,
+          level: matchedRule?.level,
+          options: mcqOptions,
         }),
       );
     }
@@ -211,6 +247,7 @@ export const GrammarPractice: React.FC = () => {
       if (grammarId) {
         dispatch(updateProgress({ grammarId, type: mode, score: progress }));
       }
+      const retryAttemptId = searchParams.get('retryAttemptId')?.trim() || undefined;
       void recordQuizAttempt(
         {
           quizType: 'grammar',
@@ -221,7 +258,11 @@ export const GrammarPractice: React.FC = () => {
           mistakesJson: sessionMistakesRef.current,
         },
         user?.id,
-      );
+      ).then(() => {
+        if (retryAttemptId) {
+          clearAttemptMistakeGroup(retryAttemptId, user?.id);
+        }
+      });
       dispatch(nextQuestion());
     } else {
       dispatch(nextQuestion());
@@ -235,6 +276,7 @@ export const GrammarPractice: React.FC = () => {
     mode,
     rulesToPractice,
     user?.id,
+    searchParams,
     dispatch,
   ]);
 

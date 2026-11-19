@@ -18,6 +18,9 @@ const AdminDashboardPage = lazy(() =>
 const VocabularyLevelsPage = lazy(() =>
   import('./pages/vocabulary/VocabularyLevelsPage').then((m) => ({ default: m.VocabularyLevelsPage })),
 );
+const VocabularyTextbooksPage = lazy(() =>
+  import('./pages/vocabulary/VocabularyTextbooksPage').then((m) => ({ default: m.VocabularyTextbooksPage })),
+);
 const VocabularyUnitsPage = lazy(() =>
   import('./pages/vocabulary/VocabularyUnitsPage').then((m) => ({ default: m.VocabularyUnitsPage })),
 );
@@ -109,7 +112,9 @@ function App() {
           
             <Route path="vocabulary">
               <Route index element={<VocabularyLevelsPage />} />
-              <Route path=":level" element={<VocabularyUnitsPage />} />
+              <Route path=":level" element={<VocabularyTextbooksPage />} />
+              <Route path=":level/book/:bookId" element={<VocabularyUnitsPage />} />
+              <Route path=":level/book/:bookId/:unitId" element={<VocabularyWordsPage />} />
               <Route path=":level/:unitId" element={<VocabularyWordsPage />} />
 
               <Route path="quiz" element={<QuizPage />} />
@@ -143,6 +148,7 @@ function App() {
             <Route path="login" element={<AuthPage initialMode="login" />} />
             <Route path="register" element={<AuthPage initialMode="register" />} />
             <Route path="profile" element={<ProfilePage />} />
+            <Route path="history" element={<ProfilePage />} />
             <Route
               path="admin"
               element={

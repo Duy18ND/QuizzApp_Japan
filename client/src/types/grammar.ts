@@ -210,6 +210,8 @@ export interface GrammarMistake {
   practicePath?: string;
   explanation?: string;
   level?: string;
+  options?: string[];
+  wordId?: number;
 }
 
 export interface GrammarProgress {

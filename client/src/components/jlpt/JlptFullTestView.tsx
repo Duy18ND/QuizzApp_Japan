@@ -23,6 +23,7 @@ import {
   getLiveJlptStarQuestions,
 } from '../../services/curriculumStore';
 import { useAuth } from '../../context/auth-context';
+import { clearAttemptMistakeGroup } from '../../services/attemptMistakeService';
 import { recordQuizAttempt } from '../../services/quizHistoryService';
 import { shuffleArray } from '../../utils/shuffle';
 import { StarQuestionComp } from '../practice/StarQuestionComp';
@@ -34,6 +35,7 @@ type ExamSectionId = 's1' | 's2' | 's3' | 's4';
 
 interface JlptFullTestViewProps {
   levelFilter: JLPTLevelFilter;
+  retryAttemptId?: string;
   onRecordMistake: (payload: JlptMistakePayload) => void;
 }
 
@@ -47,6 +49,7 @@ function formatTimer(seconds: number): string {
 
 export const JlptFullTestView: React.FC<JlptFullTestViewProps> = ({
   levelFilter,
+  retryAttemptId,
   onRecordMistake,
 }) => {
   const [attemptKey, setAttemptKey] = useState(0);
@@ -56,6 +59,7 @@ export const JlptFullTestView: React.FC<JlptFullTestViewProps> = ({
       key={`${levelFilter}-${attemptKey}`}
       levelFilter={levelFilter}
       attemptKey={attemptKey}
+      retryAttemptId={retryAttemptId}
       onNewAttempt={() => setAttemptKey((k) => k + 1)}
       onRecordMistake={onRecordMistake}
     />
@@ -65,6 +69,7 @@ export const JlptFullTestView: React.FC<JlptFullTestViewProps> = ({
 interface JlptFullTestSessionProps {
   levelFilter: JLPTLevelFilter;
   attemptKey: number;
+  retryAttemptId?: string;
   onNewAttempt: () => void;
   onRecordMistake: (payload: JlptMistakePayload) => void;
 }
@@ -72,6 +77,7 @@ interface JlptFullTestSessionProps {
 const JlptFullTestSession: React.FC<JlptFullTestSessionProps> = ({
   levelFilter,
   attemptKey,
+  retryAttemptId,
   onNewAttempt,
   onRecordMistake,
 }) => {
@@ -138,10 +144,26 @@ const JlptFullTestSession: React.FC<JlptFullTestSessionProps> = ({
     setTimerPaused(true);
 
     const meta = JLPT_MODULES['full-test'];
+    const sessionMistakeSummary: Array<Record<string, unknown>> = [];
+    const fullTestPath = `/jlpt/full-test${levelFilter !== 'ALL' ? `?level=${levelFilter}` : ''}`;
 
-    [...examSet.s1, ...examSet.grammarMcqs].forEach((q) => {
+    [...examSet.s1, ...examSet.grammarMcqs].forEach((q, idx) => {
       const chosen = mcqAnswers[q.id];
       if (chosen !== undefined && chosen !== q.correctIndex) {
+        const entry = {
+          id: `${meta.mistakeGrammarId}_${q.id}_${idx}`,
+          grammarId: meta.mistakeGrammarId,
+          questionId: q.id,
+          prompt: q.prompt,
+          userAnswer: q.options[chosen],
+          correctAnswer: q.options[q.correctIndex],
+          explanation: q.explanation,
+          options: [...q.options],
+          level: q.level,
+          categoryLabel: meta.categoryLabel,
+          practicePath: fullTestPath,
+        };
+        sessionMistakeSummary.push(entry);
         onRecordMistake({
           grammarId: meta.mistakeGrammarId,
           questionId: q.id,
@@ -150,16 +172,30 @@ const JlptFullTestSession: React.FC<JlptFullTestSessionProps> = ({
           errorType: meta.errorType,
           prompt: q.prompt,
           categoryLabel: meta.categoryLabel,
-          practicePath: '/jlpt/full-test',
+          practicePath: fullTestPath,
           explanation: q.explanation,
           level: q.level,
+          options: [...q.options],
         });
       }
     });
 
-    examSet.starItems.forEach((item) => {
+    examSet.starItems.forEach((item, idx) => {
       const chosen = starAnswers[item.id];
       if (chosen && !chosen.isCorrect) {
+        const entry = {
+          id: `${meta.mistakeGrammarId}_star_${item.id}_${idx}`,
+          grammarId: meta.mistakeGrammarId,
+          questionId: item.id,
+          prompt: item.fullSentence,
+          userAnswer: chosen.answer || '(chưa hoàn thành)',
+          correctAnswer: item.correctAnswer,
+          explanation: item.explanation,
+          level: item.level,
+          categoryLabel: meta.categoryLabel,
+          practicePath: fullTestPath,
+        };
+        sessionMistakeSummary.push(entry);
         onRecordMistake({
           grammarId: meta.mistakeGrammarId,
           questionId: item.id,
@@ -168,16 +204,30 @@ const JlptFullTestSession: React.FC<JlptFullTestSessionProps> = ({
           errorType: 'wrong_word_order',
           prompt: item.fullSentence,
           categoryLabel: meta.categoryLabel,
-          practicePath: '/jlpt/full-test',
+          practicePath: fullTestPath,
           explanation: item.explanation,
           level: item.level,
         });
       }
     });
 
-    readingQuestions.forEach(({ passage, question }) => {
+    readingQuestions.forEach(({ passage, question }, idx) => {
       const chosen = mcqAnswers[question.id];
       if (chosen !== undefined && chosen !== question.correctIndex) {
+        const entry = {
+          id: `${meta.mistakeGrammarId}_read_${question.id}_${idx}`,
+          grammarId: meta.mistakeGrammarId,
+          questionId: question.id,
+          prompt: `[${passage.title}] ${question.prompt}`,
+          userAnswer: question.options[chosen],
+          correctAnswer: question.options[question.correctIndex],
+          explanation: question.explanation,
+          options: [...question.options],
+          level: passage.level,
+          categoryLabel: meta.categoryLabel,
+          practicePath: fullTestPath,
+        };
+        sessionMistakeSummary.push(entry);
         onRecordMistake({
           grammarId: meta.mistakeGrammarId,
           questionId: question.id,
@@ -186,16 +236,31 @@ const JlptFullTestSession: React.FC<JlptFullTestSessionProps> = ({
           errorType: meta.errorType,
           prompt: `[${passage.title}] ${question.prompt}`,
           categoryLabel: meta.categoryLabel,
-          practicePath: '/jlpt/full-test',
+          practicePath: fullTestPath,
           explanation: question.explanation,
           level: passage.level,
+          options: [...question.options],
         });
       }
     });
 
-    examSet.listeningItems.forEach((item) => {
+    examSet.listeningItems.forEach((item, idx) => {
       const chosen = mcqAnswers[item.id];
       if (chosen !== undefined && chosen !== item.correctIndex) {
+        const entry = {
+          id: `${meta.mistakeGrammarId}_lis_${item.id}_${idx}`,
+          grammarId: meta.mistakeGrammarId,
+          questionId: item.id,
+          prompt: `${item.situation} — ${item.questionPrompt}`,
+          userAnswer: item.options[chosen],
+          correctAnswer: item.options[item.correctIndex],
+          explanation: item.explanation,
+          options: [...item.options],
+          level: item.level,
+          categoryLabel: meta.categoryLabel,
+          practicePath: fullTestPath,
+        };
+        sessionMistakeSummary.push(entry);
         onRecordMistake({
           grammarId: meta.mistakeGrammarId,
           questionId: item.id,
@@ -204,9 +269,10 @@ const JlptFullTestSession: React.FC<JlptFullTestSessionProps> = ({
           errorType: meta.errorType,
           prompt: `${item.situation} — ${item.questionPrompt}`,
           categoryLabel: meta.categoryLabel,
-          practicePath: '/jlpt/full-test',
+          practicePath: fullTestPath,
           explanation: item.explanation,
           level: item.level,
+          options: [...item.options],
         });
       }
     });
@@ -225,16 +291,21 @@ const JlptFullTestSession: React.FC<JlptFullTestSessionProps> = ({
         score: totalCorrect,
         totalQuestions: Math.max(1, totalQuestions),
         durationSeconds: Math.max(1, DEFAULT_DURATION_SECONDS - secondsLeft),
-        mistakesJson: [],
+        mistakesJson: sessionMistakeSummary,
       },
       user?.id,
-    );
+    ).then(() => {
+      if (retryAttemptId) {
+        clearAttemptMistakeGroup(retryAttemptId, user?.id);
+      }
+    });
   }, [
     examSet,
     levelFilter,
     mcqAnswers,
     onRecordMistake,
     readingQuestions,
+    retryAttemptId,
     secondsLeft,
     starAnswers,
     submitted,
