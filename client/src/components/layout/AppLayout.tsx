@@ -3,7 +3,6 @@ import { Outlet, Link, useLocation } from 'react-router-dom';
 import { LogIn, LogOut, Settings, ShieldCheck, UserRound } from 'lucide-react';
 import { useAuth } from '../../context/auth-context';
 import {
-  startStudyReminderLoop,
   startWebOnlineTimeTracker,
 } from '../../services/notificationService';
 import { JapaneseLookupProvider } from '../common/JapaneseLookupPopover';
@@ -33,10 +32,8 @@ export const AppLayout: React.FC = () => {
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
 
   useEffect(() => {
-    const stopReminders = startStudyReminderLoop();
     const stopOnlineTracker = startWebOnlineTimeTracker(() => userIdRef.current);
     return () => {
-      stopReminders();
       stopOnlineTracker();
     };
   }, []);
