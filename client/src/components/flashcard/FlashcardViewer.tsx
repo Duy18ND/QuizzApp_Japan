@@ -167,7 +167,7 @@ export const FlashcardViewer: React.FC = () => {
         />
         <EmptyState
           title="Chưa có dữ liệu flashcard"
-          description="Unit này chưa có dữ liệu từ vựng offline."
+          description="Unit này hiện chưa có dữ liệu từ vựng."
           action={
             <Link to={`/flashcard/${level || 'n3'}`} className={buttonStyles({ variant: 'secondary' })}>
               Chọn bài khác

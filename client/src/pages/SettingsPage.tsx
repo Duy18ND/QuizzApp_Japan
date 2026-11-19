@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import {
   CheckCircle2,
   Download,
+  GraduationCap,
   Moon,
   RotateCcw,
   Sun,
@@ -21,17 +22,22 @@ import { hydrateKanjiState, resetAllKanjiProgress } from '../store/slices/kanjiS
 import { clearMistakes, hydrateMistakes } from '../store/slices/mistakeSlice';
 import type { UserProgress } from '../types/quiz';
 import { isSpeechSupported, speakJapanese } from '../utils/tts';
-import { SupabaseStatusBadge } from '../components/common/SupabaseStatusBadge';
 import { LoginRequiredState } from '../components/auth/LoginRequiredState';
 import { StudyScheduleCard } from '../components/settings/StudyScheduleCard';
 import { useAuth } from '../context/auth-context';
 import { commitUserProgress, loadUserProgress } from '../hooks/useUserProgress';
+import { cn } from '../lib/cn';
 import { loadStudySchedule } from '../services/notificationService';
 import {
   clearAllCloudAccountData,
   pushRestoredProgressToCloud,
 } from '../services/progressSyncService';
 import {
+  STUDY_LEVEL_OPTIONS,
+  type StudyLevel,
+} from '../services/userLevelService';
+import {
+  Badge,
   Button,
   Card,
   Chip,
@@ -67,7 +73,7 @@ function hasSavedBackupAccess(userId?: string | null): boolean {
 }
 
 export const SettingsPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, studyLevel, updateStudyLevel } = useAuth();
   const dispatch = useAppDispatch();
   const kanjiState = useAppSelector((state) => state.kanji);
   const grammarRecords = useAppSelector((state) => state.grammarProgress.records);
@@ -78,11 +84,22 @@ export const SettingsPage: React.FC = () => {
   const { toast } = useToast();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [savingLevel, setSavingLevel] = useState<StudyLevel | null>(null);
   const [importStatus, setImportStatus] = useState<{
     tone: 'success' | 'danger';
     message: string;
   } | null>(null);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+
+  const handleSelectStudyLevel = async (level: StudyLevel) => {
+    setSavingLevel(level);
+    await updateStudyLevel(level);
+    setSavingLevel(null);
+    toast({
+      title: `Đã chọn trình độ học JLPT ${level}`,
+      tone: 'success',
+    });
+  };
 
   const handleExportBackup = () => {
     if (!hasSavedBackupAccess(user?.id)) return;
@@ -192,14 +209,103 @@ export const SettingsPage: React.FC = () => {
       <PageHeader
         breadcrumbs={[{ label: 'Trang chủ', to: '/' }, { label: 'Cài đặt' }]}
         title="Cài đặt & Quản lý dữ liệu"
-        description="Tùy chỉnh lịch nhắc học trên điện thoại, giao diện, giọng đọc tiếng Nhật và sao lưu tiến độ cá nhân."
-        actions={<SupabaseStatusBadge />}
+        description="Tùy chỉnh trình độ tiếng Nhật, lịch nhắc học qua Google Calendar, giao diện, giọng đọc và sao lưu tiến độ cá nhân."
       />
 
-      {/* 0. Mobile Study Notification & Fixed Schedule Manager */}
+      {/* 0. JLPT Study Level Selector (Logged-in users only) */}
+      <Card padding="lg" className="space-y-4">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="flex items-start gap-3">
+            <span
+              aria-hidden
+              className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary-fg"
+            >
+              <GraduationCap className="size-5" />
+            </span>
+            <div>
+              <h2 className="text-base font-semibold text-fg">Trình độ tiếng Nhật (JLPT)</h2>
+              <p className="text-sm text-muted">
+                Chọn 1 trong 5 trình độ JLPT (N5 – N1) để hiển thị đúng lộ trình học tập ở Trang chủ.
+              </p>
+            </div>
+          </div>
+          {user &&
+            (studyLevel ? (
+              <Badge tone="primary">Đang chọn: JLPT {studyLevel}</Badge>
+            ) : (
+              <Badge tone="warning">Chưa chọn trình độ</Badge>
+            ))}
+        </div>
+
+        {!user ? (
+          <LoginRequiredState
+            compact
+            title="Đăng nhập để chọn trình độ & mở lộ trình học"
+            description="Chỉ tài khoản đã đăng nhập mới có thể chọn trình độ (N5 – N1) và sử dụng lộ trình học cá nhân."
+          />
+        ) : (
+          <>
+            {!studyLevel && (
+              <Notice tone="info">
+                Bạn chưa chọn trình độ học. Hãy chọn một cấp độ bên dưới để mở lộ trình học tập dành riêng cho bạn.
+              </Notice>
+            )}
+
+            <div
+              role="radiogroup"
+              aria-label="Chọn trình độ tiếng Nhật"
+              className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-5"
+            >
+              {STUDY_LEVEL_OPTIONS.map((opt) => {
+                const isSelected = studyLevel === opt.level;
+                return (
+                  <button
+                    key={opt.level}
+                    type="button"
+                    role="radio"
+                    aria-checked={isSelected}
+                    disabled={savingLevel !== null}
+                    onClick={() => void handleSelectStudyLevel(opt.level)}
+                    className={cn(
+                      'flex cursor-pointer flex-col gap-2 rounded-xl border p-3.5 text-left transition-colors duration-150',
+                      isSelected
+                        ? 'border-primary bg-primary-soft/65'
+                        : 'border-line bg-surface-2/60 hover:border-primary/60 hover:bg-surface-2',
+                    )}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span
+                        className={cn(
+                          'inline-flex h-8 min-w-10 items-center justify-center rounded-lg px-2 text-sm font-bold',
+                          isSelected
+                            ? 'bg-primary text-on-primary'
+                            : 'bg-primary-soft text-primary-fg',
+                        )}
+                      >
+                        {opt.level}
+                      </span>
+                      {isSelected && (
+                        <CheckCircle2 className="size-4 text-primary-fg shrink-0" aria-hidden />
+                      )}
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-fg">{opt.title}</div>
+                      <div lang="ja" className="text-xs text-muted">
+                        {opt.japaneseLabel}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </Card>
+
+      {/* 1. Study Schedule & Google Calendar */}
       <StudyScheduleCard />
 
-      {/* 1. Theme */}
+      {/* 2. Theme */}
       <Card padding="lg" className="space-y-4">
         <div>
           <h2 className="text-base font-semibold text-fg">Giao diện hiển thị</h2>
@@ -217,7 +323,7 @@ export const SettingsPage: React.FC = () => {
         </div>
       </Card>
 
-      {/* 2. TTS Voice Settings */}
+      {/* 3. TTS Voice Settings */}
       <Card padding="lg" className="space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
@@ -237,7 +343,7 @@ export const SettingsPage: React.FC = () => {
 
         {!speechAvailable && (
           <Notice tone="warning">
-            Trình duyệt hiện tại không hỗ trợ Web Speech API cho phát âm tiếng Nhật.
+            Trình duyệt hiện tại không hỗ trợ phát âm tiếng Nhật tự động.
           </Notice>
         )}
 
@@ -264,10 +370,10 @@ export const SettingsPage: React.FC = () => {
         </div>
       </Card>
 
-      {/* 3. Backup Export / Restore */}
+      {/* 4. Backup Export / Restore */}
       <Card padding="lg" className="space-y-4">
         <div>
-          <h2 className="text-base font-semibold text-fg">Sao lưu & Khôi phục tiến độ (.json)</h2>
+          <h2 className="text-base font-semibold text-fg">Sao lưu &amp; Khôi phục tiến độ (.json)</h2>
           <p className="text-sm text-muted">
             Tải về toàn bộ tiến độ Kanji, Ngữ pháp, Từ đánh dấu sao và Lỗi sai theo tài khoản đã đăng nhập.
           </p>
@@ -317,7 +423,7 @@ export const SettingsPage: React.FC = () => {
         )}
       </Card>
 
-      {/* 4. Reset Progress Danger Zone */}
+      {/* 5. Reset Progress Danger Zone */}
       <Card padding="lg" className="border-danger-line space-y-4">
         <div>
           <h2 className="text-base font-semibold text-danger-fg">Đặt lại tiến độ học tập</h2>
@@ -362,7 +468,7 @@ export const SettingsPage: React.FC = () => {
         }
       >
         <Notice tone="danger">
-          Toàn bộ dữ liệu Kanji, Ngữ pháp, Từ vựng ★/sai và lịch sử lỗi sai trên trình duyệt này sẽ bị xóa về 0.
+          Toàn bộ dữ liệu Kanji, Ngữ pháp, Từ vựng ★/sai và lịch sử lỗi sai của tài khoản này sẽ bị xóa về 0.
         </Notice>
       </Modal>
     </PageContainer>

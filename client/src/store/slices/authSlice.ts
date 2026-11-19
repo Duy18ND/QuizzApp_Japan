@@ -1,5 +1,6 @@
 import { createSlice } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
+import type { StudyLevel } from '../../services/userLevelService';
 
 export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'USER' | 'GUEST';
 export type AccountRole = Exclude<UserRole, 'GUEST'>;
@@ -9,6 +10,7 @@ export interface AuthUser {
   email: string;
   displayName: string;
   role: AccountRole;
+  studyLevel?: StudyLevel | null;
 }
 
 export interface AuthState {
@@ -21,7 +23,7 @@ export interface AuthState {
 }
 
 const initialState: AuthState = {
-  status: 'guest',
+  status: 'loading',
   mode: 'guest',
   user: null,
   syncStatus: 'idle',
@@ -57,6 +59,11 @@ const authSlice = createSlice({
     setAuthError(state, action: PayloadAction<string | null>) {
       state.error = action.payload;
     },
+    setAuthUserStudyLevel(state, action: PayloadAction<StudyLevel | null>) {
+      if (state.user) {
+        state.user.studyLevel = action.payload;
+      }
+    },
     setSyncStatus(
       state,
       action: PayloadAction<{
@@ -77,6 +84,7 @@ export const {
   setAuthUser,
   setGuestSession,
   setAuthError,
+  setAuthUserStudyLevel,
   setSyncStatus,
 } = authSlice.actions;
 

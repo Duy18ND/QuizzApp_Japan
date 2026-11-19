@@ -48,17 +48,7 @@ export const CMS_STORAGE_KEY = 'nihonmaster_admin_cms_v1';
 export const CMS_SYNC_EVENT = 'nihonmaster:cms-sync';
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
-const canWriteCloud = (actor: AuthUser | null): boolean =>
-  Boolean(supabase && actor && !actor.id.startsWith('quick-test-'));
-
-const isQuickTestSession = (): boolean => {
-  if (typeof window === 'undefined') return false;
-  try {
-    return Boolean(window.sessionStorage?.getItem('nihongo_quick_test_user_v1'));
-  } catch {
-    return false;
-  }
-};
+const canWriteCloud = (actor: AuthUser | null): boolean => Boolean(supabase && actor);
 
 export interface CmsSnapshot extends ExistingCmsLookup {
   units: AdminUnitRecord[];
@@ -77,39 +67,7 @@ interface LocalCmsOverlay {
   grammarDeletedIds: string[];
   jlptOverrides: Record<string, AdminJlptRecord>;
   jlptDeletedIds: string[];
-  demoUsers: ManagedUserProfile[];
 }
-
-const DEFAULT_DEMO_USERS: ManagedUserProfile[] = [
-  {
-    id: 'demo-super-admin',
-    email: 'superadmin@nihongo.local',
-    displayName: 'Trưởng nhóm nội dung',
-    role: 'SUPER_ADMIN',
-    createdAt: '2026-01-01T00:00:00.000Z',
-  },
-  {
-    id: 'demo-admin-01',
-    email: 'editor@nihongo.local',
-    displayName: 'Biên tập viên N3',
-    role: 'ADMIN',
-    createdAt: '2026-01-05T08:30:00.000Z',
-  },
-  {
-    id: 'demo-user-01',
-    email: 'hocvien01@nihongo.local',
-    displayName: 'Minh Anh',
-    role: 'USER',
-    createdAt: '2026-01-10T14:15:00.000Z',
-  },
-  {
-    id: 'demo-user-02',
-    email: 'hocvien02@nihongo.local',
-    displayName: 'Hoàng Nam',
-    role: 'USER',
-    createdAt: '2026-01-12T09:45:00.000Z',
-  },
-];
 
 const emptyOverlay = (): LocalCmsOverlay => ({
   unitOverrides: {},
@@ -122,7 +80,6 @@ const emptyOverlay = (): LocalCmsOverlay => ({
   grammarDeletedIds: [],
   jlptOverrides: {},
   jlptDeletedIds: [],
-  demoUsers: [...DEFAULT_DEMO_USERS],
 });
 
 const sanitizeRecordMap = <T,>(raw: unknown): Record<string, T> => {
@@ -164,11 +121,6 @@ function loadLocalOverlay(): LocalCmsOverlay {
       jlptDeletedIds: Array.isArray(obj.jlptDeletedIds)
         ? obj.jlptDeletedIds.filter((s): s is string => typeof s === 'string')
         : [],
-      demoUsers: Array.isArray(obj.demoUsers)
-        ? (obj.demoUsers as ManagedUserProfile[]).filter(
-            (u) => u && typeof u.id === 'string' && typeof u.email === 'string',
-          )
-        : [...DEFAULT_DEMO_USERS],
     };
   } catch {
     return emptyOverlay();
@@ -298,9 +250,6 @@ export async function loadCmsSnapshot(): Promise<CmsSnapshot> {
     const remoteGrammars = (grammarRes.data ?? []).map((r) => mapGrammarFromDb(r as Record<string, unknown>));
     const remoteJlpt = (jlptRes.data ?? []).map((r) => mapJlptFromDb(r as Record<string, unknown>));
 
-    const applyQuickOverlay = isQuickTestSession();
-    const overlay = applyQuickOverlay ? loadLocalOverlay() : null;
-
     const baseUnits = remoteUnits.length > 0 ? remoteUnits : local.units;
     const baseVocabs = remoteVocabs.length > 0 ? remoteVocabs : local.vocabularies;
     const baseKanjis = remoteKanjis.length > 0 ? remoteKanjis : local.kanjis;
@@ -309,21 +258,11 @@ export async function loadCmsSnapshot(): Promise<CmsSnapshot> {
 
     return {
       source: 'supabase',
-      units: overlay
-        ? mergeByKey<string, AdminUnitRecord>(baseUnits, 'id', overlay.unitOverrides, overlay.unitDeletedIds)
-        : baseUnits,
-      vocabularies: overlay
-        ? mergeByKey<number, AdminVocabRecord>(baseVocabs, 'id', overlay.vocabOverrides, overlay.vocabDeletedIds)
-        : baseVocabs,
-      kanjis: overlay
-        ? mergeByKey<string, AdminKanjiRecord>(baseKanjis, 'id', overlay.kanjiOverrides, overlay.kanjiDeletedIds)
-        : baseKanjis,
-      grammars: overlay
-        ? mergeByKey<string, AdminGrammarRecord>(baseGrammars, 'id', overlay.grammarOverrides, overlay.grammarDeletedIds)
-        : baseGrammars,
-      jlptQuestions: overlay
-        ? mergeByKey<string, AdminJlptRecord>(baseJlpt, 'id', overlay.jlptOverrides, overlay.jlptDeletedIds)
-        : baseJlpt,
+      units: baseUnits,
+      vocabularies: baseVocabs,
+      kanjis: baseKanjis,
+      grammars: baseGrammars,
+      jlptQuestions: baseJlpt,
     };
   } catch (err) {
     return {
@@ -886,8 +825,7 @@ export async function fetchManagedUsers(actor: AuthUser | null): Promise<{
     });
 
     let summary = summarizeManagedUsers(users);
-    const hasExtendedSchema =
-      rows.length > 0 && 'auth_provider' in rows[0] && !actor.id.startsWith('quick-test-');
+    const hasExtendedSchema = rows.length > 0 && 'auth_provider' in rows[0];
     if (hasExtendedSchema) {
       try {
         const rpcRes = await supabase.rpc('get_admin_account_summary');
@@ -908,20 +846,13 @@ export async function fetchManagedUsers(actor: AuthUser | null): Promise<{
     return { ok: true, users, summary, source: 'supabase' };
   }
 
-  const overlay = loadLocalOverlay();
-  const list = [...overlay.demoUsers];
-  if (!list.some((u) => u.id === actor.id || u.email === actor.email)) {
-    list.unshift({
-      id: actor.id,
-      email: actor.email,
-      displayName: actor.displayName,
-      role: actor.role,
-      authProvider: 'email',
-      hasClientHash: true,
-      createdAt: new Date().toISOString(),
-    });
-  }
-  return { ok: true, users: list, summary: summarizeManagedUsers(list), source: 'local' };
+  return {
+    ok: false,
+    users: [],
+    summary: { total: 0, google: 0, email: 0, hashed: 0 },
+    source: 'local',
+    error: 'Chưa kết nối cơ sở dữ liệu người dùng.',
+  };
 }
 
 export async function updateManagedUserRole(params: {
@@ -978,15 +909,10 @@ export async function updateManagedUserRole(params: {
     return { ok: true, users: refreshed.users };
   }
 
-  const overlay = loadLocalOverlay();
-  const baseList =
-    overlay.demoUsers.length > 0 ? overlay.demoUsers : [...DEFAULT_DEMO_USERS];
-  const updated = baseList.map((u) =>
-    u.id === targetUserId ? { ...u, role: nextRole } : u,
-  );
-  overlay.demoUsers = updated;
-  saveLocalOverlay(overlay);
-  return { ok: true, users: updated };
+  return {
+    ok: false,
+    error: 'Chưa kết nối cơ sở dữ liệu để cập nhật phân quyền.',
+  };
 }
 
 export async function fetchAuditLogs(actor: AuthUser | null, limit = 50): Promise<{
@@ -1004,7 +930,7 @@ export async function fetchAuditLogs(actor: AuthUser | null, limit = 50): Promis
     };
   }
 
-  if (supabase && !actor.id.startsWith('quick-test-')) {
+  if (supabase) {
     const { data, error } = await supabase
       .from('audit_logs')
       .select('id, actor_id, action, entity_type, entity_id, details_json, created_at')

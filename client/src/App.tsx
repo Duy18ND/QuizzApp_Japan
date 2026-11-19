@@ -9,6 +9,7 @@ import { consumeOAuthLoginPending } from './services/supabaseClient';
 import './index.css';
 
 const HomePage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m.HomePage })));
+const RoadmapPage = lazy(() => import('./pages/RoadmapPage').then((m) => ({ default: m.RoadmapPage })));
 const AuthPage = lazy(() => import('./pages/AuthPage').then((m) => ({ default: m.AuthPage })));
 const ProfilePage = lazy(() => import('./pages/ProfilePage').then((m) => ({ default: m.ProfilePage })));
 const AdminDashboardPage = lazy(() =>
@@ -104,6 +105,7 @@ function App() {
           <Routes>
             <Route path="/" element={<AppLayout />}>
             <Route index element={<HomePage />} />
+            <Route path="roadmap" element={<RoadmapPage />} />
           
             <Route path="vocabulary">
               <Route index element={<VocabularyLevelsPage />} />

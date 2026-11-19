@@ -21,11 +21,22 @@ import {
   supabasePublicAnonKey,
   supabasePublicUrl,
 } from '../services/supabaseClient';
+import {
+  cacheRoadmapCompletedSteps,
+  cacheStudyLevel,
+  loadCachedStudyLevel,
+  persistStudyLevel,
+  purgeGuestStudyLevelStorage,
+  sanitizeCompletedRoadmapSteps,
+  sanitizeStudyLevel,
+  type StudyLevel,
+} from '../services/userLevelService';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
   setAuthError,
   setAuthLoading,
   setAuthUser,
+  setAuthUserStudyLevel,
   setGuestSession,
   setSyncStatus,
   type AccountRole,
@@ -36,151 +47,29 @@ import { reloadKanjiFromSession } from '../store/slices/kanjiSlice';
 import { reloadMistakesFromSession } from '../store/slices/mistakeSlice';
 import {
   AuthContext,
-  isQuickTestAllowed,
-  QUICK_TEST_ACCOUNTS,
   translateSupabaseAuthError,
   type AuthActionResult,
   type AuthContextValue,
 } from './auth-context';
 
-const QUICK_TEST_STORAGE_KEY = 'nihongo_quick_test_user_v1';
+const LEGACY_QUICK_TEST_STORAGE_KEY = 'nihongo_quick_test_user_v1';
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 30_000;
-
-interface SignedQuickTestPayload {
-  user: AuthUser;
-  sig: string;
-  issuedAt: number;
-}
-
-const computeQuickChecksum = (user: AuthUser): string => {
-  const raw = `nihon_qt_v1:${user.id}:${user.email}:${user.role}`;
-  let hash = 2166136261;
-  for (let i = 0; i < raw.length; i++) {
-    hash ^= raw.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-  return (hash >>> 0).toString(16);
-};
 
 const normalizeRole = (raw?: string | null): AccountRole => {
   if (raw === 'SUPER_ADMIN' || raw === 'ADMIN' || raw === 'USER') return raw;
   return 'USER';
 };
 
-function parseValidatedQuickPayload(raw: string | null): AuthUser | null {
-  if (!raw || raw.length > 2048) return null;
-  try {
-    const parsed = JSON.parse(raw) as Partial<SignedQuickTestPayload>;
-    const candidate = parsed?.user;
-    if (
-      !candidate ||
-      typeof candidate.id !== 'string' ||
-      typeof candidate.email !== 'string' ||
-      typeof parsed.sig !== 'string'
-    ) {
-      return null;
-    }
-
-    const whitelisted = QUICK_TEST_ACCOUNTS.find(
-      (preset) =>
-        preset.email.toLowerCase() === candidate.email.toLowerCase() &&
-        preset.role === candidate.role,
-    );
-    if (!whitelisted) {
-      return null;
-    }
-
-    const cleanUser: AuthUser = {
-      id: candidate.id,
-      email: whitelisted.email,
-      displayName: whitelisted.displayName,
-      role: whitelisted.role,
-    };
-
-    if (computeQuickChecksum(cleanUser) !== parsed.sig) {
-      return null;
-    }
-
-    return cleanUser;
-  } catch {
-    return null;
-  }
-}
-
-function clearQuickTestStorages(): void {
+function purgeLegacyQuickTestStorage(): void {
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage?.removeItem(QUICK_TEST_STORAGE_KEY);
+    window.localStorage?.removeItem(LEGACY_QUICK_TEST_STORAGE_KEY);
   } catch {
     // Ignore
   }
   try {
-    window.sessionStorage?.removeItem(QUICK_TEST_STORAGE_KEY);
-  } catch {
-    // Ignore
-  }
-}
-
-function loadQuickTestUser(): AuthUser | null {
-  if (typeof window === 'undefined') return null;
-  if (!isQuickTestAllowed()) {
-    clearQuickTestStorages();
-    return null;
-  }
-
-  // Enforce anti-tampering strictly across both sessionStorage and localStorage
-  try {
-    const rawSession = window.sessionStorage?.getItem(QUICK_TEST_STORAGE_KEY);
-    if (rawSession !== null && rawSession !== undefined) {
-      const validated = parseValidatedQuickPayload(rawSession);
-      if (!validated) {
-        clearQuickTestStorages();
-        return null;
-      }
-      return validated;
-    }
-  } catch {
-    // Ignore
-  }
-
-  try {
-    const rawLocal = window.localStorage?.getItem(QUICK_TEST_STORAGE_KEY);
-    if (rawLocal !== null && rawLocal !== undefined) {
-      const validated = parseValidatedQuickPayload(rawLocal);
-      if (!validated) {
-        clearQuickTestStorages();
-        return null;
-      }
-      return validated;
-    }
-  } catch {
-    // Ignore
-  }
-
-  return null;
-}
-
-function saveQuickTestUser(user: AuthUser | null): void {
-  if (typeof window === 'undefined') return;
-  if (!user || !isQuickTestAllowed()) {
-    clearQuickTestStorages();
-    return;
-  }
-  const payload: SignedQuickTestPayload = {
-    user,
-    sig: computeQuickChecksum(user),
-    issuedAt: Date.now(),
-  };
-  const json = JSON.stringify(payload);
-  try {
-    // Persist across tab closes & browser restarts until explicit signOut()
-    window.localStorage?.setItem(QUICK_TEST_STORAGE_KEY, json);
-  } catch {
-    // Ignore
-  }
-  try {
-    window.sessionStorage?.setItem(QUICK_TEST_STORAGE_KEY, json);
+    window.sessionStorage?.removeItem(LEGACY_QUICK_TEST_STORAGE_KEY);
   } catch {
     // Ignore
   }
@@ -190,6 +79,11 @@ function extractMetadataDisplayName(meta?: Record<string, unknown> | null): stri
   if (!meta || typeof meta !== 'object') return '';
   const candidate = meta.display_name || meta.full_name || meta.name;
   return typeof candidate === 'string' ? candidate.trim().slice(0, 80) : '';
+}
+
+function extractMetadataStudyLevel(meta?: Record<string, unknown> | null): StudyLevel | null {
+  if (!meta || typeof meta !== 'object') return null;
+  return sanitizeStudyLevel(meta.study_level);
 }
 
 /**
@@ -236,16 +130,38 @@ async function fetchProfileForUser(
   userId: string,
   fallbackEmail: string,
   metadataDisplayName = '',
+  metadataStudyLevel: StudyLevel | null = null,
 ): Promise<AuthUser | null> {
   if (!supabase) return null;
-  const { data } = await supabase
+
+  let data: Record<string, unknown> | null = null;
+  const fullSelect = await supabase
     .from('profiles')
-    .select('id, email, display_name, role')
+    .select('id, email, display_name, role, study_level')
     .eq('id', userId)
     .maybeSingle();
 
+  if (fullSelect.error) {
+    // Graceful fallback if study_level column hasn't been migrated yet
+    const baseSelect = await supabase
+      .from('profiles')
+      .select('id, email, display_name, role')
+      .eq('id', userId)
+      .maybeSingle();
+    data = (baseSelect.data as Record<string, unknown> | null) ?? null;
+  } else {
+    data = (fullSelect.data as Record<string, unknown> | null) ?? null;
+  }
+
   const resolvedFallbackName =
     metadataDisplayName || fallbackEmail.split('@')[0] || 'Học viên';
+
+  const profileLevel = sanitizeStudyLevel(data?.study_level);
+  const cachedLevel = loadCachedStudyLevel(userId);
+  const resolvedLevel = profileLevel ?? metadataStudyLevel ?? cachedLevel ?? null;
+  if (resolvedLevel) {
+    cacheStudyLevel(resolvedLevel, userId);
+  }
 
   if (data) {
     const profileName =
@@ -256,7 +172,8 @@ async function fetchProfileForUser(
       id: String(data.id),
       email: String(data.email || fallbackEmail),
       displayName: profileName,
-      role: normalizeRole(data.role),
+      role: normalizeRole(typeof data.role === 'string' ? data.role : null),
+      studyLevel: resolvedLevel,
     };
   }
 
@@ -265,6 +182,7 @@ async function fetchProfileForUser(
     email: fallbackEmail,
     displayName: resolvedFallbackName,
     role: 'USER',
+    studyLevel: resolvedLevel,
   };
 }
 
@@ -325,7 +243,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           dispatch(setSyncStatus({ status: 'idle' }));
         }
       } catch (err) {
-        console.warn('Cloud progress sync failed:', err);
+        console.warn('Progress sync failed:', err);
         dispatch(setSyncStatus({ status: 'error' }));
       } finally {
         if (syncInFlightUserRef.current === userId) {
@@ -337,17 +255,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 
   useEffect(() => {
+    purgeLegacyQuickTestStorage();
+    purgeGuestStudyLevelStorage();
     purgeAllLocalLearningData();
-    const savedQuickUser = loadQuickTestUser();
     const oauthCallbackError = consumePendingOAuthCallbackError();
     const implicitTokens = consumePendingImplicitOAuthTokens();
 
     if (!supabase) {
-      if (savedQuickUser) {
-        applyAuthenticatedSession(savedQuickUser, 'guest');
-      } else {
-        applyGuestSession('guest');
-      }
+      applyGuestSession('guest');
       if (oauthCallbackError) {
         dispatch(setAuthError(translateSupabaseAuthError(oauthCallbackError)));
       }
@@ -356,11 +271,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const sbClient = supabase;
     let cancelled = false;
-    if (savedQuickUser) {
-      applyAuthenticatedSession(savedQuickUser, 'supabase');
-    } else {
-      dispatch(setAuthLoading({ mode: 'supabase' }));
-    }
+    dispatch(setAuthLoading({ mode: 'supabase' }));
 
     if (oauthCallbackError) {
       pendingOAuthErrRef.current = translateSupabaseAuthError(oauthCallbackError);
@@ -388,23 +299,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (cancelled) return;
         const sessionUser = data.session?.user;
         if (!sessionUser) {
-          const activeQuick = loadQuickTestUser();
-          if (activeQuick) {
-            applyAuthenticatedSession(activeQuick, 'supabase');
-          } else {
-            applyGuestSession('supabase');
-            restorePendingOAuthError();
-          }
+          applyGuestSession('supabase');
+          restorePendingOAuthError();
           return;
         }
         pendingOAuthErrRef.current = null;
-        const metaName = extractMetadataDisplayName(
-          sessionUser.user_metadata as Record<string, unknown> | undefined,
-        );
+        const meta = sessionUser.user_metadata as Record<string, unknown> | undefined;
+        if (meta && Array.isArray(meta.roadmap_completed_steps)) {
+          cacheRoadmapCompletedSteps(sanitizeCompletedRoadmapSteps(meta.roadmap_completed_steps), sessionUser.id);
+        }
         const profile = await fetchProfileForUser(
           sessionUser.id,
           sessionUser.email || '',
-          metaName,
+          extractMetadataDisplayName(meta),
+          extractMetadataStudyLevel(meta),
         );
         if (!cancelled && profile) {
           applyAuthenticatedSession(profile, 'supabase');
@@ -413,41 +321,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       })
       .catch(() => {
         if (!cancelled) {
-          const activeQuick = loadQuickTestUser();
-          if (activeQuick) {
-            applyAuthenticatedSession(activeQuick, 'supabase');
-          } else {
-            applyGuestSession('supabase');
-            restorePendingOAuthError();
-          }
+          applyGuestSession('supabase');
+          restorePendingOAuthError();
         }
       });
 
     const { data: sub } = sbClient.auth.onAuthStateChange(async (event, session) => {
       if (cancelled) return;
       if (!session?.user) {
-        const activeQuick = loadQuickTestUser();
-        if (activeQuick && event !== 'SIGNED_OUT') {
-          applyAuthenticatedSession(activeQuick, 'supabase');
+        applyGuestSession('supabase');
+        if (event === 'INITIAL_SESSION') {
+          restorePendingOAuthError();
         } else {
-          saveQuickTestUser(null);
-          applyGuestSession('supabase');
-          if (event === 'INITIAL_SESSION') {
-            restorePendingOAuthError();
-          } else {
-            pendingOAuthErrRef.current = null;
-          }
+          pendingOAuthErrRef.current = null;
         }
         return;
       }
       pendingOAuthErrRef.current = null;
-      const metaName = extractMetadataDisplayName(
-        session.user.user_metadata as Record<string, unknown> | undefined,
-      );
+      const meta = session.user.user_metadata as Record<string, unknown> | undefined;
       const profile = await fetchProfileForUser(
         session.user.id,
         session.user.email || '',
-        metaName,
+        extractMetadataDisplayName(meta),
+        extractMetadataStudyLevel(meta),
       );
       if (!cancelled && profile) {
         applyAuthenticatedSession(profile, 'supabase');
@@ -466,7 +362,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signInWithEmail = useCallback(
     async (email: string, password: string): Promise<AuthActionResult> => {
       if (!supabase) {
-        return { ok: false, error: 'Chưa cấu hình kết nối Supabase.' };
+        return { ok: false, error: 'Dịch vụ đăng nhập hiện tạm thời chưa sẵn sàng.' };
       }
 
       const now = Date.now();
@@ -477,7 +373,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { ok: false, error: lockMsg };
       }
 
-      saveQuickTestUser(null);
       pendingOAuthErrRef.current = null;
       dispatch(setAuthError(null));
       const { data, error } = await signInWithHashedOrLegacyPassword(supabase, email, password);
@@ -495,13 +390,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       failedAttemptsRef.current = { count: 0, lockedUntil: 0 };
 
       if (data.user) {
-        const metaName = extractMetadataDisplayName(
-          data.user.user_metadata as Record<string, unknown> | undefined,
-        );
+        const meta = data.user.user_metadata as Record<string, unknown> | undefined;
         const profile = await fetchProfileForUser(
           data.user.id,
           data.user.email || email.trim(),
-          metaName,
+          extractMetadataDisplayName(meta),
+          extractMetadataStudyLevel(meta),
         );
         if (profile) {
           applyAuthenticatedSession(profile, 'supabase');
@@ -518,9 +412,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signUpWithEmail = useCallback(
     async (email: string, password: string, displayName: string): Promise<AuthActionResult> => {
       if (!supabase) {
-        return { ok: false, error: 'Chưa cấu hình kết nối Supabase.' };
+        return { ok: false, error: 'Dịch vụ đăng ký hiện tạm thời chưa sẵn sàng.' };
       }
-      saveQuickTestUser(null);
       pendingOAuthErrRef.current = null;
       dispatch(setAuthError(null));
       const cleanEmail = email.trim();
@@ -544,10 +437,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const needsEmailConfirmation = Boolean(data.user && !data.session);
       if (data.session?.user) {
+        const meta = data.session.user.user_metadata as Record<string, unknown> | undefined;
         const profile = await fetchProfileForUser(
           data.session.user.id,
           data.session.user.email || email.trim(),
           cleanName,
+          extractMetadataStudyLevel(meta),
         );
         if (profile) {
           applyAuthenticatedSession(profile, 'supabase');
@@ -566,13 +461,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithGoogle = useCallback(async (): Promise<AuthActionResult> => {
     if (!supabase) {
-      return { ok: false, error: 'Chưa cấu hình kết nối Supabase.' };
+      return { ok: false, error: 'Đăng nhập bằng Google hiện tạm thời chưa khả dụng.' };
     }
-    saveQuickTestUser(null);
     pendingOAuthErrRef.current = null;
     dispatch(setAuthError(null));
 
-    // Pre-check Supabase external provider status so users never get dumped onto a raw 400 JSON page
     if (supabasePublicUrl && supabasePublicAnonKey) {
       try {
         const settingsRes = await fetch(`${supabasePublicUrl}/auth/v1/settings`, {
@@ -582,7 +475,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const settingsJson = (await settingsRes.json()) as { external?: { google?: boolean } };
           if (settingsJson.external && settingsJson.external.google === false) {
             const msg =
-              'Đăng nhập Google đang TẮT trên Supabase Project này (Authentication ➔ Providers ➔ Google = Disabled). Hãy bật Google Provider và nhập Google Client ID / Secret trong Supabase Dashboard, hoặc tự tạo tài khoản / đăng nhập bằng Email ngay bên dưới.';
+              'Đăng nhập bằng Google hiện đang tạm tắt. Vui lòng sử dụng Email và mật khẩu bên dưới.';
             dispatch(setAuthError(msg));
             return { ok: false, error: msg };
           }
@@ -616,94 +509,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { ok: true };
   }, [dispatch]);
 
-  const quickLoginAsRole = useCallback(
-    (role: AccountRole): AuthUser => {
-      const preset = QUICK_TEST_ACCOUNTS.find((item) => item.role === role) ?? QUICK_TEST_ACCOUNTS[0];
-      const testUser: AuthUser = {
-        id: `quick-test-${preset.role.toLowerCase()}`,
-        email: preset.email,
-        displayName: preset.displayName,
-        role: preset.role,
-      };
-      if (!isQuickTestAllowed()) {
-        return testUser;
-      }
-      saveQuickTestUser(testUser);
-      dispatch(setAuthError(null));
-      applyAuthenticatedSession(testUser, isSupabaseConfigured ? 'supabase' : 'guest');
-      return testUser;
-    },
-    [applyAuthenticatedSession, dispatch],
-  );
-
-  const quickSignInWithPreset = useCallback(
-    async (role: AccountRole): Promise<AuthActionResult> => {
-      if (!isQuickTestAllowed()) {
-        return {
-          ok: false,
-          error: 'Chế độ đăng nhập nhanh chỉ cho phép trên môi trường Local / Dev.',
-        };
-      }
-
-      const preset = QUICK_TEST_ACCOUNTS.find((item) => item.role === role) ?? QUICK_TEST_ACCOUNTS[0];
-      if (!supabase) {
-        const fallbackUser = quickLoginAsRole(role);
-        return { ok: true, user: fallbackUser };
-      }
-
-      pendingOAuthErrRef.current = null;
-      dispatch(setAuthError(null));
-      const signInRes = await signInWithHashedOrLegacyPassword(supabase, preset.email, preset.password);
-
-      if (!signInRes.error && signInRes.data.user) {
-        const profile = await fetchProfileForUser(signInRes.data.user.id, preset.email, preset.displayName);
-        const effectiveUser: AuthUser = {
-          id: profile?.id ?? signInRes.data.user.id,
-          email: preset.email,
-          displayName: profile?.displayName ?? preset.displayName,
-          role: preset.role,
-        };
-        saveQuickTestUser(effectiveUser);
-        applyAuthenticatedSession(effectiveUser, 'supabase');
-        return { ok: true, user: effectiveUser };
-      }
-
-      const hashedPresetPassword = await deriveClientPasswordHash(preset.email, preset.password);
-      const signUpRes = await supabase.auth.signUp({
-        email: preset.email,
-        password: hashedPresetPassword,
-        options: {
-          data: {
-            display_name: preset.displayName,
-            password_hash_scheme: PASSWORD_HASH_SCHEME,
-          },
-        },
-      });
-
-      if (!signUpRes.error && signUpRes.data.user) {
-        const effectiveUser: AuthUser = {
-          id: signUpRes.data.user.id,
-          email: preset.email,
-          displayName: preset.displayName,
-          role: preset.role,
-        };
-        saveQuickTestUser(effectiveUser);
-        applyAuthenticatedSession(effectiveUser, 'supabase');
-        return {
-          ok: true,
-          user: effectiveUser,
-          needsEmailConfirmation: Boolean(signUpRes.data.user && !signUpRes.data.session),
-        };
-      }
-
-      const fallbackUser = quickLoginAsRole(role);
-      return { ok: true, user: fallbackUser };
-    },
-    [applyAuthenticatedSession, dispatch, quickLoginAsRole],
-  );
-
   const signOut = useCallback(async () => {
-    saveQuickTestUser(null);
+    purgeLegacyQuickTestStorage();
+    purgeGuestStudyLevelStorage();
     clearInMemoryAccountData();
     if (supabase) {
       try {
@@ -717,19 +525,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const currentUserId = auth.user?.id;
 
+  const updateStudyLevel = useCallback(
+    async (level: StudyLevel) => {
+      if (!currentUserId) return;
+      dispatch(setAuthUserStudyLevel(level));
+      await persistStudyLevel(level, currentUserId);
+    },
+    [currentUserId, dispatch],
+  );
+
   const syncNow = useCallback(async () => {
     if (!currentUserId) return;
     await runCloudSync(currentUserId);
   }, [currentUserId, runCloudSync]);
 
+  const studyLevel: StudyLevel | null = auth.user ? (auth.user.studyLevel ?? null) : null;
+
   const value: AuthContextValue = {
     ...auth,
     isSupabaseConfigured,
+    studyLevel,
+    updateStudyLevel,
     signInWithEmail,
     signUpWithEmail,
     signInWithGoogle,
-    quickLoginAsRole,
-    quickSignInWithPreset,
     signOut,
     syncNow,
   };

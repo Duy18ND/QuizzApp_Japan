@@ -1,11 +1,15 @@
-import React, { Suspense, useEffect, useRef } from 'react';
+import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { LogIn, LogOut, Settings, ShieldCheck, UserRound } from 'lucide-react';
 import { useAuth } from '../../context/auth-context';
+import { startWebOnlineTimeTracker } from '../../services/notificationService';
 import {
-  startWebOnlineTimeTracker,
-} from '../../services/notificationService';
+  hasDismissedLevelModal,
+  markLevelModalDismissed,
+  OPEN_LEVEL_MODAL_EVENT,
+} from '../../services/userLevelService';
 import { JapaneseLookupProvider } from '../common/JapaneseLookupPopover';
+import { LevelSelectionModal } from '../settings/LevelSelectionModal';
 import { Badge, LoadingState } from '../ui';
 import { buttonStyles } from '../ui/styles';
 import { ThemeToggle } from '../ui/ThemeToggle';
@@ -13,28 +17,53 @@ import { ClickEffect } from './ClickEffect';
 import { JapaneseLandscapeBg } from './JapaneseLandscapeBg';
 import { SakuraContactFloating } from './SakuraContactFloating';
 
-const ROLE_BADGE_TONE = {
+const ADMIN_ROLE_BADGE_TONE = {
   SUPER_ADMIN: 'sakura',
   ADMIN: 'primary',
-  USER: 'success',
 } as const;
 
 export const AppLayout: React.FC = () => {
   const { pathname } = useLocation();
   const isHome = pathname === '/';
   const mainRef = useRef<HTMLElement>(null);
-  const { user, signOut } = useAuth();
+  const { user, status, studyLevel, signOut } = useAuth();
   const userIdRef = useRef<string | undefined>(user?.id);
+  const [manualLevelModalOpen, setManualLevelModalOpen] = useState(false);
+  const [dismissedScope, setDismissedScope] = useState<string | null>(null);
 
   useEffect(() => {
     userIdRef.current = user?.id;
   }, [user?.id]);
+
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
+  const isAuthOrAdminRoute =
+    pathname === '/login' || pathname === '/register' || pathname.startsWith('/admin');
+  const currentLevelScope = user?.id ?? null;
+
+  const shouldAutoOpenLevelModal =
+    status === 'authenticated' &&
+    Boolean(user) &&
+    !isAuthOrAdminRoute &&
+    !isAdmin &&
+    !studyLevel &&
+    dismissedScope !== currentLevelScope &&
+    !hasDismissedLevelModal(user?.id);
+
+  const levelModalOpen = Boolean(user) && (manualLevelModalOpen || shouldAutoOpenLevelModal);
 
   useEffect(() => {
     const stopOnlineTracker = startWebOnlineTimeTracker(() => userIdRef.current);
     return () => {
       stopOnlineTracker();
+    };
+  }, []);
+
+  // Listen to explicit open-modal triggers from HomePage / SettingsPage / ProfilePage
+  useEffect(() => {
+    const onOpenLevelModal = () => setManualLevelModalOpen(true);
+    window.addEventListener(OPEN_LEVEL_MODAL_EVENT, onOpenLevelModal);
+    return () => {
+      window.removeEventListener(OPEN_LEVEL_MODAL_EVENT, onOpenLevelModal);
     };
   }, []);
 
@@ -87,8 +116,8 @@ export const AppLayout: React.FC = () => {
                 {isAdmin && (
                   <Link
                     to="/admin"
-                    aria-label="Quản trị (/admin)"
-                    title="Quản trị (/admin)"
+                    aria-label="Quản trị"
+                    title="Quản trị"
                     className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'h-8 gap-1 px-2 sm:gap-1.5 sm:px-3' })}
                   >
                     <ShieldCheck className="size-3.5 shrink-0 text-primary-fg sm:size-4" aria-hidden />
@@ -97,17 +126,29 @@ export const AppLayout: React.FC = () => {
                 )}
                 <Link
                   to="/profile"
-                  aria-label={`Hồ sơ ${user.displayName || user.email} (${user.role})`}
-                  title={`${user.email} (${user.role})`}
+                  aria-label={`Hồ sơ ${user.displayName || user.email}`}
+                  title={user.displayName || user.email}
                   className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'h-8 gap-1 px-1.5 sm:gap-1.5 sm:px-2.5' })}
                 >
                   <UserRound className="size-3.5 shrink-0" aria-hidden />
                   <span className="hidden max-w-28 truncate md:inline">
                     {user.displayName || user.email}
                   </span>
-                  <Badge tone={ROLE_BADGE_TONE[user.role]} className="hidden px-1.5 py-0 text-[10px] min-[375px]:inline-flex">
-                    {user.role}
-                  </Badge>
+                  {isAdmin ? (
+                    <Badge
+                      tone={ADMIN_ROLE_BADGE_TONE[user.role as 'ADMIN' | 'SUPER_ADMIN']}
+                      className="hidden px-1.5 py-0 text-[10px] min-[375px]:inline-flex"
+                    >
+                      {user.role === 'SUPER_ADMIN' ? 'Super Admin' : 'Admin'}
+                    </Badge>
+                  ) : studyLevel ? (
+                    <Badge
+                      tone="primary"
+                      className="hidden px-1.5 py-0 text-[10px] min-[375px]:inline-flex"
+                    >
+                      {studyLevel}
+                    </Badge>
+                  ) : null}
                 </Link>
                 <button
                   type="button"
@@ -124,8 +165,8 @@ export const AppLayout: React.FC = () => {
               <>
                 <Link
                   to="/profile"
-                  aria-label="Hồ sơ & Lịch sử (Khách)"
-                  title="Hồ sơ & Lịch sử (Khách)"
+                  aria-label="Hồ sơ & Lịch sử"
+                  title="Hồ sơ & Lịch sử"
                   className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'hidden h-8 gap-1.5 px-2.5 md:inline-flex' })}
                 >
                   <UserRound className="size-3.5 shrink-0" aria-hidden />
@@ -185,6 +226,15 @@ export const AppLayout: React.FC = () => {
           </JapaneseLookupProvider>
         </div>
       </main>
+
+      <LevelSelectionModal
+        open={levelModalOpen}
+        onClose={() => setManualLevelModalOpen(false)}
+        onDismissWithoutSelection={() => {
+          markLevelModalDismissed(user?.id, true);
+          setDismissedScope(currentLevelScope);
+        }}
+      />
       <SakuraContactFloating />
     </div>
   );

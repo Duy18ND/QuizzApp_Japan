@@ -33,7 +33,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   const handleClick = async () => {
     setLocalError(null);
     if (!isSupabaseConfigured) {
-      const msg = 'Chưa cấu hình kết nối Supabase cho đăng nhập Google.';
+      const msg = 'Đăng nhập bằng Google hiện tạm thời chưa khả dụng.';
       setLocalError(msg);
       onErrorMessage?.(msg);
       return;
