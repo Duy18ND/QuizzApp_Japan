@@ -10,10 +10,12 @@ import './index.css'
 import App from './App.tsx'
 import { ErrorBoundary } from './components/common/ErrorBoundary.tsx'
 import { AuthProvider } from './context/AuthContext.tsx'
+import { initPwaInstallAndServiceWorker } from './services/pwaReminderService'
 import { FontManager } from './utils/fontManager'
 
-// Preload font ngay khi app khởi động (non-blocking)
+// Preload font & register lightweight PWA install/reminder service worker (non-blocking)
 FontManager.preloadFont();
+initPwaInstallAndServiceWorker();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

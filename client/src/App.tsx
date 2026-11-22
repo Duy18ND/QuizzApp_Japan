@@ -9,7 +9,9 @@ import { consumeOAuthLoginPending } from './services/supabaseClient';
 import './index.css';
 
 const HomePage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m.HomePage })));
-const RoadmapPage = lazy(() => import('./pages/RoadmapPage').then((m) => ({ default: m.RoadmapPage })));
+const StageRoadmapPage = lazy(() =>
+  import('./pages/StageRoadmapPage').then((m) => ({ default: m.StageRoadmapPage })),
+);
 const AuthPage = lazy(() => import('./pages/AuthPage').then((m) => ({ default: m.AuthPage })));
 const ProfilePage = lazy(() => import('./pages/ProfilePage').then((m) => ({ default: m.ProfilePage })));
 const AdminDashboardPage = lazy(() =>
@@ -74,6 +76,9 @@ const KanjiPractice = lazy(() =>
 const JLPTModulePage = lazy(() =>
   import('./pages/jlpt/JLPTModulePage').then((m) => ({ default: m.JLPTModulePage })),
 );
+const MiniGamesPage = lazy(() =>
+  import('./pages/MiniGamesPage').then((m) => ({ default: m.MiniGamesPage })),
+);
 
 function RouteFallback() {
   return (
@@ -108,7 +113,8 @@ function App() {
           <Routes>
             <Route path="/" element={<AppLayout />}>
             <Route index element={<HomePage />} />
-            <Route path="roadmap" element={<RoadmapPage />} />
+            <Route path="roadmap" element={<StageRoadmapPage />} />
+            <Route path="roadmap/stages" element={<StageRoadmapPage />} />
           
             <Route path="vocabulary">
               <Route index element={<VocabularyLevelsPage />} />
@@ -141,10 +147,13 @@ function App() {
             <Route path="flashcard" element={<FlashcardPage />}>
               <Route index element={<VocabularyLevelsPage basePath="/flashcard" title="Flashcard" hideTabs={true} />} />
               <Route path=":level" element={<VocabularyUnitsPage basePath="/flashcard" title="Flashcard" hideTabs={true} />} />
+              <Route path=":level/book/:bookId" element={<VocabularyUnitsPage basePath="/flashcard" title="Flashcard" hideTabs={true} />} />
+              <Route path=":level/book/:bookId/:unitId" element={<FlashcardViewer />} />
               <Route path=":level/:unitId" element={<FlashcardViewer />} />
             </Route>
 
             <Route path="jlpt/:moduleId" element={<JLPTModulePage />} />
+            <Route path="games" element={<MiniGamesPage />} />
             <Route path="login" element={<AuthPage initialMode="login" />} />
             <Route path="register" element={<AuthPage initialMode="register" />} />
             <Route path="profile" element={<ProfilePage />} />

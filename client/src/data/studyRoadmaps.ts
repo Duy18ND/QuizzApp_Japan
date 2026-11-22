@@ -43,14 +43,14 @@ export interface LevelRoadmapSpec {
 export const STUDY_ROADMAPS: Record<StudyLevel, LevelRoadmapSpec> = {
   N5: {
     level: 'N5',
-    title: 'Sơ cấp 1 — Nhập môn tiếng Nhật',
-    japaneseLabel: '初級 I',
-    summary: 'Xây nền tảng vững chắc: từ vựng đời sống cơ bản, ~100 Kanji nền tảng và các mẫu câu giao tiếp sơ cấp.',
-    durationWeeks: '8 – 10 tuần',
-    dailyMinutes: '30 phút/ngày',
-    vocabTarget: '~800 từ',
-    kanjiTarget: '~100 chữ',
-    grammarTarget: '~60 mẫu',
+    title: 'Sơ cấp 1 — Trọn bộ Minna no Nihongo I (Bài 1–25)',
+    japaneseLabel: '初級 I · 全25課',
+    summary: 'Lộ trình 60 ngày (6 Chặng × 10 Màn) đi trọn 25 bài Minna no Nihongo I: Từ vựng, 112 Kanji N5, 80 mẫu ngữ pháp, Đọc hiểu, Nghe hiểu và Thi thử JLPT N5.',
+    durationWeeks: '9 tuần (60 màn)',
+    dailyMinutes: '10 – 15 phút/ngày',
+    vocabTarget: '25 bài (~518 từ)',
+    kanjiTarget: '112 chữ N5',
+    grammarTarget: '25 bài (~80 mẫu)',
     phases: [
       {
         id: 'n5-p1',

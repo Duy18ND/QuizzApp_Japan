@@ -1,6 +1,8 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { Printer, RefreshCw } from 'lucide-react';
 import { createPortal } from 'react-dom';
+import { useAuth } from '../../../context/auth-context';
+import { getPreferredVocabLevel } from '../../../data/vocabTextbooks';
 import { useCurriculumSnapshot } from '../../../hooks/useCurriculumData';
 import { getLiveUnitsForLevel, getLiveVocabForUnit } from '../../../services/curriculumStore';
 import { useUserProgress } from '../../../hooks/useUserProgress';
@@ -13,9 +15,12 @@ import { FlashcardPdfBuilder, type FlashcardPdfLayout } from './FlashcardPdfBuil
 const LEVELS: JLPTLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1'];
 
 export const FlashcardPdfWorkspace: React.FC = () => {
+  const { user, studyLevel } = useAuth();
   const { progress } = useUserProgress();
 
-  const [level, setLevel] = useState<JLPTLevel>('N3');
+  const [level, setLevel] = useState<JLPTLevel>(
+    () => studyLevel ?? getPreferredVocabLevel(user?.id) ?? 'N3',
+  );
   const [unitId, setUnitId] = useState<number>(1);
   const [source, setSource] = useState<QuizSource>('all');
   const [count, setCount] = useState<number>(16);

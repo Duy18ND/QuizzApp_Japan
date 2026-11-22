@@ -111,7 +111,7 @@ Khi biên soạn dữ liệu, cộng tác viên chỉ cần đặt các đối t
 ```json
 [
   {
-    "unit_id": "N4-U1",
+    "unit_id": "N4-MINNA-N4-U1",
     "level": "N4",
     "word_number": 1,
     "kanji": "約束",
@@ -124,7 +124,7 @@ Khi biên soạn dữ liệu, cộng tác viên chỉ cần đặt các đối t
     "notes": "Danh từ ghép với する thành động từ (約束する: hứa, hẹn)."
   },
   {
-    "unit_id": "N4-U1",
+    "unit_id": "N4-MINNA-N4-U1",
     "level": "N4",
     "word_number": 2,
     "kanji": "間に合う",
@@ -145,7 +145,7 @@ Khi biên soạn dữ liệu, cộng tác viên chỉ cần đặt các đối t
 | `hiragana` | **Bắt buộc** | `string` | Cách đọc bằng chữ Hiragana (hoặc Katakana đối với từ ngoại lai). Không được để trống. |
 | `meaning` | **Bắt buộc** | `string` | Nghĩa tiếng Việt ngắn gọn, rõ ràng. Nhiều nghĩa ngăn cách bằng dấu phẩy `,`. |
 | `level` | **Bắt buộc** | `string` | Cấp độ JLPT viết hoa: `"N5"`, `"N4"`, `"N3"`, `"N2"`, hoặc `"N1"`. |
-| `unit_id` | **Bắt buộc** | `string` hoặc `number` | Mã bài học theo định dạng `"<Cấp độ>-U<Số bài>"` (VD: `"N4-U1"`, `"N5-U1"`, `"N3-U2"`). *(Lưu ý: Nếu dùng nút Import JSON nhanh trên `/admin`, có thể điền số nguyên `1`, `2` tương ứng với Unit 1, Unit 2; hệ thống sẽ tự động chuẩn hóa).* |
+| `unit_id` | **Bắt buộc** | `string` hoặc `number` | Dùng đúng ID của Unit trong Admin CMS. Unit gắn giáo trình có ID dạng `"<Cấp độ>-<Mã giáo trình>-U<Số bài>"` (VD: `"N4-MINNA-N4-U1"`); số nguyên chỉ dùng được khi bài đó không trùng số với giáo trình khác. |
 | `word_type` | **Bắt buộc** *(Mặc định: `"Danh từ"`)* | `string` | Chọn 1 trong các nhãn chuẩn: `"Danh từ"`, `"Động từ"`, `"Tính từ -i"`, `"Tính từ -na"`, `"Phó từ"`, `"Liên từ"`, `"Cụm từ"`. |
 | `word_number` | *Tùy chọn* | `number` | Số thứ tự của từ trong Unit (`1`, `2`, `3`...). Nếu bỏ trống, hệ thống tự đánh số tăng dần. |
 | `kanji` | *Tùy chọn* | `string \| null` | Chữ Hán của từ (VD: `"約束"`). Nếu từ chỉ viết bằng Hiragana/Katakana thì điền `""` hoặc `null`. |

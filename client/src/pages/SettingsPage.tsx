@@ -33,6 +33,10 @@ import {
   pushRestoredProgressToCloud,
 } from '../services/progressSyncService';
 import {
+  getVocabTextbooksForLevel,
+  resolveActiveVocabTextbook,
+} from '../data/vocabTextbooks';
+import {
   STUDY_LEVEL_OPTIONS,
   type StudyLevel,
 } from '../services/userLevelService';
@@ -73,7 +77,7 @@ function hasSavedBackupAccess(userId?: string | null): boolean {
 }
 
 export const SettingsPage: React.FC = () => {
-  const { user, studyLevel, updateStudyLevel } = useAuth();
+  const { user, studyLevel, studyTextbookId, updateStudyLevel } = useAuth();
   const dispatch = useAppDispatch();
   const kanjiState = useAppSelector((state) => state.kanji);
   const grammarRecords = useAppSelector((state) => state.grammarProgress.records);
@@ -91,12 +95,13 @@ export const SettingsPage: React.FC = () => {
   } | null>(null);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
 
-  const handleSelectStudyLevel = async (level: StudyLevel) => {
+  const handleSelectStudyLevel = async (level: StudyLevel, textbookId?: string) => {
     setSavingLevel(level);
-    await updateStudyLevel(level);
+    await updateStudyLevel(level, textbookId);
     setSavingLevel(null);
+    const activeBook = resolveActiveVocabTextbook(level, user?.id, textbookId);
     toast({
-      title: `Đã chọn trình độ học JLPT ${level}`,
+      title: `Đã chọn JLPT ${level} · ${activeBook.shortTitle}`,
       tone: 'success',
     });
   };
@@ -298,6 +303,38 @@ export const SettingsPage: React.FC = () => {
                 );
               })}
             </div>
+
+            {studyLevel && (
+              <div className="space-y-2 border-t border-line pt-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-medium text-fg">
+                    Giáo trình từ vựng chính ({studyLevel})
+                  </p>
+                  <span className="text-xs text-muted">
+                    Mở thẳng khi bấm Từ vựng, Quiz và Flashcard
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {getVocabTextbooksForLevel(studyLevel).map((book) => {
+                    const activeBook = resolveActiveVocabTextbook(
+                      studyLevel,
+                      user.id,
+                      studyTextbookId,
+                    );
+                    const isSelectedBook = activeBook.id === book.id;
+                    return (
+                      <Chip
+                        key={book.id}
+                        selected={isSelectedBook}
+                        onClick={() => void handleSelectStudyLevel(studyLevel, book.id)}
+                      >
+                        {book.title}
+                      </Chip>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </>
         )}
       </Card>

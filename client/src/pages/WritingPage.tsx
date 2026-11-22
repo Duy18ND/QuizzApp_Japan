@@ -20,6 +20,7 @@ import {
   findVocabTextbook,
   getWordsForVocabTextbook,
   parseVocabLevelParam,
+  resolveActiveVocabTextbook,
 } from '../data/vocabTextbooks';
 import { useCurriculumSnapshot } from '../hooks/useCurriculumData';
 import { getLiveAllVocabulary } from '../services/curriculumStore';
@@ -48,7 +49,7 @@ interface SessionFeedback {
 
 export const WritingPage: React.FC = () => {
   const cmsSnapshot = useCurriculumSnapshot();
-  const { user } = useAuth();
+  const { user, studyLevel, studyTextbookId } = useAuth();
   const dispatch = useAppDispatch();
   const [searchParams, setSearchParams] = useSearchParams();
   const { progress, addWrongWord } = useUserProgress();
@@ -56,11 +57,22 @@ export const WritingPage: React.FC = () => {
   const sessionStartRef = useRef<number>(0);
 
   const levelParam = parseVocabLevelParam(searchParams.get('level'));
-  const textbook = useMemo(
+  const explicitBook = useMemo(
     () => findVocabTextbook(levelParam, searchParams.get('book')),
     [levelParam, searchParams],
   );
-  const activeLevel = textbook?.level ?? levelParam;
+  const activeLevel = explicitBook?.level ?? levelParam ?? studyLevel;
+  const textbook = useMemo(() => {
+    if (explicitBook) return explicitBook;
+    if (!levelParam && activeLevel) {
+      return resolveActiveVocabTextbook(
+        activeLevel,
+        user?.id,
+        activeLevel === studyLevel ? studyTextbookId : null,
+      );
+    }
+    return undefined;
+  }, [activeLevel, explicitBook, levelParam, studyLevel, studyTextbookId, user?.id]);
 
   const allWords = useMemo(() => {
     if (textbook) {

@@ -3,9 +3,10 @@
     "id": "男",
     "kanji": "男",
     "meanings": [
-      "male"
+      "đàn ông",
+      "nam giới"
     ],
-    "hanViet": "",
+    "hanViet": "NAM",
     "onReadings": [
       "ダン",
       "ナン"
@@ -32,11 +33,11 @@
     "id": "性",
     "kanji": "性",
     "meanings": [
-      "sex",
-      "gender",
-      "nature"
+      "giới tính",
+      "bản tính",
+      "tính chất"
     ],
-    "hanViet": "",
+    "hanViet": "TÍNH",
     "onReadings": [
       "セイ",
       "ショウ"
@@ -83,10 +84,10 @@
     "id": "女",
     "kanji": "女",
     "meanings": [
-      "woman",
-      "female"
+      "phụ nữ",
+      "nữ giới"
     ],
-    "hanViet": "",
+    "hanViet": "NỮ",
     "onReadings": [
       "ジョ",
       "ニョ",
@@ -114,11 +115,10 @@
     "id": "高",
     "kanji": "高",
     "meanings": [
-      "tall",
-      "high",
-      "expensive"
+      "cao",
+      "đắt tiền"
     ],
-    "hanViet": "",
+    "hanViet": "CAO",
     "onReadings": [
       "コウ"
     ],
@@ -154,9 +154,9 @@
     "id": "齢",
     "kanji": "齢",
     "meanings": [
-      "age"
+      "tuổi tác"
     ],
-    "hanViet": "",
+    "hanViet": "LINH",
     "onReadings": [
       "レイ"
     ],
@@ -182,10 +182,10 @@
     "id": "年",
     "kanji": "年",
     "meanings": [
-      "year",
-      "counter for years"
+      "năm",
+      "tuổi"
     ],
-    "hanViet": "",
+    "hanViet": "NIÊN",
     "onReadings": [
       "ネン"
     ],
@@ -224,10 +224,11 @@
     "id": "上",
     "kanji": "上",
     "meanings": [
-      "above",
-      "up"
+      "trên",
+      "lên trên",
+      "cấp trên"
     ],
-    "hanViet": "",
+    "hanViet": "THƯỢNG",
     "onReadings": [
       "ジョウ",
       "ショウ",
@@ -296,15 +297,10 @@
     "id": "目",
     "kanji": "目",
     "meanings": [
-      "eye",
-      "class",
-      "look",
-      "insight",
-      "experience",
-      "care",
-      "favor"
+      "mắt",
+      "hạng mục"
     ],
-    "hanViet": "",
+    "hanViet": "MỤC",
     "onReadings": [
       "モク",
       "ボク"
@@ -339,13 +335,11 @@
     "id": "先",
     "kanji": "先",
     "meanings": [
-      "before",
-      "ahead",
-      "previous",
-      "future",
-      "precedence"
+      "trước",
+      "phía trước",
+      "đầu tiên"
     ],
-    "hanViet": "",
+    "hanViet": "TIÊN",
     "onReadings": [
       "セン"
     ],
@@ -371,12 +365,10 @@
     "id": "輩",
     "kanji": "輩",
     "meanings": [
-      "comrade",
-      "fellow",
-      "people",
-      "companions"
+      "bậc, lứa",
+      "đồng nghiệp"
     ],
-    "hanViet": "",
+    "hanViet": "BỐI",
     "onReadings": [
       "ハイ"
     ],
@@ -411,11 +403,10 @@
     "id": "後",
     "kanji": "後",
     "meanings": [
-      "behind",
-      "back",
-      "later"
+      "sau",
+      "phía sau"
     ],
-    "hanViet": "",
+    "hanViet": "HẬU",
     "onReadings": [
       "ゴ",
       "コウ"
@@ -459,13 +450,10 @@
     "id": "司",
     "kanji": "司",
     "meanings": [
-      "director",
-      "official",
-      "govt office",
-      "rule",
-      "administer"
+      "cai quản",
+      "cấp trên"
     ],
-    "hanViet": "",
+    "hanViet": "TI",
     "onReadings": [
       "シ"
     ],
@@ -490,17 +478,11 @@
     "id": "相",
     "kanji": "相",
     "meanings": [
-      "inter-",
-      "mutual",
-      "together",
-      "each other",
-      "minister of state",
-      "councillor",
-      "aspect",
-      "phase",
-      "physiognomy"
+      "lẫn nhau",
+      "đối phương",
+      "tướng mạo"
     ],
-    "hanViet": "",
+    "hanViet": "TƯƠNG",
     "onReadings": [
       "ソウ",
       "ショウ"
@@ -526,9 +508,10 @@
     "id": "手",
     "kanji": "手",
     "meanings": [
-      "hand"
+      "bàn tay",
+      "người làm"
     ],
-    "hanViet": "",
+    "hanViet": "THỦ",
     "onReadings": [
       "シュ",
       "ズ"
@@ -564,10 +547,10 @@
     "id": "知",
     "kanji": "知",
     "meanings": [
-      "know",
-      "wisdom"
+      "biết",
+      "tri thức"
     ],
-    "hanViet": "",
+    "hanViet": "TRI",
     "onReadings": [
       "チ"
     ],
@@ -593,12 +576,11 @@
     "id": "合",
     "kanji": "合",
     "meanings": [
-      "fit",
-      "suit",
-      "join",
-      "0.1"
+      "hợp nhau",
+      "gặp gỡ",
+      "kết hợp"
     ],
-    "hanViet": "",
+    "hanViet": "HỢP",
     "onReadings": [
       "ゴウ",
       "ガッ",
@@ -640,9 +622,9 @@
     "id": "友",
     "kanji": "友",
     "meanings": [
-      "friend"
+      "bạn bè"
     ],
-    "hanViet": "",
+    "hanViet": "HỮU",
     "onReadings": [
       "ユウ"
     ],
@@ -667,9 +649,10 @@
     "id": "人",
     "kanji": "人",
     "meanings": [
-      "person"
+      "người",
+      "con người"
     ],
-    "hanViet": "",
+    "hanViet": "NHÂN",
     "onReadings": [
       "ジン",
       "ニン"
@@ -711,10 +694,10 @@
     "id": "仲",
     "kanji": "仲",
     "meanings": [
-      "go-between",
-      "relationship"
+      "mối quan hệ",
+      "ở giữa"
     ],
-    "hanViet": "",
+    "hanViet": "TRỌNG",
     "onReadings": [
       "チュウ"
     ],
@@ -739,11 +722,11 @@
     "id": "生",
     "kanji": "生",
     "meanings": [
-      "life",
-      "genuine",
-      "birth"
+      "sống",
+      "sinh ra",
+      "tươi sống"
     ],
-    "hanViet": "",
+    "hanViet": "SINH",
     "onReadings": [
       "セイ",
       "ショウ"
@@ -807,10 +790,10 @@
     "id": "月",
     "kanji": "月",
     "meanings": [
-      "month",
-      "moon"
+      "tháng",
+      "mặt trăng"
     ],
-    "hanViet": "",
+    "hanViet": "NGUYỆT",
     "onReadings": [
       "ゲツ",
       "ガツ"
@@ -836,12 +819,11 @@
     "id": "日",
     "kanji": "日",
     "meanings": [
-      "day",
-      "sun",
-      "Japan",
-      "counter for days"
+      "ngày",
+      "mặt trời",
+      "Nhật Bản"
     ],
-    "hanViet": "",
+    "hanViet": "NHẬT",
     "onReadings": [
       "ニチ",
       "ジツ"
@@ -869,13 +851,10 @@
     "id": "誕",
     "kanji": "誕",
     "meanings": [
-      "nativity",
-      "be born",
-      "declension",
-      "lie",
-      "be arbitrary"
+      "ra đời",
+      "sinh nhật"
     ],
-    "hanViet": "",
+    "hanViet": "ĐẢN",
     "onReadings": [
       "タン"
     ],
@@ -898,14 +877,10 @@
     "id": "出",
     "kanji": "出",
     "meanings": [
-      "exit",
-      "leave",
-      "go out",
-      "come out",
-      "put out",
-      "protrude"
+      "ra ngoài",
+      "xuất hiện"
     ],
-    "hanViet": "",
+    "hanViet": "XUẤT",
     "onReadings": [
       "シュツ",
       "スイ"
@@ -950,11 +925,11 @@
     "id": "身",
     "kanji": "身",
     "meanings": [
-      "somebody",
-      "person",
-      "one's station in life"
+      "thân thể",
+      "bản thân",
+      "xuất thân"
     ],
-    "hanViet": "",
+    "hanViet": "THÂN",
     "onReadings": [
       "シン"
     ],
@@ -986,17 +961,11 @@
     "id": "故",
     "kanji": "故",
     "meanings": [
-      "happenstance",
-      "especially",
-      "intentionally",
-      "reason",
-      "cause",
-      "circumstances",
-      "the late",
-      "therefore",
-      "consequently"
+      "cũ",
+      "quê cũ",
+      "nguyên nhân"
     ],
-    "hanViet": "",
+    "hanViet": "CỐ",
     "onReadings": [
       "コ"
     ],
@@ -1023,12 +992,10 @@
     "id": "郷",
     "kanji": "郷",
     "meanings": [
-      "home town",
-      "village",
-      "native place",
-      "district"
+      "quê hương",
+      "làng quê"
     ],
-    "hanViet": "",
+    "hanViet": "HƯƠNG",
     "onReadings": [
       "キョウ",
       "ゴウ"
@@ -1054,14 +1021,11 @@
     "id": "成",
     "kanji": "成",
     "meanings": [
-      "turn into",
-      "become",
-      "get",
-      "grow",
-      "elapse",
-      "reach"
+      "trở thành",
+      "thành công",
+      "trưởng thành"
     ],
-    "hanViet": "",
+    "hanViet": "THÀNH",
     "onReadings": [
       "セイ",
       "ジョウ"
@@ -1110,12 +1074,11 @@
     "id": "長",
     "kanji": "長",
     "meanings": [
-      "long",
-      "leader",
-      "superior",
-      "senior"
+      "dài",
+      "lớn lên",
+      "trưởng nhóm"
     ],
-    "hanViet": "",
+    "hanViet": "TRƯỜNG",
     "onReadings": [
       "チョウ"
     ],
@@ -1148,13 +1111,11 @@
     "id": "格",
     "kanji": "格",
     "meanings": [
-      "status",
-      "rank",
-      "capacity",
-      "character",
-      "case (law, grammar)"
+      "tư cách",
+      "tính cách",
+      "cấp bậc"
     ],
-    "hanViet": "",
+    "hanViet": "CÁCH",
     "onReadings": [
       "カク",
       "コウ",
@@ -1187,12 +1148,10 @@
     "id": "進",
     "kanji": "進",
     "meanings": [
-      "advance",
-      "proceed",
-      "progress",
-      "promote"
+      "tiến lên",
+      "học lên"
     ],
-    "hanViet": "",
+    "hanViet": "TIẾN",
     "onReadings": [
       "シン"
     ],
@@ -1218,11 +1177,10 @@
     "id": "学",
     "kanji": "学",
     "meanings": [
-      "study",
-      "learning",
-      "science"
+      "học tập",
+      "khoa học"
     ],
-    "hanViet": "",
+    "hanViet": "HỌC",
     "onReadings": [
       "ガク"
     ],
@@ -1261,15 +1219,11 @@
     "id": "退",
     "kanji": "退",
     "meanings": [
-      "retreat",
-      "withdraw",
-      "retire",
-      "resign",
-      "repel",
-      "expel",
-      "reject"
+      "rút lui",
+      "nghỉ việc",
+      "thôi học"
     ],
-    "hanViet": "",
+    "hanViet": "THOÁI",
     "onReadings": [
       "タイ"
     ],
@@ -1306,14 +1260,10 @@
     "id": "就",
     "kanji": "就",
     "meanings": [
-      "concerning",
-      "settle",
-      "take position",
-      "depart",
-      "study",
-      "per"
+      "vào nghề",
+      "nhậm chức"
     ],
-    "hanViet": "",
+    "hanViet": "TỰU",
     "onReadings": [
       "シュウ",
       "ジュ"
@@ -1340,11 +1290,10 @@
     "id": "職",
     "kanji": "職",
     "meanings": [
-      "post",
-      "employment",
-      "work"
+      "nghề nghiệp",
+      "chức vụ"
     ],
-    "hanViet": "",
+    "hanViet": "CHỨC",
     "onReadings": [
       "ショク",
       "ソク"
@@ -1375,13 +1324,10 @@
     "id": "失",
     "kanji": "失",
     "meanings": [
-      "lose",
-      "error",
-      "fault",
-      "disadvantage",
-      "loss"
+      "mất",
+      "lỗi lầm"
     ],
-    "hanViet": "",
+    "hanViet": "THẤT",
     "onReadings": [
       "シツ"
     ],
@@ -1414,12 +1360,11 @@
     "id": "業",
     "kanji": "業",
     "meanings": [
-      "business",
-      "vocation",
-      "arts",
-      "performance"
+      "nghề nghiệp",
+      "công việc",
+      "sự nghiệp"
     ],
-    "hanViet": "",
+    "hanViet": "NGHIỆP",
     "onReadings": [
       "ギョウ",
       "ゴウ"
@@ -1452,11 +1397,10 @@
     "id": "残",
     "kanji": "残",
     "meanings": [
-      "remainder",
-      "leftover",
-      "balance"
+      "còn lại",
+      "làm thêm giờ"
     ],
-    "hanViet": "",
+    "hanViet": "TÀN",
     "onReadings": [
       "ザン",
       "サン"
@@ -1485,12 +1429,11 @@
     "id": "活",
     "kanji": "活",
     "meanings": [
-      "lively",
-      "resuscitation",
-      "being helped",
-      "living"
+      "hoạt động",
+      "sinh hoạt",
+      "năng động"
     ],
-    "hanViet": "",
+    "hanViet": "HOẠT",
     "onReadings": [
       "カツ"
     ],
@@ -1517,13 +1460,11 @@
     "id": "通",
     "kanji": "通",
     "meanings": [
-      "traffic",
-      "pass through",
-      "avenue",
-      "commute",
-      "counter for letters, notes, documents, etc."
+      "đi lại",
+      "thông qua",
+      "đi làm/đi học"
     ],
-    "hanViet": "",
+    "hanViet": "THÔNG",
     "onReadings": [
       "ツウ",
       "ツ"
@@ -1556,11 +1497,10 @@
     "id": "勤",
     "kanji": "勤",
     "meanings": [
-      "diligence",
-      "become employed",
-      "serve"
+      "làm việc",
+      "chuyên cần"
     ],
-    "hanViet": "",
+    "hanViet": "CẦN",
     "onReadings": [
       "キン",
       "ゴン"
@@ -1589,11 +1529,10 @@
     "id": "歴",
     "kanji": "歴",
     "meanings": [
-      "curriculum",
-      "continuation",
-      "passage of time"
+      "lý lịch",
+      "lịch sử"
     ],
-    "hanViet": "",
+    "hanViet": "LỊCH",
     "onReadings": [
       "レキ",
       "レッキ"
@@ -1617,14 +1556,10 @@
     "id": "給",
     "kanji": "給",
     "meanings": [
-      "salary",
-      "wage",
-      "gift",
-      "allow",
-      "grant",
-      "bestow on"
+      "tiền lương",
+      "cung cấp"
     ],
-    "hanViet": "",
+    "hanViet": "CẤP",
     "onReadings": [
       "キュウ"
     ],
@@ -1651,10 +1586,11 @@
     "id": "料",
     "kanji": "料",
     "meanings": [
-      "fee",
-      "materials"
+      "phí",
+      "nguyên liệu",
+      "món ăn"
     ],
-    "hanViet": "",
+    "hanViet": "LIỆU",
     "onReadings": [
       "リョウ"
     ],
@@ -1677,12 +1613,11 @@
     "id": "面",
     "kanji": "面",
     "meanings": [
-      "mask",
-      "face",
-      "features",
-      "surface"
+      "khuôn mặt",
+      "bề mặt",
+      "mặt"
     ],
-    "hanViet": "",
+    "hanViet": "DIỆN",
     "onReadings": [
       "メン",
       "ベン"
@@ -1717,12 +1652,11 @@
     "id": "接",
     "kanji": "接",
     "meanings": [
-      "touch",
-      "contact",
-      "adjoin",
-      "piece together"
+      "tiếp xúc",
+      "nối liền",
+      "phỏng vấn"
     ],
-    "hanViet": "",
+    "hanViet": "TIẾP",
     "onReadings": [
       "セツ",
       "ショウ"
@@ -1748,12 +1682,10 @@
     "id": "休",
     "kanji": "休",
     "meanings": [
-      "rest",
-      "day off",
-      "retire",
-      "sleep"
+      "nghỉ ngơi",
+      "ngày nghỉ"
     ],
-    "hanViet": "",
+    "hanViet": "HƯU",
     "onReadings": [
       "キュウ"
     ],
@@ -1780,12 +1712,10 @@
     "id": "憩",
     "kanji": "憩",
     "meanings": [
-      "recess",
-      "rest",
-      "relax",
-      "repose"
+      "nghỉ giải lao",
+      "thư giãn"
     ],
-    "hanViet": "",
+    "hanViet": "KHẾ",
     "onReadings": [
       "ケイ"
     ],
@@ -1811,13 +1741,11 @@
     "id": "観",
     "kanji": "観",
     "meanings": [
-      "outlook",
-      "look",
-      "appearance",
-      "condition",
-      "view"
+      "quan sát",
+      "tham quan",
+      "cảnh quan"
     ],
-    "hanViet": "",
+    "hanViet": "QUAN",
     "onReadings": [
       "カン"
     ],
@@ -1843,10 +1771,10 @@
     "id": "光",
     "kanji": "光",
     "meanings": [
-      "ray",
-      "light"
+      "ánh sáng",
+      "chiếu sáng"
     ],
-    "hanViet": "",
+    "hanViet": "QUANG",
     "onReadings": [
       "コウ"
     ],
@@ -1872,12 +1800,10 @@
     "id": "帰",
     "kanji": "帰",
     "meanings": [
-      "homecoming",
-      "arrive at",
-      "lead to",
-      "result in"
+      "trở về",
+      "về nhà"
     ],
-    "hanViet": "",
+    "hanViet": "QUY",
     "onReadings": [
       "キ"
     ],
@@ -1926,9 +1852,10 @@
     "id": "国",
     "kanji": "国",
     "meanings": [
-      "country"
+      "đất nước",
+      "quốc gia"
     ],
-    "hanViet": "",
+    "hanViet": "QUỐC",
     "onReadings": [
       "コク"
     ],
@@ -1953,11 +1880,11 @@
     "id": "省",
     "kanji": "省",
     "meanings": [
-      "government ministry",
-      "conserve",
-      "omit"
+      "về quê",
+      "tiết kiệm",
+      "bộ (chính phủ)"
     ],
-    "hanViet": "",
+    "hanViet": "TỈNH",
     "onReadings": [
       "セイ",
       "ショウ"
@@ -1984,13 +1911,10 @@
     "id": "宅",
     "kanji": "宅",
     "meanings": [
-      "home",
-      "house",
-      "residence",
-      "our house",
-      "my husband"
+      "nhà ở",
+      "tư gia"
     ],
-    "hanViet": "",
+    "hanViet": "TRẠCH",
     "onReadings": [
       "タク"
     ],
@@ -2013,19 +1937,10 @@
     "id": "参",
     "kanji": "参",
     "meanings": [
-      "nonplussed",
-      "three (in documents)",
-      "going",
-      "coming",
-      "visiting",
-      "visit",
-      "be defeated",
-      "die",
-      "be madly in love",
-      "participate",
-      "take part in"
+      "tham gia",
+      "đến thăm"
     ],
-    "hanViet": "",
+    "hanViet": "THAM",
     "onReadings": [
       "サン",
       "シン"
@@ -2054,14 +1969,10 @@
     "id": "加",
     "kanji": "加",
     "meanings": [
-      "add",
-      "addition",
-      "increase",
-      "join",
-      "include",
-      "Canada"
+      "thêm vào",
+      "gia nhập"
     ],
-    "hanViet": "",
+    "hanViet": "GIA",
     "onReadings": [
       "カ"
     ],
@@ -2087,12 +1998,10 @@
     "id": "席",
     "kanji": "席",
     "meanings": [
-      "seat",
-      "mat",
-      "occasion",
-      "place"
+      "chỗ ngồi",
+      "ghế ngồi"
     ],
-    "hanViet": "",
+    "hanViet": "TỊCH",
     "onReadings": [
       "セキ"
     ],
@@ -2124,12 +2033,10 @@
     "id": "欠",
     "kanji": "欠",
     "meanings": [
-      "lack",
-      "gap",
-      "fail",
-      "yawning radical (no. 76)"
+      "vắng mặt",
+      "thiếu sót"
     ],
-    "hanViet": "",
+    "hanViet": "KHIẾM",
     "onReadings": [
       "ケツ",
       "ケン"
@@ -2156,12 +2063,10 @@
     "id": "遅",
     "kanji": "遅",
     "meanings": [
-      "slow",
-      "late",
-      "back",
-      "later"
+      "chậm",
+      "muộn"
     ],
-    "hanViet": "",
+    "hanViet": "TRÌ",
     "onReadings": [
       "チ"
     ],
@@ -2188,15 +2093,10 @@
     "id": "刻",
     "kanji": "刻",
     "meanings": [
-      "engrave",
-      "cut fine",
-      "chop",
-      "hash",
-      "mince",
-      "time",
-      "carving"
+      "thời khắc",
+      "chạm khắc"
     ],
-    "hanViet": "",
+    "hanViet": "KHẮC",
     "onReadings": [
       "コク"
     ],
@@ -2222,14 +2122,10 @@
     "id": "化",
     "kanji": "化",
     "meanings": [
-      "change",
-      "take the form of",
-      "influence",
-      "enchant",
-      "delude",
-      "-ization"
+      "biến hóa",
+      "hóa trang"
     ],
-    "hanViet": "",
+    "hanViet": "HÓA",
     "onReadings": [
       "カ",
       "ケ"
@@ -2258,10 +2154,10 @@
     "id": "粧",
     "kanji": "粧",
     "meanings": [
-      "cosmetics",
-      "adorn (one's person)"
+      "trang điểm",
+      "mỹ phẩm"
     ],
-    "hanViet": "",
+    "hanViet": "TRANG",
     "onReadings": [
       "ショウ"
     ],
@@ -2284,12 +2180,11 @@
     "id": "計",
     "kanji": "計",
     "meanings": [
-      "plot",
-      "plan",
-      "scheme",
-      "measure"
+      "đo lường",
+      "kế hoạch",
+      "tính toán"
     ],
-    "hanViet": "",
+    "hanViet": "KẾ",
     "onReadings": [
       "ケイ"
     ],
@@ -2322,13 +2217,10 @@
     "id": "算",
     "kanji": "算",
     "meanings": [
-      "calculate",
-      "divining",
-      "number",
-      "abacus",
-      "probability"
+      "tính toán",
+      "số học"
     ],
-    "hanViet": "",
+    "hanViet": "TOÁN",
     "onReadings": [
       "サン"
     ],
@@ -2353,10 +2245,11 @@
     "id": "画",
     "kanji": "画",
     "meanings": [
-      "brush-stroke",
-      "picture"
+      "kế hoạch",
+      "bức tranh",
+      "nét vẽ"
     ],
-    "hanViet": "",
+    "hanViet": "HOẠCH",
     "onReadings": [
       "ガ",
       "カク",
@@ -2395,13 +2288,10 @@
     "id": "功",
     "kanji": "功",
     "meanings": [
-      "achievement",
-      "merits",
-      "success",
-      "honor",
-      "credit"
+      "thành công",
+      "công lao"
     ],
-    "hanViet": "",
+    "hanViet": "CÔNG",
     "onReadings": [
       "コウ",
       "ク"
@@ -2427,11 +2317,10 @@
     "id": "敗",
     "kanji": "敗",
     "meanings": [
-      "failure",
-      "defeat",
-      "reversal"
+      "thất bại",
+      "thua cuộc"
     ],
-    "hanViet": "",
+    "hanViet": "BẠI",
     "onReadings": [
       "ハイ"
     ],
@@ -2456,13 +2345,10 @@
     "id": "準",
     "kanji": "準",
     "meanings": [
-      "semi-",
-      "correspond to",
-      "proportionate to",
-      "conform",
-      "imitate"
+      "chuẩn bị",
+      "tiêu chuẩn"
     ],
-    "hanViet": "",
+    "hanViet": "CHUẨN",
     "onReadings": [
       "ジュン"
     ],
@@ -2492,11 +2378,10 @@
     "id": "備",
     "kanji": "備",
     "meanings": [
-      "equip",
-      "provision",
-      "preparation"
+      "chuẩn bị",
+      "trang bị"
     ],
-    "hanViet": "",
+    "hanViet": "BỊ",
     "onReadings": [
       "ビ"
     ],
@@ -2523,14 +2408,10 @@
     "id": "整",
     "kanji": "整",
     "meanings": [
-      "organize",
-      "arranging",
-      "tune",
-      "tone",
-      "meter",
-      "key (music)"
+      "sắp xếp",
+      "chỉnh đốn"
     ],
-    "hanViet": "",
+    "hanViet": "CHỈNH",
     "onReadings": [
       "セイ"
     ],
@@ -2556,13 +2437,11 @@
     "id": "理",
     "kanji": "理",
     "meanings": [
-      "logic",
-      "arrangement",
-      "reason",
-      "justice",
-      "truth"
+      "lý do",
+      "sắp xếp",
+      "đạo lý"
     ],
-    "hanViet": "",
+    "hanViet": "LÝ",
     "onReadings": [
       "リ"
     ],
@@ -2587,16 +2466,11 @@
     "id": "注",
     "kanji": "注",
     "meanings": [
-      "pour",
-      "irrigate",
-      "shed (tears)",
-      "flow into",
-      "concentrate on",
-      "notes",
-      "comment",
-      "annotate"
+      "chú ý",
+      "đặt hàng",
+      "rót vào"
     ],
-    "hanViet": "",
+    "hanViet": "CHÚ",
     "onReadings": [
       "チュウ"
     ],
@@ -2623,16 +2497,11 @@
     "id": "文",
     "kanji": "文",
     "meanings": [
-      "sentence",
-      "literature",
-      "style",
-      "art",
-      "decoration",
-      "figures",
-      "plan",
-      "literary radical (no. 67)"
+      "câu văn",
+      "văn học",
+      "chữ viết"
     ],
-    "hanViet": "",
+    "hanViet": "VĂN",
     "onReadings": [
       "ブン",
       "モン"
@@ -2659,13 +2528,10 @@
     "id": "貯",
     "kanji": "貯",
     "meanings": [
-      "savings",
-      "store",
-      "lay in",
-      "keep",
-      "wear mustache"
+      "tiết kiệm",
+      "tích trữ"
     ],
-    "hanViet": "",
+    "hanViet": "TRỮ",
     "onReadings": [
       "チョ"
     ],
@@ -2691,9 +2557,11 @@
     "id": "金",
     "kanji": "金",
     "meanings": [
-      "gold"
+      "tiền bạc",
+      "vàng",
+      "kim loại"
     ],
-    "hanViet": "",
+    "hanViet": "KIM",
     "onReadings": [
       "キン",
       "コン",
@@ -2722,13 +2590,10 @@
     "id": "徹",
     "kanji": "徹",
     "meanings": [
-      "penetrate",
-      "clear",
-      "pierce",
-      "strike home",
-      "sit up (all night)"
+      "thức trắng đêm",
+      "triệt để"
     ],
-    "hanViet": "",
+    "hanViet": "TRIỆT",
     "onReadings": [
       "テツ"
     ],
@@ -2751,10 +2616,10 @@
     "id": "夜",
     "kanji": "夜",
     "meanings": [
-      "night",
-      "evening"
+      "ban đêm",
+      "buổi tối"
     ],
-    "hanViet": "",
+    "hanViet": "DẠ",
     "onReadings": [
       "ヤ"
     ],
@@ -2780,15 +2645,11 @@
     "id": "引",
     "kanji": "引",
     "meanings": [
-      "pull",
-      "tug",
-      "jerk",
-      "admit",
-      "install",
-      "quote",
-      "refer to"
+      "kéo",
+      "chuyển nhà",
+      "trích dẫn"
     ],
-    "hanViet": "",
+    "hanViet": "DẪN",
     "onReadings": [
       "イン"
     ],
@@ -2814,13 +2675,11 @@
     "id": "越",
     "kanji": "越",
     "meanings": [
-      "surpass",
-      "cross over",
-      "move to",
-      "exceed",
-      "Vietnam"
+      "vượt qua",
+      "chuyển đến",
+      "Việt Nam"
     ],
-    "hanViet": "",
+    "hanViet": "VIỆT",
     "onReadings": [
       "エツ",
       "オツ"
@@ -2850,13 +2709,10 @@
     "id": "体",
     "kanji": "体",
     "meanings": [
-      "body",
-      "substance",
-      "object",
-      "reality",
-      "counter for images"
+      "cơ thể",
+      "thể xác"
     ],
-    "hanViet": "",
+    "hanViet": "THỂ",
     "onReadings": [
       "タイ",
       "テイ"
@@ -2883,16 +2739,11 @@
     "id": "重",
     "kanji": "重",
     "meanings": [
-      "heavy",
-      "important",
-      "esteem",
-      "respect",
-      "heap up",
-      "pile up",
-      "nest of boxes",
-      "-fold"
+      "nặng",
+      "quan trọng",
+      "chồng lên"
     ],
-    "hanViet": "",
+    "hanViet": "TRỌNG",
     "onReadings": [
       "ジュウ",
       "チョウ"
@@ -2924,12 +2775,9 @@
     "id": "会",
     "kanji": "会",
     "meanings": [
-      "meeting",
-      "meet",
-      "party",
-      "association",
-      "interview",
-      "join"
+      "gặp gỡ",
+      "cuộc họp",
+      "xã hội"
     ],
     "hanViet": "HỘI",
     "onReadings": [
@@ -2959,15 +2807,10 @@
     "id": "趣",
     "kanji": "趣",
     "meanings": [
-      "purport",
-      "gist",
-      "elegance",
-      "interest",
-      "proceed to",
-      "tend",
-      "become"
+      "sở thích",
+      "thú vị"
     ],
-    "hanViet": "",
+    "hanViet": "THÚ",
     "onReadings": [
       "シュ"
     ],
@@ -2993,10 +2836,10 @@
     "id": "味",
     "kanji": "味",
     "meanings": [
-      "flavor",
-      "taste"
+      "mùi vị",
+      "ý vị"
     ],
-    "hanViet": "",
+    "hanViet": "VỊ",
     "onReadings": [
       "ミ"
     ],
@@ -3029,13 +2872,10 @@
     "id": "興",
     "kanji": "興",
     "meanings": [
-      "entertain",
-      "revive",
-      "retrieve",
-      "interest",
-      "pleasure"
+      "hứng thú",
+      "hưng thịnh"
     ],
-    "hanViet": "",
+    "hanViet": "HỨNG",
     "onReadings": [
       "コウ",
       "キョウ"
@@ -3062,9 +2902,10 @@
     "id": "思",
     "kanji": "思",
     "meanings": [
-      "think"
+      "suy nghĩ",
+      "nghĩ rằng"
     ],
-    "hanViet": "",
+    "hanViet": "TƯ",
     "onReadings": [
       "シ"
     ],
@@ -3091,10 +2932,10 @@
     "id": "冗",
     "kanji": "冗",
     "meanings": [
-      "superfluous",
-      "uselessness"
+      "nói đùa",
+      "dư thừa"
     ],
-    "hanViet": "",
+    "hanViet": "NHŨNG",
     "onReadings": [
       "ジョウ"
     ],
@@ -3117,10 +2958,10 @@
     "id": "談",
     "kanji": "談",
     "meanings": [
-      "discuss",
-      "talk"
+      "trò chuyện",
+      "bàn bạc"
     ],
-    "hanViet": "",
+    "hanViet": "ĐÀM",
     "onReadings": [
       "ダン"
     ],
@@ -3143,13 +2984,11 @@
     "id": "的",
     "kanji": "的",
     "meanings": [
-      "bull's eye",
-      "mark",
-      "target",
-      "object",
-      "adjective ending"
+      "mục đích",
+      "mục tiêu",
+      "mang tính"
     ],
-    "hanViet": "",
+    "hanViet": "ĐÍCH",
     "onReadings": [
       "テキ"
     ],
@@ -3174,11 +3013,11 @@
     "id": "約",
     "kanji": "約",
     "meanings": [
-      "promise",
-      "approximately",
-      "shrink"
+      "lời hứa",
+      "cuộc hẹn",
+      "khoảng chừng"
     ],
-    "hanViet": "",
+    "hanViet": "ƯỚC",
     "onReadings": [
       "ヤク"
     ],
@@ -3212,15 +3051,11 @@
     "id": "束",
     "kanji": "束",
     "meanings": [
-      "bundle",
-      "sheaf",
-      "ream",
-      "tie in bundles",
-      "govern",
-      "manage",
-      "control"
+      "bó lại",
+      "ràng buộc",
+      "hẹn ước"
     ],
-    "hanViet": "",
+    "hanViet": "THÚC",
     "onReadings": [
       "ソク"
     ],
@@ -3248,10 +3083,10 @@
     "id": "遠",
     "kanji": "遠",
     "meanings": [
-      "distant",
-      "far"
+      "xa",
+      "ngại ngùng"
     ],
-    "hanViet": "",
+    "hanViet": "VIỄN",
     "onReadings": [
       "エン",
       "オン"
@@ -3277,14 +3112,11 @@
     "id": "慮",
     "kanji": "慮",
     "meanings": [
-      "prudence",
-      "thought",
-      "concern",
-      "consider",
-      "deliberate",
-      "fear"
+      "suy xét",
+      "lo nghĩ",
+      "khách sáo"
     ],
-    "hanViet": "",
+    "hanViet": "LỰ",
     "onReadings": [
       "リョ"
     ],
@@ -3310,13 +3142,10 @@
     "id": "我",
     "kanji": "我",
     "meanings": [
-      "ego",
-      "I",
-      "selfish",
-      "our",
-      "oneself"
+      "bản thân",
+      "cái tôi"
     ],
-    "hanViet": "",
+    "hanViet": "NGÃ",
     "onReadings": [
       "ガ"
     ],
@@ -3344,10 +3173,11 @@
     "id": "慢",
     "kanji": "慢",
     "meanings": [
-      "ridicule",
-      "laziness"
+      "kiên nhẫn",
+      "chịu đựng",
+      "kiêu ngạo"
     ],
-    "hanViet": "",
+    "hanViet": "MẠN",
     "onReadings": [
       "マン"
     ],
@@ -3370,14 +3200,10 @@
     "id": "迷",
     "kanji": "迷",
     "meanings": [
-      "astray",
-      "be perplexed",
-      "in doubt",
-      "lost",
-      "err",
-      "illusion"
+      "lạc đường",
+      "phân vân"
     ],
-    "hanViet": "",
+    "hanViet": "MÊ",
     "onReadings": [
       "メイ"
     ],
@@ -3402,11 +3228,10 @@
     "id": "惑",
     "kanji": "惑",
     "meanings": [
-      "beguile",
-      "delusion",
-      "perplexity"
+      "làm phiền",
+      "mê hoặc"
     ],
-    "hanViet": "",
+    "hanViet": "HOẶC",
     "onReadings": [
       "ワク"
     ],
@@ -3431,18 +3256,10 @@
     "id": "希",
     "kanji": "希",
     "meanings": [
-      "hope",
-      "beg",
-      "request",
-      "pray",
-      "beseech",
-      "Greece",
-      "dilute (acid)",
-      "rare",
-      "few",
-      "phenomenal"
+      "hy vọng",
+      "mong muốn"
     ],
-    "hanViet": "",
+    "hanViet": "HY",
     "onReadings": [
       "キ",
       "ケ"
@@ -3469,14 +3286,10 @@
     "id": "望",
     "kanji": "望",
     "meanings": [
-      "ambition",
-      "full moon",
-      "hope",
-      "desire",
-      "aspire to",
-      "expect"
+      "mong đợi",
+      "ước vọng"
     ],
-    "hanViet": "",
+    "hanViet": "VỌNG",
     "onReadings": [
       "ボウ",
       "モウ"
@@ -3503,11 +3316,10 @@
     "id": "夢",
     "kanji": "夢",
     "meanings": [
-      "dream",
-      "vision",
-      "illusion"
+      "giấc mơ",
+      "ước mơ"
     ],
-    "hanViet": "",
+    "hanViet": "MỘNG",
     "onReadings": [
       "ム",
       "ボウ"
@@ -3535,13 +3347,10 @@
     "id": "賛",
     "kanji": "賛",
     "meanings": [
-      "approve",
-      "praise",
-      "title or inscription on picture",
-      "assist",
-      "agree with"
+      "tán thành",
+      "ủng hộ"
     ],
-    "hanViet": "",
+    "hanViet": "TÁN",
     "onReadings": [
       "サン"
     ],
@@ -3567,9 +3376,10 @@
     "id": "反",
     "kanji": "反",
     "meanings": [
-      "anti-"
+      "phản đối",
+      "ngược lại"
     ],
-    "hanViet": "",
+    "hanViet": "PHẢN",
     "onReadings": [
       "ハン",
       "ホン",
@@ -3601,15 +3411,11 @@
     "id": "対",
     "kanji": "対",
     "meanings": [
-      "vis-a-vis",
-      "opposite",
-      "even",
-      "equal",
-      "versus",
-      "anti-",
-      "compare"
+      "đối diện",
+      "phản đối",
+      "đối chiếu"
     ],
-    "hanViet": "",
+    "hanViet": "ĐỐI",
     "onReadings": [
       "タイ",
       "ツイ"
@@ -3640,12 +3446,10 @@
     "id": "想",
     "kanji": "想",
     "meanings": [
-      "idea",
-      "thought",
-      "conception",
-      "think"
+      "tưởng tượng",
+      "suy tưởng"
     ],
-    "hanViet": "",
+    "hanViet": "TƯỞNG",
     "onReadings": [
       "ソウ",
       "ソ"
@@ -3671,13 +3475,10 @@
     "id": "像",
     "kanji": "像",
     "meanings": [
-      "statue",
-      "picture",
-      "image",
-      "figure",
-      "portrait"
+      "hình ảnh",
+      "bức tượng"
     ],
-    "hanViet": "",
+    "hanViet": "TƯỢNG",
     "onReadings": [
       "ゾウ"
     ],
@@ -3700,11 +3501,10 @@
     "id": "努",
     "kanji": "努",
     "meanings": [
-      "toil",
-      "diligent",
-      "as much as possible"
+      "nỗ lực",
+      "cố gắng"
     ],
-    "hanViet": "",
+    "hanViet": "NỖ",
     "onReadings": [
       "ド"
     ],
@@ -3729,14 +3529,10 @@
     "id": "力",
     "kanji": "力",
     "meanings": [
-      "power",
-      "strength",
-      "strong",
-      "strain",
-      "bear up",
-      "exert"
+      "sức mạnh",
+      "năng lực"
     ],
-    "hanViet": "",
+    "hanViet": "LỰC",
     "onReadings": [
       "リョク",
       "リキ",
@@ -3763,11 +3559,11 @@
     "id": "太",
     "kanji": "太",
     "meanings": [
-      "plump",
-      "thick",
-      "big around"
+      "dày",
+      "béo",
+      "mặt trời"
     ],
-    "hanViet": "",
+    "hanViet": "THÁI",
     "onReadings": [
       "タイ",
       "タ"
@@ -3794,14 +3590,10 @@
     "id": "陽",
     "kanji": "陽",
     "meanings": [
-      "sunshine",
-      "yang principle",
-      "positive",
-      "male",
-      "heaven",
-      "daytime"
+      "ánh nắng",
+      "mặt trời"
     ],
-    "hanViet": "",
+    "hanViet": "DƯƠNG",
     "onReadings": [
       "ヨウ"
     ],
@@ -3826,10 +3618,11 @@
     "id": "地",
     "kanji": "地",
     "meanings": [
-      "ground",
-      "earth"
+      "mặt đất",
+      "địa điểm",
+      "trái đất"
     ],
-    "hanViet": "",
+    "hanViet": "ĐỊA",
     "onReadings": [
       "チ",
       "ジ"
@@ -3860,10 +3653,10 @@
     "id": "球",
     "kanji": "球",
     "meanings": [
-      "ball",
-      "sphere"
+      "quả cầu",
+      "trái bóng"
     ],
-    "hanViet": "",
+    "hanViet": "CẦU",
     "onReadings": [
       "キュウ"
     ],
@@ -3888,9 +3681,10 @@
     "id": "温",
     "kanji": "温",
     "meanings": [
-      "warm"
+      "ấm áp",
+      "nhiệt độ"
     ],
-    "hanViet": "",
+    "hanViet": "ÔN",
     "onReadings": [
       "オン"
     ],
@@ -3919,14 +3713,11 @@
     "id": "度",
     "kanji": "度",
     "meanings": [
-      "degrees",
-      "occurrence",
-      "time",
-      "counter for occurrences",
-      "consider",
-      "attitude"
+      "nhiệt độ",
+      "lần",
+      "mức độ"
     ],
-    "hanViet": "",
+    "hanViet": "ĐỘ",
     "onReadings": [
       "ド",
       "ト",
@@ -3961,11 +3752,10 @@
     "id": "湿",
     "kanji": "湿",
     "meanings": [
-      "damp",
-      "wet",
-      "moist"
+      "ẩm ướt",
+      "độ ẩm"
     ],
-    "hanViet": "",
+    "hanViet": "THẤP",
     "onReadings": [
       "シツ",
       "シュウ"
@@ -4001,13 +3791,11 @@
     "id": "気",
     "kanji": "気",
     "meanings": [
-      "spirit",
-      "mind",
-      "air",
-      "atmosphere",
-      "mood"
+      "tinh thần",
+      "không khí",
+      "tâm trạng"
     ],
-    "hanViet": "",
+    "hanViet": "KHÍ",
     "onReadings": [
       "キ",
       "ケ"
@@ -4034,9 +3822,10 @@
     "id": "梅",
     "kanji": "梅",
     "meanings": [
-      "plum"
+      "hoa mơ",
+      "mùa mưa"
     ],
-    "hanViet": "",
+    "hanViet": "MAI",
     "onReadings": [
       "バイ"
     ],
@@ -4061,9 +3850,10 @@
     "id": "雨",
     "kanji": "雨",
     "meanings": [
-      "rain"
+      "mưa",
+      "cơn mưa"
     ],
-    "hanViet": "",
+    "hanViet": "VŨ",
     "onReadings": [
       "ウ"
     ],
@@ -4090,9 +3880,10 @@
     "id": "暖",
     "kanji": "暖",
     "meanings": [
-      "warmth"
+      "ấm áp",
+      "sưởi ấm"
     ],
-    "hanViet": "",
+    "hanViet": "NOÃN",
     "onReadings": [
       "ダン",
       "ノン"
@@ -4121,16 +3912,10 @@
     "id": "房",
     "kanji": "房",
     "meanings": [
-      "tassel",
-      "tuft",
-      "fringe",
-      "bunch",
-      "lock (hair)",
-      "segment (orange)",
-      "house",
-      "room"
+      "căn phòng",
+      "buồng"
     ],
-    "hanViet": "",
+    "hanViet": "PHÒNG",
     "onReadings": [
       "ボウ"
     ],
@@ -4155,13 +3940,10 @@
     "id": "皮",
     "kanji": "皮",
     "meanings": [
-      "pelt",
-      "skin",
-      "hide",
-      "leather",
-      "skin radical (no. 107)"
+      "da",
+      "vỏ ngoài"
     ],
-    "hanViet": "",
+    "hanViet": "BÌ",
     "onReadings": [
       "ヒ"
     ],
@@ -4186,11 +3968,10 @@
     "id": "缶",
     "kanji": "缶",
     "meanings": [
-      "tin can",
-      "container",
-      "jar radical (no. 121)"
+      "lon thiếc",
+      "hộp thiếc"
     ],
-    "hanViet": "",
+    "hanViet": "PHẪU",
     "onReadings": [
       "カン"
     ],
@@ -4215,10 +3996,10 @@
     "id": "番",
     "kanji": "番",
     "meanings": [
-      "turn",
-      "number in a series"
+      "số thứ tự",
+      "lượt"
     ],
-    "hanViet": "",
+    "hanViet": "PHIÊN",
     "onReadings": [
       "バン"
     ],
@@ -4257,16 +4038,11 @@
     "id": "組",
     "kanji": "組",
     "meanings": [
-      "association",
-      "braid",
-      "plait",
-      "construct",
-      "assemble",
-      "unite",
-      "cooperate",
-      "grapple"
+      "nhóm",
+      "chương trình",
+      "lắp ghép"
     ],
-    "hanViet": "",
+    "hanViet": "TỔ",
     "onReadings": [
       "ソ"
     ],
@@ -4293,11 +4069,11 @@
     "id": "記",
     "kanji": "記",
     "meanings": [
-      "scribe",
-      "account",
-      "narrative"
+      "ghi chép",
+      "bài báo",
+      "ký ức"
     ],
-    "hanViet": "",
+    "hanViet": "KÝ",
     "onReadings": [
       "キ"
     ],
@@ -4322,14 +4098,10 @@
     "id": "事",
     "kanji": "事",
     "meanings": [
-      "matter",
-      "thing",
-      "fact",
-      "business",
-      "reason",
-      "possibly"
+      "sự việc",
+      "công việc"
     ],
-    "hanViet": "",
+    "hanViet": "SỰ",
     "onReadings": [
       "ジ",
       "ズ"
@@ -4357,12 +4129,10 @@
     "id": "近",
     "kanji": "近",
     "meanings": [
-      "near",
-      "early",
-      "akin",
-      "tantamount"
+      "gần",
+      "lân cận"
     ],
-    "hanViet": "",
+    "hanViet": "CẬN",
     "onReadings": [
       "キン",
       "コン"
@@ -4388,10 +4158,10 @@
     "id": "所",
     "kanji": "所",
     "meanings": [
-      "place",
-      "extent"
+      "nơi chốn",
+      "địa điểm"
     ],
-    "hanViet": "",
+    "hanViet": "SỞ",
     "onReadings": [
       "ショ"
     ],
@@ -4419,10 +4189,10 @@
     "id": "警",
     "kanji": "警",
     "meanings": [
-      "admonish",
-      "commandment"
+      "cảnh sát",
+      "cảnh báo"
     ],
-    "hanViet": "",
+    "hanViet": "CẢNH",
     "onReadings": [
       "ケイ"
     ],
@@ -4447,13 +4217,10 @@
     "id": "察",
     "kanji": "察",
     "meanings": [
-      "guess",
-      "presume",
-      "surmise",
-      "judge",
-      "understand"
+      "quan sát",
+      "cảnh sát"
     ],
-    "hanViet": "",
+    "hanViet": "SÁT",
     "onReadings": [
       "サツ"
     ],
@@ -4476,11 +4243,10 @@
     "id": "犯",
     "kanji": "犯",
     "meanings": [
-      "crime",
-      "sin",
-      "offense"
+      "phạm tội",
+      "tội phạm"
     ],
-    "hanViet": "",
+    "hanViet": "PHẠM",
     "onReadings": [
       "ハン",
       "ボン"
@@ -4506,10 +4272,10 @@
     "id": "小",
     "kanji": "小",
     "meanings": [
-      "little",
-      "small"
+      "nhỏ",
+      "bé"
     ],
-    "hanViet": "",
+    "hanViet": "TIỂU",
     "onReadings": [
       "ショウ"
     ],
@@ -4537,11 +4303,10 @@
     "id": "銭",
     "kanji": "銭",
     "meanings": [
-      "coin",
-      ".01 yen",
-      "money"
+      "tiền lẻ",
+      "đồng xu"
     ],
-    "hanViet": "",
+    "hanViet": "TIỀN",
     "onReadings": [
       "セン",
       "ゼン"
@@ -4568,12 +4333,11 @@
     "id": "作",
     "kanji": "作",
     "meanings": [
-      "make",
-      "production",
-      "prepare",
-      "build"
+      "làm ra",
+      "tạo nên",
+      "tác phẩm"
     ],
-    "hanViet": "",
+    "hanViet": "TÁC",
     "onReadings": [
       "サク",
       "サ"
@@ -4608,10 +4372,9 @@
     "id": "者",
     "kanji": "者",
     "meanings": [
-      "someone",
-      "person"
+      "người (làm nghề/việc)"
     ],
-    "hanViet": "",
+    "hanViet": "GIẢ",
     "onReadings": [
       "シャ"
     ],
@@ -4636,13 +4399,11 @@
     "id": "品",
     "kanji": "品",
     "meanings": [
-      "goods",
-      "refinement",
-      "dignity",
-      "article",
-      "counter for meal courses"
+      "sản phẩm",
+      "hàng hóa",
+      "phẩm chất"
     ],
-    "hanViet": "",
+    "hanViet": "PHẨM",
     "onReadings": [
       "ヒン",
       "ホン"
@@ -4675,11 +4436,11 @@
     "id": "制",
     "kanji": "制",
     "meanings": [
-      "system",
-      "law",
-      "rule"
+      "chế độ",
+      "quy định",
+      "đồng phục"
     ],
-    "hanViet": "",
+    "hanViet": "CHẾ",
     "onReadings": [
       "セイ"
     ],
@@ -4702,12 +4463,10 @@
     "id": "服",
     "kanji": "服",
     "meanings": [
-      "clothing",
-      "admit",
-      "obey",
-      "discharge"
+      "quần áo",
+      "trang phục"
     ],
-    "hanViet": "",
+    "hanViet": "PHỤC",
     "onReadings": [
       "フク"
     ],
@@ -4730,11 +4489,10 @@
     "id": "洗",
     "kanji": "洗",
     "meanings": [
-      "wash",
-      "inquire into",
-      "probe"
+      "rửa",
+      "giặt giũ"
     ],
-    "hanViet": "",
+    "hanViet": "TẨY",
     "onReadings": [
       "セン"
     ],
@@ -4759,11 +4517,10 @@
     "id": "剤",
     "kanji": "剤",
     "meanings": [
-      "dose",
-      "medicine",
-      "drug"
+      "chất tẩy",
+      "thuốc"
     ],
-    "hanViet": "",
+    "hanViet": "TỄ",
     "onReadings": [
       "ザイ",
       "スイ",
@@ -4791,15 +4548,10 @@
     "id": "底",
     "kanji": "底",
     "meanings": [
-      "bottom",
-      "sole",
-      "depth",
-      "bottom price",
-      "base",
-      "kind",
-      "sort"
+      "đáy",
+      "phía dưới cùng"
     ],
-    "hanViet": "",
+    "hanViet": "ĐỂ",
     "onReadings": [
       "テイ"
     ],
@@ -4824,14 +4576,11 @@
     "id": "下",
     "kanji": "下",
     "meanings": [
-      "below",
-      "down",
-      "descend",
-      "give",
-      "low",
-      "inferior"
+      "dưới",
+      "đi xuống",
+      "hạ xuống"
     ],
-    "hanViet": "",
+    "hanViet": "HẠ",
     "onReadings": [
       "カ",
       "ゲ"
@@ -4868,9 +4617,9 @@
     "id": "寺",
     "kanji": "寺",
     "meanings": [
-      "Buddhist temple"
+      "ngôi chùa"
     ],
-    "hanViet": "",
+    "hanViet": "TỰ",
     "onReadings": [
       "ジ"
     ],
@@ -4895,15 +4644,10 @@
     "id": "道",
     "kanji": "道",
     "meanings": [
-      "road-way",
-      "street",
-      "district",
-      "journey",
-      "course",
-      "moral",
-      "teachings"
+      "con đường",
+      "đạo lý"
     ],
-    "hanViet": "",
+    "hanViet": "ĐẠO",
     "onReadings": [
       "ドウ",
       "トウ"
@@ -4930,12 +4674,10 @@
     "id": "路",
     "kanji": "路",
     "meanings": [
-      "path",
-      "route",
-      "road",
-      "distance"
+      "đường sá",
+      "lộ trình"
     ],
-    "hanViet": "",
+    "hanViet": "LỘ",
     "onReadings": [
       "ロ",
       "ル"
@@ -4962,11 +4704,9 @@
     "id": "坂",
     "kanji": "坂",
     "meanings": [
-      "slope",
-      "incline",
-      "hill"
+      "con dốc"
     ],
-    "hanViet": "",
+    "hanViet": "PHẢN",
     "onReadings": [
       "ハン"
     ],
@@ -4991,9 +4731,10 @@
     "id": "煙",
     "kanji": "煙",
     "meanings": [
-      "smoke"
+      "khói",
+      "thuốc lá"
     ],
-    "hanViet": "",
+    "hanViet": "YÊN",
     "onReadings": [
       "エン"
     ],
@@ -5020,11 +4761,10 @@
     "id": "灰",
     "kanji": "灰",
     "meanings": [
-      "ashes",
-      "puckery juice",
-      "cremate"
+      "tro",
+      "màu xám"
     ],
-    "hanViet": "",
+    "hanViet": "HÔI",
     "onReadings": [
       "カイ"
     ],
@@ -5049,13 +4789,10 @@
     "id": "判",
     "kanji": "判",
     "meanings": [
-      "judgement",
-      "judgment",
-      "signature",
-      "stamp",
-      "seal"
+      "phán đoán",
+      "con dấu"
     ],
-    "hanViet": "",
+    "hanViet": "PHÁN",
     "onReadings": [
       "ハン",
       "バン"
@@ -5081,12 +4818,10 @@
     "id": "名",
     "kanji": "名",
     "meanings": [
-      "name",
-      "noted",
-      "distinguished",
-      "reputation"
+      "tên",
+      "nổi tiếng"
     ],
-    "hanViet": "",
+    "hanViet": "DANH",
     "onReadings": [
       "メイ",
       "ミョウ"
@@ -5113,14 +4848,11 @@
     "id": "刺",
     "kanji": "刺",
     "meanings": [
-      "thorn",
-      "pierce",
-      "stab",
-      "prick",
-      "sting",
-      "calling card"
+      "đâm",
+      "danh thiếp",
+      "gai"
     ],
-    "hanViet": "",
+    "hanViet": "THÍCH",
     "onReadings": [
       "シ"
     ],
@@ -5149,10 +4881,10 @@
     "id": "免",
     "kanji": "免",
     "meanings": [
-      "excuse",
-      "dismissal"
+      "miễn trừ",
+      "giấy phép"
     ],
-    "hanViet": "",
+    "hanViet": "MIỄN",
     "onReadings": [
       "メン"
     ],
@@ -5178,10 +4910,10 @@
     "id": "許",
     "kanji": "許",
     "meanings": [
-      "permit",
-      "approve"
+      "cho phép",
+      "tha thứ"
     ],
-    "hanViet": "",
+    "hanViet": "HỨA",
     "onReadings": [
       "キョ"
     ],
@@ -5207,11 +4939,10 @@
     "id": "多",
     "kanji": "多",
     "meanings": [
-      "many",
-      "frequent",
-      "much"
+      "nhiều",
+      "phần lớn"
     ],
-    "hanViet": "",
+    "hanViet": "ĐA",
     "onReadings": [
       "タ"
     ],
@@ -5238,10 +4969,10 @@
     "id": "前",
     "kanji": "前",
     "meanings": [
-      "in front",
-      "before"
+      "trước",
+      "phía trước"
     ],
-    "hanViet": "",
+    "hanViet": "TIỀN",
     "onReadings": [
       "ゼン"
     ],
@@ -5267,13 +4998,10 @@
     "id": "半",
     "kanji": "半",
     "meanings": [
-      "half",
-      "middle",
-      "odd number",
-      "semi-",
-      "part-"
+      "một nửa",
+      "rưỡi"
     ],
-    "hanViet": "",
+    "hanViet": "BÁN",
     "onReadings": [
       "ハン"
     ],
@@ -5305,11 +5033,10 @@
     "id": "最",
     "kanji": "最",
     "meanings": [
-      "utmost",
-      "most",
-      "extreme"
+      "nhất",
+      "tối đa"
     ],
-    "hanViet": "",
+    "hanViet": "TỐI",
     "onReadings": [
       "サイ",
       "シュ"
@@ -5357,11 +5084,10 @@
     "id": "低",
     "kanji": "低",
     "meanings": [
-      "lower",
-      "short",
-      "humble"
+      "thấp",
+      "tối thiểu"
     ],
-    "hanViet": "",
+    "hanViet": "ĐÊ",
     "onReadings": [
       "テイ"
     ],
@@ -5388,10 +5114,10 @@
     "id": "初",
     "kanji": "初",
     "meanings": [
-      "first time",
-      "beginning"
+      "đầu tiên",
+      "ban đầu"
     ],
-    "hanViet": "",
+    "hanViet": "SƠ",
     "onReadings": [
       "ショ"
     ],
@@ -5422,9 +5148,10 @@
     "id": "自",
     "kanji": "自",
     "meanings": [
-      "oneself"
+      "tự mình",
+      "bản thân"
     ],
-    "hanViet": "",
+    "hanViet": "TỰ",
     "onReadings": [
       "ジ",
       "シ"
@@ -5452,14 +5179,10 @@
     "id": "動",
     "kanji": "動",
     "meanings": [
-      "move",
-      "motion",
-      "change",
-      "confusion",
-      "shift",
-      "shake"
+      "chuyển động",
+      "hoạt động"
     ],
-    "hanViet": "",
+    "hanViet": "ĐỘNG",
     "onReadings": [
       "ドウ"
     ],
@@ -5485,13 +5208,10 @@
     "id": "種",
     "kanji": "種",
     "meanings": [
-      "species",
-      "kind",
-      "class",
-      "variety",
-      "seed"
+      "chủng loại",
+      "hạt giống"
     ],
-    "hanViet": "",
+    "hanViet": "CHỦNG",
     "onReadings": [
       "シュ"
     ],
@@ -5517,13 +5237,10 @@
     "id": "類",
     "kanji": "類",
     "meanings": [
-      "sort",
-      "kind",
-      "variety",
-      "class",
-      "genus"
+      "loại",
+      "phân loại"
     ],
-    "hanViet": "",
+    "hanViet": "LOẠI",
     "onReadings": [
       "ルイ"
     ],
@@ -5548,12 +5265,11 @@
     "id": "質",
     "kanji": "質",
     "meanings": [
-      "substance",
-      "quality",
-      "matter",
-      "temperament"
+      "chất lượng",
+      "bản chất",
+      "câu hỏi"
     ],
-    "hanViet": "",
+    "hanViet": "CHẤT",
     "onReadings": [
       "シツ",
       "シチ",
@@ -5583,14 +5299,10 @@
     "id": "順",
     "kanji": "順",
     "meanings": [
-      "obey",
-      "order",
-      "turn",
-      "right",
-      "docility",
-      "occasion"
+      "thứ tự",
+      "thuận theo"
     ],
-    "hanViet": "",
+    "hanViet": "THUẬN",
     "onReadings": [
       "ジュン"
     ],
@@ -5613,11 +5325,11 @@
     "id": "方",
     "kanji": "方",
     "meanings": [
-      "direction",
-      "person",
-      "alternative"
+      "phương hướng",
+      "cách làm",
+      "vị (người)"
     ],
-    "hanViet": "",
+    "hanViet": "PHƯƠNG",
     "onReadings": [
       "ホウ"
     ],
@@ -5644,14 +5356,10 @@
     "id": "法",
     "kanji": "法",
     "meanings": [
-      "method",
-      "law",
-      "rule",
-      "principle",
-      "model",
-      "system"
+      "phương pháp",
+      "pháp luật"
     ],
-    "hanViet": "",
+    "hanViet": "PHÁP",
     "onReadings": [
       "ホウ",
       "ハッ",
@@ -5679,10 +5387,10 @@
     "id": "製",
     "kanji": "製",
     "meanings": [
-      "made in...",
-      "manufacture"
+      "chế tạo",
+      "sản xuất"
     ],
-    "hanViet": "",
+    "hanViet": "CHẾ",
     "onReadings": [
       "セイ"
     ],
@@ -5705,11 +5413,10 @@
     "id": "値",
     "kanji": "値",
     "meanings": [
-      "price",
-      "cost",
-      "value"
+      "giá cả",
+      "giá trị"
     ],
-    "hanViet": "",
+    "hanViet": "TRỊ",
     "onReadings": [
       "チ"
     ],
@@ -5735,10 +5442,10 @@
     "id": "食",
     "kanji": "食",
     "meanings": [
-      "eat",
-      "food"
+      "ăn",
+      "đồ ăn"
     ],
-    "hanViet": "",
+    "hanViet": "THỰC",
     "onReadings": [
       "ショク",
       "ジキ"
@@ -5767,9 +5474,10 @@
     "id": "遊",
     "kanji": "遊",
     "meanings": [
-      "play"
+      "chơi",
+      "vui chơi"
     ],
-    "hanViet": "",
+    "hanViet": "DU",
     "onReadings": [
       "ユウ",
       "ユ"
@@ -5796,16 +5504,10 @@
     "id": "宿",
     "kanji": "宿",
     "meanings": [
-      "inn",
-      "lodging",
-      "relay station",
-      "dwell",
-      "lodge",
-      "be pregnant",
-      "home",
-      "dwelling"
+      "nhà trọ",
+      "bài tập về nhà"
     ],
-    "hanViet": "",
+    "hanViet": "TÚC",
     "onReadings": [
       "シュク"
     ],
@@ -5832,10 +5534,10 @@
     "id": "題",
     "kanji": "題",
     "meanings": [
-      "topic",
-      "subject"
+      "chủ đề",
+      "đề bài"
     ],
-    "hanViet": "",
+    "hanViet": "ĐỀ",
     "onReadings": [
       "ダイ"
     ],
@@ -5858,13 +5560,11 @@
     "id": "熱",
     "kanji": "熱",
     "meanings": [
-      "heat",
-      "temperature",
-      "fever",
-      "mania",
-      "passion"
+      "nóng",
+      "sốt",
+      "nhiệt huyết"
     ],
-    "hanViet": "",
+    "hanViet": "NHIỆT",
     "onReadings": [
       "ネツ"
     ],
@@ -5889,12 +5589,10 @@
     "id": "降",
     "kanji": "降",
     "meanings": [
-      "descend",
-      "precipitate",
-      "fall",
-      "surrender"
+      "rơi xuống (mưa/tuyết)",
+      "xuống xe"
     ],
-    "hanViet": "",
+    "hanViet": "GIÁNG",
     "onReadings": [
       "コウ",
       "ゴ"
@@ -5925,14 +5623,10 @@
     "id": "練",
     "kanji": "練",
     "meanings": [
-      "practice",
-      "gloss",
-      "train",
-      "drill",
-      "polish",
-      "refine"
+      "luyện tập",
+      "rèn luyện"
     ],
-    "hanViet": "",
+    "hanViet": "LUYỆN",
     "onReadings": [
       "レン"
     ],
@@ -5958,9 +5652,10 @@
     "id": "習",
     "kanji": "習",
     "meanings": [
-      "learn"
+      "học tập",
+      "tập luyện"
     ],
-    "hanViet": "",
+    "hanViet": "TẬP",
     "onReadings": [
       "シュウ",
       "ジュ"
@@ -5987,12 +5682,11 @@
     "id": "予",
     "kanji": "予",
     "meanings": [
-      "beforehand",
-      "previous",
-      "myself",
-      "I"
+      "trước",
+      "dự định",
+      "đặt trước"
     ],
-    "hanViet": "",
+    "hanViet": "DỰ",
     "onReadings": [
       "ヨ",
       "シャ"
@@ -6018,11 +5712,9 @@
     "id": "泊",
     "kanji": "泊",
     "meanings": [
-      "overnight stay",
-      "put up at",
-      "ride at anchor"
+      "trọ lại qua đêm"
     ],
-    "hanViet": "",
+    "hanViet": "BẠC",
     "onReadings": [
       "ハク"
     ],
@@ -6041,6 +5733,2758 @@
         "word": "泊まる",
         "hiragana": "とまる",
         "meaning": "trọ lại"
+      }
+    ]
+  },
+  {
+    "id": "一",
+    "kanji": "一",
+    "meanings": [
+      "một",
+      "thứ nhất"
+    ],
+    "hanViet": "NHẤT",
+    "onReadings": [
+      "イチ",
+      "イツ"
+    ],
+    "kunReadings": [
+      "ひと",
+      "ひとつ"
+    ],
+    "strokeCount": 1,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "一つ",
+        "hiragana": "ひとつ",
+        "meaning": "một cái"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "一日",
+        "hiragana": "ついたち",
+        "meaning": "mùng 1"
+      }
+    ]
+  },
+  {
+    "id": "二",
+    "kanji": "二",
+    "meanings": [
+      "hai"
+    ],
+    "hanViet": "NHỊ",
+    "onReadings": [
+      "ニ"
+    ],
+    "kunReadings": [
+      "ふた",
+      "ふたつ"
+    ],
+    "strokeCount": 2,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "二つ",
+        "hiragana": "ふたつ",
+        "meaning": "hai cái"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "二月",
+        "hiragana": "にがつ",
+        "meaning": "tháng 2"
+      }
+    ]
+  },
+  {
+    "id": "三",
+    "kanji": "三",
+    "meanings": [
+      "ba"
+    ],
+    "hanViet": "TAM",
+    "onReadings": [
+      "サン"
+    ],
+    "kunReadings": [
+      "み",
+      "みっつ"
+    ],
+    "strokeCount": 3,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "三つ",
+        "hiragana": "みっつ",
+        "meaning": "ba cái"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "三時",
+        "hiragana": "さんじ",
+        "meaning": "3 giờ"
+      }
+    ]
+  },
+  {
+    "id": "四",
+    "kanji": "四",
+    "meanings": [
+      "bốn"
+    ],
+    "hanViet": "TỨ",
+    "onReadings": [
+      "シ"
+    ],
+    "kunReadings": [
+      "よ",
+      "よっつ",
+      "よん"
+    ],
+    "strokeCount": 5,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "四つ",
+        "hiragana": "よっつ",
+        "meaning": "bốn cái"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "四月",
+        "hiragana": "しがつ",
+        "meaning": "tháng 4"
+      }
+    ]
+  },
+  {
+    "id": "五",
+    "kanji": "五",
+    "meanings": [
+      "năm"
+    ],
+    "hanViet": "NGŨ",
+    "onReadings": [
+      "ゴ"
+    ],
+    "kunReadings": [
+      "いつ",
+      "いつつ"
+    ],
+    "strokeCount": 4,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "五つ",
+        "hiragana": "いつつ",
+        "meaning": "năm cái"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "五月",
+        "hiragana": "ごがつ",
+        "meaning": "tháng 5"
+      }
+    ]
+  },
+  {
+    "id": "六",
+    "kanji": "六",
+    "meanings": [
+      "sáu"
+    ],
+    "hanViet": "LỤC",
+    "onReadings": [
+      "ロク"
+    ],
+    "kunReadings": [
+      "む",
+      "むっつ"
+    ],
+    "strokeCount": 4,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "六つ",
+        "hiragana": "むっつ",
+        "meaning": "sáu cái"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "六時",
+        "hiragana": "ろくじ",
+        "meaning": "6 giờ"
+      }
+    ]
+  },
+  {
+    "id": "七",
+    "kanji": "七",
+    "meanings": [
+      "bảy"
+    ],
+    "hanViet": "THẤT",
+    "onReadings": [
+      "シチ"
+    ],
+    "kunReadings": [
+      "なな",
+      "ななつ"
+    ],
+    "strokeCount": 2,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "七つ",
+        "hiragana": "ななつ",
+        "meaning": "bảy cái"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "七月",
+        "hiragana": "しちがつ",
+        "meaning": "tháng 7"
+      }
+    ]
+  },
+  {
+    "id": "八",
+    "kanji": "八",
+    "meanings": [
+      "tám"
+    ],
+    "hanViet": "BÁT",
+    "onReadings": [
+      "ハチ"
+    ],
+    "kunReadings": [
+      "や",
+      "やっつ"
+    ],
+    "strokeCount": 2,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "八つ",
+        "hiragana": "やっつ",
+        "meaning": "tám cái"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "八時",
+        "hiragana": "はちじ",
+        "meaning": "8 giờ"
+      }
+    ]
+  },
+  {
+    "id": "九",
+    "kanji": "九",
+    "meanings": [
+      "chín"
+    ],
+    "hanViet": "CỬU",
+    "onReadings": [
+      "キュウ",
+      "ク"
+    ],
+    "kunReadings": [
+      "ここの",
+      "ここのつ"
+    ],
+    "strokeCount": 2,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "九つ",
+        "hiragana": "ここのつ",
+        "meaning": "chín cái"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "九時",
+        "hiragana": "くじ",
+        "meaning": "9 giờ"
+      }
+    ]
+  },
+  {
+    "id": "十",
+    "kanji": "十",
+    "meanings": [
+      "mười"
+    ],
+    "hanViet": "THẬP",
+    "onReadings": [
+      "ジュウ",
+      "ジッ"
+    ],
+    "kunReadings": [
+      "とお",
+      "と"
+    ],
+    "strokeCount": 2,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "十",
+        "hiragana": "とお",
+        "meaning": "mười cái"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "十分",
+        "hiragana": "じゅっぷん",
+        "meaning": "10 phút"
+      }
+    ]
+  },
+  {
+    "id": "百",
+    "kanji": "百",
+    "meanings": [
+      "một trăm"
+    ],
+    "hanViet": "BÁCH",
+    "onReadings": [
+      "ヒャク"
+    ],
+    "kunReadings": [],
+    "strokeCount": 6,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "三百",
+        "hiragana": "さんびゃく",
+        "meaning": "300"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "百円",
+        "hiragana": "ひゃくえん",
+        "meaning": "100 yên"
+      }
+    ]
+  },
+  {
+    "id": "千",
+    "kanji": "千",
+    "meanings": [
+      "một nghìn"
+    ],
+    "hanViet": "THIÊN",
+    "onReadings": [
+      "セン"
+    ],
+    "kunReadings": [
+      "ち"
+    ],
+    "strokeCount": 3,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "三千",
+        "hiragana": "さんぜん",
+        "meaning": "3.000"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "千円",
+        "hiragana": "せんえん",
+        "meaning": "1.000 yên"
+      }
+    ]
+  },
+  {
+    "id": "万",
+    "kanji": "万",
+    "meanings": [
+      "mười nghìn (1 vạn)"
+    ],
+    "hanViet": "VẠN",
+    "onReadings": [
+      "マン",
+      "バン"
+    ],
+    "kunReadings": [],
+    "strokeCount": 3,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "一万円",
+        "hiragana": "いちまんえん",
+        "meaning": "10.000 yên"
+      }
+    ]
+  },
+  {
+    "id": "円",
+    "kanji": "円",
+    "meanings": [
+      "yên Nhật",
+      "hình tròn"
+    ],
+    "hanViet": "VIÊN",
+    "onReadings": [
+      "エン"
+    ],
+    "kunReadings": [
+      "まるい"
+    ],
+    "strokeCount": 4,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "百円",
+        "hiragana": "ひゃくえん",
+        "meaning": "100 yên"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "円高",
+        "hiragana": "えんだか",
+        "meaning": "đồng yên tăng giá"
+      }
+    ]
+  },
+  {
+    "id": "火",
+    "kanji": "火",
+    "meanings": [
+      "lửa",
+      "thứ Ba"
+    ],
+    "hanViet": "HỎA",
+    "onReadings": [
+      "カ"
+    ],
+    "kunReadings": [
+      "ひ"
+    ],
+    "strokeCount": 4,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "火曜日",
+        "hiragana": "かようび",
+        "meaning": "thứ Ba"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "火事",
+        "hiragana": "かじ",
+        "meaning": "hỏa hoạn"
+      }
+    ]
+  },
+  {
+    "id": "水",
+    "kanji": "水",
+    "meanings": [
+      "nước",
+      "thứ Tư"
+    ],
+    "hanViet": "THỦY",
+    "onReadings": [
+      "スイ"
+    ],
+    "kunReadings": [
+      "みず"
+    ],
+    "strokeCount": 4,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "水曜日",
+        "hiragana": "すいようび",
+        "meaning": "thứ Tư"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "水",
+        "hiragana": "みず",
+        "meaning": "nước lọc"
+      }
+    ]
+  },
+  {
+    "id": "木",
+    "kanji": "木",
+    "meanings": [
+      "cây gỗ",
+      "thứ Năm"
+    ],
+    "hanViet": "MỘC",
+    "onReadings": [
+      "モク",
+      "ボク"
+    ],
+    "kunReadings": [
+      "き"
+    ],
+    "strokeCount": 4,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "木曜日",
+        "hiragana": "もくようび",
+        "meaning": "thứ Năm"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "木",
+        "hiragana": "き",
+        "meaning": "cây"
+      }
+    ]
+  },
+  {
+    "id": "土",
+    "kanji": "土",
+    "meanings": [
+      "đất",
+      "thứ Bảy"
+    ],
+    "hanViet": "THỔ",
+    "onReadings": [
+      "ド",
+      "ト"
+    ],
+    "kunReadings": [
+      "つち"
+    ],
+    "strokeCount": 3,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "土曜日",
+        "hiragana": "どようび",
+        "meaning": "thứ Bảy"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "お土産",
+        "hiragana": "おみやげ",
+        "meaning": "quà lưu niệm"
+      }
+    ]
+  },
+  {
+    "id": "時",
+    "kanji": "時",
+    "meanings": [
+      "giờ",
+      "thời gian",
+      "khi"
+    ],
+    "hanViet": "THỜI",
+    "onReadings": [
+      "ジ"
+    ],
+    "kunReadings": [
+      "とき"
+    ],
+    "strokeCount": 10,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "時間",
+        "hiragana": "じかん",
+        "meaning": "thời gian"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "時々",
+        "hiragana": "ときどき",
+        "meaning": "thỉnh thoảng"
+      }
+    ]
+  },
+  {
+    "id": "分",
+    "kanji": "分",
+    "meanings": [
+      "phút",
+      "phần",
+      "hiểu",
+      "chia"
+    ],
+    "hanViet": "PHÂN",
+    "onReadings": [
+      "ブン",
+      "フン",
+      "ブ"
+    ],
+    "kunReadings": [
+      "わかる",
+      "わける"
+    ],
+    "strokeCount": 4,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "五分",
+        "hiragana": "ごふん",
+        "meaning": "5 phút"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "自分",
+        "hiragana": "じぶん",
+        "meaning": "bản thân"
+      }
+    ]
+  },
+  {
+    "id": "週",
+    "kanji": "週",
+    "meanings": [
+      "tuần lễ"
+    ],
+    "hanViet": "CHU",
+    "onReadings": [
+      "シュウ"
+    ],
+    "kunReadings": [],
+    "strokeCount": 11,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "今週",
+        "hiragana": "こんしゅう",
+        "meaning": "tuần này"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "来週",
+        "hiragana": "らいしゅう",
+        "meaning": "tuần sau"
+      }
+    ]
+  },
+  {
+    "id": "今",
+    "kanji": "今",
+    "meanings": [
+      "bây giờ",
+      "hiện tại"
+    ],
+    "hanViet": "KIM",
+    "onReadings": [
+      "コン",
+      "キン"
+    ],
+    "kunReadings": [
+      "いま"
+    ],
+    "strokeCount": 4,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "今日",
+        "hiragana": "きょう",
+        "meaning": "hôm nay"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "今月",
+        "hiragana": "こんげつ",
+        "meaning": "tháng này"
+      }
+    ]
+  },
+  {
+    "id": "毎",
+    "kanji": "毎",
+    "meanings": [
+      "mỗi",
+      "hằng ngày"
+    ],
+    "hanViet": "MỖI",
+    "onReadings": [
+      "マイ"
+    ],
+    "kunReadings": [],
+    "strokeCount": 6,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "毎日",
+        "hiragana": "まいにち",
+        "meaning": "mỗi ngày"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "毎朝",
+        "hiragana": "まいあさ",
+        "meaning": "mỗi sáng"
+      }
+    ]
+  },
+  {
+    "id": "午",
+    "kanji": "午",
+    "meanings": [
+      "buổi trưa",
+      "ngọ"
+    ],
+    "hanViet": "NGỌ",
+    "onReadings": [
+      "ゴ"
+    ],
+    "kunReadings": [],
+    "strokeCount": 4,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "午前",
+        "hiragana": "ごぜん",
+        "meaning": "buổi sáng (AM)"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "午後",
+        "hiragana": "ごご",
+        "meaning": "buổi chiều (PM)"
+      }
+    ]
+  },
+  {
+    "id": "間",
+    "kanji": "間",
+    "meanings": [
+      "khoảng giữa",
+      "thời khoảng"
+    ],
+    "hanViet": "GIAN",
+    "onReadings": [
+      "カン",
+      "ケン"
+    ],
+    "kunReadings": [
+      "あいだ",
+      "ま"
+    ],
+    "strokeCount": 12,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "時間",
+        "hiragana": "じかん",
+        "meaning": "thời gian"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "一週間",
+        "hiragana": "いっしゅうかん",
+        "meaning": "1 tuần"
+      }
+    ]
+  },
+  {
+    "id": "東",
+    "kanji": "東",
+    "meanings": [
+      "phía Đông"
+    ],
+    "hanViet": "ĐÔNG",
+    "onReadings": [
+      "トウ"
+    ],
+    "kunReadings": [
+      "ひがし"
+    ],
+    "strokeCount": 8,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "東京",
+        "hiragana": "とうきょう",
+        "meaning": "Tokyo"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "東口",
+        "hiragana": "ひがしぐち",
+        "meaning": "cửa Đông"
+      }
+    ]
+  },
+  {
+    "id": "西",
+    "kanji": "西",
+    "meanings": [
+      "phía Tây"
+    ],
+    "hanViet": "TÂY",
+    "onReadings": [
+      "セイ",
+      "サイ"
+    ],
+    "kunReadings": [
+      "にし"
+    ],
+    "strokeCount": 6,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "西口",
+        "hiragana": "にしぐち",
+        "meaning": "cửa Tây"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "関西",
+        "hiragana": "かんさい",
+        "meaning": "vùng Kansai"
+      }
+    ]
+  },
+  {
+    "id": "南",
+    "kanji": "南",
+    "meanings": [
+      "phía Nam"
+    ],
+    "hanViet": "NAM",
+    "onReadings": [
+      "ナン"
+    ],
+    "kunReadings": [
+      "みなみ"
+    ],
+    "strokeCount": 9,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "南口",
+        "hiragana": "みなみぐち",
+        "meaning": "cửa Nam"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "東南アジア",
+        "hiragana": "とうなんアジア",
+        "meaning": "Đông Nam Á"
+      }
+    ]
+  },
+  {
+    "id": "北",
+    "kanji": "北",
+    "meanings": [
+      "phía Bắc"
+    ],
+    "hanViet": "BẮC",
+    "onReadings": [
+      "ホク"
+    ],
+    "kunReadings": [
+      "きた"
+    ],
+    "strokeCount": 5,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "北海道",
+        "hiragana": "ほっかいどう",
+        "meaning": "Hokkaido"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "北口",
+        "hiragana": "きたぐち",
+        "meaning": "cửa Bắc"
+      }
+    ]
+  },
+  {
+    "id": "右",
+    "kanji": "右",
+    "meanings": [
+      "bên phải"
+    ],
+    "hanViet": "HỮU",
+    "onReadings": [
+      "ウ",
+      "ユウ"
+    ],
+    "kunReadings": [
+      "みぎ"
+    ],
+    "strokeCount": 5,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "右手",
+        "hiragana": "みぎて",
+        "meaning": "tay phải"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "右側",
+        "hiragana": "みぎがわ",
+        "meaning": "phía bên phải"
+      }
+    ]
+  },
+  {
+    "id": "左",
+    "kanji": "左",
+    "meanings": [
+      "bên trái"
+    ],
+    "hanViet": "TẢ",
+    "onReadings": [
+      "サ"
+    ],
+    "kunReadings": [
+      "ひだり"
+    ],
+    "strokeCount": 5,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "左手",
+        "hiragana": "ひだりて",
+        "meaning": "tay trái"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "左側",
+        "hiragana": "ひだりがわ",
+        "meaning": "phía bên trái"
+      }
+    ]
+  },
+  {
+    "id": "中",
+    "kanji": "中",
+    "meanings": [
+      "bên trong",
+      "ở giữa"
+    ],
+    "hanViet": "TRUNG",
+    "onReadings": [
+      "チュウ"
+    ],
+    "kunReadings": [
+      "なか"
+    ],
+    "strokeCount": 4,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "中",
+        "hiragana": "なか",
+        "meaning": "bên trong"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "一日中",
+        "hiragana": "いちにちじゅう",
+        "meaning": "suốt cả ngày"
+      }
+    ]
+  },
+  {
+    "id": "外",
+    "kanji": "外",
+    "meanings": [
+      "bên ngoài",
+      "nước ngoài"
+    ],
+    "hanViet": "NGOẠI",
+    "onReadings": [
+      "ガイ",
+      "ゲ"
+    ],
+    "kunReadings": [
+      "そと",
+      "ほか"
+    ],
+    "strokeCount": 5,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "外国",
+        "hiragana": "がいこく",
+        "meaning": "nước ngoài"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "外",
+        "hiragana": "そと",
+        "meaning": "bên ngoài"
+      }
+    ]
+  },
+  {
+    "id": "山",
+    "kanji": "山",
+    "meanings": [
+      "ngọn núi"
+    ],
+    "hanViet": "SƠN",
+    "onReadings": [
+      "サン"
+    ],
+    "kunReadings": [
+      "やま"
+    ],
+    "strokeCount": 3,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "富士山",
+        "hiragana": "ふじさん",
+        "meaning": "núi Phú Sĩ"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "山",
+        "hiragana": "やま",
+        "meaning": "núi"
+      }
+    ]
+  },
+  {
+    "id": "川",
+    "kanji": "川",
+    "meanings": [
+      "dòng sông"
+    ],
+    "hanViet": "XUYÊN",
+    "onReadings": [
+      "セン"
+    ],
+    "kunReadings": [
+      "かわ"
+    ],
+    "strokeCount": 3,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "川",
+        "hiragana": "かわ",
+        "meaning": "sông"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "山川",
+        "hiragana": "やまかわ",
+        "meaning": "núi sông"
+      }
+    ]
+  },
+  {
+    "id": "田",
+    "kanji": "田",
+    "meanings": [
+      "ruộng lúa"
+    ],
+    "hanViet": "ĐIỀN",
+    "onReadings": [
+      "デン"
+    ],
+    "kunReadings": [
+      "た"
+    ],
+    "strokeCount": 5,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "田中",
+        "hiragana": "たなか",
+        "meaning": "họ Tanaka"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "田んぼ",
+        "hiragana": "たんぼ",
+        "meaning": "ruộng lúa"
+      }
+    ]
+  },
+  {
+    "id": "空",
+    "kanji": "空",
+    "meanings": [
+      "bầu trời",
+      "trống rỗng"
+    ],
+    "hanViet": "KHÔNG",
+    "onReadings": [
+      "クウ"
+    ],
+    "kunReadings": [
+      "そら",
+      "あく",
+      "から"
+    ],
+    "strokeCount": 8,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "空港",
+        "hiragana": "くうこう",
+        "meaning": "sân bay"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "青空",
+        "hiragana": "あおぞら",
+        "meaning": "bầu trời xanh"
+      }
+    ]
+  },
+  {
+    "id": "天",
+    "kanji": "天",
+    "meanings": [
+      "trời",
+      "thiên đường"
+    ],
+    "hanViet": "THIÊN",
+    "onReadings": [
+      "テン"
+    ],
+    "kunReadings": [
+      "あめ",
+      "あま"
+    ],
+    "strokeCount": 4,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "天気",
+        "hiragana": "てんき",
+        "meaning": "thời tiết"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "天ぷら",
+        "hiragana": "てんぷら",
+        "meaning": "món tempura"
+      }
+    ]
+  },
+  {
+    "id": "電",
+    "kanji": "電",
+    "meanings": [
+      "điện",
+      "tia chớp"
+    ],
+    "hanViet": "ĐIỆN",
+    "onReadings": [
+      "デン"
+    ],
+    "kunReadings": [],
+    "strokeCount": 13,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "電車",
+        "hiragana": "でんしゃ",
+        "meaning": "tàu điện"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "電話",
+        "hiragana": "でんわ",
+        "meaning": "điện thoại"
+      }
+    ]
+  },
+  {
+    "id": "花",
+    "kanji": "花",
+    "meanings": [
+      "bông hoa"
+    ],
+    "hanViet": "HOA",
+    "onReadings": [
+      "カ"
+    ],
+    "kunReadings": [
+      "はな"
+    ],
+    "strokeCount": 7,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "花見",
+        "hiragana": "はなみ",
+        "meaning": "ngắm hoa anh đào"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "花火",
+        "hiragana": "はなび",
+        "meaning": "pháo hoa"
+      }
+    ]
+  },
+  {
+    "id": "魚",
+    "kanji": "魚",
+    "meanings": [
+      "con cá"
+    ],
+    "hanViet": "NGƯ",
+    "onReadings": [
+      "ギョ"
+    ],
+    "kunReadings": [
+      "さかな",
+      "うお"
+    ],
+    "strokeCount": 11,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "魚",
+        "hiragana": "さかな",
+        "meaning": "cá"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "金魚",
+        "hiragana": "きんぎょ",
+        "meaning": "cá vàng"
+      }
+    ]
+  },
+  {
+    "id": "父",
+    "kanji": "父",
+    "meanings": [
+      "bố",
+      "cha"
+    ],
+    "hanViet": "PHỤ",
+    "onReadings": [
+      "フ"
+    ],
+    "kunReadings": [
+      "ちち"
+    ],
+    "strokeCount": 4,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "父",
+        "hiragana": "ちち",
+        "meaning": "bố (mình)"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "お父さん",
+        "hiragana": "おとうさん",
+        "meaning": "bố (lịch sự)"
+      }
+    ]
+  },
+  {
+    "id": "母",
+    "kanji": "母",
+    "meanings": [
+      "mẹ"
+    ],
+    "hanViet": "MẪU",
+    "onReadings": [
+      "ボ"
+    ],
+    "kunReadings": [
+      "はは"
+    ],
+    "strokeCount": 5,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "母",
+        "hiragana": "はは",
+        "meaning": "mẹ (mình)"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "お母さん",
+        "hiragana": "おかあさん",
+        "meaning": "mẹ (lịch sự)"
+      }
+    ]
+  },
+  {
+    "id": "子",
+    "kanji": "子",
+    "meanings": [
+      "trẻ em",
+      "con cái"
+    ],
+    "hanViet": "TỬ",
+    "onReadings": [
+      "シ",
+      "ス"
+    ],
+    "kunReadings": [
+      "こ"
+    ],
+    "strokeCount": 3,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "子ども",
+        "hiragana": "こども",
+        "meaning": "trẻ em"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "女の子",
+        "hiragana": "おんなのこ",
+        "meaning": "bé gái"
+      }
+    ]
+  },
+  {
+    "id": "口",
+    "kanji": "口",
+    "meanings": [
+      "miệng",
+      "cửa ra vào"
+    ],
+    "hanViet": "KHẨU",
+    "onReadings": [
+      "コウ",
+      "ク"
+    ],
+    "kunReadings": [
+      "くち"
+    ],
+    "strokeCount": 3,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "入口",
+        "hiragana": "いりぐち",
+        "meaning": "lối vào"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "出口",
+        "hiragana": "でぐち",
+        "meaning": "lối ra"
+      }
+    ]
+  },
+  {
+    "id": "耳",
+    "kanji": "耳",
+    "meanings": [
+      "cái tai"
+    ],
+    "hanViet": "NHĨ",
+    "onReadings": [
+      "ジ"
+    ],
+    "kunReadings": [
+      "みみ"
+    ],
+    "strokeCount": 6,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "耳",
+        "hiragana": "みみ",
+        "meaning": "tai"
+      }
+    ]
+  },
+  {
+    "id": "足",
+    "kanji": "足",
+    "meanings": [
+      "chân",
+      "đủ"
+    ],
+    "hanViet": "TÚC",
+    "onReadings": [
+      "ソク"
+    ],
+    "kunReadings": [
+      "あし",
+      "たりる"
+    ],
+    "strokeCount": 7,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "足",
+        "hiragana": "あし",
+        "meaning": "chân"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "足りる",
+        "hiragana": "たりる",
+        "meaning": "đủ"
+      }
+    ]
+  },
+  {
+    "id": "何",
+    "kanji": "何",
+    "meanings": [
+      "cái gì",
+      "bao nhiêu"
+    ],
+    "hanViet": "HÀ",
+    "onReadings": [
+      "カ"
+    ],
+    "kunReadings": [
+      "なに",
+      "なん"
+    ],
+    "strokeCount": 7,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "何時",
+        "hiragana": "なんじ",
+        "meaning": "mấy giờ"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "何か",
+        "hiragana": "なにか",
+        "meaning": "cái gì đó"
+      }
+    ]
+  },
+  {
+    "id": "校",
+    "kanji": "校",
+    "meanings": [
+      "trường học"
+    ],
+    "hanViet": "HIỆU",
+    "onReadings": [
+      "コウ"
+    ],
+    "kunReadings": [],
+    "strokeCount": 10,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "学校",
+        "hiragana": "がっこう",
+        "meaning": "trường học"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "高校",
+        "hiragana": "こうこう",
+        "meaning": "trường cấp 3"
+      }
+    ]
+  },
+  {
+    "id": "社",
+    "kanji": "社",
+    "meanings": [
+      "công ty",
+      "xã hội",
+      "đền thần"
+    ],
+    "hanViet": "XÃ",
+    "onReadings": [
+      "シャ"
+    ],
+    "kunReadings": [
+      "やしろ"
+    ],
+    "strokeCount": 7,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "会社",
+        "hiragana": "かいしゃ",
+        "meaning": "công ty"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "社員",
+        "hiragana": "しゃいん",
+        "meaning": "nhân viên công ty"
+      }
+    ]
+  },
+  {
+    "id": "店",
+    "kanji": "店",
+    "meanings": [
+      "cửa hàng",
+      "tiệm"
+    ],
+    "hanViet": "ĐIẾM",
+    "onReadings": [
+      "テン"
+    ],
+    "kunReadings": [
+      "みせ"
+    ],
+    "strokeCount": 8,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "お店",
+        "hiragana": "おみせ",
+        "meaning": "cửa hàng"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "喫茶店",
+        "hiragana": "きっさてん",
+        "meaning": "quán cà phê"
+      }
+    ]
+  },
+  {
+    "id": "駅",
+    "kanji": "駅",
+    "meanings": [
+      "nhà ga"
+    ],
+    "hanViet": "DỊCH",
+    "onReadings": [
+      "エキ"
+    ],
+    "kunReadings": [],
+    "strokeCount": 14,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "駅前",
+        "hiragana": "えきまえ",
+        "meaning": "trước nhà ga"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "東京駅",
+        "hiragana": "とうきょうえき",
+        "meaning": "ga Tokyo"
+      }
+    ]
+  },
+  {
+    "id": "車",
+    "kanji": "車",
+    "meanings": [
+      "xe cộ",
+      "ô tô"
+    ],
+    "hanViet": "XA",
+    "onReadings": [
+      "シャ"
+    ],
+    "kunReadings": [
+      "くるま"
+    ],
+    "strokeCount": 7,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "車",
+        "hiragana": "くるま",
+        "meaning": "xe hơi"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "自転車",
+        "hiragana": "じてんしゃ",
+        "meaning": "xe đạp"
+      }
+    ]
+  },
+  {
+    "id": "本",
+    "kanji": "本",
+    "meanings": [
+      "sách",
+      "gốc",
+      "cây (đếm vật dài)"
+    ],
+    "hanViet": "BẢN",
+    "onReadings": [
+      "ホン"
+    ],
+    "kunReadings": [
+      "もと"
+    ],
+    "strokeCount": 5,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "日本",
+        "hiragana": "にほん",
+        "meaning": "Nhật Bản"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "本屋",
+        "hiragana": "ほんや",
+        "meaning": "hiệu sách"
+      }
+    ]
+  },
+  {
+    "id": "語",
+    "kanji": "語",
+    "meanings": [
+      "ngôn ngữ",
+      "từ ngữ"
+    ],
+    "hanViet": "NGỮ",
+    "onReadings": [
+      "ゴ"
+    ],
+    "kunReadings": [
+      "かたる"
+    ],
+    "strokeCount": 14,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "日本語",
+        "hiragana": "にほんご",
+        "meaning": "tiếng Nhật"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "英語",
+        "hiragana": "えいご",
+        "meaning": "tiếng Anh"
+      }
+    ]
+  },
+  {
+    "id": "書",
+    "kanji": "書",
+    "meanings": [
+      "viết",
+      "sách vở"
+    ],
+    "hanViet": "THƯ",
+    "onReadings": [
+      "ショ"
+    ],
+    "kunReadings": [
+      "かく"
+    ],
+    "strokeCount": 10,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "書く",
+        "hiragana": "かく",
+        "meaning": "viết"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "辞書",
+        "hiragana": "じしょ",
+        "meaning": "từ điển"
+      }
+    ]
+  },
+  {
+    "id": "紙",
+    "kanji": "紙",
+    "meanings": [
+      "giấy"
+    ],
+    "hanViet": "CHỈ",
+    "onReadings": [
+      "シ"
+    ],
+    "kunReadings": [
+      "かみ"
+    ],
+    "strokeCount": 10,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "紙",
+        "hiragana": "かみ",
+        "meaning": "giấy"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "手紙",
+        "hiragana": "てがみ",
+        "meaning": "bức thư"
+      }
+    ]
+  },
+  {
+    "id": "門",
+    "kanji": "門",
+    "meanings": [
+      "cánh cổng",
+      "chuyên môn"
+    ],
+    "hanViet": "MÔN",
+    "onReadings": [
+      "モン"
+    ],
+    "kunReadings": [
+      "かど"
+    ],
+    "strokeCount": 8,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "専門",
+        "hiragana": "せんもん",
+        "meaning": "chuyên môn"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "正門",
+        "hiragana": "せいもん",
+        "meaning": "cổng chính"
+      }
+    ]
+  },
+  {
+    "id": "室",
+    "kanji": "室",
+    "meanings": [
+      "căn phòng"
+    ],
+    "hanViet": "THẤT",
+    "onReadings": [
+      "シツ"
+    ],
+    "kunReadings": [
+      "むろ"
+    ],
+    "strokeCount": 9,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "教室",
+        "hiragana": "きょうしつ",
+        "meaning": "phòng học"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "会議室",
+        "hiragana": "かいぎしつ",
+        "meaning": "phòng họp"
+      }
+    ]
+  },
+  {
+    "id": "見",
+    "kanji": "見",
+    "meanings": [
+      "nhìn",
+      "xem",
+      "thấy"
+    ],
+    "hanViet": "KIẾN",
+    "onReadings": [
+      "ケン"
+    ],
+    "kunReadings": [
+      "みる",
+      "みえる",
+      "みせる"
+    ],
+    "strokeCount": 7,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "見る",
+        "hiragana": "みる",
+        "meaning": "xem, nhìn"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "見せる",
+        "hiragana": "みせる",
+        "meaning": "cho xem"
+      }
+    ]
+  },
+  {
+    "id": "行",
+    "kanji": "行",
+    "meanings": [
+      "đi",
+      "tổ chức"
+    ],
+    "hanViet": "HÀNH",
+    "onReadings": [
+      "コウ",
+      "ギョウ"
+    ],
+    "kunReadings": [
+      "いく",
+      "おこなう"
+    ],
+    "strokeCount": 6,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "行く",
+        "hiragana": "いく",
+        "meaning": "đi"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "銀行",
+        "hiragana": "ぎんこう",
+        "meaning": "ngân hàng"
+      }
+    ]
+  },
+  {
+    "id": "来",
+    "kanji": "来",
+    "meanings": [
+      "đến",
+      "sắp tới"
+    ],
+    "hanViet": "LAI",
+    "onReadings": [
+      "ライ"
+    ],
+    "kunReadings": [
+      "くる"
+    ],
+    "strokeCount": 7,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "来る",
+        "hiragana": "くる",
+        "meaning": "đến"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "来月",
+        "hiragana": "らいげつ",
+        "meaning": "tháng sau"
+      }
+    ]
+  },
+  {
+    "id": "飲",
+    "kanji": "飲",
+    "meanings": [
+      "uống"
+    ],
+    "hanViet": "ẨM",
+    "onReadings": [
+      "イン"
+    ],
+    "kunReadings": [
+      "のむ"
+    ],
+    "strokeCount": 12,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "飲む",
+        "hiragana": "のむ",
+        "meaning": "uống"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "飲み物",
+        "hiragana": "のみもの",
+        "meaning": "đồ uống"
+      }
+    ]
+  },
+  {
+    "id": "買",
+    "kanji": "買",
+    "meanings": [
+      "mua"
+    ],
+    "hanViet": "MÃI",
+    "onReadings": [
+      "バイ"
+    ],
+    "kunReadings": [
+      "かう"
+    ],
+    "strokeCount": 12,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "買う",
+        "hiragana": "かう",
+        "meaning": "mua"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "買い物",
+        "hiragana": "かいもの",
+        "meaning": "việc mua sắm"
+      }
+    ]
+  },
+  {
+    "id": "読",
+    "kanji": "読",
+    "meanings": [
+      "đọc"
+    ],
+    "hanViet": "ĐỘC",
+    "onReadings": [
+      "ドク",
+      "トク"
+    ],
+    "kunReadings": [
+      "よむ"
+    ],
+    "strokeCount": 14,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "読む",
+        "hiragana": "よむ",
+        "meaning": "đọc"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "読書",
+        "hiragana": "どくしょ",
+        "meaning": "việc đọc sách"
+      }
+    ]
+  },
+  {
+    "id": "聞",
+    "kanji": "聞",
+    "meanings": [
+      "nghe",
+      "hỏi"
+    ],
+    "hanViet": "VĂN",
+    "onReadings": [
+      "ブン",
+      "モン"
+    ],
+    "kunReadings": [
+      "きく",
+      "きこえる"
+    ],
+    "strokeCount": 14,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "聞く",
+        "hiragana": "きく",
+        "meaning": "nghe, hỏi"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "新聞",
+        "hiragana": "しんぶん",
+        "meaning": "tờ báo"
+      }
+    ]
+  },
+  {
+    "id": "話",
+    "kanji": "話",
+    "meanings": [
+      "nói chuyện",
+      "câu chuyện"
+    ],
+    "hanViet": "THOẠI",
+    "onReadings": [
+      "ワ"
+    ],
+    "kunReadings": [
+      "はなす",
+      "はなし"
+    ],
+    "strokeCount": 13,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "話す",
+        "hiragana": "はなす",
+        "meaning": "nói chuyện"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "電話",
+        "hiragana": "でんわ",
+        "meaning": "điện thoại"
+      }
+    ]
+  },
+  {
+    "id": "立",
+    "kanji": "立",
+    "meanings": [
+      "đứng lên",
+      "lập ra"
+    ],
+    "hanViet": "LẬP",
+    "onReadings": [
+      "リツ"
+    ],
+    "kunReadings": [
+      "たつ",
+      "たてる"
+    ],
+    "strokeCount": 5,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "立つ",
+        "hiragana": "たつ",
+        "meaning": "đứng lên"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "国立",
+        "hiragana": "こくりつ",
+        "meaning": "quốc lập"
+      }
+    ]
+  },
+  {
+    "id": "入",
+    "kanji": "入",
+    "meanings": [
+      "vào",
+      "cho vào"
+    ],
+    "hanViet": "NHẬP",
+    "onReadings": [
+      "ニュウ"
+    ],
+    "kunReadings": [
+      "はいる",
+      "いれる"
+    ],
+    "strokeCount": 2,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "入る",
+        "hiragana": "はいる",
+        "meaning": "đi vào"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "入口",
+        "hiragana": "いりぐち",
+        "meaning": "lối vào"
+      }
+    ]
+  },
+  {
+    "id": "言",
+    "kanji": "言",
+    "meanings": [
+      "nói",
+      "lời nói"
+    ],
+    "hanViet": "NGÔN",
+    "onReadings": [
+      "ゲン",
+      "ゴン"
+    ],
+    "kunReadings": [
+      "いう",
+      "こと"
+    ],
+    "strokeCount": 7,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "言う",
+        "hiragana": "いう",
+        "meaning": "nói"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "言葉",
+        "hiragana": "ことば",
+        "meaning": "từ ngữ, ngôn từ"
+      }
+    ]
+  },
+  {
+    "id": "待",
+    "kanji": "待",
+    "meanings": [
+      "chờ đợi"
+    ],
+    "hanViet": "ĐÃI",
+    "onReadings": [
+      "タイ"
+    ],
+    "kunReadings": [
+      "まつ"
+    ],
+    "strokeCount": 9,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "待つ",
+        "hiragana": "まつ",
+        "meaning": "đợi"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "招待",
+        "hiragana": "しょうたい",
+        "meaning": "mời"
+      }
+    ]
+  },
+  {
+    "id": "持",
+    "kanji": "持",
+    "meanings": [
+      "cầm",
+      "mang theo",
+      "có"
+    ],
+    "hanViet": "TRÌ",
+    "onReadings": [
+      "ジ"
+    ],
+    "kunReadings": [
+      "もつ"
+    ],
+    "strokeCount": 9,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "持つ",
+        "hiragana": "もつ",
+        "meaning": "cầm, mang"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "気持ち",
+        "hiragana": "きもち",
+        "meaning": "tâm trạng"
+      }
+    ]
+  },
+  {
+    "id": "売",
+    "kanji": "売",
+    "meanings": [
+      "bán"
+    ],
+    "hanViet": "MẠI",
+    "onReadings": [
+      "バイ"
+    ],
+    "kunReadings": [
+      "うる",
+      "うれる"
+    ],
+    "strokeCount": 7,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "売る",
+        "hiragana": "うる",
+        "meaning": "bán"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "売り場",
+        "hiragana": "うりば",
+        "meaning": "quầy bán hàng"
+      }
+    ]
+  },
+  {
+    "id": "送",
+    "kanji": "送",
+    "meanings": [
+      "gửi đi",
+      "tiễn đưa"
+    ],
+    "hanViet": "TỐNG",
+    "onReadings": [
+      "ソウ"
+    ],
+    "kunReadings": [
+      "おくる"
+    ],
+    "strokeCount": 9,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "送る",
+        "hiragana": "おくる",
+        "meaning": "gửi, tiễn"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "見送る",
+        "hiragana": "みおくる",
+        "meaning": "tiễn đưa"
+      }
+    ]
+  },
+  {
+    "id": "大",
+    "kanji": "大",
+    "meanings": [
+      "to lớn",
+      "quan trọng"
+    ],
+    "hanViet": "ĐẠI",
+    "onReadings": [
+      "ダイ",
+      "タイ"
+    ],
+    "kunReadings": [
+      "おおきい",
+      "おお"
+    ],
+    "strokeCount": 3,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "大きい",
+        "hiragana": "おおきい",
+        "meaning": "to lớn"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "大学",
+        "hiragana": "だいがく",
+        "meaning": "đại học"
+      }
+    ]
+  },
+  {
+    "id": "新",
+    "kanji": "新",
+    "meanings": [
+      "mới mẻ"
+    ],
+    "hanViet": "TÂN",
+    "onReadings": [
+      "シン"
+    ],
+    "kunReadings": [
+      "あたらしい",
+      "あらた"
+    ],
+    "strokeCount": 13,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "新しい",
+        "hiragana": "あたらしい",
+        "meaning": "mới"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "新聞",
+        "hiragana": "しんぶん",
+        "meaning": "báo chí"
+      }
+    ]
+  },
+  {
+    "id": "古",
+    "kanji": "古",
+    "meanings": [
+      "cũ kỹ",
+      "xưa"
+    ],
+    "hanViet": "CỔ",
+    "onReadings": [
+      "コ"
+    ],
+    "kunReadings": [
+      "ふるい"
+    ],
+    "strokeCount": 5,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "古い",
+        "hiragana": "ふるい",
+        "meaning": "cũ"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "中古",
+        "hiragana": "ちゅうこ",
+        "meaning": "đồ cũ đã qua sử dụng"
+      }
+    ]
+  },
+  {
+    "id": "白",
+    "kanji": "白",
+    "meanings": [
+      "màu trắng"
+    ],
+    "hanViet": "BẠCH",
+    "onReadings": [
+      "ハク",
+      "ビャク"
+    ],
+    "kunReadings": [
+      "しろ",
+      "しろい"
+    ],
+    "strokeCount": 5,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "白い",
+        "hiragana": "しろい",
+        "meaning": "trắng"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "白黒",
+        "hiragana": "しろくろ",
+        "meaning": "trắng đen"
+      }
+    ]
+  },
+  {
+    "id": "黒",
+    "kanji": "黒",
+    "meanings": [
+      "màu đen"
+    ],
+    "hanViet": "HẮC",
+    "onReadings": [
+      "コク"
+    ],
+    "kunReadings": [
+      "くろ",
+      "くろい"
+    ],
+    "strokeCount": 11,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "黒い",
+        "hiragana": "くろい",
+        "meaning": "đen"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "黒板",
+        "hiragana": "こくばん",
+        "meaning": "bảng đen"
+      }
+    ]
+  },
+  {
+    "id": "赤",
+    "kanji": "赤",
+    "meanings": [
+      "màu đỏ"
+    ],
+    "hanViet": "XÍCH",
+    "onReadings": [
+      "セキ",
+      "シャク"
+    ],
+    "kunReadings": [
+      "あか",
+      "あかい"
+    ],
+    "strokeCount": 7,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "赤い",
+        "hiragana": "あかい",
+        "meaning": "đỏ"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "赤ちゃん",
+        "hiragana": "あかちゃん",
+        "meaning": "em bé sơ sinh"
+      }
+    ]
+  },
+  {
+    "id": "青",
+    "kanji": "青",
+    "meanings": [
+      "màu xanh lam"
+    ],
+    "hanViet": "THANH",
+    "onReadings": [
+      "セイ",
+      "ショウ"
+    ],
+    "kunReadings": [
+      "あお",
+      "あおい"
+    ],
+    "strokeCount": 8,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "青い",
+        "hiragana": "あおい",
+        "meaning": "xanh dương"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "青年",
+        "hiragana": "せいねん",
+        "meaning": "thanh niên"
+      }
+    ]
+  },
+  {
+    "id": "安",
+    "kanji": "安",
+    "meanings": [
+      "rẻ tiền",
+      "yên tâm"
+    ],
+    "hanViet": "AN",
+    "onReadings": [
+      "アン"
+    ],
+    "kunReadings": [
+      "やすい"
+    ],
+    "strokeCount": 6,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "安い",
+        "hiragana": "やすい",
+        "meaning": "rẻ"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "安心",
+        "hiragana": "あんしん",
+        "meaning": "an tâm"
+      }
+    ]
+  },
+  {
+    "id": "少",
+    "kanji": "少",
+    "meanings": [
+      "ít",
+      "một chút"
+    ],
+    "hanViet": "THIỂU",
+    "onReadings": [
+      "ショウ"
+    ],
+    "kunReadings": [
+      "すくない",
+      "すこし"
+    ],
+    "strokeCount": 4,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "少し",
+        "hiragana": "すこし",
+        "meaning": "một chút"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "少ない",
+        "hiragana": "すくない",
+        "meaning": "ít"
+      }
+    ]
+  },
+  {
+    "id": "広",
+    "kanji": "広",
+    "meanings": [
+      "rộng rãi"
+    ],
+    "hanViet": "QUẢNG",
+    "onReadings": [
+      "コウ"
+    ],
+    "kunReadings": [
+      "ひろい"
+    ],
+    "strokeCount": 5,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "広い",
+        "hiragana": "ひろい",
+        "meaning": "rộng"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "広場",
+        "hiragana": "ひろば",
+        "meaning": "quảng trường"
+      }
+    ]
+  },
+  {
+    "id": "早",
+    "kanji": "早",
+    "meanings": [
+      "sớm",
+      "nhanh"
+    ],
+    "hanViet": "TẢO",
+    "onReadings": [
+      "ソウ",
+      "サッ"
+    ],
+    "kunReadings": [
+      "はやい"
+    ],
+    "strokeCount": 6,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "早い",
+        "hiragana": "はやい",
+        "meaning": "sớm"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "早起き",
+        "hiragana": "はやおき",
+        "meaning": "dậy sớm"
+      }
+    ]
+  },
+  {
+    "id": "明",
+    "kanji": "明",
+    "meanings": [
+      "sáng sủa",
+      "rõ ràng"
+    ],
+    "hanViet": "MINH",
+    "onReadings": [
+      "メイ",
+      "ミョウ"
+    ],
+    "kunReadings": [
+      "あかるい",
+      "あける"
+    ],
+    "strokeCount": 8,
+    "jlptLevel": "N5",
+    "vocabularyIds": [],
+    "examples": [
+      {
+        "vocabularyId": 0,
+        "word": "明るい",
+        "hiragana": "あかるい",
+        "meaning": "sáng sủa"
+      },
+      {
+        "vocabularyId": 0,
+        "word": "明日",
+        "hiragana": "あした",
+        "meaning": "ngày mai"
       }
     ]
   }

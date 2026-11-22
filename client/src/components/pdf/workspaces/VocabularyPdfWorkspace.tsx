@@ -4,6 +4,8 @@ import { createPortal } from 'react-dom';
 import { DraggableColumnList, type ColumnOption } from '../DraggableColumnList';
 import { CustomDataImport } from '../../common/CustomDataImport';
 import { VocabularyPdfBuilder } from './VocabularyPdfBuilder';
+import { useAuth } from '../../../context/auth-context';
+import { getPreferredVocabLevel } from '../../../data/vocabTextbooks';
 import { useCurriculumSnapshot } from '../../../hooks/useCurriculumData';
 import { getLiveUnitsForLevel, getLiveVocabForUnit } from '../../../services/curriculumStore';
 import { useUserProgress } from '../../../hooks/useUserProgress';
@@ -30,6 +32,7 @@ const LEVELS: JLPTLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1'];
 
 export const VocabularyPdfWorkspace: React.FC = () => {
   const { toast } = useToast();
+  const { user, studyLevel } = useAuth();
   const { progress } = useUserProgress();
   const [columns, setColumns] = useState<ColumnOption[]>(DEFAULT_COLUMNS);
   const [isExporting, setIsExporting] = useState(false);
@@ -38,7 +41,9 @@ export const VocabularyPdfWorkspace: React.FC = () => {
   const isExportingRef = useRef(false);
 
   const [tab, setTab] = useState<'system' | 'custom'>('system');
-  const [level, setLevel] = useState<JLPTLevel>('N3');
+  const [level, setLevel] = useState<JLPTLevel>(
+    () => studyLevel ?? getPreferredVocabLevel(user?.id) ?? 'N3',
+  );
   const [unitId, setUnitId] = useState<number>(1);
   const [source, setSource] = useState<QuizSource>('all');
   const [rangeType, setRangeType] = useState<QuizRangeType>('fixed');

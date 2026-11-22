@@ -18,6 +18,7 @@ export interface AdminUnitRecord {
   id: string;
   level: JLPTLevel;
   unitNumber: number;
+  textbookId?: string | null;
   title: string;
   description: string;
   orderIndex: number;

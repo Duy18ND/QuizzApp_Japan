@@ -1,102 +1,194 @@
-import React, { useMemo } from 'react';
-import { useParams } from 'react-router-dom';
-import { ArrowRight, BookOpen } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { ArrowRight, BookOpen, Play, ScrollText } from 'lucide-react';
 import {
+  getPreferredVocabTextbookId,
   getUnitsForVocabTextbook,
   getVocabTextbooksForLevel,
   parseVocabLevelParam,
+  savePreferredVocabLevel,
+  savePreferredVocabTextbookId,
 } from '../../data/vocabTextbooks';
+import { useAuth } from '../../context/auth-context';
 import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
-import { Badge, CardLink, EmptyState, PageContainer, PageHeader } from '../../components/ui';
+import { Button, EmptyState, Field, PageContainer, PageHeader, Select } from '../../components/ui';
+import { buttonStyles } from '../../components/ui/styles';
+import type { JLPTLevel } from '../../types/quiz';
+
+const LEVELS: JLPTLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1'];
 
 export const VocabularyTextbooksPage: React.FC = () => {
   const { level } = useParams<{ level: string }>();
-  const levelKey = parseVocabLevelParam(level) ?? 'N5';
-  const levelSegment = levelKey.toLowerCase();
+  const navigate = useNavigate();
+  const { studyLevel, updateStudyLevel, user } = useAuth();
+  const levelKey = parseVocabLevelParam(level) ?? studyLevel ?? 'N3';
+  const [bookSelection, setBookSelection] = useState<{ level: JLPTLevel; bookId: string } | null>(null);
+  const selectedBookId =
+    (bookSelection?.level === levelKey ? bookSelection.bookId : null) ??
+    getPreferredVocabTextbookId(levelKey, user?.id) ??
+    getVocabTextbooksForLevel(levelKey)[0]?.id ??
+    '';
   const cmsSnapshot = useCurriculumSnapshot();
+  const textbooks = getVocabTextbooksForLevel(levelKey);
 
-  const textbooks = useMemo(() => {
-    return getVocabTextbooksForLevel(levelKey).map((book) => {
-      const units = getUnitsForVocabTextbook(cmsSnapshot, levelKey, book);
-      const totalWords = units.reduce((sum, u) => sum + u.totalWords, 0);
-      const activeUnitCount = units.filter((u) => u.totalWords > 0).length;
-      return { book, units, totalWords, activeUnitCount };
-    });
-  }, [cmsSnapshot, levelKey]);
+  const textbook = useMemo(
+    () => textbooks.find((book) => book.id === selectedBookId) ?? textbooks[0],
+    [selectedBookId, textbooks],
+  );
+  const units = useMemo(
+    () => (textbook ? getUnitsForVocabTextbook(cmsSnapshot, levelKey, textbook) : []),
+    [cmsSnapshot, levelKey, textbook],
+  );
+  const totalWords = units.reduce((sum, unit) => sum + unit.totalWords, 0);
+  const availableUnits = units.filter((unit) => unit.totalWords > 0).length;
+
+  const handleLevelChange = async (nextLevel: JLPTLevel) => {
+    savePreferredVocabLevel(nextLevel, user?.id);
+    if (studyLevel !== nextLevel) await updateStudyLevel(nextLevel);
+    navigate(`/vocabulary/${nextLevel.toLowerCase()}`);
+  };
+
+  const handleBookChange = (nextBookId: string) => {
+    setBookSelection({ level: levelKey, bookId: nextBookId });
+    savePreferredVocabTextbookId(levelKey, nextBookId, user?.id);
+  };
+
+  const fullBookQuizParams = new URLSearchParams({
+    level: levelKey,
+    book: textbook?.id ?? '',
+    unit: 'all',
+    autoStart: '1',
+  });
 
   return (
-    <PageContainer size="md" className="space-y-6">
+    <PageContainer className="space-y-6">
       <PageHeader
         breadcrumbs={[
           { label: 'Trang chủ', to: '/' },
           { label: 'Từ vựng', to: '/vocabulary' },
           { label: `Trình độ ${levelKey}` },
         ]}
-        title={`Chọn giáo trình (${levelKey})`}
-        description={`Chọn bộ giáo trình từ vựng thuộc trình độ JLPT ${levelKey} để mở công cụ luyện tập và danh sách bài học tương ứng.`}
+        title={`Từ vựng · ${levelKey}`}
+        description="Chọn giáo trình một lần, sau đó mở thẳng bài học hoặc bắt đầu Quiz từ bài đó."
+        actions={
+          textbook && totalWords > 0 ? (
+            <Link
+              to={`/vocabulary/quiz?${fullBookQuizParams.toString()}`}
+              className={buttonStyles({ variant: 'primary', size: 'md' })}
+            >
+              <Play className="size-4" aria-hidden />
+              Quiz cả giáo trình
+            </Link>
+          ) : undefined
+        }
       />
 
-      {textbooks.length === 0 ? (
-        <EmptyState
-          title="Chưa có giáo trình"
-          description={`Đang cập nhật danh sách giáo trình cho trình độ ${levelKey}.`}
-        />
-      ) : (
-        <ul className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-          {textbooks.map(({ book, totalWords, activeUnitCount }) => {
-            const hasWords = totalWords > 0;
+      <section className="grid gap-4 rounded-xl border border-line bg-surface p-4 sm:grid-cols-2 sm:p-5" aria-label="Lựa chọn học tập">
+        <Field label="Trình độ JLPT" htmlFor="vocabulary-level">
+          <Select
+            id="vocabulary-level"
+            value={levelKey}
+            onChange={(event) => void handleLevelChange(event.target.value as JLPTLevel)}
+          >
+            {LEVELS.map((item) => (
+              <option key={item} value={item}>
+                JLPT {item}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Giáo trình từ vựng" htmlFor="vocabulary-textbook">
+          <Select
+            id="vocabulary-textbook"
+            value={textbook?.id ?? ''}
+            onChange={(event) => handleBookChange(event.target.value)}
+          >
+            {textbooks.map((book) => (
+              <option key={book.id} value={book.id}>
+                {book.title}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        {textbook && (
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 sm:col-span-2">
+            <p className="text-sm text-muted">
+              <span lang="ja" className="font-medium text-primary-fg">{textbook.japaneseTitle}</span>
+              <span className="mx-2" aria-hidden>·</span>
+              <span className="tabular">{availableUnits} bài có dữ liệu · {totalWords} từ</span>
+            </p>
+            <p className="text-xs text-muted">Lựa chọn giáo trình được ghi nhớ cho lần sau.</p>
+          </div>
+        )}
+      </section>
 
-            return (
-              <li key={book.id}>
-                <CardLink
-                  to={`/vocabulary/${levelSegment}/book/${book.id}`}
-                  padding="md"
-                  className="group flex h-full items-start gap-3.5"
-                >
-                  <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary-fg">
-                    <BookOpen className="size-5" aria-hidden />
-                  </span>
+      <section className="space-y-3" aria-label="Bài học từ vựng">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-lg font-semibold text-fg">
+            {textbook ? `Bài học · ${textbook.shortTitle}` : 'Bài học'}
+          </h2>
+          {textbook && <span className="text-sm text-muted">{textbook.description}</span>}
+        </div>
 
-                  <span className="min-w-0 flex-1 space-y-1.5">
-                    <span className="flex flex-wrap items-center gap-2">
-                      <span className="text-base font-bold text-fg">{book.title}</span>
-                      <Badge tone="primary">{levelKey}</Badge>
+        {!textbook || units.length === 0 ? (
+          <EmptyState
+            title="Chưa có bài học trong giáo trình này"
+            description={`Khi dữ liệu ${textbook?.title ?? 'giáo trình'} (${levelKey}) được nhập, các bài sẽ xuất hiện tại đây.`}
+          />
+        ) : (
+          <ol className="divide-y divide-line border-y border-line">
+            {units.map((unit) => {
+              const isAvailable = unit.totalWords > 0;
+              const unitPath = `/vocabulary/${levelKey.toLowerCase()}/book/${textbook.id}/${unit.dbUnitId ?? unit.id}`;
+              const quizParams = new URLSearchParams({
+                level: levelKey,
+                book: textbook.id,
+                unit: String(unit.id),
+                autoStart: '1',
+              });
+              if (unit.dbUnitId) quizParams.set('unitDbId', unit.dbUnitId);
+
+              return (
+                <li key={unit.dbUnitId ?? unit.id} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary-fg">
+                      <ScrollText className="size-4" aria-hidden />
                     </span>
-
-                    <span lang="ja" className="block text-xs font-medium text-primary-fg">
-                      {book.japaneseTitle}
-                    </span>
-
-                    <span className="block text-xs leading-relaxed text-muted sm:text-sm">
-                      {book.description}
-                    </span>
-
-                    <span className="flex flex-wrap items-center gap-2 pt-1">
-                      {hasWords ? (
-                        <>
-                          <Badge tone="success" className="tabular">
-                            {totalWords} từ vựng
-                          </Badge>
-                          <Badge tone="neutral" className="tabular">
-                            {activeUnitCount} bài học
-                          </Badge>
-                        </>
-                      ) : (
-                        <Badge tone="warning">Sắp ra mắt · 0 từ</Badge>
-                      )}
-                    </span>
-                  </span>
-
-                  <ArrowRight
-                    className="mt-1 size-4 shrink-0 text-subtle transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-primary-fg"
-                    aria-hidden
-                  />
-                </CardLink>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+                    <div className="min-w-0">
+                      <h3 className="font-semibold text-fg">{unit.name}</h3>
+                      <p className="mt-1 text-sm text-muted">
+                        {isAvailable ? `${unit.totalWords} từ vựng` : 'Chưa có dữ liệu từ vựng'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2 sm:shrink-0">
+                    {isAvailable ? (
+                      <>
+                        <Link to={unitPath} className={buttonStyles({ variant: 'secondary', size: 'sm' })}>
+                          <BookOpen className="size-4" aria-hidden />
+                          Mở bài học
+                        </Link>
+                        <Link
+                          to={`/vocabulary/quiz?${quizParams.toString()}`}
+                          className={buttonStyles({ variant: 'soft', size: 'sm' })}
+                        >
+                          <Play className="size-4" aria-hidden />
+                          Quiz bài này
+                          <ArrowRight className="size-4" aria-hidden />
+                        </Link>
+                      </>
+                    ) : (
+                      <Button variant="secondary" size="sm" disabled>
+                        Sắp có dữ liệu
+                      </Button>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        )}
+      </section>
     </PageContainer>
   );
 };

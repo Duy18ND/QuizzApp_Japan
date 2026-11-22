@@ -1,6 +1,9 @@
+import { minnaN5Book } from './minna-n5/allLessons';
 import { shinkanzenN3Lesson01 } from './shinkanzen-n3/lesson01';
 import { shinkanzenN3Lesson02 } from './shinkanzen-n3/lesson02';
 import type { GrammarBook } from '../../types/grammarEngine';
+
+export { minnaN5Book };
 
 export const shinkanzenN3Book: GrammarBook = {
   id: 'SHINKANZEN_N3',
@@ -27,5 +30,6 @@ export const shinkanzenN3Book: GrammarBook = {
 };
 
 export const grammarBooks: GrammarBook[] = [
-  shinkanzenN3Book
+  minnaN5Book,
+  shinkanzenN3Book,
 ];

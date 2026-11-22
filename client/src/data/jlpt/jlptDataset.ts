@@ -1,5 +1,13 @@
 import { grammarBooks } from '../grammar';
 import { lesson01PracticeBank } from '../grammar/shinkanzen-n3/lesson01PracticeBank';
+import {
+  MINNA_N5_GRAMMAR_MCQS,
+  MINNA_N5_KANJI_MCQS,
+  MINNA_N5_LISTENING_ITEMS,
+  MINNA_N5_READING_PASSAGES,
+  MINNA_N5_STAR_ITEMS,
+  MINNA_N5_VOCAB_MCQS,
+} from './minnaN5JlptPack';
 import kanjiDataRaw from '../kanji/kanjiDataset.json';
 import { unit1Data } from '../n3/unit1';
 import type { KanjiItem } from '../../types/kanji';
@@ -2016,10 +2024,34 @@ function buildBankStarItems(): JLPTStarItem[] {
   return items;
 }
 
-const ALL_KANJI_MCQS: JLPTMcqItem[] = [...CURATED_KANJI_QUESTIONS, ...buildDatasetKanjiMcqs()];
-const ALL_VOCAB_MCQS: JLPTMcqItem[] = [...CURATED_VOCAB_QUESTIONS, ...buildDatasetVocabMcqs()];
-const ALL_GRAMMAR_MCQS: JLPTMcqItem[] = [...CURATED_GRAMMAR_QUESTIONS, ...buildBankGrammarMcqs()];
-const ALL_STAR_ITEMS: JLPTStarItem[] = [...CURATED_STAR_QUESTIONS, ...buildBankStarItems()];
+const ALL_KANJI_MCQS: JLPTMcqItem[] = [
+  ...MINNA_N5_KANJI_MCQS,
+  ...CURATED_KANJI_QUESTIONS,
+  ...buildDatasetKanjiMcqs(),
+];
+const ALL_VOCAB_MCQS: JLPTMcqItem[] = [
+  ...MINNA_N5_VOCAB_MCQS,
+  ...CURATED_VOCAB_QUESTIONS,
+  ...buildDatasetVocabMcqs(),
+];
+const ALL_GRAMMAR_MCQS: JLPTMcqItem[] = [
+  ...MINNA_N5_GRAMMAR_MCQS,
+  ...CURATED_GRAMMAR_QUESTIONS,
+  ...buildBankGrammarMcqs(),
+];
+const ALL_STAR_ITEMS: JLPTStarItem[] = [
+  ...MINNA_N5_STAR_ITEMS,
+  ...CURATED_STAR_QUESTIONS,
+  ...buildBankStarItems(),
+];
+const ALL_READING_PASSAGES: JLPTReadingPassage[] = [
+  ...MINNA_N5_READING_PASSAGES,
+  ...CURATED_READING_PASSAGES,
+];
+const ALL_LISTENING_ITEMS: JLPTListeningItem[] = [
+  ...MINNA_N5_LISTENING_ITEMS,
+  ...CURATED_LISTENING_ITEMS,
+];
 
 function filterByLevel<T extends { level: JLPTExamLevel }>(items: T[], level: JLPTLevelFilter): T[] {
   if (level === 'ALL') return items;
@@ -2047,12 +2079,12 @@ export function getJLPTReadingPassages(
   moduleId: 'reading-short' | 'reading-medium' | 'reading-long',
   level: JLPTLevelFilter,
 ): JLPTReadingPassage[] {
-  const ofModule = CURATED_READING_PASSAGES.filter((p) => p.moduleId === moduleId);
+  const ofModule = ALL_READING_PASSAGES.filter((p) => p.moduleId === moduleId);
   return filterByLevel(ofModule, level);
 }
 
 export function getJLPTListeningItems(level: JLPTLevelFilter): JLPTListeningItem[] {
-  return filterByLevel(CURATED_LISTENING_ITEMS, level);
+  return filterByLevel(ALL_LISTENING_ITEMS, level);
 }
 
 export function toStarQuestionShape(item: JLPTStarItem, shuffleOrder = true): StarQuestion {

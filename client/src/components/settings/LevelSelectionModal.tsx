@@ -1,12 +1,18 @@
-import React, { useState } from 'react';
-import { CheckCircle2, Compass } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { BookOpen, CheckCircle2, Compass } from 'lucide-react';
 import { useAuth } from '../../context/auth-context';
+import {
+  getUnitsForVocabTextbook,
+  getVocabTextbooksForLevel,
+  resolveActiveVocabTextbook,
+} from '../../data/vocabTextbooks';
+import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
 import { cn } from '../../lib/cn';
 import {
   STUDY_LEVEL_OPTIONS,
   type StudyLevel,
 } from '../../services/userLevelService';
-import { Button, Modal, useToast } from '../ui';
+import { Badge, Button, Modal, useToast } from '../ui';
 
 interface LevelSelectionModalProps {
   open: boolean;
@@ -19,31 +25,80 @@ export const LevelSelectionModal: React.FC<LevelSelectionModalProps> = ({
   onClose,
   onDismissWithoutSelection,
 }) => {
-  const { user, studyLevel, updateStudyLevel } = useAuth();
+  const { user, studyLevel, studyTextbookId, updateStudyLevel } = useAuth();
   const { toast } = useToast();
-  const [draftSelection, setDraftSelection] = useState<StudyLevel | null>(null);
+  const cmsSnapshot = useCurriculumSnapshot();
+  const [draftLevel, setDraftLevel] = useState<StudyLevel | null>(null);
+  const [draftBookChoice, setDraftBookChoice] = useState<{
+    level: StudyLevel;
+    bookId: string;
+  } | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const selectedLevel = draftLevel ?? studyLevel;
+
+  const levelTextbooks = useMemo(
+    () => (selectedLevel ? getVocabTextbooksForLevel(selectedLevel) : []),
+    [selectedLevel],
+  );
+
+  const selectedBook = useMemo(() => {
+    if (!selectedLevel) return null;
+    const explicitBookId =
+      draftBookChoice?.level === selectedLevel
+        ? draftBookChoice.bookId
+        : selectedLevel === studyLevel
+          ? studyTextbookId
+          : null;
+    return resolveActiveVocabTextbook(selectedLevel, user?.id, explicitBookId);
+  }, [draftBookChoice, selectedLevel, studyLevel, studyTextbookId, user?.id]);
+
+  const textbookWordCounts = useMemo(() => {
+    if (!selectedLevel) return new Map<string, number>();
+    const map = new Map<string, number>();
+    for (const book of levelTextbooks) {
+      const units = getUnitsForVocabTextbook(cmsSnapshot, selectedLevel, book);
+      map.set(
+        book.id,
+        units.reduce((sum, u) => sum + u.totalWords, 0),
+      );
+    }
+    return map;
+  }, [cmsSnapshot, levelTextbooks, selectedLevel]);
 
   if (!user) return null;
 
-  const selected = draftSelection ?? studyLevel;
-
   const handleClose = () => {
-    setDraftSelection(null);
+    setDraftLevel(null);
+    setDraftBookChoice(null);
     if (!studyLevel) {
       onDismissWithoutSelection?.();
     }
     onClose();
   };
 
+  const handleSelectLevel = (level: StudyLevel) => {
+    setDraftLevel(level);
+    const defaultBook = resolveActiveVocabTextbook(
+      level,
+      user.id,
+      level === studyLevel ? studyTextbookId : null,
+    );
+    setDraftBookChoice({ level, bookId: defaultBook.id });
+  };
+
   const handleConfirm = async () => {
-    if (!selected) return;
+    if (!selectedLevel) return;
     setSaving(true);
-    await updateStudyLevel(selected);
+    const targetBookId = selectedBook?.id ?? null;
+    await updateStudyLevel(selectedLevel, targetBookId);
     setSaving(false);
-    setDraftSelection(null);
+    setDraftLevel(null);
+    setDraftBookChoice(null);
     toast({
-      title: `Đã chọn trình độ JLPT ${selected}`,
+      title: selectedBook
+        ? `Đã chọn JLPT ${selectedLevel} · ${selectedBook.shortTitle}`
+        : `Đã chọn trình độ JLPT ${selectedLevel}`,
       tone: 'success',
     });
     onClose();
@@ -54,8 +109,8 @@ export const LevelSelectionModal: React.FC<LevelSelectionModalProps> = ({
       open={open}
       onClose={handleClose}
       size="lg"
-      title="Chọn trình độ tiếng Nhật của bạn"
-      description="Chọn cấp độ JLPT phù hợp để thiết lập lộ trình học tập dành riêng cho bạn. Bạn có thể thay đổi lại bất cứ lúc nào trong phần Cài đặt."
+      title="Chọn trình độ & giáo trình học của bạn"
+      description="Chọn một lần để tự động đồng bộ Từ vựng, Ngữ pháp, Kanji, Quiz và Flashcard trên toàn bộ ứng dụng."
       footer={
         <>
           <Button type="button" variant="secondary" onClick={handleClose}>
@@ -64,75 +119,153 @@ export const LevelSelectionModal: React.FC<LevelSelectionModalProps> = ({
           <Button
             type="button"
             variant="primary"
-            disabled={!selected}
+            disabled={!selectedLevel}
             loading={saving}
             leftIcon={<Compass className="size-4" aria-hidden />}
             onClick={() => void handleConfirm()}
           >
-            {selected ? `Xác nhận trình độ ${selected}` : 'Chọn một trình độ'}
+            {selectedLevel && selectedBook
+              ? `Xác nhận ${selectedLevel} · ${selectedBook.shortTitle}`
+              : selectedLevel
+                ? `Xác nhận trình độ ${selectedLevel}`
+                : 'Chọn một trình độ'}
           </Button>
         </>
       }
     >
-      <div
-        role="radiogroup"
-        aria-label="Chọn trình độ JLPT"
-        className="grid gap-2.5"
-      >
-        {STUDY_LEVEL_OPTIONS.map((opt) => {
-          const isSelected = selected === opt.level;
-          return (
-            <button
-              key={opt.level}
-              type="button"
-              role="radio"
-              aria-checked={isSelected}
-              onClick={() => setDraftSelection(opt.level)}
-              className={cn(
-                'flex w-full cursor-pointer items-start gap-3.5 rounded-xl border p-3.5 text-left transition-colors duration-150',
-                isSelected
-                  ? 'border-primary bg-primary-soft/60'
-                  : 'border-line bg-surface-2/60 hover:border-primary/60 hover:bg-surface-2',
-              )}
-            >
-              <span
-                className={cn(
-                  'grid size-11 shrink-0 place-items-center rounded-xl text-base font-bold transition-colors',
-                  isSelected
-                    ? 'bg-primary text-on-primary'
-                    : 'bg-primary-soft text-primary-fg',
-                )}
-              >
-                {opt.level}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-semibold text-fg sm:text-base">
-                    JLPT {opt.level} · {opt.title}
+      <div className="space-y-5">
+        <div className="space-y-2">
+          <p className="text-xs font-semibold tracking-wide text-muted uppercase">
+            1. Trình độ mục tiêu (JLPT)
+          </p>
+          <div
+            role="radiogroup"
+            aria-label="Chọn trình độ JLPT"
+            className="grid gap-2"
+          >
+            {STUDY_LEVEL_OPTIONS.map((opt) => {
+              const isSelected = selectedLevel === opt.level;
+              const defaultBook = getVocabTextbooksForLevel(opt.level)[0];
+              return (
+                <button
+                  key={opt.level}
+                  type="button"
+                  role="radio"
+                  aria-checked={isSelected}
+                  onClick={() => handleSelectLevel(opt.level)}
+                  className={cn(
+                    'flex w-full cursor-pointer items-start gap-3 rounded-xl border p-3 text-left transition-colors duration-150',
+                    isSelected
+                      ? 'border-primary bg-primary-soft/60'
+                      : 'border-line bg-surface-2/60 hover:border-primary/60 hover:bg-surface-2',
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'grid size-10 shrink-0 place-items-center rounded-xl text-sm font-bold transition-colors',
+                      isSelected
+                        ? 'bg-primary text-on-primary'
+                        : 'bg-primary-soft text-primary-fg',
+                    )}
+                  >
+                    {opt.level}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-semibold text-fg sm:text-base">
+                        JLPT {opt.level} · {opt.title}
+                      </span>
+                      <span
+                        lang="ja"
+                        className="rounded-md bg-surface px-1.5 py-0.5 text-[11px] font-medium text-muted ring-1 ring-line"
+                      >
+                        {opt.japaneseLabel}
+                      </span>
+                      {defaultBook && (
+                        <span className="text-[11px] font-medium text-primary-fg">
+                          Gợi ý: {defaultBook.shortTitle}
+                        </span>
+                      )}
+                    </span>
+                    <span className="mt-0.5 block text-xs leading-relaxed text-muted">
+                      {opt.summary}
+                    </span>
                   </span>
                   <span
-                    lang="ja"
-                    className="rounded-md bg-surface px-1.5 py-0.5 text-[11px] font-medium text-muted ring-1 ring-line"
+                    className={cn(
+                      'mt-1 grid size-5 shrink-0 place-items-center rounded-full transition-opacity',
+                      isSelected ? 'text-primary-fg opacity-100' : 'opacity-0',
+                    )}
+                    aria-hidden
                   >
-                    {opt.japaneseLabel}
+                    <CheckCircle2 className="size-5" />
                   </span>
-                </span>
-                <span className="mt-1 block text-xs leading-relaxed text-muted sm:text-sm">
-                  {opt.summary}
-                </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {selectedLevel && levelTextbooks.length > 0 && (
+          <div className="space-y-2.5 border-t border-line pt-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-muted uppercase">
+                <BookOpen className="size-3.5 text-primary-fg" aria-hidden />
+                2. Giáo trình chính ({selectedLevel})
+              </p>
+              <span className="text-xs text-muted">
+                Bấm Từ vựng / Flashcard sẽ mở thẳng bài học của sách này
               </span>
-              <span
-                className={cn(
-                  'mt-1 grid size-5 shrink-0 place-items-center rounded-full transition-opacity',
-                  isSelected ? 'text-primary-fg opacity-100' : 'opacity-0',
-                )}
-                aria-hidden
-              >
-                <CheckCircle2 className="size-5" />
-              </span>
-            </button>
-          );
-        })}
+            </div>
+            <div
+              role="radiogroup"
+              aria-label={`Chọn giáo trình từ vựng ${selectedLevel}`}
+              className="grid grid-cols-1 gap-2 sm:grid-cols-2"
+            >
+              {levelTextbooks.map((book, index) => {
+                const isBookSelected = selectedBook?.id === book.id;
+                const wordCount = textbookWordCounts.get(book.id) ?? 0;
+                return (
+                  <button
+                    key={book.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={isBookSelected}
+                    onClick={() =>
+                      setDraftBookChoice({ level: selectedLevel, bookId: book.id })
+                    }
+                    className={cn(
+                      'flex cursor-pointer flex-col gap-1.5 rounded-xl border p-3 text-left transition-colors duration-150',
+                      isBookSelected
+                        ? 'border-primary bg-primary-soft/60'
+                        : 'border-line bg-surface-2/50 hover:border-primary/60 hover:bg-surface-2',
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-sm font-semibold text-fg">{book.title}</span>
+                      {wordCount > 0 ? (
+                        <Badge tone="success" className="shrink-0 tabular">
+                          {wordCount} từ
+                        </Badge>
+                      ) : index === 0 ? (
+                        <Badge tone="primary" className="shrink-0">
+                          Mặc định
+                        </Badge>
+                      ) : (
+                        <Badge tone="neutral" className="shrink-0">
+                          Đang cập nhật
+                        </Badge>
+                      )}
+                    </div>
+                    <span lang="ja" className="text-xs text-primary-fg">
+                      {book.japaneseTitle}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </Modal>
   );

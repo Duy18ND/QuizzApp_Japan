@@ -6,6 +6,7 @@ import {
   type CmsSnapshot,
 } from '../../services/adminCmsService';
 import { toDbUnitId } from '../../services/migrationService';
+import { getVocabTextbooksForLevel } from '../../data/vocabTextbooks';
 import type { AuthUser } from '../../store/slices/authSlice';
 import type { AdminUnitRecord } from '../../types/admin';
 import type { JLPTLevel } from '../../types/quiz';
@@ -30,6 +31,7 @@ interface UnitFormState {
   id: string;
   idTouched: boolean;
   level: JLPTLevel;
+  textbookId: string;
   unitNumber: string;
   title: string;
   description: string;
@@ -42,6 +44,7 @@ const emptyUnitForm = (nextOrder = 1): UnitFormState => ({
   id: toDbUnitId('N3', 1),
   idTouched: false,
   level: 'N3',
+  textbookId: '',
   unitNumber: '1',
   title: '',
   description: '',
@@ -123,6 +126,7 @@ export function AdminUnitsManager({
       id: u.id,
       idTouched: true,
       level: u.level,
+      textbookId: u.textbookId ?? '',
       unitNumber: String(u.unitNumber),
       title: u.title,
       description: u.description,
@@ -138,7 +142,9 @@ export function AdminUnitsManager({
     const unitNum = Number(form.unitNumber);
     const orderNum = Number(form.orderIndex);
     const title = form.title.trim();
-    const id = form.id.trim() || toDbUnitId(form.level, Number.isInteger(unitNum) ? unitNum : 1);
+    const id =
+      form.id.trim() ||
+      toDbUnitId(form.level, Number.isInteger(unitNum) ? unitNum : 1, form.textbookId || undefined);
 
     if (!Number.isInteger(unitNum) || unitNum < 1) {
       setFormError('Số Unit (unit_number) phải là số nguyên >= 1.');
@@ -155,6 +161,7 @@ export function AdminUnitsManager({
         id,
         level: form.level,
         unitNumber: unitNum,
+        textbookId: form.textbookId || null,
         title,
         description: form.description.trim(),
         orderIndex: Number.isFinite(orderNum) ? orderNum : unitNum,
@@ -285,6 +292,12 @@ export function AdminUnitsManager({
                       <td className="px-4 py-3">
                         <p className="font-semibold text-fg">{u.title}</p>
                         <p className="text-xs text-muted">{u.description || '—'}</p>
+                        <p className="mt-1 text-xs text-muted">
+                          Giáo trình:{' '}
+                          {u.textbookId
+                            ? getVocabTextbooksForLevel(u.level).find((book) => book.id === u.textbookId)?.title ?? u.textbookId
+                            : 'Chưa gắn'}
+                        </p>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <Badge tone={vocabCount > 0 ? 'success' : 'neutral'} className="tabular">
@@ -365,6 +378,7 @@ export function AdminUnitsManager({
                   setForm((f) => ({
                     ...f,
                     level: nextLevel,
+                    textbookId: '',
                     id: f.isEdit || f.idTouched ? f.id : toDbUnitId(nextLevel, num),
                   }));
                 }}
@@ -387,7 +401,9 @@ export function AdminUnitsManager({
                   setForm((f) => ({
                     ...f,
                     unitNumber: raw,
-                    id: f.isEdit || f.idTouched ? f.id : toDbUnitId(f.level, num),
+                    id: f.isEdit || f.idTouched
+                      ? f.id
+                      : toDbUnitId(f.level, num, f.textbookId || undefined),
                   }));
                 }}
               />
@@ -403,6 +419,30 @@ export function AdminUnitsManager({
               />
             </Field>
           </div>
+
+          <Field label="Giáo trình">
+            <Select
+              value={form.textbookId}
+              onChange={(e) => {
+                const textbookId = e.target.value;
+                const num = Math.max(1, Number(form.unitNumber) || 1);
+                setForm((f) => ({
+                  ...f,
+                  textbookId,
+                  id: f.isEdit || f.idTouched
+                    ? f.id
+                    : toDbUnitId(f.level, num, textbookId || undefined),
+                }));
+              }}
+            >
+              <option value="">Chưa gắn giáo trình</option>
+              {getVocabTextbooksForLevel(form.level).map((book) => (
+                <option key={book.id} value={book.id}>
+                  {book.title}
+                </option>
+              ))}
+            </Select>
+          </Field>
 
           <Field label="Tên học phần (title) *">
             <Input

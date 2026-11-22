@@ -8,6 +8,7 @@ import {
   findVocabTextbook,
   getWordsForVocabTextbook,
   parseVocabLevelParam,
+  resolveActiveVocabTextbook,
 } from '../data/vocabTextbooks';
 import { useCurriculumSnapshot } from '../hooks/useCurriculumData';
 import { getLiveAllVocabulary, getLiveKanjis } from '../services/curriculumStore';
@@ -36,7 +37,7 @@ type FilterTab = 'all' | 'vocab' | 'kanji';
 const LEVELS: Array<'All' | JLPTLevel> = ['All', 'N5', 'N4', 'N3', 'N2', 'N1'];
 
 export const UnmasteredPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, studyLevel, studyTextbookId } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const kanjiProgress = useAppSelector((state) => state.kanji.progress);
   const { progress, clearWrongWord } = useUserProgress();
@@ -44,11 +45,18 @@ export const UnmasteredPage: React.FC = () => {
   const cmsSnapshot = useCurriculumSnapshot();
 
   const levelParam = parseVocabLevelParam(searchParams.get('level'));
-  const textbook = useMemo(
+  const explicitBook = useMemo(
     () => findVocabTextbook(levelParam, searchParams.get('book')),
     [levelParam, searchParams],
   );
-  const initialLevel = textbook?.level ?? levelParam ?? 'All';
+  const textbook = useMemo(() => {
+    if (explicitBook) return explicitBook;
+    if (!levelParam && studyLevel) {
+      return resolveActiveVocabTextbook(studyLevel, user?.id, studyTextbookId);
+    }
+    return undefined;
+  }, [explicitBook, levelParam, studyLevel, studyTextbookId, user?.id]);
+  const initialLevel = textbook?.level ?? levelParam ?? studyLevel ?? 'All';
 
   const [tab, setTab] = useState<FilterTab>('all');
   const [search, setSearch] = useState('');

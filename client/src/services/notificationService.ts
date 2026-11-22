@@ -791,14 +791,50 @@ export interface OnlineTimeSyncDetail {
   streakAwardedToday: boolean;
 }
 
+const ONLINE_TIME_PERSIST_PREFIX = 'nihonmaster_online_time_v2:';
+
+function readPersistedOnlineTime(uid: string): Record<string, number> {
+  if (typeof window === 'undefined' || !uid) return {};
+  try {
+    const raw = window.localStorage?.getItem(`${ONLINE_TIME_PERSIST_PREFIX}${uid}`);
+    if (!raw) return {};
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    const clean: Record<string, number> = {};
+    for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+      if (VALID_DATE_REGEX.test(k)) {
+        const secs = Math.floor(Number(v) || 0);
+        if (secs > 0) clean[k] = Math.min(secs, 86_400);
+      }
+    }
+    return clean;
+  } catch {
+    return {};
+  }
+}
+
+function writePersistedOnlineTime(uid: string, map: Record<string, number>): void {
+  if (typeof window === 'undefined' || !uid) return;
+  try {
+    window.localStorage?.setItem(`${ONLINE_TIME_PERSIST_PREFIX}${uid}`, JSON.stringify(map));
+  } catch {
+    // Ignore storage quota errors
+  }
+}
+
 export function loadOnlineTimeMap(explicitUserId?: string | null): Record<string, number> {
   const uid = explicitUserId === undefined ? getActiveAuthenticatedUserId() : explicitUserId;
   if (!uid) return {};
-  const parsed = getInMemoryOnlineTime(uid);
+  const inRam = getInMemoryOnlineTime(uid);
+  const persisted = readPersistedOnlineTime(uid);
+  const mergedKeys = new Set([...Object.keys(persisted), ...Object.keys(inRam)]);
   const clean: Record<string, number> = {};
-  for (const [k, v] of Object.entries(parsed)) {
+  for (const k of mergedKeys) {
     if (VALID_DATE_REGEX.test(k)) {
-      const secs = Math.floor(Number(v) || 0);
+      const secs = Math.max(
+        Math.floor(Number(persisted[k]) || 0),
+        Math.floor(Number(inRam[k]) || 0),
+      );
       if (secs > 0) {
         clean[k] = Math.min(secs, 86_400);
       }
@@ -860,6 +896,7 @@ export async function addOnlineStudySeconds(
   if (increment > 0 && VALID_DATE_REGEX.test(dateKey)) {
     map[dateKey] = nextToday;
     setInMemoryOnlineTime(effectiveUid, map);
+    writePersistedOnlineTime(effectiveUid, map);
   }
 
   let streakAwardedToday = false;

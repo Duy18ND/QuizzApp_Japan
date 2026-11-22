@@ -200,15 +200,18 @@ export function getCmsSnapshotSync(): CmsSnapshot {
 async function ensureUnitsExist(records: AdminVocabRecord[]): Promise<{ ok: boolean; error?: string }> {
   if (!supabase || records.length === 0) return { ok: true };
   const overlay = loadLocalOverlay();
+  const staticUnitsById = new Map(buildStaticUnits().map((unit) => [unit.id, unit]));
   const unitRows = new Map<string, Record<string, unknown>>();
   for (const r of records) {
     const dbUnitId = r.dbUnitId || toDbUnitId(r.level, r.unitId);
     if (unitRows.has(dbUnitId)) continue;
     const customUnit = overlay.unitOverrides[dbUnitId];
+    const staticUnit = staticUnitsById.get(dbUnitId);
     const meta = UNIT_DATA[r.level]?.find((u) => u.id === r.unitId);
     unitRows.set(dbUnitId, {
       id: dbUnitId,
       level: r.level,
+      textbook_id: customUnit?.textbookId ?? staticUnit?.textbookId ?? null,
       unit_number: customUnit?.unitNumber ?? r.unitId,
       title: customUnit?.title ?? meta?.name ?? `Unit ${r.unitId} (${r.level})`,
       description: customUnit?.description ?? (meta ? `${meta.totalWords} từ vựng ${r.level}` : `Unit ${r.unitId}`),

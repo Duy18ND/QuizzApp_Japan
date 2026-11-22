@@ -2,13 +2,18 @@ import React, { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { CheckCircle2, Play, Trash2, X } from 'lucide-react';
 import {
+  getPreferredVocabLevel,
+  getPreferredVocabTextbookId,
   findVocabTextbook,
   getUnitsForVocabTextbook,
   getVocabTextbooksForLevel,
   parseVocabLevelParam,
+  resolveActiveVocabTextbook,
+  savePreferredVocabTextbookId,
 } from '../../data/vocabTextbooks';
 import type { JLPTLevel, QuestionType, QuizConfig, QuizSource } from '../../types/quiz';
 import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
+import { useAuth } from '../../context/auth-context';
 import { CustomDataImport } from '../common/CustomDataImport';
 import {
   Badge,
@@ -65,16 +70,30 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
   const initialKanji = searchParams.get('kanji')?.trim() || undefined;
   const initialLevelParam = parseVocabLevelParam(searchParams.get('level'));
   const initialBookSpec = findVocabTextbook(initialLevelParam, searchParams.get('book'));
-  const resolvedInitialLevel: JLPTLevel = initialBookSpec?.level ?? initialLevelParam ?? 'N3';
+  const { user, studyLevel, studyTextbookId } = useAuth();
+  const resolvedInitialLevel: JLPTLevel =
+    initialBookSpec?.level ??
+    initialLevelParam ??
+    studyLevel ??
+    getPreferredVocabLevel(user?.id) ??
+    'N3';
   const defaultBookForInitialLevel =
-    initialBookSpec ?? getVocabTextbooksForLevel(resolvedInitialLevel)[0];
+    initialBookSpec ??
+    resolveActiveVocabTextbook(
+      resolvedInitialLevel,
+      user?.id,
+      resolvedInitialLevel === studyLevel ? studyTextbookId : null,
+    );
+  const initialDbUnitId = searchParams.get('unitDbId') || undefined;
 
   const [selectedBookId, setSelectedBookId] = useState<string>(
     () => defaultBookForInitialLevel?.id ?? '',
   );
   const [config, setConfig] = useState<QuizConfig>(() => ({
     level: resolvedInitialLevel,
-    unitId: defaultBookForInitialLevel?.unitIds[0] ?? 1,
+    unitId: Number(searchParams.get('unit')) || defaultBookForInitialLevel?.unitIds[0] || 1,
+    unitDbId: initialDbUnitId,
+    textbookId: defaultBookForInitialLevel?.id,
     source: 'all',
     wordType: 'all',
     rangeType: 'fixed',
@@ -105,27 +124,44 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
     () => (activeBook ? getUnitsForVocabTextbook(cmsSnapshot, config.level, activeBook) : []),
     [cmsSnapshot, config.level, activeBook],
   );
-  const systemTotalWords = activeUnits.find((u) => u.id === config.unitId)?.totalWords ?? 0;
+  const systemTotalWords = (
+    config.unitDbId
+      ? activeUnits.find((unit) => unit.dbUnitId === config.unitDbId)
+      : activeUnits.find((unit) => unit.id === config.unitId)
+  )?.totalWords ?? 0;
   const currentTotalWords = tab === 'custom' ? customWords.length : systemTotalWords;
 
   const handleLevelChange = (newLevel: JLPTLevel) => {
     const nextBooks = getVocabTextbooksForLevel(newLevel);
-    const nextBook = nextBooks[0];
+    const nextBook =
+      nextBooks.find(
+        (book) => book.id === getPreferredVocabTextbookId(newLevel, user?.id),
+      ) ?? nextBooks[0];
     const nextUnits = nextBook ? getUnitsForVocabTextbook(cmsSnapshot, newLevel, nextBook) : [];
     const defaultUnitId = nextUnits[0]?.id ?? 1;
     setSelectedBookId(nextBook?.id ?? '');
     setError(null);
-    setConfig({ ...config, level: newLevel, unitId: defaultUnitId, customRange: { start: 1, end: 20 } });
+    setConfig({
+      ...config,
+      level: newLevel,
+      unitId: defaultUnitId,
+      unitDbId: nextUnits[0]?.dbUnitId,
+      textbookId: nextBook?.id,
+      customRange: { start: 1, end: 20 },
+    });
   };
 
   const handleBookChange = (nextBookId: string) => {
     const nextBook = levelTextbooks.find((b) => b.id === nextBookId);
     const nextUnits = nextBook ? getUnitsForVocabTextbook(cmsSnapshot, config.level, nextBook) : [];
     setSelectedBookId(nextBookId);
+    if (nextBook) savePreferredVocabTextbookId(config.level, nextBookId, user?.id);
     setError(null);
     setConfig((prev) => ({
       ...prev,
       unitId: nextUnits[0]?.id ?? 1,
+      unitDbId: nextUnits[0]?.dbUnitId,
+      textbookId: nextBook?.id,
       customRange: { start: 1, end: 20 },
     }));
   };
@@ -271,21 +307,35 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
               <Field label="Bài học (Unit)" htmlFor="quiz-unit">
                 <Select
                   id="quiz-unit"
-                  value={activeUnits.length > 0 ? config.unitId : ''}
-                  disabled={activeUnits.length === 0}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      unitId: e.target.value === 'all' ? 'all' : Number(e.target.value),
-                    })
+                  value={
+                    activeUnits.length > 0
+                      ? config.unitDbId ?? config.unitId
+                      : ''
                   }
+                  disabled={activeUnits.length === 0}
+                  onChange={(e) => {
+                    if (e.target.value === 'all') {
+                      setConfig((prev) => ({ ...prev, unitId: 'all', unitDbId: undefined }));
+                      return;
+                    }
+                    const selectedUnit = activeUnits.find(
+                      (unit) => unit.dbUnitId === e.target.value || String(unit.id) === e.target.value,
+                    );
+                    if (selectedUnit) {
+                      setConfig((prev) => ({
+                        ...prev,
+                        unitId: selectedUnit.id,
+                        unitDbId: selectedUnit.dbUnitId,
+                      }));
+                    }
+                  }}
                 >
                   {activeUnits.length === 0 ? (
                     <option value="">Sắp ra mắt (0 từ)</option>
                   ) : (
                     <>
                       {activeUnits.map((unit) => (
-                        <option key={unit.id} value={unit.id} disabled={unit.totalWords === 0}>
+                        <option key={unit.dbUnitId ?? unit.id} value={unit.dbUnitId ?? unit.id} disabled={unit.totalWords === 0}>
                           {unit.name} ({unit.totalWords > 0 ? `${unit.totalWords} từ` : 'Sắp ra mắt'})
                         </option>
                       ))}

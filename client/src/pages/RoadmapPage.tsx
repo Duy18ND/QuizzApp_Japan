@@ -23,6 +23,10 @@ import {
 import { buttonStyles } from '../components/ui/styles';
 import { useAuth } from '../context/auth-context';
 import {
+  buildVocabToolQuery,
+  resolveActiveVocabTextbook,
+} from '../data/vocabTextbooks';
+import {
   getNextRoadmapStep,
   getRoadmapStepCount,
   STUDY_ROADMAPS,
@@ -50,7 +54,7 @@ const SKILL_TONE: Record<RoadmapSkillTag, 'primary' | 'sakura' | 'success' | 'wa
 };
 
 export const RoadmapPage: React.FC = () => {
-  const { user, studyLevel, updateStudyLevel } = useAuth();
+  const { user, studyLevel, studyTextbookId, updateStudyLevel } = useAuth();
   const { toast } = useToast();
   const [viewingLevelOverride, setViewingLevelOverride] = useState<StudyLevel | null>(null);
   const [roadmapVersion, setRoadmapVersion] = useState(0);
@@ -138,6 +142,37 @@ export const RoadmapPage: React.FC = () => {
   }
 
   const roadmap = STUDY_ROADMAPS[activeLevel];
+  const activeTextbook = resolveActiveVocabTextbook(
+    activeLevel,
+    user.id,
+    activeLevel === studyLevel ? studyTextbookId : null,
+  );
+  const toolQuery = buildVocabToolQuery(activeLevel, activeTextbook.id);
+  const jlptQuery =
+    activeLevel === 'N5' || activeLevel === 'N4' || activeLevel === 'N3'
+      ? `?level=${activeLevel}`
+      : '';
+  const resolveStepHref = (rawTo: string): string => {
+    const lvlLower = activeLevel.toLowerCase();
+    if (rawTo === `/vocabulary/${lvlLower}`) {
+      return `/vocabulary/${lvlLower}/book/${activeTextbook.id}`;
+    }
+    if (rawTo === `/flashcard/${lvlLower}`) {
+      return `/flashcard/${lvlLower}/book/${activeTextbook.id}`;
+    }
+    if (
+      rawTo === '/vocabulary/quiz' ||
+      rawTo === '/vocabulary/writing' ||
+      rawTo === '/vocabulary/review' ||
+      rawTo === '/vocabulary/unmastered'
+    ) {
+      return `${rawTo}${toolQuery}`;
+    }
+    if (rawTo.startsWith('/jlpt/') && jlptQuery && !rawTo.includes('?')) {
+      return `${rawTo}${jlptQuery}`;
+    }
+    return rawTo;
+  };
   const totalSteps = getRoadmapStepCount(activeLevel);
   const doneInLevel = roadmap.phases.reduce(
     (sum, phase) => sum + phase.steps.filter((step) => completedSet.has(step.id)).length,
@@ -153,15 +188,24 @@ export const RoadmapPage: React.FC = () => {
         title={`Lộ trình JLPT ${roadmap.level}`}
         description={roadmap.summary}
         actions={
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            leftIcon={<GraduationCap className="size-4 text-primary-fg" aria-hidden />}
-            onClick={requestOpenLevelModal}
-          >
-            Đổi trình độ chính
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              to="/roadmap/stages"
+              className={buttonStyles({ variant: 'primary', size: 'sm' })}
+            >
+              Bản đồ Chặng &amp; Màn
+              <ArrowRight className="size-4" aria-hidden />
+            </Link>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              leftIcon={<GraduationCap className="size-4 text-primary-fg" aria-hidden />}
+              onClick={requestOpenLevelModal}
+            >
+              Đổi trình độ chính
+            </Button>
+          </div>
         }
       />
 
@@ -211,6 +255,7 @@ export const RoadmapPage: React.FC = () => {
             <div className="flex flex-wrap items-center gap-2">
               <Badge tone="primary">JLPT {roadmap.level}</Badge>
               <Badge tone="neutral">{roadmap.japaneseLabel}</Badge>
+              <Badge tone="neutral">{activeTextbook.shortTitle}</Badge>
               {isViewingPrimary ? (
                 <Badge tone="success">Trình độ chính của bạn</Badge>
               ) : (
@@ -234,7 +279,7 @@ export const RoadmapPage: React.FC = () => {
             )}
             {nextStepInfo && (
               <Link
-                to={nextStepInfo.step.to}
+                to={resolveStepHref(nextStepInfo.step.to)}
                 className={buttonStyles({
                   variant: isViewingPrimary ? 'primary' : 'secondary',
                   size: 'sm',
@@ -373,7 +418,7 @@ export const RoadmapPage: React.FC = () => {
                       </div>
 
                       <Link
-                        to={step.to}
+                        to={resolveStepHref(step.to)}
                         className={buttonStyles({
                           variant: isDone ? 'secondary' : 'soft',
                           size: 'sm',

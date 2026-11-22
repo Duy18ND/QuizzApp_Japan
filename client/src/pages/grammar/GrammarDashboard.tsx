@@ -4,8 +4,11 @@ import { Book, ChevronDown, ChevronRight, ChevronUp, FileText, LayoutList } from
 import type { JLPTLevel } from '../../types/grammar';
 import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
 import { getLiveGrammarBooks } from '../../services/curriculumStore';
+import { useAuth } from '../../context/auth-context';
+import { getPreferredVocabLevel } from '../../data/vocabTextbooks';
 import {
   Badge,
+  Button,
   Card,
   Chip,
   EmptyState,
@@ -17,8 +20,12 @@ import {
 const LEVELS: (JLPTLevel | 'All')[] = ['All', 'N5', 'N4', 'N3', 'N2', 'N1'];
 
 export const GrammarDashboard: React.FC = () => {
-  const [selectedLevel, setSelectedLevel] = useState<JLPTLevel | 'All'>('All');
+  const { studyLevel, user } = useAuth();
+  const [selectedLevelOverride, setSelectedLevelOverride] = useState<JLPTLevel | 'All' | null>(null);
   const [expandedBooks, setExpandedBooks] = useState<Record<string, boolean>>({});
+
+  const selectedLevel =
+    selectedLevelOverride ?? studyLevel ?? getPreferredVocabLevel(user?.id) ?? 'All';
 
   const isExpanded = (bookId: string) => expandedBooks[bookId] !== false;
 
@@ -66,7 +73,7 @@ export const GrammarDashboard: React.FC = () => {
           <Chip
             key={level}
             selected={selectedLevel === level}
-            onClick={() => setSelectedLevel(level)}
+            onClick={() => setSelectedLevelOverride(level)}
           >
             {level === 'All' ? 'Tất cả' : level}
           </Chip>
@@ -76,8 +83,19 @@ export const GrammarDashboard: React.FC = () => {
       {/* Books & Chapters List */}
       {filteredBooks.length === 0 ? (
         <EmptyState
-          title="Chưa có giáo trình"
-          description="Chưa có giáo trình nào cho cấp độ này."
+          title={`Chưa có giáo trình ngữ pháp cho ${selectedLevel}`}
+          description="Dữ liệu ngữ pháp cho cấp độ này đang được cập nhật. Bạn có thể xem tất cả cấp độ có sẵn."
+          action={
+            selectedLevel !== 'All' ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setSelectedLevelOverride('All')}
+              >
+                Xem tất cả cấp độ
+              </Button>
+            ) : undefined
+          }
         />
       ) : (
         <div className="space-y-4">

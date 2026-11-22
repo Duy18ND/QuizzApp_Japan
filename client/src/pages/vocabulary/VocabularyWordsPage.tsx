@@ -7,7 +7,10 @@ import {
   findVocabTextbook,
   parseVocabLevelParam,
 } from '../../data/vocabTextbooks';
+import { parseDbUnitNumber } from '../../services/migrationService';
 import { getLiveUnitsForLevel, getLiveVocabForUnit } from '../../services/curriculumStore';
+import { useAuth } from '../../context/auth-context';
+import { recordDailyStageSkillActivity } from '../../services/stageRoadmapService';
 import { useAppSettings } from '../../hooks/useAppSettings';
 import { useUserProgress } from '../../hooks/useUserProgress';
 import type { JLPTLevel, WordType } from '../../types/quiz';
@@ -79,6 +82,7 @@ const FILTER_OPTIONS = [
 
 export const VocabularyWordsPage: React.FC = () => {
   const { level, bookId, unitId } = useParams<{ level: string; bookId?: string; unitId: string }>();
+  const { user } = useAuth();
   const { progress, toggleStar } = useUserProgress();
   const { settings } = useAppSettings();
 
@@ -89,12 +93,16 @@ export const VocabularyWordsPage: React.FC = () => {
   const levelKey = parseVocabLevelParam(level) ?? ('N3' as JLPTLevel);
   const levelSegment = levelKey.toLowerCase();
   const textbook = bookId ? findVocabTextbook(levelKey, bookId) : undefined;
-  const numericUnitId = Number(unitId);
-  const unitInfo = getLiveUnitsForLevel(cmsSnapshot, levelKey).find((u) => u.id === numericUnitId);
+  const numericUnitId = Number.isFinite(Number(unitId)) ? Number(unitId) : parseDbUnitNumber(unitId);
+  const unitLookupKey =
+    unitId && !Number.isFinite(Number(unitId)) ? unitId : numericUnitId;
+  const unitInfo = getLiveUnitsForLevel(cmsSnapshot, levelKey).find(
+    (unit) => unit.dbUnitId === unitLookupKey || unit.id === numericUnitId,
+  );
   const toolQuery = buildVocabToolQuery(levelKey, textbook?.id);
 
   const words = useMemo<VocabRow[]>(() => {
-    const data = getLiveVocabForUnit(cmsSnapshot, levelKey, numericUnitId);
+    const data = getLiveVocabForUnit(cmsSnapshot, levelKey, unitLookupKey);
     if (!Array.isArray(data)) return [];
     return data.map((w) => ({
       id: Number(w.id),
@@ -104,7 +112,7 @@ export const VocabularyWordsPage: React.FC = () => {
       meaning: w.meaning || '',
       wordType: mapVietnameseWordTypeToEnglish(w.wordType),
     }));
-  }, [cmsSnapshot, numericUnitId, levelKey]);
+  }, [cmsSnapshot, unitLookupKey, levelKey]);
 
   const filteredWords = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -130,6 +138,12 @@ export const VocabularyWordsPage: React.FC = () => {
   const speakText = (text: string) => {
     speakJapanese(text, settings.ttsRate);
   };
+
+  useEffect(() => {
+    if (words.length > 0) {
+      recordDailyStageSkillActivity('vocab', user?.id);
+    }
+  }, [user?.id, words.length]);
 
   useEffect(() => {
     return () => stopJapaneseSpeech();
