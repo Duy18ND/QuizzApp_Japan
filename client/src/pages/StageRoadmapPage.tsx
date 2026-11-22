@@ -80,6 +80,7 @@ import {
   decodeRoadmapShareCode,
   deriveAutoCompletedSkillsToday,
   encodeRoadmapShareCode,
+  extractBundledStudioLessonsFromShareCode,
   formatMmSs,
   formatShortDayMonth,
   generateStageMap,
@@ -106,6 +107,7 @@ import {
 import {
   CUSTOM_STUDIO_SYNC_EVENT,
   loadCustomStudioState,
+  saveCustomStudioState,
 } from '../services/customStudioService';
 import { requestOpenLevelModal, type StudyLevel } from '../services/userLevelService';
 
@@ -122,6 +124,14 @@ const ALL_SKILLS: StageSkill[] = [
 const REPEAT_OPTIONS: RepeatMinutesOption[] = [5, 10, 15];
 
 function chunkStages(stages: RoadmapStage[], chunkSize = 10): RoadmapStage[][] {
+  const byChunkNum = new Map<number, RoadmapStage[]>();
+  for (const st of stages) {
+    const list = byChunkNum.get(st.chunkNumber) ?? [];
+    list.push(st);
+    byChunkNum.set(st.chunkNumber, list);
+  }
+  const grouped = Array.from(byChunkNum.values());
+  if (grouped.length > 0) return grouped;
   const chunks: RoadmapStage[][] = [];
   for (let i = 0; i < stages.length; i += chunkSize) {
     chunks.push(stages.slice(i, i + chunkSize));
@@ -261,6 +271,7 @@ export const StageRoadmapPage: React.FC = () => {
         skills: cfg.skills,
         stageOverrides: cfg.stageOverrides,
         chunkTitles: cfg.chunkTitles,
+        includeKanaStarter: cfg.includeKanaStarter,
       });
     }
     return generateStageMap({
@@ -272,6 +283,7 @@ export const StageRoadmapPage: React.FC = () => {
       startDate: roadmapState.fixedStartDate,
       dailyMinutesTarget: roadmapState.fixedDailyMinutesTarget,
       totalStages: getRecommendedFixedStageCount(studyLevel ?? 'N3', studyTextbookId),
+      includeKanaStarter: roadmapState.fixedIncludeKanaStarter,
     });
   }, [cmsSnapshot, roadmapState, studyLevel, studyTextbookId, user?.id]);
 
@@ -617,8 +629,12 @@ export const StageRoadmapPage: React.FC = () => {
 
   const activeShareCode = useMemo(() => {
     if (!roadmapState.customConfig) return '';
-    return encodeRoadmapShareCode(roadmapState.customConfig, user?.displayName);
-  }, [roadmapState.customConfig, user?.displayName]);
+    return encodeRoadmapShareCode(
+      roadmapState.customConfig,
+      user?.displayName,
+      studioState.lessons,
+    );
+  }, [roadmapState.customConfig, studioState.lessons, user?.displayName]);
 
   const activeShareUrl = useMemo(() => {
     if (!activeShareCode || typeof window === 'undefined') return '';
@@ -648,6 +664,21 @@ export const StageRoadmapPage: React.FC = () => {
       });
       return;
     }
+    const bundledLessons = extractBundledStudioLessonsFromShareCode(importCodeInput);
+    if (bundledLessons.length > 0) {
+      const currentStudio = loadCustomStudioState(user?.id);
+      const existingIds = new Set(currentStudio.lessons.map((l) => l.id));
+      const newLessons = bundledLessons.filter((l) => !existingIds.has(l.id));
+      if (newLessons.length > 0) {
+        saveCustomStudioState(
+          {
+            ...currentStudio,
+            lessons: [...newLessons, ...currentStudio.lessons],
+          },
+          user?.id,
+        );
+      }
+    }
     const nextList = [...roadmapState.customRoadmaps, parsed];
     updateState({
       ...roadmapState,
@@ -660,7 +691,10 @@ export const StageRoadmapPage: React.FC = () => {
     setImportModalOpen(false);
     setImportCodeInput('');
     toast({
-      title: `Đã nhập lộ trình "${parsed.name}" (${parsed.totalStages} màn)!`,
+      title:
+        bundledLessons.length > 0
+          ? `Đã nhập lộ trình "${parsed.name}" (${parsed.totalStages} màn + ${bundledLessons.length} bài tự tạo)!`
+          : `Đã nhập lộ trình "${parsed.name}" (${parsed.totalStages} màn)!`,
       tone: 'success',
     });
   };
@@ -892,10 +926,11 @@ export const StageRoadmapPage: React.FC = () => {
             variant="pill"
             value={viewTab}
             onChange={handleModeChange}
+            className="shrink-0"
             items={[
               { value: 'fixed', label: 'Lộ trình cố định' },
               { value: 'custom', label: 'Lộ trình tự tạo' },
-              { value: 'overview', label: 'Tổng quan 4 giai đoạn' },
+              { value: 'overview', label: 'Tổng quan' },
             ]}
           />
           <div className="flex flex-wrap items-center gap-2">
@@ -1194,6 +1229,68 @@ export const StageRoadmapPage: React.FC = () => {
             />
           </div>
         </div>
+
+        {/* N5 Starting Point Switcher: Learn Kana First (5 Stages) vs Skip Straight to Lesson 1 */}
+        {activeLevel === 'N5' && viewTab !== 'overview' && (
+          <div className="flex flex-col gap-2 rounded-xl border border-line bg-surface/65 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-0.5">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Badge tone="sakura">Điểm xuất phát N5</Badge>
+                <span className="text-xs font-bold text-fg">
+                  {(
+                    roadmapState.activeMode === 'custom' && roadmapState.customConfig
+                      ? Boolean(roadmapState.customConfig.includeKanaStarter)
+                      : Boolean(roadmapState.fixedIncludeKanaStarter)
+                  )
+                    ? 'Đang bật Chặng 0: Học Bảng chữ cái Hiragana & Katakana (5 màn khởi động)'
+                    : 'Đang bỏ qua Bảng chữ cái · Vào thẳng Bài 1 giáo trình N5'}
+                </span>
+              </div>
+              <p className="text-xs text-muted">
+                Người mới từ con số 0 nên bật 5 màn Hiragana &amp; Katakana trước; nếu đã thuộc mặt chữ Kana có thể bỏ qua để học ngay Bài 1.
+              </p>
+            </div>
+            <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+              <Chip
+                selected={
+                  !(roadmapState.activeMode === 'custom' && roadmapState.customConfig
+                    ? Boolean(roadmapState.customConfig.includeKanaStarter)
+                    : Boolean(roadmapState.fixedIncludeKanaStarter))
+                }
+                onClick={() => {
+                  if (roadmapState.activeMode === 'custom' && roadmapState.customConfig) {
+                    updateActiveCustomConfig((cfg) => ({ ...cfg, includeKanaStarter: false }));
+                  } else {
+                    updateState({ ...roadmapState, fixedIncludeKanaStarter: false });
+                  }
+                  toast({ title: 'Đã chuyển sang: Bỏ qua Kana → Vào thẳng Bài 1 N5', tone: 'info' });
+                }}
+              >
+                Đã thuộc Kana (Vào Bài 1)
+              </Chip>
+              <Chip
+                selected={
+                  roadmapState.activeMode === 'custom' && roadmapState.customConfig
+                    ? Boolean(roadmapState.customConfig.includeKanaStarter)
+                    : Boolean(roadmapState.fixedIncludeKanaStarter)
+                }
+                onClick={() => {
+                  if (roadmapState.activeMode === 'custom' && roadmapState.customConfig) {
+                    updateActiveCustomConfig((cfg) => ({ ...cfg, includeKanaStarter: true }));
+                  } else {
+                    updateState({ ...roadmapState, fixedIncludeKanaStarter: true });
+                  }
+                  toast({
+                    title: 'Đã thêm Chặng 0: 5 Màn Bảng chữ cái Hiragana & Katakana lên đầu lộ trình!',
+                    tone: 'success',
+                  });
+                }}
+              >
+                + Học Bảng chữ cái trước (5 màn)
+              </Chip>
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* Unified View: Stage Map (Fixed/Custom) OR 4-Phase JLPT Overview */}
@@ -1281,7 +1378,8 @@ export const StageRoadmapPage: React.FC = () => {
       ) : (
       <div className="space-y-5">
         {stageChunks.map((chunk, chunkIdx) => {
-          const chunkNum = chunkIdx + 1;
+          const rawChunkNum = chunk[0]?.chunkNumber ?? chunkIdx + 1;
+          const chunkNum = rawChunkNum;
           const firstNum = chunk[0]?.stageNumber ?? 1;
           const lastNum = chunk[chunk.length - 1]?.stageNumber ?? chunk.length;
           const doneInChunk = chunk.filter((s) =>
@@ -1387,7 +1485,9 @@ export const StageRoadmapPage: React.FC = () => {
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
                 <div>
                   <p className="text-xs font-bold tracking-wider text-primary-fg uppercase">
-                    Chặng {chunkNum} · Màn {firstNum}–{lastNum}
+                    {chunkNum === 0
+                      ? `Chặng Khởi Động · Màn ${firstNum}–${lastNum}`
+                      : `Chặng ${chunkNum} · Màn ${firstNum}–${lastNum}`}
                   </p>
                   <h3 className="text-base font-bold text-fg sm:text-lg">
                     {chunkSubtitle ?? `Màn ${firstNum}–${lastNum}`}
@@ -1516,94 +1616,116 @@ export const StageRoadmapPage: React.FC = () => {
 
             {/* Condition 2: Stage Tasks */}
             <div className="space-y-2.5">
-              <p className="text-xs font-semibold tracking-wide text-muted uppercase">
-                Điều kiện 2: Nhiệm vụ của Màn {selectedStage.stageNumber}
-              </p>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs font-semibold tracking-wide text-muted uppercase">
+                  Điều kiện 2: Nhiệm vụ của Màn {selectedStage.stageNumber} (Theo thứ tự tối ưu)
+                </p>
+                <span className="text-[11px] text-muted">
+                  Nạp kiến thức → Chữ Hán / Ngữ pháp → Thực chiến phản xạ
+                </span>
+              </div>
               <ul className="space-y-2">
-                {selectedStage.tasks.map((task) => {
-                  const manualDone = roadmapState.completedTaskIds.includes(task.id);
-                  const autoDone =
-                    activeStage?.id === selectedStage.id && todayAutoSkills.has(task.skill);
-                  const done = manualDone || autoDone;
-                  const skillMeta = STAGE_SKILL_META[task.skill];
-                  return (
-                    <li
-                      key={task.id}
-                      className={cn(
-                        'flex flex-col gap-2.5 rounded-xl border p-3 sm:flex-row sm:items-center sm:justify-between',
-                        done
-                          ? 'border-success-line bg-success-soft/45'
-                          : 'border-line bg-surface-2/50',
-                      )}
-                    >
-                      <div className="flex min-w-0 items-start gap-2.5">
-                        <button
-                          type="button"
-                          onClick={() => handleToggleTask(task.id)}
-                          aria-pressed={done}
-                          aria-label={
-                            done
-                              ? `Bỏ đánh dấu ${task.title}`
-                              : `Đánh dấu hoàn thành ${task.title}`
-                          }
-                          className={cn(
-                            'mt-0.5 shrink-0 cursor-pointer rounded-full transition-colors',
-                            done ? 'text-success-fg' : 'text-muted hover:text-primary-fg',
-                          )}
-                        >
-                          {done ? (
-                            <CheckCircle2 className="size-5" />
-                          ) : (
-                            <Circle className="size-5" />
-                          )}
-                        </button>
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <span
-                              className={cn(
-                                'text-sm font-semibold',
-                                done ? 'text-muted line-through' : 'text-fg',
-                              )}
-                            >
-                              {task.title}
-                            </span>
-                            <Badge tone={skillMeta.tone}>{skillMeta.label}</Badge>
-                            {autoDone && (
-                              <Badge tone="success">✓ Tự động</Badge>
-                            )}
-                            <span className="text-xs text-muted">~{task.minutes}p</span>
-                          </div>
-                          <p className="mt-0.5 text-xs text-muted">{task.subtitle}</p>
-                        </div>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-1.5 self-end sm:self-center">
-                        <Link
-                          to={task.to}
-                          onClick={() => setSelectedStageId(null)}
-                          className={buttonStyles({
-                            variant: done ? 'secondary' : 'soft',
-                            size: 'sm',
-                          })}
-                        >
-                          {done ? 'Ôn lại' : 'Học ngay'}
-                          <ArrowRight className="size-3.5" aria-hidden />
-                        </Link>
-                        {roadmapState.activeMode === 'custom' && roadmapState.customConfig && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            aria-label={`Gỡ nhiệm vụ ${task.title}`}
-                            title="Gỡ nhiệm vụ khỏi Màn này"
-                            onClick={() => handleRemoveTaskFromStage(selectedStage, task)}
-                          >
-                            <Trash2 className="size-3.5 text-danger-fg" aria-hidden />
-                          </Button>
+                {(() => {
+                  const firstPendingTask = selectedStage.tasks.find((t) => {
+                    const mDone = roadmapState.completedTaskIds.includes(t.id);
+                    const aDone =
+                      activeStage?.id === selectedStage.id && todayAutoSkills.has(t.skill);
+                    return !(mDone || aDone);
+                  });
+                  return selectedStage.tasks.map((task, taskIdx) => {
+                    const manualDone = roadmapState.completedTaskIds.includes(task.id);
+                    const autoDone =
+                      activeStage?.id === selectedStage.id && todayAutoSkills.has(task.skill);
+                    const done = manualDone || autoDone;
+                    const isNextStep = !done && firstPendingTask?.id === task.id;
+                    const skillMeta = STAGE_SKILL_META[task.skill];
+                    return (
+                      <li
+                        key={task.id}
+                        className={cn(
+                          'flex flex-col gap-2.5 rounded-xl border p-3 sm:flex-row sm:items-center sm:justify-between',
+                          done
+                            ? 'border-success-line bg-success-soft/45'
+                            : isNextStep
+                              ? 'border-primary/60 bg-primary-soft/25 ring-1 ring-primary/20'
+                              : 'border-line bg-surface-2/50',
                         )}
-                      </div>
-                    </li>
-                  );
-                })}
+                      >
+                        <div className="flex min-w-0 items-start gap-2.5">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleTask(task.id)}
+                            aria-pressed={done}
+                            aria-label={
+                              done
+                                ? `Bỏ đánh dấu ${task.title}`
+                                : `Đánh dấu hoàn thành ${task.title}`
+                            }
+                            className={cn(
+                              'mt-0.5 shrink-0 cursor-pointer rounded-full transition-colors',
+                              done ? 'text-success-fg' : 'text-muted hover:text-primary-fg',
+                            )}
+                          >
+                            {done ? (
+                              <CheckCircle2 className="size-5" />
+                            ) : (
+                              <Circle className="size-5" />
+                            )}
+                          </button>
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <Badge tone={done ? 'success' : isNextStep ? 'primary' : 'neutral'}>
+                                Bước {taskIdx + 1}
+                              </Badge>
+                              <span
+                                className={cn(
+                                  'text-sm font-semibold',
+                                  done ? 'text-muted line-through' : 'text-fg',
+                                )}
+                              >
+                                {task.title}
+                              </span>
+                              <Badge tone={skillMeta.tone}>{skillMeta.label}</Badge>
+                              {isNextStep && (
+                                <Badge tone="sakura">Tiếp theo</Badge>
+                              )}
+                              {autoDone && (
+                                <Badge tone="success">✓ Tự động</Badge>
+                              )}
+                              <span className="text-xs text-muted">~{task.minutes}p</span>
+                            </div>
+                            <p className="mt-0.5 text-xs text-muted">{task.subtitle}</p>
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1.5 self-end sm:self-center">
+                          <Link
+                            to={task.to}
+                            onClick={() => setSelectedStageId(null)}
+                            className={buttonStyles({
+                              variant: done ? 'secondary' : isNextStep ? 'primary' : 'soft',
+                              size: 'sm',
+                            })}
+                          >
+                            {done ? 'Ôn lại' : isNextStep ? `Học Bước ${taskIdx + 1}` : 'Học ngay'}
+                            <ArrowRight className="size-3.5" aria-hidden />
+                          </Link>
+                          {roadmapState.activeMode === 'custom' && roadmapState.customConfig && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              aria-label={`Gỡ nhiệm vụ ${task.title}`}
+                              title="Gỡ nhiệm vụ khỏi Màn này"
+                              onClick={() => handleRemoveTaskFromStage(selectedStage, task)}
+                            >
+                              <Trash2 className="size-3.5 text-danger-fg" aria-hidden />
+                            </Button>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  });
+                })()}
               </ul>
             </div>
 
@@ -1957,6 +2079,32 @@ export const StageRoadmapPage: React.FC = () => {
               </div>
             </Field>
           </div>
+
+          {draftConfig.level === 'N5' && (
+            <div className="space-y-1.5 rounded-xl border border-line bg-surface-2/50 p-3">
+              <p className="text-xs font-bold text-fg">
+                Điểm xuất phát N5 (Bảng chữ cái Hiragana &amp; Katakana)
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Chip
+                  selected={!draftConfig.includeKanaStarter}
+                  onClick={() =>
+                    setDraftConfig({ ...draftConfig, includeKanaStarter: false })
+                  }
+                >
+                  Đã thuộc Kana · Học thẳng Bài 1
+                </Chip>
+                <Chip
+                  selected={Boolean(draftConfig.includeKanaStarter)}
+                  onClick={() =>
+                    setDraftConfig({ ...draftConfig, includeKanaStarter: true })
+                  }
+                >
+                  + Thêm Chặng 0: Học Hiragana &amp; Katakana trước (5 màn)
+                </Chip>
+              </div>
+            </div>
+          )}
 
           <div className="space-y-2">
             <p className="text-sm font-medium text-fg">Các ngày học trong tuần</p>
