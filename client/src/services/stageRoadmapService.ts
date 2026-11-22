@@ -14,6 +14,7 @@ import { isSupabaseAccountUuid } from './sessionScope';
 import { supabase } from './supabaseClient';
 import { syncWebPushScheduleToCloud } from './pwaReminderService';
 import type { KanjiProgressEntry, QuizHistoryAttemptEntry } from './cloudProgressWriter';
+import type { CustomLesson } from './customStudioService';
 import type { StudyLevel } from './userLevelService';
 import {
   buildVocabToolQuery,
@@ -88,6 +89,7 @@ export interface CustomRoadmapConfig {
   stageOverrides?: Record<number, CustomStageOverride>;
   chunkTitles?: Record<number, string>;
   authorName?: string;
+  includeKanaStarter?: boolean;
 }
 
 export interface StageCompletionRecord {
@@ -104,6 +106,7 @@ export interface UserStageRoadmapState {
   fixedDailyMinutesTarget: DailyMinutesTarget;
   fixedReminderTime: string;
   fixedRepeatIntervalMinutes: RepeatMinutesOption;
+  fixedIncludeKanaStarter?: boolean;
   notificationsEnabled: boolean;
   customConfig: CustomRoadmapConfig | null;
   customRoadmaps: CustomRoadmapConfig[];
@@ -290,6 +293,7 @@ function sanitizeSingleCustomConfig(
       typeof c.authorName === 'string' && c.authorName.trim()
         ? c.authorName.trim().slice(0, 48)
         : undefined,
+    includeKanaStarter: Boolean(c.includeKanaStarter),
   };
 }
 
@@ -357,6 +361,7 @@ export function sanitizeStageRoadmapState(
     fixedDailyMinutesTarget: sanitizeDailyTarget(obj.fixedDailyMinutesTarget),
     fixedReminderTime: sanitizeTimeStr(obj.fixedReminderTime, '20:00'),
     fixedRepeatIntervalMinutes: sanitizeRepeatInterval(obj.fixedRepeatIntervalMinutes),
+    fixedIncludeKanaStarter: Boolean(obj.fixedIncludeKanaStarter),
     notificationsEnabled: obj.notificationsEnabled !== false,
     customConfig: activeCustom,
     customRoadmaps: list,
@@ -671,6 +676,7 @@ export function generateStageMap(options: {
   skills?: StageSkill[];
   stageOverrides?: Record<number, CustomStageOverride>;
   chunkTitles?: Record<number, string>;
+  includeKanaStarter?: boolean;
 }): RoadmapStage[] {
   const {
     mode,
@@ -685,6 +691,7 @@ export function generateStageMap(options: {
     skills = DEFAULT_SKILLS,
     stageOverrides = {},
     chunkTitles = {},
+    includeKanaStarter = false,
   } = options;
 
   const book = resolveActiveVocabTextbook(level, userId, textbookId);
@@ -700,7 +707,13 @@ export function generateStageMap(options: {
   const toolQuery = buildVocabToolQuery(level, book.id);
   const jlptQuery = level === 'N5' || level === 'N4' || level === 'N3' ? `?level=${level}` : '';
   const allowedSkills = new Set<StageSkill>(skills.length > 0 ? skills : DEFAULT_SKILLS);
-  const scheduledDates = generateScheduledDates(startDate, totalStages, studyWeekdays);
+  const enableKanaZeroChunk = level === 'N5' && includeKanaStarter;
+  const kanaStageCount = enableKanaZeroChunk ? 5 : 0;
+  const scheduledDates = generateScheduledDates(
+    startDate,
+    totalStages + kanaStageCount,
+    studyWeekdays,
+  );
   const modePrefix = mode === 'custom' ? `custom-${levelLower}-${book.id}` : `fixed-${levelLower}-${book.id}`;
 
   const getUnitAt = (idx: number) => {
@@ -719,10 +732,183 @@ export function generateStageMap(options: {
 
   const stages: RoadmapStage[] = [];
 
+  if (enableKanaZeroChunk) {
+    const kanaChunkTitle =
+      chunkTitles[0]?.trim() ||
+      'Chặng 0 · Khởi động Bảng chữ cái Hiragana & Katakana (5 màn cho người mới từ số 0)';
+    const kanaSpecs: Array<{
+      title: string;
+      theme: string;
+      tasks: StageTask[];
+    }> = [
+      {
+        title: 'Bảng chữ cái Hiragana (Phần 1: あ → の) & Phát âm',
+        theme: 'Khởi động Ngày 1/5 · Làm quen 25 chữ Hiragana đầu tiên',
+        tasks: [
+          {
+            id: `${modePrefix}-kana-s1-t1`,
+            title: 'Nhận diện & phát âm Hiragana (あ・か・さ・た・な) qua Từ vựng Bài 1',
+            subtitle: 'Nghe mẫu âm tiết tiếng Nhật và đọc to mặt chữ Hiragana cơ bản.',
+            skill: 'vocab',
+            minutes: 5,
+            to: `/vocabulary/n5/book/${book.id}`,
+          },
+          {
+            id: `${modePrefix}-kana-s1-t2`,
+            title: 'Lật thẻ Flashcard mặt chữ Hiragana',
+            subtitle: 'Phản xạ nhanh mặt chữ Hiragana ↔ âm đọc & nghĩa cơ bản.',
+            skill: 'quiz',
+            minutes: 4,
+            to: `/flashcard/n5/book/${book.id}`,
+          },
+          {
+            id: `${modePrefix}-kana-s1-t3`,
+            title: 'Dojo: Thính giác Ninja (Nghe & Bắt âm Kana)',
+            subtitle: 'Nghe phát âm tiếng Nhật và chạm đúng mặt chữ trong 3 phút.',
+            skill: 'listening',
+            minutes: 3,
+            to: `/games?game=listening&level=N5&book=${book.id}`,
+          },
+        ],
+      },
+      {
+        title: 'Bảng chữ cái Hiragana (Phần 2: は → ん) & Âm đục / Âm ghép',
+        theme: 'Khởi động Ngày 2/5 · Hoàn tất 46 chữ Hiragana + Trường âm & Âm ngắt',
+        tasks: [
+          {
+            id: `${modePrefix}-kana-s2-t1`,
+            title: 'Luyện gõ mặt chữ Hiragana (Romaji → Hiragana)',
+            subtitle: 'Gõ chuẩn trường âm (おう/えい), âm ngắt (っ) và âm ghép (きゃ/しゅ/ちょ).',
+            skill: 'vocab',
+            minutes: 5,
+            to: `/vocabulary/writing${toolQuery}`,
+          },
+          {
+            id: `${modePrefix}-kana-s2-t2`,
+            title: 'Dojo: Lật Thẻ Ký Ức (Ghép cặp mặt chữ)',
+            subtitle: 'Lật 12 thẻ bùa Nhật để nhớ sâu toàn bộ bảng Hiragana.',
+            skill: 'quiz',
+            minutes: 4,
+            to: `/games?game=memory&level=N5&book=${book.id}`,
+          },
+          {
+            id: `${modePrefix}-kana-s2-t3`,
+            title: 'Nghe hội thoại chào hỏi cơ bản N5',
+            subtitle: 'Làm quen nhịp điệu câu chào hỏi tiếng Nhật kèm Transcript Hiragana.',
+            skill: 'listening',
+            minutes: 4,
+            to: '/jlpt/listening?level=N5',
+          },
+        ],
+      },
+      {
+        title: 'Bảng chữ cái Katakana (Phần 1: ア → ノ) & Từ ngoại lai',
+        theme: 'Khởi động Ngày 3/5 · 25 chữ Katakana đầu tiên qua từ mượn tiếng Anh',
+        tasks: [
+          {
+            id: `${modePrefix}-kana-s3-t1`,
+            title: 'Đọc mặt chữ Katakana & từ mượn thông dụng (カメラ, パソコン...)',
+            subtitle: 'Phân biệt các nét cứng của Katakana với Hiragana tương ứng.',
+            skill: 'vocab',
+            minutes: 5,
+            to: `/vocabulary/n5/book/${book.id}`,
+          },
+          {
+            id: `${modePrefix}-kana-s3-t2`,
+            title: 'Dojo: Nối Cặp 2 Cột (Liên kết mặt chữ ↔ nghĩa)',
+            subtitle: 'Nối nhanh mặt chữ với nghĩa Việt để không nhầm ソ/ン, シ/ツ.',
+            skill: 'quiz',
+            minutes: 4,
+            to: `/games?game=match&level=N5&book=${book.id}`,
+          },
+          {
+            id: `${modePrefix}-kana-s3-t3`,
+            title: 'Làm quen 5 chữ Kanji tượng hình đầu tiên (一, 二, 三, 人, 日)',
+            subtitle: 'Xem cách người Nhật kết hợp Hiragana, Katakana và Kanji.',
+            skill: 'kanji',
+            minutes: 4,
+            to: '/kanji',
+          },
+        ],
+      },
+      {
+        title: 'Bảng chữ cái Katakana (Phần 2: ハ → ン) & Phản xạ tốc độ',
+        theme: 'Khởi động Ngày 4/5 · Hoàn tất 46 chữ Katakana & Trường âm ー',
+        tasks: [
+          {
+            id: `${modePrefix}-kana-s4-t1`,
+            title: 'Luyện gõ chính tả Hiragana & Katakana tổng hợp',
+            subtitle: 'Kiểm tra khả năng đọc & gõ lại chính xác không cần nhìn bảng.',
+            skill: 'vocab',
+            minutes: 5,
+            to: `/vocabulary/writing${toolQuery}`,
+          },
+          {
+            id: `${modePrefix}-kana-s4-t2`,
+            title: 'Dojo: Chém Hoa Quả Mặt Chữ (Fruit Slash N5)',
+            subtitle: 'Phản xạ mắt nhìn nghĩa Việt — chém ngay chữ Nhật tương ứng.',
+            skill: 'quiz',
+            minutes: 4,
+            to: `/games?game=slash&level=N5&book=${book.id}`,
+          },
+          {
+            id: `${modePrefix}-kana-s4-t3`,
+            title: 'Đọc câu ngắn bằng Hiragana/Katakana',
+            subtitle: 'Tập đọc trôi chảy các câu giới thiệu bản thân đầu tiên.',
+            skill: 'reading',
+            minutes: 4,
+            to: '/jlpt/reading-short?level=N5',
+          },
+        ],
+      },
+      {
+        title: 'Thi vượt rào Bảng chữ cái Kana (Mở khóa vào Bài 1)',
+        theme: 'Khởi động Ngày 5/5 · Chốt chắc 92 chữ Hiragana & Katakana trước khi vào Bài 1',
+        tasks: [
+          {
+            id: `${modePrefix}-kana-s5-t1`,
+            title: 'Bài kiểm tra phản xạ Mặt chữ & Từ vựng cơ bản (10 câu)',
+            subtitle: 'Đạt ≥ 80% để chính thức tốt nghiệp Bảng chữ cái Kana.',
+            skill: 'quiz',
+            minutes: 5,
+            to: `/vocabulary/quiz?level=N5&book=${book.id}&unit=1&autoStart=1`,
+          },
+          {
+            id: `${modePrefix}-kana-s5-t2`,
+            title: 'Dojo Boss: Chém Từ Vựng Cầu Anh Đào (15 Yōkai)',
+            subtitle: 'Ghép mảnh Kana / gõ chữ hạ 15 Yōkai bảo vệ Cầu Anh Đào.',
+            skill: 'vocab',
+            minutes: 5,
+            to: `/games?game=shooter&level=N5&book=${book.id}&unit=1`,
+          },
+        ],
+      },
+    ];
+
+    kanaSpecs.forEach((spec, kIdx) => {
+      const stNum = kIdx + 1;
+      const override = stageOverrides[stNum];
+      const removedSet = new Set(override?.removedTaskIds ?? []);
+      const filteredBase = spec.tasks.filter((t) => !removedSet.has(t.id));
+      const tasks = [...filteredBase, ...(override?.extraTasks ?? [])];
+      stages.push({
+        stageNumber: stNum,
+        id: `${modePrefix}-kana-s${stNum}`,
+        chunkNumber: 0,
+        chunkTitle: kanaChunkTitle,
+        title: override?.title?.trim() ? override.title.trim() : spec.title,
+        theme: spec.theme,
+        scheduledDate: scheduledDates[kIdx] ?? addDaysToDateKey(startDate, kIdx),
+        minOnlineMinutes: dailyMinutesTarget,
+        tasks,
+      });
+    });
+  }
+
   for (let i = 0; i < totalStages; i += 1) {
-    const stageNumber = i + 1;
+    const stageNumber = i + 1 + kanaStageCount;
     const chunkNumber = Math.floor(i / 10) + 1;
-    const stageId = `${modePrefix}-s${stageNumber}`;
+    const stageId = `${modePrefix}-s${i + 1}`;
     const candidateTasks: StageTask[] = [];
     let theme = '';
     let title = '';
@@ -765,35 +951,37 @@ export function generateStageMap(options: {
     if (useMinna60Curriculum) {
       const slot = MINNA_N5_60_SLOTS[i];
       if (slot.kind === 'lesson-a') {
-        const { unitLabel, unitPath, flashcardPath } = buildLessonPaths(slot.lessonNum - 1);
-        title = `Nạp Từ vựng & Kanji · ${unitLabel}`;
-        theme = `Minna I — Bài ${slot.lessonNum} (Ngày 1/2: Nạp mặt chữ & phát âm)`;
+        const { unitLabel, unitPath } = buildLessonPaths(slot.lessonNum - 1);
+        title = `Nạp Từ vựng, Kanji & Nghe ngắn · ${unitLabel}`;
+        theme = `Minna I — Bài ${slot.lessonNum} (Ngày 1/2: Nạp từ → Chữ Hán → Phản xạ nghe)`;
         if (allowedSkills.has('vocab')) {
           candidateTasks.push({
             id: `${stageId}-t1`,
-            title: `Đọc từ vựng ${unitLabel}`,
-            subtitle: 'Nghe phát âm, đọc nghĩa tiếng Việt và đánh dấu ★ các từ dễ quên.',
+            title: `Đọc từ vựng & lật Flashcard · ${unitLabel}`,
+            subtitle: 'Nghe phát âm, gắn ★ các từ dễ quên rồi lật nhanh Flashcard kiểm tra nghĩa.',
             skill: 'vocab',
-            minutes: 5,
+            minutes: 6,
             to: unitPath,
-          });
-          candidateTasks.push({
-            id: `${stageId}-t2`,
-            title: `Lật thẻ Flashcard · ${unitLabel}`,
-            subtitle: 'Kiểm tra phản xạ Hiragana/Kanji ↔ nghĩa Việt.',
-            skill: 'vocab',
-            minutes: 4,
-            to: flashcardPath,
           });
         }
         if (allowedSkills.has('kanji')) {
           candidateTasks.push({
-            id: `${stageId}-t3`,
+            id: `${stageId}-t2`,
             title: `Học 4–5 chữ Kanji N5 (Nhóm Bài ${slot.lessonNum})`,
             subtitle: `Luyện Hán Việt, âm On-Kun và nét viết trong kho ${levelKanjiCount || 112} Kanji N5.`,
             skill: 'kanji',
             minutes: 5,
             to: '/kanji',
+          });
+        }
+        if (allowedSkills.has('listening')) {
+          candidateTasks.push({
+            id: `${stageId}-t3`,
+            title: `Vi-bài tập Nghe hiểu & Bắt âm N5 (Bài ${slot.lessonNum})`,
+            subtitle: 'Nghe hội thoại ngắn không nhìn chữ, sau đó mở Transcript đọc nhại theo.',
+            skill: 'listening',
+            minutes: 4,
+            to: `/jlpt/listening${jlptQuery}`,
           });
         }
       } else if (slot.kind === 'lesson-b') {
@@ -1282,7 +1470,8 @@ export function generateStageMap(options: {
       chunkTitle,
       title: resolvedTitle,
       theme,
-      scheduledDate: scheduledDates[i] ?? addDaysToDateKey(startDate, i),
+      scheduledDate:
+        scheduledDates[i + kanaStageCount] ?? addDaysToDateKey(startDate, i + kanaStageCount),
       minOnlineMinutes: dailyMinutesTarget,
       tasks,
     });
@@ -1778,12 +1967,13 @@ export function isProCreatorUnlocked(
   userRole?: string | null,
 ): boolean {
   if (userRole === 'ADMIN' || userRole === 'SUPER_ADMIN') return true;
-  if (typeof window === 'undefined') return false;
+  if (typeof window === 'undefined') return true;
   const owner = userId || 'guest';
   try {
-    return window.localStorage.getItem(`${PRO_CREATOR_DEMO_KEY_PREFIX}${owner}`) === '1';
+    // Free Beta: unlocked by default for all users unless explicitly locked ('0') in demo toggle
+    return window.localStorage.getItem(`${PRO_CREATOR_DEMO_KEY_PREFIX}${owner}`) !== '0';
   } catch {
-    return false;
+    return true;
   }
 }
 
@@ -1794,11 +1984,7 @@ export function setProCreatorDemoUnlocked(
   if (typeof window === 'undefined') return;
   const owner = userId || 'guest';
   try {
-    if (unlocked) {
-      window.localStorage.setItem(`${PRO_CREATOR_DEMO_KEY_PREFIX}${owner}`, '1');
-    } else {
-      window.localStorage.removeItem(`${PRO_CREATOR_DEMO_KEY_PREFIX}${owner}`);
-    }
+    window.localStorage.setItem(`${PRO_CREATOR_DEMO_KEY_PREFIX}${owner}`, unlocked ? '1' : '0');
     window.dispatchEvent(new CustomEvent(STAGE_ROADMAP_SYNC_EVENT));
   } catch {
     // ignore
@@ -1808,8 +1994,22 @@ export function setProCreatorDemoUnlocked(
 export function encodeRoadmapShareCode(
   config: CustomRoadmapConfig,
   authorName?: string,
+  studioLessons?: CustomLesson[],
 ): string {
-  const payload = {
+  // Collect any Custom Studio lessons referenced inside stageOverrides (/studio?lesson=...)
+  const referencedLessonIds = new Set<string>();
+  for (const ov of Object.values(config.stageOverrides ?? {})) {
+    for (const task of ov.extraTasks ?? []) {
+      const m = task.to.match(/\/studio\?lesson=([A-Za-z0-9_-]+)/);
+      if (m) referencedLessonIds.add(m[1]);
+    }
+  }
+  const bundledLessons =
+    studioLessons && referencedLessonIds.size > 0
+      ? studioLessons.filter((l) => referencedLessonIds.has(l.id))
+      : [];
+
+  const payload: Record<string, unknown> = {
     v: 1,
     n: config.name,
     l: config.level,
@@ -1823,7 +2023,11 @@ export function encodeRoadmapShareCode(
     o: config.stageOverrides ?? {},
     c: config.chunkTitles ?? {},
     a: authorName || config.authorName || 'Nihongo Creator',
+    k: Boolean(config.includeKanaStarter),
   };
+  if (bundledLessons.length > 0) {
+    payload.sl = bundledLessons;
+  }
   const json = JSON.stringify(payload);
   const bytes = new TextEncoder().encode(json);
   let binary = '';
@@ -1835,6 +2039,34 @@ export function encodeRoadmapShareCode(
     .replace(/\//g, '_')
     .replace(/=+$/g, '');
   return `${SHARE_CODE_PREFIX}${b64}`;
+}
+
+export function extractBundledStudioLessonsFromShareCode(rawInput: string): CustomLesson[] {
+  if (!rawInput || typeof rawInput !== 'string') return [];
+  let token = rawInput.trim();
+  const importMatch = token.match(/[?&]import=(NIHON-[A-Za-z0-9_-]+)/);
+  if (importMatch) token = importMatch[1];
+  if (!token.startsWith(SHARE_CODE_PREFIX)) return [];
+  try {
+    const b64Url = token.slice(SHARE_CODE_PREFIX.length);
+    const padded = b64Url
+      .replace(/-/g, '+')
+      .replace(/_/g, '/')
+      .padEnd(Math.ceil(b64Url.length / 4) * 4, '=');
+    const binary = atob(padded);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    const parsed = JSON.parse(new TextDecoder().decode(bytes)) as Record<string, unknown>;
+    if (!Array.isArray(parsed.sl)) return [];
+    return parsed.sl.filter(
+      (item): item is CustomLesson =>
+        Boolean(item && typeof item === 'object' && typeof (item as CustomLesson).id === 'string'),
+    );
+  } catch {
+    return [];
+  }
 }
 
 export function decodeRoadmapShareCode(
@@ -1879,6 +2111,7 @@ export function decodeRoadmapShareCode(
         stageOverrides: parsed.o,
         chunkTitles: parsed.c,
         authorName: parsed.a,
+        includeKanaStarter: Boolean(parsed.k),
       },
       todayKey,
       `shared-${Date.now()}`,

@@ -12,6 +12,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { LoginRequiredState } from '../components/auth/LoginRequiredState';
+import { WhatsNewBoard } from '../components/home/WhatsNewBoard';
 import { StudyScheduleModal } from '../components/settings/StudyScheduleCard';
 import {
   Badge,
@@ -355,6 +356,7 @@ export const HomePage: React.FC = () => {
           studyWeekdays: cfg.studyWeekdays,
           skills: cfg.skills,
           stageOverrides: cfg.stageOverrides,
+          includeKanaStarter: cfg.includeKanaStarter,
         })
       : generateStageMap({
           mode: 'fixed',
@@ -365,6 +367,7 @@ export const HomePage: React.FC = () => {
           startDate: stageRoadmapState.fixedStartDate,
           dailyMinutesTarget: stageRoadmapState.fixedDailyMinutesTarget,
           totalStages: getRecommendedFixedStageCount(studyLevel, studyTextbookId),
+          includeKanaStarter: stageRoadmapState.fixedIncludeKanaStarter,
         });
 
     const activeStage = getActiveStageForMap(stages, stageRoadmapState.completedStages);
@@ -607,6 +610,9 @@ export const HomePage: React.FC = () => {
         </div>
       </section>
       <StudyScheduleModal open={scheduleModalOpen} onClose={() => setScheduleModalOpen(false)} />
+
+      {/* What's New / Feature Announcement Board */}
+      <WhatsNewBoard />
 
       {/* =================================================================== */}
       {/* TẦNG 1: LỘ TRÌNH & MỤC TIÊU HÔM NAY (Chế độ Kỷ luật — 1 điểm vào)   */}
