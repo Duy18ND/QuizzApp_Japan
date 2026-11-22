@@ -84,7 +84,7 @@ export const JLPTModulePage: React.FC = () => {
 
 const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
   const dispatch = useAppDispatch();
-  const { user } = useAuth();
+  const { user, studyLevel } = useAuth();
   const [searchParams] = useSearchParams();
   const retryAttemptId = searchParams.get('retryAttemptId')?.trim() || undefined;
   const sessionStartRef = useRef<number>(0);
@@ -93,6 +93,7 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
   const [levelFilter, setLevelFilter] = useState<JLPTLevelFilter>(() => {
     const raw = (searchParams.get('level') || '').toUpperCase();
     if (raw === 'N5' || raw === 'N4' || raw === 'N3') return raw;
+    if (studyLevel === 'N5' || studyLevel === 'N4' || studyLevel === 'N3') return studyLevel;
     return 'ALL';
   });
   const [questionLimit, setQuestionLimit] = useState<number>(5);

@@ -2,8 +2,12 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Shuffle, Star, Volume2 } from 'lucide-react';
 import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
-import { getLiveVocabForUnit } from '../../services/curriculumStore';
+import { findVocabTextbook, parseVocabLevelParam } from '../../data/vocabTextbooks';
+import { parseDbUnitNumber } from '../../services/migrationService';
+import { getLiveUnitsForLevel, getLiveVocabForUnit } from '../../services/curriculumStore';
 import type { JLPTLevel } from '../../types/quiz';
+import { useAuth } from '../../context/auth-context';
+import { recordDailyStageSkillActivity } from '../../services/stageRoadmapService';
 import { useAppSettings } from '../../hooks/useAppSettings';
 import { useUserProgress } from '../../hooks/useUserProgress';
 import { speakJapanese, stopJapaneseSpeech } from '../../utils/tts';
@@ -31,20 +35,27 @@ interface FlashcardWord {
 }
 
 export const FlashcardViewer: React.FC = () => {
-  const { level, unitId } = useParams<{ level: string; unitId: string }>();
+  const { level, bookId, unitId } = useParams<{ level: string; bookId?: string; unitId: string }>();
+  const { user } = useAuth();
   const cmsSnapshot = useCurriculumSnapshot();
-  const levelKey = level?.toLowerCase() || 'n3';
+  const parsedLevel: JLPTLevel = parseVocabLevelParam(level) ?? 'N3';
+  const levelKey = parsedLevel.toLowerCase();
+  const textbook = bookId ? findVocabTextbook(parsedLevel, bookId) : undefined;
   const unitKey = unitId || '1';
-  const deckKey = `${levelKey}:${unitKey}`;
+  const numericUnitId = Number.isFinite(Number(unitKey))
+    ? Number(unitKey)
+    : parseDbUnitNumber(unitKey);
+  const unitLookupKey =
+    unitKey && !Number.isFinite(Number(unitKey)) ? unitKey : numericUnitId;
+  const unitInfo = getLiveUnitsForLevel(cmsSnapshot, parsedLevel).find(
+    (unit) => unit.dbUnitId === unitLookupKey || unit.id === numericUnitId,
+  );
+  const deckKey = `${levelKey}:${textbook?.id ?? 'default'}:${unitKey}`;
 
   const baseWords = useMemo<FlashcardWord[]>(() => {
-    const unitWords = getLiveVocabForUnit(
-      cmsSnapshot,
-      levelKey.toUpperCase() as JLPTLevel,
-      Number(unitKey) || 1,
-    );
+    const unitWords = getLiveVocabForUnit(cmsSnapshot, parsedLevel, unitLookupKey);
     return unitWords as unknown as FlashcardWord[];
-  }, [cmsSnapshot, levelKey, unitKey]);
+  }, [cmsSnapshot, parsedLevel, unitLookupKey]);
 
   const [shuffledDeck, setShuffledDeck] = useState<{
     deckKey: string;
@@ -82,11 +93,12 @@ export const FlashcardViewer: React.FC = () => {
   }, [deckKey]);
 
   const handleFlip = useCallback(() => {
+    recordDailyStageSkillActivity('vocab', user?.id);
     setCardState((prev) => {
       if (prev.deckKey !== deckKey) return { deckKey, index: 0, flipped: true };
       return { ...prev, flipped: !prev.flipped };
     });
-  }, [deckKey]);
+  }, [deckKey, user?.id]);
 
   const handleShuffle = useCallback(() => {
     const shuffled = [...words];
@@ -185,11 +197,22 @@ export const FlashcardViewer: React.FC = () => {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <Breadcrumbs
           className="mb-0"
-          items={[
-            { label: 'Flashcard', to: '/flashcard' },
-            { label: levelDisplay, to: `/flashcard/${level || 'n3'}` },
-            { label: `Unit ${unitKey}` },
-          ]}
+          items={
+            textbook
+              ? [
+                  { label: 'Flashcard', to: '/flashcard' },
+                  {
+                    label: `${levelDisplay} · ${textbook.shortTitle}`,
+                    to: `/flashcard/${levelKey}/book/${textbook.id}`,
+                  },
+                  { label: unitInfo?.name || `Unit ${numericUnitId}` },
+                ]
+              : [
+                  { label: 'Flashcard', to: '/flashcard' },
+                  { label: levelDisplay, to: `/flashcard/${levelKey}` },
+                  { label: unitInfo?.name || `Unit ${numericUnitId}` },
+                ]
+          }
         />
         <span className="tabular text-sm font-medium text-muted">
           Thẻ {currentIndex + 1} / {words.length}

@@ -1,5 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { CircleCheck } from 'lucide-react';
+import { useAuth } from '../../context/auth-context';
+import { getPreferredVocabLevel } from '../../data/vocabTextbooks';
 import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
 import { getLiveKanjis } from '../../services/curriculumStore';
 import { useAppSelector } from '../../store/hooks';
@@ -19,12 +21,15 @@ import { cn } from '../../lib/cn';
 const LEVELS = ['All', 'N5', 'N4', 'N3', 'N2', 'N1'];
 
 export const KanjiDashboard: React.FC = () => {
+  const { studyLevel, user } = useAuth();
   const cmsSnapshot = useCurriculumSnapshot();
   const kanjiList = useMemo(() => getLiveKanjis(cmsSnapshot), [cmsSnapshot]);
   const progress = useAppSelector((state) => state.kanji.progress);
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedLevel, setSelectedLevel] = useState<string>('All');
+  const [selectedLevelOverride, setSelectedLevelOverride] = useState<string | null>(null);
+  const selectedLevel =
+    selectedLevelOverride ?? studyLevel ?? getPreferredVocabLevel(user?.id) ?? 'All';
 
   const learnedCount = kanjiList.filter((k) => progress[k.id]?.learned).length;
 
@@ -81,7 +86,7 @@ export const KanjiDashboard: React.FC = () => {
             <Chip
               key={level}
               selected={selectedLevel === level}
-              onClick={() => setSelectedLevel(level)}
+              onClick={() => setSelectedLevelOverride(level)}
               className="shrink-0"
             >
               {level === 'All' ? 'Tất cả' : level}
@@ -158,7 +163,7 @@ export const KanjiDashboard: React.FC = () => {
                 size="sm"
                 onClick={() => {
                   setSearchTerm('');
-                  setSelectedLevel('All');
+                  setSelectedLevelOverride('All');
                 }}
               >
                 Xóa bộ lọc

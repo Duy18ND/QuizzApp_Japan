@@ -257,12 +257,16 @@ create table if not exists public.units (
   id text primary key,
   level text not null check (level in ('N5', 'N4', 'N3', 'N2', 'N1')),
   unit_number integer not null default 1,
+  textbook_id text,
   title text not null,
   description text default '',
   order_index integer not null default 0,
   is_published boolean not null default true,
   created_at timestamptz not null default now()
 );
+
+alter table public.units
+  add column if not exists textbook_id text;
 
 create index if not exists idx_units_level on public.units (level, order_index);
 
@@ -490,6 +494,42 @@ alter table public.user_reminders enable row level security;
 drop policy if exists "user_reminders_owner_all" on public.user_reminders;
 create policy "user_reminders_owner_all"
   on public.user_reminders
+  for all
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- ============================================================================
+-- 5. MULTI-DEVICE WEB PUSH SUBSCRIPTIONS (VAPID — WORKS WHEN SWIPED CLOSED)
+-- ============================================================================
+
+create table if not exists public.user_push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  endpoint text not null,
+  p256dh text not null,
+  auth text not null,
+  notifications_enabled boolean not null default true,
+  reminder_time text not null default '20:00',
+  repeat_interval_minutes integer not null default 10,
+  study_weekdays jsonb not null default '[1,2,3,4,5,6,0]'::jsonb,
+  daily_minutes_target integer not null default 10,
+  timezone text not null default 'Asia/Ho_Chi_Minh',
+  last_completed_date text,
+  active_stage_label text,
+  last_notified_at timestamptz,
+  updated_at timestamptz not null default now(),
+  constraint uq_user_push_subscriptions_owner_endpoint unique (user_id, endpoint)
+);
+
+create index if not exists idx_user_push_subs_active
+  on public.user_push_subscriptions (notifications_enabled, last_completed_date);
+
+alter table public.user_push_subscriptions enable row level security;
+
+drop policy if exists "user_push_subscriptions_owner_all" on public.user_push_subscriptions;
+create policy "user_push_subscriptions_owner_all"
+  on public.user_push_subscriptions
   for all
   to authenticated
   using (auth.uid() = user_id)

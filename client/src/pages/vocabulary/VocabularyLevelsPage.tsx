@@ -1,8 +1,17 @@
 import React from 'react';
 import { ArrowRight } from 'lucide-react';
-import { getVocabTextbooksForLevel } from '../../data/vocabTextbooks';
+import { Navigate } from 'react-router-dom';
+import {
+  getDefaultVocabTextbook,
+  getPreferredVocabLevel,
+  getVocabTextbooksForLevel,
+  resolveActiveVocabTextbook,
+  savePreferredVocabLevel,
+  savePreferredVocabTextbookId,
+} from '../../data/vocabTextbooks';
 import type { JLPTLevel } from '../../types/quiz';
 import { CardLink, PageContainer, PageHeader } from '../../components/ui';
+import { useAuth } from '../../context/auth-context';
 
 const LEVELS: { id: JLPTLevel; title: string; desc: string }[] = [
   { id: 'N5', title: 'Trình độ N5', desc: 'Nhập môn tiếng Nhật · Minna, Shin Kanzen, Mimi...' },
@@ -23,6 +32,23 @@ export const VocabularyLevelsPage: React.FC<Props> = ({
   title = 'Từ vựng',
   hideTabs = false,
 }) => {
+  const { studyLevel, studyTextbookId, user } = useAuth();
+  const preferredLevel = studyLevel ?? getPreferredVocabLevel(user?.id);
+
+  if (preferredLevel) {
+    const activeBook = resolveActiveVocabTextbook(
+      preferredLevel,
+      user?.id,
+      preferredLevel === studyLevel ? studyTextbookId : null,
+    );
+    return (
+      <Navigate
+        to={`${basePath}/${preferredLevel.toLowerCase()}/book/${activeBook.id}`}
+        replace
+      />
+    );
+  }
+
   return (
     <PageContainer size="md" className="space-y-6">
       <PageHeader
@@ -33,19 +59,24 @@ export const VocabularyLevelsPage: React.FC<Props> = ({
         title={hideTabs ? `Chọn trình độ (${title})` : 'Chọn trình độ (JLPT)'}
         description={
           hideTabs
-            ? 'Chọn trình độ bạn muốn học để xem danh sách bài học tương ứng.'
-            : 'Chọn trình độ JLPT để xem danh sách giáo trình (Minna, Shin Kanzen, Mimi...) và công cụ luyện tập.'
+            ? 'Chọn trình độ bạn muốn học để mở thẳng danh sách bài học Flashcard.'
+            : 'Chọn trình độ JLPT để mở thẳng danh sách bài học theo giáo trình chính (có thể đổi giáo trình bất cứ lúc nào).'
         }
       />
 
       <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {LEVELS.map((level) => {
           const bookCount = getVocabTextbooksForLevel(level.id).length;
+          const defaultBook = getDefaultVocabTextbook(level.id);
 
           return (
             <li key={level.id}>
               <CardLink
-                to={`${basePath}/${level.id.toLowerCase()}`}
+                to={`${basePath}/${level.id.toLowerCase()}/book/${defaultBook.id}`}
+                onClick={() => {
+                  savePreferredVocabLevel(level.id, user?.id);
+                  savePreferredVocabTextbookId(level.id, defaultBook.id, user?.id);
+                }}
                 padding="sm"
                 className="group flex h-full items-center gap-3 p-3.5"
               >
@@ -57,7 +88,9 @@ export const VocabularyLevelsPage: React.FC<Props> = ({
                     {level.title}
                   </span>
                   <span className="mt-0.5 block text-xs text-muted">
-                    {hideTabs ? `${level.desc.split(' · ')[0]}` : `${bookCount} giáo trình · ${level.desc.split(' · ')[1] || level.desc}`}
+                    {hideTabs
+                      ? `Mặc định: ${defaultBook.shortTitle}`
+                      : `${bookCount} giáo trình · Mặc định: ${defaultBook.shortTitle}`}
                   </span>
                 </span>
                 <ArrowRight

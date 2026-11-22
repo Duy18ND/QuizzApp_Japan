@@ -1,6 +1,4 @@
-import { grammarBooks } from '../data/grammar';
-import { lesson01Sentences } from '../data/grammar/shinkanzen-n3/lesson01Sentences';
-import { lesson02Sentences } from '../data/grammar/shinkanzen-n3/lesson02Sentences';
+import { allGrammarSentencesBank, grammarBooks } from '../data/grammar';
 import {
   getJLPTListeningItems,
   getJLPTMcqQuestions,
@@ -51,6 +49,7 @@ export interface SupabaseUnitRow {
   id: string;
   level: JLPTLevel;
   unit_number: number;
+  textbook_id: string | null;
   title: string;
   description: string;
   order_index: number;
@@ -59,8 +58,12 @@ export interface SupabaseUnitRow {
 
 const MIGRATION_BATCH_SIZE = 50;
 
-export const toDbUnitId = (level: JLPTLevel, unitId: number): string =>
-  `${level.toUpperCase()}-U${Math.max(1, unitId)}`;
+export const toDbUnitId = (level: JLPTLevel, unitId: number, textbookId?: string): string => {
+  const bookSuffix = textbookId
+    ? `-${textbookId.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toUpperCase()}`
+    : '';
+  return `${level.toUpperCase()}${bookSuffix}-U${Math.max(1, unitId)}`;
+};
 
 export const parseDbUnitNumber = (unitKey: string | null | undefined): number => {
   if (!unitKey) return 1;
@@ -86,6 +89,15 @@ export function buildStaticUnits(): AdminUnitRecord[] {
         id: toDbUnitId(level as JLPTLevel, u.id),
         level: level as JLPTLevel,
         unitNumber: u.id,
+        textbookId:
+          u.textbookId ??
+          (level === 'N5'
+            ? 'minna-n5'
+            : level === 'N4'
+              ? 'minna-n4'
+              : level === 'N3'
+                ? 'mimi-n3'
+                : null),
         title: u.name,
         description: u.totalWords > 0 ? `${u.totalWords} từ vựng chuẩn JLPT ${level}` : 'Sắp ra mắt',
         orderIndex: orderCounter++,
@@ -131,7 +143,7 @@ export function buildStaticKanji(): AdminKanjiRecord[] {
 }
 
 export function buildStaticGrammar(): AdminGrammarRecord[] {
-  const allSentences = [...lesson01Sentences, ...lesson02Sentences];
+  const allSentences = allGrammarSentencesBank;
   const rules: AdminGrammarRecord[] = [];
   for (const book of grammarBooks) {
     for (const ch of book.chapters) {
@@ -242,6 +254,7 @@ export const mapUnitToDb = (r: AdminUnitRecord): SupabaseUnitRow => ({
   id: r.id,
   level: r.level,
   unit_number: r.unitNumber,
+  textbook_id: r.textbookId ?? null,
   title: r.title,
   description: r.description ?? '',
   order_index: r.orderIndex,
@@ -252,6 +265,7 @@ export const mapUnitFromDb = (r: Record<string, unknown>): AdminUnitRecord => ({
   id: String(r.id),
   level: (r.level ?? 'N3') as JLPTLevel,
   unitNumber: Number(r.unit_number ?? parseDbUnitNumber(String(r.id))),
+  textbookId: typeof r.textbook_id === 'string' ? r.textbook_id : null,
   title: String(r.title ?? ''),
   description: String(r.description ?? ''),
   orderIndex: Number(r.order_index ?? 0),

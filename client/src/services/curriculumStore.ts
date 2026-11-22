@@ -90,15 +90,25 @@ export function getLiveUnitsForLevel(snap: CmsSnapshot, level: JLPTLevel): UnitM
   const levelUnits = snap.units
     .filter((u) => u.level === level && u.isPublished)
     .sort((a, b) => a.orderIndex - b.orderIndex || a.unitNumber - b.unitNumber);
+  const unitsByNumber = new Map<number, number>();
+  for (const unit of snap.units.filter((item) => item.level === level)) {
+    unitsByNumber.set(unit.unitNumber, (unitsByNumber.get(unit.unitNumber) ?? 0) + 1);
+  }
 
   return levelUnits.map((u) => {
     const wordCount = snap.vocabularies.filter(
-      (v) => v.level === level && (v.dbUnitId ? v.dbUnitId === u.id : v.unitId === u.unitNumber),
+      (v) =>
+        v.level === level &&
+        (v.dbUnitId
+          ? v.dbUnitId === u.id
+          : unitsByNumber.get(u.unitNumber) === 1 && v.unitId === u.unitNumber),
     ).length;
     return {
       id: u.unitNumber,
       name: u.title,
       totalWords: wordCount,
+      dbUnitId: u.id,
+      textbookId: u.textbookId,
     };
   });
 }
@@ -106,12 +116,22 @@ export function getLiveUnitsForLevel(snap: CmsSnapshot, level: JLPTLevel): UnitM
 export function getLiveVocabForUnit(
   snap: CmsSnapshot,
   level: JLPTLevel,
-  unitNumber: number,
+  unitKey: number | string,
 ): VocabularyItem[] {
-  const unitRecord = snap.units.find((u) => u.level === level && u.unitNumber === unitNumber);
+  const unitRecord =
+    typeof unitKey === 'string'
+      ? snap.units.find((u) => u.level === level && u.id === unitKey)
+      : snap.units.find((u) => u.level === level && u.unitNumber === unitKey);
+  const unitNumber = unitRecord?.unitNumber ?? (typeof unitKey === 'number' ? unitKey : -1);
+  const isUniqueUnitNumber =
+    unitRecord &&
+    snap.units.filter((unit) => unit.level === level && unit.unitNumber === unitNumber).length === 1;
   return snap.vocabularies
     .filter((v) => {
       if (v.level !== level) return false;
+      if (typeof unitKey === 'string') {
+        return v.dbUnitId === unitKey || (!v.dbUnitId && isUniqueUnitNumber && v.unitId === unitNumber);
+      }
       if (unitRecord && v.dbUnitId) {
         return v.dbUnitId === unitRecord.id || v.unitId === unitNumber;
       }

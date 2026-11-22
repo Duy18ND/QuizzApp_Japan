@@ -3,6 +3,7 @@ import {
   getInMemoryStudySchedule,
   setInMemoryOnlineTime,
   setInMemoryStudySchedule,
+  writeOnlineTimeDirectToSupabase,
 } from './cloudProgressWriter';
 import {
   getActiveAuthenticatedUserId,
@@ -791,14 +792,50 @@ export interface OnlineTimeSyncDetail {
   streakAwardedToday: boolean;
 }
 
+const ONLINE_TIME_PERSIST_PREFIX = 'nihonmaster_online_time_v2:';
+
+function readPersistedOnlineTime(uid: string): Record<string, number> {
+  if (typeof window === 'undefined' || !uid) return {};
+  try {
+    const raw = window.localStorage?.getItem(`${ONLINE_TIME_PERSIST_PREFIX}${uid}`);
+    if (!raw) return {};
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    const clean: Record<string, number> = {};
+    for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+      if (VALID_DATE_REGEX.test(k)) {
+        const secs = Math.floor(Number(v) || 0);
+        if (secs > 0) clean[k] = Math.min(secs, 86_400);
+      }
+    }
+    return clean;
+  } catch {
+    return {};
+  }
+}
+
+function writePersistedOnlineTime(uid: string, map: Record<string, number>): void {
+  if (typeof window === 'undefined' || !uid) return;
+  try {
+    window.localStorage?.setItem(`${ONLINE_TIME_PERSIST_PREFIX}${uid}`, JSON.stringify(map));
+  } catch {
+    // Ignore storage quota errors
+  }
+}
+
 export function loadOnlineTimeMap(explicitUserId?: string | null): Record<string, number> {
   const uid = explicitUserId === undefined ? getActiveAuthenticatedUserId() : explicitUserId;
   if (!uid) return {};
-  const parsed = getInMemoryOnlineTime(uid);
+  const inRam = getInMemoryOnlineTime(uid);
+  const persisted = readPersistedOnlineTime(uid);
+  const mergedKeys = new Set([...Object.keys(persisted), ...Object.keys(inRam)]);
   const clean: Record<string, number> = {};
-  for (const [k, v] of Object.entries(parsed)) {
+  for (const k of mergedKeys) {
     if (VALID_DATE_REGEX.test(k)) {
-      const secs = Math.floor(Number(v) || 0);
+      const secs = Math.max(
+        Math.floor(Number(persisted[k]) || 0),
+        Math.floor(Number(inRam[k]) || 0),
+      );
       if (secs > 0) {
         clean[k] = Math.min(secs, 86_400);
       }
@@ -833,9 +870,61 @@ export function formatOnlineDurationVi(totalSeconds: number): string {
   const mins = Math.floor((clean % 3600) / 60);
   const secs = clean % 60;
   if (hours > 0) {
-    return mins > 0 ? `${hours}g ${mins}p` : `${hours} giờ`;
+    return `${hours}g ${String(mins).padStart(2, '0')}p ${String(secs).padStart(2, '0')}s`;
   }
-  return secs > 0 ? `${mins}p ${String(secs).padStart(2, '0')}s` : `${mins} phút`;
+  return `${mins}p ${String(secs).padStart(2, '0')}s`;
+}
+
+export function hydrateOnlineTimeFromCloud(
+  remoteMap: Record<string, number>,
+  userId?: string | null,
+): Record<string, number> {
+  const effectiveUid = userId === undefined ? getActiveAuthenticatedUserId() : userId;
+  if (!effectiveUid) return {};
+
+  const localMap = loadOnlineTimeMap(effectiveUid);
+  const mergedKeys = new Set([...Object.keys(localMap), ...Object.keys(remoteMap)]);
+  const merged: Record<string, number> = {};
+  for (const k of mergedKeys) {
+    if (!VALID_DATE_REGEX.test(k)) continue;
+    const secs = Math.max(
+      Math.floor(Number(localMap[k]) || 0),
+      Math.floor(Number(remoteMap[k]) || 0),
+    );
+    if (secs > 0) {
+      merged[k] = Math.min(secs, 86_400);
+    }
+  }
+
+  const trimmedKeys = Object.keys(merged).sort().slice(-90);
+  const trimmed: Record<string, number> = {};
+  for (const key of trimmedKeys) {
+    trimmed[key] = merged[key];
+  }
+
+  setInMemoryOnlineTime(effectiveUid, trimmed);
+  writePersistedOnlineTime(effectiveUid, trimmed);
+
+  const todayKey = getLocalDateKey();
+  const detail: OnlineTimeSyncDetail = {
+    dateKey: todayKey,
+    todaySeconds: trimmed[todayKey] ?? 0,
+    totalSeconds: getTotalOnlineSeconds(trimmed),
+    streakAwardedToday: false,
+  };
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent<OnlineTimeSyncDetail>(ONLINE_TIME_SYNC_EVENT, { detail }));
+  }
+
+  // If local had more seconds than cloud (e.g. offline/previous session), push merged map back up immediately
+  const localAhead = Object.entries(trimmed).some(
+    ([dateKey, secs]) => secs > Math.floor(Number(remoteMap[dateKey]) || 0),
+  );
+  if (localAhead) {
+    void writeOnlineTimeDirectToSupabase(effectiveUid, trimmed);
+  }
+
+  return trimmed;
 }
 
 export async function addOnlineStudySeconds(
@@ -860,6 +949,7 @@ export async function addOnlineStudySeconds(
   if (increment > 0 && VALID_DATE_REGEX.test(dateKey)) {
     map[dateKey] = nextToday;
     setInMemoryOnlineTime(effectiveUid, map);
+    writePersistedOnlineTime(effectiveUid, map);
   }
 
   let streakAwardedToday = false;
@@ -885,54 +975,82 @@ export async function addOnlineStudySeconds(
   return detail;
 }
 
+const CLOUD_BACKUP_INTERVAL_SECONDS = 15;
+
 export function startWebOnlineTimeTracker(getUserId?: () => string | null | undefined): () => void {
   if (typeof window === 'undefined' || typeof document === 'undefined') return () => {};
 
-  let bufferedSeconds = 0;
+  let unsyncedCloudSeconds = 0;
 
   const resolveUid = () => getUserId?.() || getActiveAuthenticatedUserId();
 
-  const flush = () => {
+  const backupToCloudNow = () => {
     const uid = resolveUid();
-    if (!uid || bufferedSeconds <= 0) {
-      bufferedSeconds = 0;
+    if (!uid || unsyncedCloudSeconds <= 0) {
+      unsyncedCloudSeconds = 0;
       return;
     }
-    const toFlush = bufferedSeconds;
-    bufferedSeconds = 0;
-    const today = getLocalDateKey(new Date());
-    void addOnlineStudySeconds(toFlush, today, uid);
+    unsyncedCloudSeconds = 0;
+    const latestMap = loadOnlineTimeMap(uid);
+    void writeOnlineTimeDirectToSupabase(uid, latestMap);
   };
 
+  // Real-time 1-second tick: updates RAM + localStorage + UI every second,
+  // and backs up continuously to Supabase every 15s (plus on tab hide / unload).
   const intervalId = window.setInterval(() => {
     if (document.visibilityState !== 'visible') return;
     const uid = resolveUid();
     if (!uid) {
-      bufferedSeconds = 0;
+      unsyncedCloudSeconds = 0;
       return;
     }
-    bufferedSeconds += 1;
-    const currentToday = getTodayOnlineSeconds(getLocalDateKey(new Date()), uid) + bufferedSeconds;
-    if (bufferedSeconds >= 5 || currentToday === ONLINE_STREAK_THRESHOLD_SECONDS) {
-      flush();
-    }
+    const today = getLocalDateKey(new Date());
+    unsyncedCloudSeconds += 1;
+    void addOnlineStudySeconds(1, today, uid).then((detail) => {
+      if (
+        unsyncedCloudSeconds >= CLOUD_BACKUP_INTERVAL_SECONDS ||
+        detail.streakAwardedToday
+      ) {
+        backupToCloudNow();
+      }
+    });
   }, 1000);
 
   const onVisibilityChange = () => {
     if (document.visibilityState === 'hidden') {
-      flush();
+      backupToCloudNow();
     }
   };
 
-  window.addEventListener('pagehide', flush);
-  window.addEventListener('beforeunload', flush);
+  const onStorageSync = (e: StorageEvent) => {
+    const uid = resolveUid();
+    if (!uid || !e.key || e.key !== `${ONLINE_TIME_PERSIST_PREFIX}${uid}`) return;
+    const merged = loadOnlineTimeMap(uid);
+    setInMemoryOnlineTime(uid, merged);
+    const todayKey = getLocalDateKey();
+    window.dispatchEvent(
+      new CustomEvent<OnlineTimeSyncDetail>(ONLINE_TIME_SYNC_EVENT, {
+        detail: {
+          dateKey: todayKey,
+          todaySeconds: merged[todayKey] ?? 0,
+          totalSeconds: getTotalOnlineSeconds(merged),
+          streakAwardedToday: false,
+        },
+      }),
+    );
+  };
+
+  window.addEventListener('pagehide', backupToCloudNow);
+  window.addEventListener('beforeunload', backupToCloudNow);
+  window.addEventListener('storage', onStorageSync);
   document.addEventListener('visibilitychange', onVisibilityChange);
 
   return () => {
-    flush();
+    backupToCloudNow();
     window.clearInterval(intervalId);
-    window.removeEventListener('pagehide', flush);
-    window.removeEventListener('beforeunload', flush);
+    window.removeEventListener('pagehide', backupToCloudNow);
+    window.removeEventListener('beforeunload', backupToCloudNow);
+    window.removeEventListener('storage', onStorageSync);
     document.removeEventListener('visibilitychange', onVisibilityChange);
   };
 }

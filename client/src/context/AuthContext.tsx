@@ -23,6 +23,9 @@ import {
   supabasePublicUrl,
 } from '../services/supabaseClient';
 import {
+  hydrateStageRoadmapFromMetadata,
+} from '../services/stageRoadmapService';
+import {
   cacheRoadmapCompletedSteps,
   cacheStudyLevel,
   loadCachedStudyLevel,
@@ -34,10 +37,15 @@ import {
 } from '../services/userLevelService';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
+  resolveActiveVocabTextbook,
+  savePreferredVocabLevel,
+  savePreferredVocabTextbookId,
+} from '../data/vocabTextbooks';
+import {
   setAuthError,
   setAuthLoading,
   setAuthUser,
-  setAuthUserStudyLevel,
+  setAuthUserStudyContext,
   setGuestSession,
   setSyncStatus,
   type AccountRole,
@@ -87,6 +95,12 @@ function extractMetadataStudyLevel(meta?: Record<string, unknown> | null): Study
   return sanitizeStudyLevel(meta.study_level);
 }
 
+function extractMetadataStudyTextbook(meta?: Record<string, unknown> | null): string | null {
+  if (!meta || typeof meta !== 'object') return null;
+  const candidate = meta.study_textbook;
+  return typeof candidate === 'string' && candidate.trim() ? candidate.trim().toLowerCase() : null;
+}
+
 /**
  * Signs in with a deterministic PBKDF2-SHA256 client-side password digest first so
  * raw passwords never traverse the wire; transparently upgrades pre-existing unhashed
@@ -132,6 +146,7 @@ async function fetchProfileForUser(
   fallbackEmail: string,
   metadataDisplayName = '',
   metadataStudyLevel: StudyLevel | null = null,
+  metadataStudyTextbook: string | null = null,
 ): Promise<AuthUser | null> {
   if (!supabase) return null;
 
@@ -160,8 +175,13 @@ async function fetchProfileForUser(
   const profileLevel = sanitizeStudyLevel(data?.study_level);
   const cachedLevel = loadCachedStudyLevel(userId);
   const resolvedLevel = profileLevel ?? metadataStudyLevel ?? cachedLevel ?? null;
+  let resolvedTextbookId: string | null = null;
   if (resolvedLevel) {
     cacheStudyLevel(resolvedLevel, userId);
+    savePreferredVocabLevel(resolvedLevel, userId);
+    const activeBook = resolveActiveVocabTextbook(resolvedLevel, userId, metadataStudyTextbook);
+    resolvedTextbookId = activeBook.id;
+    savePreferredVocabTextbookId(resolvedLevel, activeBook.id, userId);
   }
 
   if (data) {
@@ -175,6 +195,7 @@ async function fetchProfileForUser(
       displayName: profileName,
       role: normalizeRole(typeof data.role === 'string' ? data.role : null),
       studyLevel: resolvedLevel,
+      studyTextbookId: resolvedTextbookId,
     };
   }
 
@@ -184,6 +205,7 @@ async function fetchProfileForUser(
     displayName: resolvedFallbackName,
     role: 'USER',
     studyLevel: resolvedLevel,
+    studyTextbookId: resolvedTextbookId,
   };
 }
 
@@ -310,11 +332,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (meta && Array.isArray(meta.roadmap_completed_steps)) {
           cacheRoadmapCompletedSteps(sanitizeCompletedRoadmapSteps(meta.roadmap_completed_steps), sessionUser.id);
         }
+        hydrateStageRoadmapFromMetadata(meta, sessionUser.id);
         const profile = await fetchProfileForUser(
           sessionUser.id,
           sessionUser.email || '',
           extractMetadataDisplayName(meta),
           extractMetadataStudyLevel(meta),
+          extractMetadataStudyTextbook(meta),
         );
         if (!cancelled && profile) {
           applyAuthenticatedSession(profile, 'supabase');
@@ -346,6 +370,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         session.user.email || '',
         extractMetadataDisplayName(meta),
         extractMetadataStudyLevel(meta),
+        extractMetadataStudyTextbook(meta),
       );
       if (!cancelled && profile) {
         applyAuthenticatedSession(profile, 'supabase');
@@ -398,6 +423,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           data.user.email || email.trim(),
           extractMetadataDisplayName(meta),
           extractMetadataStudyLevel(meta),
+          extractMetadataStudyTextbook(meta),
         );
         if (profile) {
           applyAuthenticatedSession(profile, 'supabase');
@@ -445,6 +471,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           data.session.user.email || email.trim(),
           cleanName,
           extractMetadataStudyLevel(meta),
+          extractMetadataStudyTextbook(meta),
         );
         if (profile) {
           applyAuthenticatedSession(profile, 'supabase');
@@ -528,10 +555,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const currentUserId = auth.user?.id;
 
   const updateStudyLevel = useCallback(
-    async (level: StudyLevel) => {
+    async (level: StudyLevel, textbookId?: string | null) => {
       if (!currentUserId) return;
-      dispatch(setAuthUserStudyLevel(level));
-      await persistStudyLevel(level, currentUserId);
+      const resolvedBook = resolveActiveVocabTextbook(level, currentUserId, textbookId);
+      dispatch(setAuthUserStudyContext({ level, textbookId: resolvedBook.id }));
+      await persistStudyLevel(level, currentUserId, resolvedBook.id);
     },
     [currentUserId, dispatch],
   );
@@ -542,11 +570,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [currentUserId, runCloudSync]);
 
   const studyLevel: StudyLevel | null = auth.user ? (auth.user.studyLevel ?? null) : null;
+  const studyTextbookId: string | null =
+    auth.user && studyLevel
+      ? resolveActiveVocabTextbook(studyLevel, auth.user.id, auth.user.studyTextbookId).id
+      : null;
 
   const value: AuthContextValue = {
     ...auth,
     isSupabaseConfigured,
     studyLevel,
+    studyTextbookId,
     updateStudyLevel,
     signInWithEmail,
     signUpWithEmail,

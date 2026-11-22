@@ -42,6 +42,18 @@ const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
   hiragana_to_vi: 'Hiragana → Nghĩa',
 };
 
+function buildQuizPracticePath(config: QuizConfig, source: 'all' | 'wrong' = 'all'): string {
+  const params = new URLSearchParams({
+    level: config.level,
+    unit: String(config.unitId),
+    autoStart: '1',
+  });
+  if (config.unitDbId) params.set('unitDbId', config.unitDbId);
+  if (config.textbookId) params.set('book', config.textbookId);
+  if (source !== 'all') params.set('source', source);
+  return `/vocabulary/quiz?${params.toString()}`;
+}
+
 interface Props {
   config: QuizConfig;
   retryAttemptId?: string;
@@ -173,7 +185,7 @@ export const QuizPlay: React.FC<Props> = ({ config, retryAttemptId, onExit }) =>
           : `VOCAB_QUIZ_${config.level}_U${config.unitId}`;
         const practicePath = config.isCustom
           ? '/vocabulary/quiz'
-          : `/vocabulary/quiz?level=${config.level}&unit=${config.unitId}&source=wrong&autoStart=1`;
+          : buildQuizPracticePath(config, 'wrong');
 
         dispatch(
           addMistake({
@@ -216,9 +228,7 @@ export const QuizPlay: React.FC<Props> = ({ config, retryAttemptId, onExit }) =>
       state.currentIndex,
       state.userAnswers,
       addWrongWord,
-      config.isCustom,
-      config.level,
-      config.unitId,
+      config,
       dispatch,
     ],
   );
@@ -267,7 +277,7 @@ export const QuizPlay: React.FC<Props> = ({ config, retryAttemptId, onExit }) =>
         : `${config.level} · Unit ${config.unitId}`;
     const practicePath = config.isCustom
       ? '/vocabulary/quiz'
-      : `/vocabulary/quiz?level=${config.level}&unit=${config.unitId}&autoStart=1`;
+      : buildQuizPracticePath(config);
 
     const mistakes = quizQuestions
       .map((q, idx) => {
@@ -335,6 +345,9 @@ export const QuizPlay: React.FC<Props> = ({ config, retryAttemptId, onExit }) =>
     config.isCustom,
     config.level,
     config.unitId,
+    config.unitDbId,
+    config.textbookId,
+    config,
     user?.id,
   ]);
 

@@ -12,7 +12,8 @@ export interface AuthActionResult {
 export interface AuthContextValue extends AuthState {
   isSupabaseConfigured: boolean;
   studyLevel: StudyLevel | null;
-  updateStudyLevel: (level: StudyLevel) => Promise<void>;
+  studyTextbookId: string | null;
+  updateStudyLevel: (level: StudyLevel, textbookId?: string | null) => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<AuthActionResult>;
   signUpWithEmail: (
     email: string,

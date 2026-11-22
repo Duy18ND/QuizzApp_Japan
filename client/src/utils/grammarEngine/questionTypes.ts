@@ -21,20 +21,40 @@ interface GeneratorContext {
   rng: GeneratorRng;
 }
 
-const GRAMMAR_POOL: string[] = [
-  'うちに',
-  '間',
-  '間に',
-  'てからでないと',
-  'ところ',
-  'とおりに',
-  'どおりに',
-  'によって',
-  'によっては',
-  'たびに',
-  'ついでに',
-  'ほど',
-];
+const GRAMMAR_POOL_BY_LEVEL: Record<string, string[]> = {
+  N5: ['は', 'が', 'を', 'に', 'で', 'へ', 'と', 'も', 'の', 'から', 'まで', 'てください', 'てもいいです', 'てはいけません', 'たいです', 'つもりです'],
+  N4: ['んです', 'ながら', 'し', 'てあります', 'ておきます', 'てしまいます', 'ほうがいいです', 'ように', 'のに', 'ために', 'そうです', 'ようです', 'らしいです', 'はず', 'おかげで', 'せいで'],
+  N3: [
+    'うちに',
+    '間',
+    '間に',
+    'てからでないと',
+    'ところ',
+    'とおりに',
+    'どおりに',
+    'によって',
+    'によっては',
+    'たびに',
+    'ついでに',
+    'ほど',
+    'ばかりに',
+    'ことから',
+    'だけに',
+    'としたら',
+    'くせに',
+    'にもかかわらず',
+    'がち',
+    'ぎみ',
+    'っぱなし',
+    'にとって',
+    'に対して',
+    'をめぐって',
+    'をもとに',
+    'を通じて',
+    'に違いない',
+    'わけにはいかない',
+  ],
+};
 
 const RULE_SYNONYM_EXCLUSIONS: Record<string, string[]> = {
   'N3-SKZ-L01-UCHINI-01': ['うちに'],
@@ -65,7 +85,10 @@ const buildGrammarDistractors = (
   target: string,
   grammarId: string,
   rng: GeneratorRng,
+  level?: string,
 ): string[] => {
+  const levelPool =
+    GRAMMAR_POOL_BY_LEVEL[level ?? 'N3'] ?? GRAMMAR_POOL_BY_LEVEL.N3;
   const excluded = new Set<string>([target, ...(RULE_SYNONYM_EXCLUSIONS[grammarId] || [])]);
   const candidates: string[] = [];
 
@@ -104,7 +127,12 @@ const buildGrammarDistractors = (
     addCandidate(c);
   }
 
-  for (const g of rng.shuffle(GRAMMAR_POOL)) {
+  for (const g of rng.shuffle(levelPool)) {
+    if (picked.length >= 3) break;
+    addCandidate(g);
+  }
+
+  for (const g of rng.shuffle(GRAMMAR_POOL_BY_LEVEL.N3)) {
     if (picked.length >= 3) break;
     addCandidate(g);
   }
@@ -114,7 +142,12 @@ const buildGrammarDistractors = (
 
 export const generateMultipleChoiceQuestion = (ctx: GeneratorContext): PracticeQuestion => {
   const target = ctx.sentenceRecord.target || ctx.grammarRule.hiragana;
-  const distractors = buildGrammarDistractors(target, ctx.grammarRule.id, ctx.rng);
+  const distractors = buildGrammarDistractors(
+    target,
+    ctx.grammarRule.id,
+    ctx.rng,
+    ctx.grammarRule.level,
+  );
   const allAnswers = ctx.rng.shuffle([target, ...distractors]);
   const blanked = ctx.sentenceRecord.japanese.replace(target, '＿＿＿＿＿');
 
@@ -362,7 +395,12 @@ export const generateTransformationQuestion = (ctx: GeneratorContext): PracticeQ
 
 export const generateGrammarSelectionQuestion = (ctx: GeneratorContext): PracticeQuestion => {
   const target = ctx.sentenceRecord.target || ctx.grammarRule.hiragana;
-  const distractors = buildGrammarDistractors(target, ctx.grammarRule.id, ctx.rng);
+  const distractors = buildGrammarDistractors(
+    target,
+    ctx.grammarRule.id,
+    ctx.rng,
+    ctx.grammarRule.level,
+  );
   const allAnswers = ctx.rng.shuffle([target, ...distractors]);
   const blanked = ctx.sentenceRecord.japanese.replace(target, '＿＿＿＿＿');
 

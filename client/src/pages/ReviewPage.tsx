@@ -17,6 +17,7 @@ import {
   findVocabTextbook,
   getWordsForVocabTextbook,
   parseVocabLevelParam,
+  resolveActiveVocabTextbook,
 } from '../data/vocabTextbooks';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { removeMistake } from '../store/slices/mistakeSlice';
@@ -60,7 +61,7 @@ type ReviewQueueItem =
     };
 
 export const ReviewPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, studyLevel, studyTextbookId } = useAuth();
   const dispatch = useAppDispatch();
   const [searchParams, setSearchParams] = useSearchParams();
   const mistakes = useAppSelector((state) => state.mistake.mistakes);
@@ -69,11 +70,22 @@ export const ReviewPage: React.FC = () => {
   const cmsSnapshot = useCurriculumSnapshot();
 
   const levelParam = parseVocabLevelParam(searchParams.get('level'));
-  const textbook = useMemo(
+  const explicitBook = useMemo(
     () => findVocabTextbook(levelParam, searchParams.get('book')),
     [levelParam, searchParams],
   );
-  const activeLevel = textbook?.level ?? levelParam;
+  const activeLevel = explicitBook?.level ?? levelParam ?? studyLevel;
+  const textbook = useMemo(() => {
+    if (explicitBook) return explicitBook;
+    if (!levelParam && activeLevel) {
+      return resolveActiveVocabTextbook(
+        activeLevel,
+        user?.id,
+        activeLevel === studyLevel ? studyTextbookId : null,
+      );
+    }
+    return undefined;
+  }, [activeLevel, explicitBook, levelParam, studyLevel, studyTextbookId, user?.id]);
 
   const allVocab = useMemo(() => {
     if (textbook) {

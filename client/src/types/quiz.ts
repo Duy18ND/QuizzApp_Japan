@@ -18,6 +18,8 @@ export type QuizRangeType = 'fixed' | 'custom';
 export interface QuizConfig {
   level: JLPTLevel;
   unitId: number | 'all';
+  unitDbId?: string;
+  textbookId?: string;
   source: QuizSource;
   wordType: string;
   rangeType: QuizRangeType;

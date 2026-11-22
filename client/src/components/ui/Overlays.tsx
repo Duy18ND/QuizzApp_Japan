@@ -38,14 +38,15 @@ export function Modal({ open, onClose, title, description, children, footer, siz
         if (event.target === event.currentTarget && open) onClose();
       }}
       className={cn(
-        'm-auto max-h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] overflow-hidden rounded-xl border border-line bg-surface p-0 text-fg shadow-pop sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100%-2.5rem)] sm:rounded-2xl',
-        'backdrop:bg-scrim open:animate-pop-in',
+        'mt-auto mb-0 max-h-[90dvh] w-full max-w-full overflow-hidden rounded-t-2xl rounded-b-none border border-b-0 border-line bg-surface p-0 pb-[env(safe-area-inset-bottom)] text-fg shadow-pop sm:m-auto sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100%-2.5rem)] sm:rounded-2xl sm:border-b sm:pb-0',
+        'backdrop:bg-scrim open:animate-slide-up sm:open:animate-pop-in',
         modalSizes[size],
       )}
     >
       {open && (
-        <div className="flex max-h-[calc(100dvh-1rem)] flex-col sm:max-h-[calc(100dvh-2rem)]">
-          <div className="flex items-start justify-between gap-3 border-b border-line px-3.5 py-3 sm:gap-4 sm:px-5 sm:py-4">
+        <div className="flex max-h-[90dvh] flex-col sm:max-h-[calc(100dvh-2rem)]">
+          <div aria-hidden className="mx-auto mt-2 h-1 w-10 rounded-full bg-line-strong sm:hidden" />
+          <div className="flex items-start justify-between gap-3 border-b border-line px-4 py-3 sm:gap-4 sm:px-5 sm:py-4">
             <div className="min-w-0">
               <h2 className="text-base font-semibold text-fg sm:text-lg">{title}</h2>
               {description && <p className="mt-0.5 text-xs text-muted sm:text-sm">{description}</p>}
@@ -54,8 +55,12 @@ export function Modal({ open, onClose, title, description, children, footer, siz
               <X className="size-4" aria-hidden />
             </IconButton>
           </div>
-          {children && <div className="overflow-y-auto px-3.5 py-3 sm:px-5 sm:py-4">{children}</div>}
-          {footer && <div className="flex flex-wrap justify-end gap-2 border-t border-line px-3.5 py-2.5 sm:px-5 sm:py-3">{footer}</div>}
+          {children && <div className="overflow-y-auto px-4 py-3 sm:px-5 sm:py-4">{children}</div>}
+          {footer && (
+            <div className="flex flex-wrap justify-end gap-2 border-t border-line px-4 py-3 [&>button]:flex-1 sm:px-5 sm:py-3 sm:[&>button]:flex-initial">
+              {footer}
+            </div>
+          )}
         </div>
       )}
     </dialog>

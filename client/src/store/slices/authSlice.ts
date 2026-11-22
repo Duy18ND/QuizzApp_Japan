@@ -11,6 +11,7 @@ export interface AuthUser {
   displayName: string;
   role: AccountRole;
   studyLevel?: StudyLevel | null;
+  studyTextbookId?: string | null;
 }
 
 export interface AuthState {
@@ -64,6 +65,15 @@ const authSlice = createSlice({
         state.user.studyLevel = action.payload;
       }
     },
+    setAuthUserStudyContext(
+      state,
+      action: PayloadAction<{ level: StudyLevel | null; textbookId?: string | null }>,
+    ) {
+      if (state.user) {
+        state.user.studyLevel = action.payload.level;
+        state.user.studyTextbookId = action.payload.textbookId ?? null;
+      }
+    },
     setSyncStatus(
       state,
       action: PayloadAction<{
@@ -85,6 +95,7 @@ export const {
   setGuestSession,
   setAuthError,
   setAuthUserStudyLevel,
+  setAuthUserStudyContext,
   setSyncStatus,
 } = authSlice.actions;
 

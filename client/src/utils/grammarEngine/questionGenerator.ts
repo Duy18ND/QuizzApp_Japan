@@ -1,7 +1,6 @@
 import type { PracticeQuestion, PracticeType } from '../../types/grammar';
 import type { SmartGrammarRule } from '../../types/grammarEngine';
-import { lesson01Sentences } from '../../data/grammar/shinkanzen-n3/lesson01Sentences';
-import { lesson02Sentences } from '../../data/grammar/shinkanzen-n3/lesson02Sentences';
+import { allGrammarSentencesBank } from '../../data/grammar';
 import {
   generateConjugationQuestion,
   generateExampleQuestion,
@@ -16,7 +15,7 @@ import {
   generateWordOrderQuestion,
 } from './questionTypes';
 
-const allGrammarSentences = [...lesson01Sentences, ...lesson02Sentences];
+const allGrammarSentences = allGrammarSentencesBank;
 
 const DEFAULT_MIXED_TYPES: PracticeType[] = [
   'multiple_choice',

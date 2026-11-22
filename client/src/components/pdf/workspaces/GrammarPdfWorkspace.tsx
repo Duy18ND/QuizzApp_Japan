@@ -2,6 +2,7 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Book, Download } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
+import { useAuth } from '../../../context/auth-context';
 import { useCurriculumSnapshot } from '../../../hooks/useCurriculumData';
 import { getLiveGrammarBooks } from '../../../services/curriculumStore';
 import { GrammarPdfBuilder } from './GrammarPdfBuilder';
@@ -14,10 +15,15 @@ type CountOption = number | 'all' | 'custom';
 const COUNT_OPTIONS: (number | 'all')[] = [2, 3, 5, 10, 'all'];
 
 export const GrammarPdfWorkspace: React.FC = () => {
+  const { studyLevel } = useAuth();
   const [searchParams] = useSearchParams();
   const cmsSnapshot = useCurriculumSnapshot();
   const grammarBooks = useMemo(() => getLiveGrammarBooks(cmsSnapshot), [cmsSnapshot]);
-  const initBookId = searchParams.get('bookId') || grammarBooks[0]?.id || '';
+  const preferredLevelBook = studyLevel
+    ? grammarBooks.find((b) => b.level === studyLevel)
+    : undefined;
+  const initBookId =
+    searchParams.get('bookId') || preferredLevelBook?.id || grammarBooks[0]?.id || '';
   const initChapterId =
     searchParams.get('chapterId') ||
     grammarBooks.find((b) => b.id === initBookId)?.chapters[0]?.id ||

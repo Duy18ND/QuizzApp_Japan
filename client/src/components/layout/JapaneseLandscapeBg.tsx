@@ -1,6 +1,6 @@
 import React from 'react';
-import dayLandscapeUrl from '../../assets/bK.jpg';
-import nightLandscapeUrl from '../../assets/aK.jpg';
+import dayLandscapeUrl from '../../assets/bK.webp';
+import nightLandscapeUrl from '../../assets/aK.webp';
 
 interface SakuraPetalSpec {
   left: string;

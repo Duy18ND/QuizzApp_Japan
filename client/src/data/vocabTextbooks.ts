@@ -1,5 +1,5 @@
 import type { CmsSnapshot } from '../services/adminCmsService';
-import { getLiveAllVocabulary, getLiveUnitsForLevel } from '../services/curriculumStore';
+import { getLiveUnitsForLevel } from '../services/curriculumStore';
 import type { JLPTLevel } from '../types/quiz';
 import type { VocabularyItem } from '../types/vocabulary';
 import type { UnitMeta } from './unitData';
@@ -25,8 +25,8 @@ export const VOCAB_TEXTBOOKS: Record<JLPTLevel, VocabTextbookSpec[]> = {
       title: 'Minna no Nihongo I',
       shortTitle: 'Minna I',
       japaneseTitle: 'みんなの日本語 初級I',
-      description: 'Giáo trình nhập môn kinh điển (Bài 1–25), từ vựng giao tiếp đời sống cơ bản.',
-      unitIds: [1],
+      description: 'Giáo trình nhập môn kinh điển (Đủ 25 bài: Bài 1–25), từ vựng giao tiếp đời sống cơ bản.',
+      unitIds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25],
       matchKeywords: ['minna', 'mina'],
     },
     {
@@ -35,8 +35,8 @@ export const VOCAB_TEXTBOOKS: Record<JLPTLevel, VocabTextbookSpec[]> = {
       title: 'Shin Kanzen Master N5',
       shortTitle: 'Shin Kanzen N5',
       japaneseTitle: '新完全マスター N5',
-      description: 'Từ vựng trọng tâm bám sát cấu trúc đề thi JLPT N5.',
-      unitIds: [],
+      description: 'Từ vựng trọng tâm bám sát cấu trúc đề thi JLPT N5 (6 chuyên đề cốt lõi).',
+      unitIds: [101, 102, 103, 104, 105, 106],
       matchKeywords: ['kanzen', 'shinkanzen'],
     },
     {
@@ -45,8 +45,8 @@ export const VOCAB_TEXTBOOKS: Record<JLPTLevel, VocabTextbookSpec[]> = {
       title: 'Mimi kara Oboeru N5',
       shortTitle: 'Mimi kara N5',
       japaneseTitle: '耳から覚える N5',
-      description: 'Luyện nhớ từ vựng sơ cấp qua âm thanh và câu ví dụ ngắn.',
-      unitIds: [],
+      description: 'Luyện nhớ từ vựng sơ cấp theo 6 chủ đề quen thuộc kèm câu ví dụ thực tế.',
+      unitIds: [201, 202, 203, 204, 205, 206],
       matchKeywords: ['mimi'],
     },
     {
@@ -55,8 +55,8 @@ export const VOCAB_TEXTBOOKS: Record<JLPTLevel, VocabTextbookSpec[]> = {
       title: 'Nihongo Sou Matome N5',
       shortTitle: 'Sou Matome N5',
       japaneseTitle: '日本語総まとめ N5',
-      description: 'Hệ thống từ vựng N5 chia nhỏ theo từng ngày, dễ ôn tập nhanh.',
-      unitIds: [],
+      description: 'Hệ thống từ vựng N5 chia nhỏ theo 6 tuần ôn tập nhanh và dễ nhớ.',
+      unitIds: [301, 302, 303, 304, 305, 306],
       matchKeywords: ['matome', 'soumatome'],
     },
   ],
@@ -67,8 +67,8 @@ export const VOCAB_TEXTBOOKS: Record<JLPTLevel, VocabTextbookSpec[]> = {
       title: 'Minna no Nihongo II',
       shortTitle: 'Minna II',
       japaneseTitle: 'みんなの日本語 初級II',
-      description: 'Tiếp nối sơ cấp (Bài 26–50), mở rộng động từ và mẫu giao tiếp hằng ngày.',
-      unitIds: [1],
+      description: 'Trọn bộ Bài 26–50 sơ cấp II, mở rộng động từ và mẫu giao tiếp hằng ngày.',
+      unitIds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
       matchKeywords: ['minna', 'mina'],
     },
     {
@@ -77,8 +77,8 @@ export const VOCAB_TEXTBOOKS: Record<JLPTLevel, VocabTextbookSpec[]> = {
       title: 'Shin Kanzen Master N4',
       shortTitle: 'Shin Kanzen N4',
       japaneseTitle: '新完全マスター N4',
-      description: 'Giáo trình từ vựng chuyên sâu chuẩn bị trực tiếp cho kỳ thi JLPT N4.',
-      unitIds: [],
+      description: 'Giáo trình từ vựng chuyên sâu 6 chủ đề chuẩn bị trực tiếp cho kỳ thi JLPT N4.',
+      unitIds: [101, 102, 103, 104, 105, 106],
       matchKeywords: ['kanzen', 'shinkanzen'],
     },
     {
@@ -87,8 +87,8 @@ export const VOCAB_TEXTBOOKS: Record<JLPTLevel, VocabTextbookSpec[]> = {
       title: 'Mimi kara Oboeru N4',
       shortTitle: 'Mimi kara N4',
       japaneseTitle: '耳から覚える N4',
-      description: 'Học từ vựng N4 theo chủ đề kết hợp luyện phản xạ nghe phát âm.',
-      unitIds: [],
+      description: 'Học từ vựng N4 theo 6 chủ đề: Tự-tha động từ, cảm xúc, y tế, nhà ở & phản xạ nghe.',
+      unitIds: [201, 202, 203, 204, 205, 206],
       matchKeywords: ['mimi'],
     },
     {
@@ -97,8 +97,8 @@ export const VOCAB_TEXTBOOKS: Record<JLPTLevel, VocabTextbookSpec[]> = {
       title: 'Nihongo Sou Matome N4',
       shortTitle: 'Sou Matome N4',
       japaneseTitle: '日本語総まとめ N4',
-      description: 'Tổng ôn từ vựng sơ trung cấp theo lộ trình từng tuần.',
-      unitIds: [],
+      description: 'Tổng ôn từ vựng sơ trung cấp theo lộ trình 6 tuần bám sát đời sống Nhật.',
+      unitIds: [301, 302, 303, 304, 305, 306],
       matchKeywords: ['matome', 'soumatome'],
     },
   ],
@@ -109,8 +109,8 @@ export const VOCAB_TEXTBOOKS: Record<JLPTLevel, VocabTextbookSpec[]> = {
       title: 'Mimi kara Oboeru N3',
       shortTitle: 'Mimi kara N3',
       japaneseTitle: '耳から覚える N3',
-      description: 'Giáo trình từ vựng N3 phổ biến nhất kèm phân loại từ loại, Hán Việt và phát âm.',
-      unitIds: [1, 2],
+      description: 'Giáo trình từ vựng N3 phổ biến nhất (6 Unit) kèm từ loại, Hán Việt và phát âm.',
+      unitIds: [1, 2, 3, 4, 5, 6],
       matchKeywords: ['mimi'],
     },
     {
@@ -119,8 +119,8 @@ export const VOCAB_TEXTBOOKS: Record<JLPTLevel, VocabTextbookSpec[]> = {
       title: 'Shin Kanzen Master N3',
       shortTitle: 'Shin Kanzen N3',
       japaneseTitle: '新完全マスター N3',
-      description: 'Từ vựng luyện thi trung cấp theo ngữ cảnh, đồng nghĩa và cụm từ cố định.',
-      unitIds: [],
+      description: 'Từ vựng luyện thi trung cấp theo sắc thái, collocations, động từ ghép và đọc hiểu.',
+      unitIds: [101, 102, 103, 104, 105, 106],
       matchKeywords: ['kanzen', 'shinkanzen'],
     },
     {
@@ -129,8 +129,8 @@ export const VOCAB_TEXTBOOKS: Record<JLPTLevel, VocabTextbookSpec[]> = {
       title: 'Minna no Nihongo Chuukyuu I',
       shortTitle: 'Minna Trung cấp I',
       japaneseTitle: 'みんなの日本語 中級I',
-      description: 'Từ vựng giáo trình Minna trung cấp I cho người học chuyển tiếp từ N4 lên N3.',
-      unitIds: [],
+      description: 'Từ vựng trọn bộ Bài 1–12 giáo trình Minna Trung cấp I chuyển tiếp từ N4 lên N3.',
+      unitIds: [201, 202, 203, 204, 205, 206],
       matchKeywords: ['minna', 'mina'],
     },
     {
@@ -139,8 +139,8 @@ export const VOCAB_TEXTBOOKS: Record<JLPTLevel, VocabTextbookSpec[]> = {
       title: 'Nihongo Sou Matome N3',
       shortTitle: 'Sou Matome N3',
       japaneseTitle: '日本語総まとめ N3',
-      description: 'Tổng hợp từ vựng N3 theo chủ đề trong 6 tuần luyện thi.',
-      unitIds: [],
+      description: 'Tổng hợp từ vựng N3 theo chủ đề trong 6 tuần luyện thi cấp tốc.',
+      unitIds: [301, 302, 303, 304, 305, 306],
       matchKeywords: ['matome', 'soumatome'],
     },
   ],
@@ -258,6 +258,7 @@ export function getUnitsForVocabTextbook(
   const allBooksOfLevel = getVocabTextbooksForLevel(level);
 
   return allLevelUnits.filter((unit) => {
+    if (unit.textbookId) return unit.textbookId === book.id;
     const lowerName = unit.name.toLowerCase();
     // If a unit title explicitly mentions another textbook in this level, bind strictly to that textbook
     const matchedByKeyword = allBooksOfLevel.find((candidate) =>
@@ -270,6 +271,108 @@ export function getUnitsForVocabTextbook(
   });
 }
 
+export const VOCAB_TEXTBOOK_SYNC_EVENT = 'nihonmaster:vocab-textbook-sync';
+
+export function getDefaultVocabTextbook(level: JLPTLevel): VocabTextbookSpec {
+  const list = getVocabTextbooksForLevel(level);
+  return list[0] ?? VOCAB_TEXTBOOKS.N3[0];
+}
+
+export function resolveActiveVocabTextbook(
+  level: JLPTLevel,
+  userId?: string | null,
+  explicitBookId?: string | null,
+): VocabTextbookSpec {
+  const levelBooks = getVocabTextbooksForLevel(level);
+  if (explicitBookId) {
+    const exact = levelBooks.find((book) => book.id === explicitBookId.trim().toLowerCase());
+    if (exact) return exact;
+  }
+  const preferredId = getPreferredVocabTextbookId(level, userId);
+  if (preferredId) {
+    const preferred = levelBooks.find((book) => book.id === preferredId);
+    if (preferred) return preferred;
+  }
+  return getDefaultVocabTextbook(level);
+}
+
+const VOCAB_TEXTBOOK_PREFERENCES_KEY = 'nihonmaster_vocab_textbook_preferences_v1';
+
+function readVocabTextbookPreferences(): Record<string, string> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = window.localStorage.getItem(VOCAB_TEXTBOOK_PREFERENCES_KEY);
+    if (!raw) return {};
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    return Object.fromEntries(
+      Object.entries(parsed).filter(
+        (entry): entry is [string, string] => typeof entry[1] === 'string',
+      ),
+    );
+  } catch {
+    return {};
+  }
+}
+
+export function getPreferredVocabTextbookId(
+  level: JLPTLevel,
+  userId?: string | null,
+): string | null {
+  const owner = userId || 'guest';
+  const candidate = readVocabTextbookPreferences()[`${owner}:${level}`];
+  return getVocabTextbooksForLevel(level).some((book) => book.id === candidate)
+    ? candidate
+    : null;
+}
+
+export function savePreferredVocabTextbookId(
+  level: JLPTLevel,
+  bookId: string,
+  userId?: string | null,
+): void {
+  if (typeof window === 'undefined') return;
+  if (!getVocabTextbooksForLevel(level).some((book) => book.id === bookId)) {
+    return;
+  }
+  try {
+    const owner = userId || 'guest';
+    const preferences = readVocabTextbookPreferences();
+    preferences[`${owner}:${level}`] = bookId;
+    window.localStorage.setItem(VOCAB_TEXTBOOK_PREFERENCES_KEY, JSON.stringify(preferences));
+  } catch {
+    // Keep the current selection usable if browser storage is unavailable.
+  }
+  try {
+    window.dispatchEvent(
+      new CustomEvent<{ level: JLPTLevel; bookId: string; userId?: string | null }>(
+        VOCAB_TEXTBOOK_SYNC_EVENT,
+        { detail: { level, bookId, userId } },
+      ),
+    );
+  } catch {
+    // Ignore event dispatch issues in non-DOM environments.
+  }
+}
+
+export function getPreferredVocabLevel(userId?: string | null): JLPTLevel | null {
+  const owner = userId || 'guest';
+  const candidate = readVocabTextbookPreferences()[`${owner}:level`];
+  return parseVocabLevelParam(candidate);
+}
+
+export function savePreferredVocabLevel(level: JLPTLevel, userId?: string | null): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const owner = userId || 'guest';
+    const preferences = readVocabTextbookPreferences();
+    preferences[`${owner}:level`] = level;
+    window.localStorage.setItem(VOCAB_TEXTBOOK_PREFERENCES_KEY, JSON.stringify(preferences));
+  } catch {
+    // Keep the current selection usable if browser storage is unavailable.
+  }
+}
+
 export function getWordsForVocabTextbook(
   snapshot: CmsSnapshot,
   level: JLPTLevel,
@@ -277,10 +380,38 @@ export function getWordsForVocabTextbook(
 ): VocabularyItem[] {
   const bookUnits = getUnitsForVocabTextbook(snapshot, level, book);
   if (bookUnits.length === 0) return [];
-  const unitIdSet = new Set(bookUnits.map((u) => u.id));
-  return getLiveAllVocabulary(snapshot).filter(
-    (w) => w.level === level && unitIdSet.has(w.unitId),
+  const unitDbIds = new Set(bookUnits.map((unit) => unit.dbUnitId).filter(Boolean));
+  const unitNumbers = new Set(bookUnits.map((unit) => unit.id));
+  const unambiguousUnitNumbers = new Set(
+    Array.from(unitNumbers).filter(
+      (unitNumber) =>
+        snapshot.units.filter((unit) => unit.level === level && unit.unitNumber === unitNumber).length === 1,
+    ),
   );
+  return snapshot.vocabularies
+    .filter(
+      (word) =>
+        word.level === level &&
+        (word.dbUnitId
+          ? unitDbIds.has(word.dbUnitId)
+          : unambiguousUnitNumbers.has(word.unitId)),
+    )
+    .map((word) => ({
+      id: word.id,
+      unitId: word.unitId,
+      level: word.level,
+      wordNumber: word.wordNumber,
+      kanji: word.kanji,
+      hiragana: word.hiragana,
+      hanViet: word.hanViet,
+      meaning: word.meaning,
+      wordType: word.wordType,
+      exampleSentence: word.exampleSentence,
+      exampleMeaning: word.exampleMeaning,
+      notes: word.notes,
+      tags: word.tags,
+      semanticRoles: word.semanticRoles,
+    }));
 }
 
 export function buildVocabToolQuery(level: JLPTLevel, bookId?: string): string {

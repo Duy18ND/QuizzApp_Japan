@@ -1,4 +1,5 @@
 import { getCurriculumSnapshotSync, getLiveAllVocabulary, getLiveVocabForUnit } from '../services/curriculumStore';
+import { findVocabTextbook, getWordsForVocabTextbook } from '../data/vocabTextbooks';
 import type { JLPTLevel, QuizConfig, QuestionType } from '../types/quiz';
 
 const QUESTION_TYPES: QuestionType[] = [
@@ -74,10 +75,19 @@ export function generateQuizSession(config: QuizConfig, starredWords: number[], 
   } else {
     const snap = getCurriculumSnapshotSync();
     const targetLevel = level.toUpperCase() as JLPTLevel;
+    const textbook = config.textbookId
+      ? findVocabTextbook(targetLevel, config.textbookId)
+      : undefined;
     unitData =
       unitId === 'all'
-        ? getLiveAllVocabulary(snap).filter((w) => w.level === targetLevel)
-        : getLiveVocabForUnit(snap, targetLevel, Number(unitId));
+        ? textbook
+          ? getWordsForVocabTextbook(snap, targetLevel, textbook)
+          : getLiveAllVocabulary(snap).filter((w) => w.level === targetLevel)
+        : getLiveVocabForUnit(
+            snap,
+            targetLevel,
+            config.unitDbId ?? Number(unitId),
+          );
   }
 
   if (!unitData || unitData.length === 0) {

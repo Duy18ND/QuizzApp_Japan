@@ -1,52 +1,51 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
-import { ChevronLeft, FileText, Sparkles, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { BookOpen, ChevronLeft, FileText, Mail, ShieldCheck, Sparkles, X } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { SakuraBlossomIcon, useToast } from '../ui';
 
 const RETURN_HOME_DELAY_MS = 5000;
+const SUPPORT_EMAIL = 'support@nihongo-dojo.vn';
 
-interface ContactItem {
-  id: 'github' | 'facebook' | 'threads' | 'cv';
+interface SupportItem {
+  id: 'feedback' | 'guide' | 'terms' | 'privacy';
   label: string;
   subtitle: string;
   icon: React.ReactNode;
 }
 
-const GitHubMark: React.FC = () => (
-  <svg viewBox="0 0 24 24" className="size-4 shrink-0" fill="currentColor" aria-hidden="true">
-    <path d="M12 2C6.48 2 2 6.59 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.49 0-.24-.01-1.04-.01-1.89-2.51.47-3.16-.63-3.36-1.21-.11-.29-.6-1.21-1.03-1.45-.35-.19-.85-.67-.01-.68.79-.01 1.36.75 1.55 1.06.9 1.55 2.34 1.11 2.91.84.09-.67.35-1.11.64-1.37-2.22-.26-4.55-1.14-4.55-5.08 0-1.12.39-2.05 1.03-2.77-.1-.26-.45-1.31.1-2.73 0 0 .84-.27 2.75 1.06a9.3 9.3 0 0 1 2.5-.34c.85 0 1.7.12 2.5.34 1.91-1.34 2.75-1.06 2.75-1.06.55 1.42.2 2.47.1 2.73.64.72 1.03 1.64 1.03 2.77 0 3.95-2.34 4.82-4.57 5.07.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .27.18.6.69.49A10.27 10.27 0 0 0 22 12.25C22 6.59 17.52 2 12 2Z" />
-  </svg>
-);
-
-const FacebookMark: React.FC = () => (
-  <svg viewBox="0 0 24 24" className="size-4 shrink-0" fill="currentColor" aria-hidden="true">
-    <path d="M13.5 22v-8.2h2.75l.42-3.2H13.5V8.55c0-.93.26-1.56 1.59-1.56h1.7V4.13c-.3-.04-1.31-.13-2.49-.13-2.47 0-4.16 1.51-4.16 4.28v2.32H7.34v3.2h2.8V22h3.36Z" />
-  </svg>
-);
-
-const ThreadsMark: React.FC = () => (
-  <svg viewBox="0 0 24 24" className="size-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M19 12a7 7 0 1 0-2.1 5" />
-    <path d="M15.2 12.2c0 2-1.3 3.4-3.1 3.4-1.7 0-2.9-1.2-2.9-2.8s1.2-2.8 2.9-2.8c1.9 0 3.2 1.2 3.2 3.3 0 1.4.8 2.2 1.8 2.2 1.1 0 1.9-1.1 1.9-3.5" />
-    <path d="M15.2 12.2c-.1-2.5-1.4-4-3.6-4-1.2 0-2.3.4-3 1.1" />
-  </svg>
-);
-
-const CONTACT_ITEMS: readonly ContactItem[] = [
-  { id: 'github', label: 'GitHub', subtitle: 'Người Bí Ẩn', icon: <GitHubMark /> },
-  { id: 'facebook', label: 'Facebook', subtitle: 'Người Bí Ẩn', icon: <FacebookMark /> },
-  { id: 'threads', label: 'Threads', subtitle: 'Người Bí Ẩn', icon: <ThreadsMark /> },
-  { id: 'cv', label: 'CV Cá nhân', subtitle: 'Người Bí Ẩn', icon: <FileText className="size-4 shrink-0" aria-hidden="true" /> },
+const SUPPORT_ITEMS: readonly SupportItem[] = [
+  {
+    id: 'feedback',
+    label: 'Báo lỗi / Góp ý',
+    subtitle: 'Gửi email hỗ trợ',
+    icon: <Mail className="size-4 shrink-0" aria-hidden="true" />,
+  },
+  {
+    id: 'guide',
+    label: 'Bản đồ Lộ trình',
+    subtitle: 'Học theo Màn N5',
+    icon: <BookOpen className="size-4 shrink-0" aria-hidden="true" />,
+  },
+  {
+    id: 'terms',
+    label: 'Điều khoản',
+    subtitle: 'Quy định sử dụng',
+    icon: <FileText className="size-4 shrink-0" aria-hidden="true" />,
+  },
+  {
+    id: 'privacy',
+    label: 'Bảo mật',
+    subtitle: 'Quyền riêng tư',
+    icon: <ShieldCheck className="size-4 shrink-0" aria-hidden="true" />,
+  },
 ];
 
 /**
- * Draggable Bouncy Sakura Contact Ball + Anonymous ("Người Bí Ẩn") Contact Drawer.
- * - Rests cleanly over the bottom-right background Gemini watermark on PC / Tablet / iPad.
- * - Supports 1:1 drag/toss like a light bouncy ball with elastic screen-wall bounce and auto-springs
- *   back to its home spot after ~5 seconds idle.
- * - Small screens (`< md` / mobile iOS): collapsed to a slim corner button so mobile UI stays unobstructed.
+ * Draggable Bouncy Sakura Support Ball + Quick Support & Legal Drawer.
  */
 export const SakuraContactFloating: React.FC = () => {
+  const navigate = useNavigate();
   const [contactOpen, setContactOpen] = useState(false);
   const [mobileRevealed, setMobileRevealed] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -430,17 +429,17 @@ export const SakuraContactFloating: React.FC = () => {
       className={cn(
         'pointer-events-none fixed z-40 flex flex-col items-end gap-2 md:bottom-[max(0.75rem,env(safe-area-inset-bottom))] md:right-[max(0.75rem,env(safe-area-inset-right))] lg:bottom-[max(3.6%,env(safe-area-inset-bottom))] lg:right-[max(2.4%,env(safe-area-inset-right))] print:hidden',
         mobileRevealed || contactOpen
-          ? 'bottom-[max(0.5rem,env(safe-area-inset-bottom))] right-[max(0.5rem,env(safe-area-inset-right))]'
-          : 'bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-0',
+          ? 'bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-[max(0.5rem,env(safe-area-inset-right))]'
+          : 'bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-0',
       )}
     >
-      {/* Expandable Contact Card ("sổ ra") */}
+      {/* Expandable Support & Legal Drawer */}
       <section
         id={panelId}
         data-open={isExpanded ? 'true' : 'false'}
         aria-hidden={!isExpanded}
         inert={!isExpanded}
-        aria-label="Thông tin liên hệ Người Bí Ẩn"
+        aria-label="Trung tâm Hỗ trợ Nihongo 問"
         className="sakura-popover-panel w-[min(19.5rem,calc(100vw-1rem))] rounded-2xl border border-line-strong bg-surface/95 p-3.5 text-fg shadow-pop"
       >
         <div className="flex items-center justify-between gap-2 border-b border-line pb-2.5">
@@ -449,8 +448,8 @@ export const SakuraContactFloating: React.FC = () => {
               <SakuraBlossomIcon className="size-4.5" />
             </span>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-fg">Người Bí Ẩn</p>
-              <p className="truncate text-[11px] text-muted">Kênh liên hệ ẩn danh</p>
+              <p className="truncate text-sm font-semibold text-fg">Hỗ trợ Nihongo 問</p>
+              <p className="truncate text-[11px] text-muted">Trợ giúp, góp ý &amp; pháp lý</p>
             </div>
           </div>
           <button
@@ -459,7 +458,7 @@ export const SakuraContactFloating: React.FC = () => {
               setContactOpen(false);
               setMobileRevealed(false);
             }}
-            aria-label="Đóng bảng liên hệ"
+            aria-label="Đóng bảng hỗ trợ"
             className="grid size-7 shrink-0 place-items-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-fg"
           >
             <X className="size-4" aria-hidden="true" />
@@ -467,17 +466,30 @@ export const SakuraContactFloating: React.FC = () => {
         </div>
 
         <div className="mt-3 grid grid-cols-2 gap-2">
-          {CONTACT_ITEMS.map((item) => (
+          {SUPPORT_ITEMS.map((item) => (
             <button
               key={item.id}
               type="button"
-              onClick={() =>
-                toast({
-                  title: `${item.label} — Người Bí Ẩn`,
-                  description: 'Thông tin liên hệ tạm thời đang giữ ẩn danh.',
-                  tone: 'info',
-                })
-              }
+              onClick={() => {
+                setContactOpen(false);
+                setMobileRevealed(false);
+                if (item.id === 'terms') {
+                  navigate('/terms');
+                } else if (item.id === 'privacy') {
+                  navigate('/privacy');
+                } else if (item.id === 'guide') {
+                  navigate('/roadmap');
+                } else {
+                  if (navigator.clipboard?.writeText) {
+                    void navigator.clipboard.writeText(SUPPORT_EMAIL).catch(() => {});
+                  }
+                  toast({
+                    title: `Hỗ trợ & Góp ý: ${SUPPORT_EMAIL}`,
+                    description: 'Đã sao chép địa chỉ email hỗ trợ. Bạn có thể gửi góp ý hoặc báo lỗi bất cứ lúc nào!',
+                    tone: 'info',
+                  });
+                }
+              }}
               className="group flex items-center gap-2.5 rounded-xl border border-line bg-surface-2/70 px-2.5 py-2 text-left transition-colors hover:border-primary hover:bg-primary-soft/60"
             >
               <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-surface text-primary-fg ring-1 ring-line transition-transform duration-150 group-hover:scale-105">
@@ -494,9 +506,9 @@ export const SakuraContactFloating: React.FC = () => {
         <div className="mt-2.5 flex items-center justify-between gap-2 rounded-xl border border-line bg-sakura-soft px-3 py-1.5 text-xs text-fg">
           <span className="flex min-w-0 items-center gap-1.5 font-medium">
             <Sparkles className="size-3.5 shrink-0 text-sakura" aria-hidden="true" />
-            <span className="truncate">Liên hệ: Người Bí Ẩn</span>
+            <span className="truncate">{SUPPORT_EMAIL}</span>
           </span>
-          <span className="shrink-0 text-[10px] text-muted">Thả bóng 5s tự về</span>
+          <span className="shrink-0 text-[10px] text-muted">Beta v1.0</span>
         </div>
       </section>
 
@@ -522,7 +534,7 @@ export const SakuraContactFloating: React.FC = () => {
         data-open={contactOpen ? 'true' : 'false'}
         aria-expanded={contactOpen}
         aria-controls={panelId}
-        aria-label={contactOpen ? 'Thu gọn liên hệ' : 'Liên hệ Người Bí Ẩn'}
+        aria-label={contactOpen ? 'Thu gọn hỗ trợ' : 'Mở Trung tâm Hỗ trợ Nihongo 問'}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={finishDragGesture}

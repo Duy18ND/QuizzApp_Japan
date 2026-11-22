@@ -1,6 +1,11 @@
 import { isSupabaseAccountUuid } from './sessionScope';
 import { supabase } from './supabaseClient';
 import { saveStudySchedule } from './notificationService';
+import {
+  resolveActiveVocabTextbook,
+  savePreferredVocabLevel,
+  savePreferredVocabTextbookId,
+} from '../data/vocabTextbooks';
 
 export type StudyLevel = 'N5' | 'N4' | 'N3' | 'N2' | 'N1';
 
@@ -209,15 +214,22 @@ export function requestOpenLevelModal(): void {
 export async function persistStudyLevel(
   level: StudyLevel,
   userId?: string | null,
+  textbookId?: string | null,
 ): Promise<StudyLevel | null> {
   if (!userId) return null;
+  const resolvedBook = resolveActiveVocabTextbook(level, userId, textbookId);
   cacheStudyLevel(level, userId);
+  savePreferredVocabLevel(level, userId);
+  savePreferredVocabTextbookId(level, resolvedBook.id, userId);
   markLevelModalDismissed(userId, false);
 
   if (supabase && isSupabaseAccountUuid(userId)) {
     try {
       await supabase.auth.updateUser({
-        data: { study_level: level },
+        data: {
+          study_level: level,
+          study_textbook: resolvedBook.id,
+        },
       });
     } catch {
       // Non-blocking fallback — cache remains up to date locally
