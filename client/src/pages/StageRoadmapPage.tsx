@@ -1921,8 +1921,8 @@ export const StageRoadmapPage: React.FC = () => {
                 }
               >
                 <option value={10}>10 Màn (1 Chặng — Ôn cấp tốc)</option>
-                <option value={20}>20 Màn (2 Chặng — 3 tuần)</option>
-                <option value={30}>30 Màn (3 Chặng — 1 tháng)</option>
+                <option value={20}>20 Màn (2 Chặng — Chuẩn Shin Kanzen / Mimi / Sou Matome)</option>
+                <option value={30}>30 Màn (3 Chặng — Chuẩn Minna II N4)</option>
                 <option value={60}>60 Màn (6 Chặng — Trọn bộ 25 bài Minna I)</option>
               </Select>
             </Field>

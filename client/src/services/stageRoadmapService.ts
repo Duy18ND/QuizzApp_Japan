@@ -205,6 +205,9 @@ export function getRecommendedFixedStageCount(
   if (level === 'N5' && (!textbookId || textbookId === 'minna-n5')) {
     return 60;
   }
+  if (level === 'N4' && (!textbookId || textbookId === 'minna-n4')) {
+    return 30;
+  }
   return 20;
 }
 
@@ -723,10 +726,17 @@ export function generateStageMap(options: {
     const candidateTasks: StageTask[] = [];
     let theme = '';
     let title = '';
+    const totalChunks = Math.max(1, Math.ceil(totalStages / 10));
     const customChunkTitle = chunkTitles[chunkNumber]?.trim();
+    const defaultGenericChunkTitle =
+      chunkNumber === totalChunks
+        ? `Chặng ${chunkNumber} · Thực chiến 5 kỹ năng & Về đích JLPT ${level}`
+        : `Chặng ${chunkNumber} · Chu kỳ 5 kỹ năng (${book.shortTitle})`;
     const chunkTitle =
       customChunkTitle ||
-      (useMinna60Curriculum ? MINNA_N5_CHUNK_TITLES[chunkNumber] : undefined);
+      (useMinna60Curriculum
+        ? MINNA_N5_CHUNK_TITLES[chunkNumber]
+        : defaultGenericChunkTitle);
 
     const buildLessonPaths = (lessonIdx: number) => {
       const unit = getUnitAt(lessonIdx);
@@ -946,11 +956,35 @@ export function generateStageMap(options: {
           },
         );
       }
+    } else if (i === totalStages - 1 && totalStages >= 10) {
+      title = `Thi thử Toàn bộ JLPT ${level} (Full Test — Về đích)`;
+      theme = `Màn ${stageNumber} · Tổng lực 5 kỹ năng & Hoàn tất ${book.shortTitle}`;
+      if (allowedSkills.has('quiz') || allowedSkills.has('reading') || allowedSkills.has('listening')) {
+        candidateTasks.push({
+          id: `${stageId}-t1`,
+          title: `Làm đề Thi thử Toàn bộ JLPT ${level} (Full Test)`,
+          subtitle: 'Đánh giá tổng lực Chữ Hán – Từ vựng – Ngữ pháp – Đọc hiểu – Nghe hiểu có bấm giờ.',
+          skill: 'quiz',
+          minutes: 15,
+          to: `/jlpt/full-test${jlptQuery}`,
+        });
+      }
+      if (allowedSkills.has('review')) {
+        candidateTasks.push({
+          id: `${stageId}-t2`,
+          title: 'Rà soát lỗi sai cuối chặng & Xuất phiếu ôn tập',
+          subtitle: 'Chốt toàn bộ lỗ hổng đã tích lũy trước khi qua trình độ mới.',
+          skill: 'review',
+          minutes: 5,
+          to: '/grammar/mistakes',
+        });
+      }
     } else {
       const dayInCycle = i % 7;
-      const unitIndex = Math.floor(i / 3);
+      const unitIndex = Math.floor((i * 2) / 7) + (dayInCycle >= 3 ? 1 : 0);
       const { unitLabel, unitPath, flashcardPath, quizPath, grammarPath, grammarLabel } =
         buildLessonPaths(unitIndex);
+      const prevPaths = buildLessonPaths(Math.max(0, unitIndex - 1));
       const grammarRef = getGrammarAt(Math.floor(i / 2));
       const resolvedGrammarPath = grammarRef
         ? `/grammar/${grammarRef.bookId}/${grammarRef.chapter.id}`
@@ -958,54 +992,54 @@ export function generateStageMap(options: {
       const resolvedGrammarLabel = grammarRef ? grammarRef.chapter.title : grammarLabel;
 
       switch (dayInCycle) {
-        case 0:
-        case 3: {
-          title = `Nạp Từ vựng & Kanji · ${unitLabel}`;
-          theme = 'Nạp mặt chữ & phát âm';
+        case 0: {
+          title = `Nạp Từ vựng, Kanji & Nghe ngắn · ${unitLabel}`;
+          theme = 'Ngày 1/7 · Nạp mặt chữ + Chạm phản xạ nghe mỗi ngày';
           if (allowedSkills.has('vocab')) {
             candidateTasks.push({
               id: `${stageId}-t1`,
-              title: `Đọc từ vựng ${unitLabel}`,
-              subtitle: `Nghe phát âm, đọc nghĩa Việt và đánh dấu ★ từ khó (${book.shortTitle}).`,
+              title: `Đọc từ vựng & lật Flashcard · ${unitLabel}`,
+              subtitle: `Học 15–20 từ mới, gắn ★ từ khó rồi lật nhanh Flashcard (${book.shortTitle}).`,
               skill: 'vocab',
-              minutes: 5,
+              minutes: 6,
               to: unitPath,
-            });
-            candidateTasks.push({
-              id: `${stageId}-t2`,
-              title: `Lật thẻ Flashcard · ${unitLabel}`,
-              subtitle: 'Kiểm tra phản xạ mặt chữ ↔ nghĩa Việt nhanh.',
-              skill: 'vocab',
-              minutes: 4,
-              to: flashcardPath,
             });
           }
           if (allowedSkills.has('kanji')) {
             candidateTasks.push({
-              id: `${stageId}-t3`,
-              title: `Học 5–8 chữ Kanji ${level}`,
+              id: `${stageId}-t2`,
+              title: `Học 5–6 chữ Kanji ${level}`,
               subtitle:
                 levelKanjiCount > 0
-                  ? `Luyện nhận diện & nét viết trong kho ${levelKanjiCount} chữ Kanji ${level}.`
+                  ? `Ghi nhớ âm Hán Việt, On-Kun và viết nét trong kho ${levelKanjiCount} Kanji ${level}.`
                   : 'Luyện nhận diện âm On-Kun, Hán Việt và thứ tự nét viết.',
               skill: 'kanji',
               minutes: 5,
               to: '/kanji',
             });
           }
+          if (allowedSkills.has('listening')) {
+            candidateTasks.push({
+              id: `${stageId}-t3`,
+              title: `Vi-bài tập Nghe hiểu ${level} (1–2 đoạn)`,
+              subtitle: 'Nghe hội thoại tình huống không nhìn chữ, sau đó bật Transcript đọc nhại.',
+              skill: 'listening',
+              minutes: 4,
+              to: `/jlpt/listening${jlptQuery}`,
+            });
+          }
           break;
         }
-        case 1:
-        case 4: {
-          title = `Quiz nhắc lại 24h & Ngữ pháp`;
-          theme = 'Củng cố trí nhớ & cấu trúc câu';
+        case 1: {
+          title = 'Nhắc 24h, Ngữ pháp & Hái sao ★';
+          theme = 'Ngày 2/7 · Khóa trí nhớ 24h + Ghép cấu trúc câu';
           if (allowedSkills.has('quiz')) {
             candidateTasks.push({
               id: `${stageId}-t1`,
-              title: `Quiz nhanh 10 câu · ${unitLabel}`,
-              subtitle: 'Quét lại từ vựng vừa nạp sau 24 giờ để khóa trí nhớ.',
+              title: `Quiz nhắc lại 24h (10 câu) · ${unitLabel}`,
+              subtitle: 'Kiểm tra ngay từ vựng vừa nạp ở Màn trước để giữ trí nhớ dài hạn.',
               skill: 'quiz',
-              minutes: 5,
+              minutes: 4,
               to: quizPath,
             });
           }
@@ -1013,104 +1047,208 @@ export function generateStageMap(options: {
             candidateTasks.push({
               id: `${stageId}-t2`,
               title: `Học ${resolvedGrammarLabel}`,
-              subtitle: 'Nắm công thức kết hợp, ví dụ mẫu và làm bài tập vận dụng.',
+              subtitle: 'Nắm công thức kết hợp, ví dụ mẫu và làm ngay 6 câu luyện tập tự động.',
               skill: 'grammar',
               minutes: 6,
               to: resolvedGrammarPath,
             });
           }
+          if (allowedSkills.has('reading')) {
+            candidateTasks.push({
+              id: `${stageId}-t3`,
+              title: `Vi-bài tập Hái sao (★) ${level}`,
+              subtitle: 'Rèn tư duy trật tự từ & trợ từ chuẩn đề JLPT qua 3–5 câu xếp câu.',
+              skill: 'reading',
+              minutes: 4,
+              to: `/jlpt/star${jlptQuery}`,
+            });
+          }
           break;
         }
         case 2: {
-          title = 'Luyện gõ chính tả & Đọc hiểu ngắn';
-          theme = 'Chủ động ứng dụng';
-          if (allowedSkills.has('vocab') || allowedSkills.has('quiz')) {
+          title = 'Gõ chính tả, Đọc Đoản văn & Dojo';
+          theme = 'Ngày 3/7 · Chủ động viết đúng & đọc lướt nắm ý chính';
+          if (allowedSkills.has('vocab')) {
             candidateTasks.push({
               id: `${stageId}-t1`,
-              title: `Luyện gõ từ vựng ${book.shortTitle}`,
-              subtitle: 'Gõ Hiragana/Kanji từ nghĩa Việt để không nhầm trường âm/âm ngắt.',
+              title: `Luyện gõ chính tả từ vựng · ${book.shortTitle}`,
+              subtitle: 'Gõ Hiragana/Kanji từ nghĩa Việt để tránh nhầm trường âm & âm ngắt.',
               skill: 'vocab',
-              minutes: 5,
+              minutes: 4,
               to: `/vocabulary/writing${toolQuery}`,
             });
           }
           if (allowedSkills.has('reading')) {
             candidateTasks.push({
               id: `${stageId}-t2`,
-              title: level === 'N5' || level === 'N4' ? 'Đọc hiểu Đoản văn ngắn' : 'Luyện Hái sao (★) JLPT',
-              subtitle:
-                level === 'N5' || level === 'N4'
-                  ? 'Đọc đoạn ngắn 150 chữ và nắm ý chính nhanh.'
-                  : 'Rèn tư duy sắp xếp 4 mảnh ghép câu chuẩn đề JLPT.',
+              title: `Đọc hiểu Đoản văn ngắn ${level}`,
+              subtitle: 'Đọc 1 đoạn 100–150 chữ, luyện tìm thông tin chính nhanh trong 4 phút.',
               skill: 'reading',
+              minutes: 5,
+              to: `/jlpt/reading-short${jlptQuery}`,
+            });
+          }
+          if (allowedSkills.has('quiz') || allowedSkills.has('vocab')) {
+            candidateTasks.push({
+              id: `${stageId}-t3`,
+              title: `Dojo Mini-game: Chém Hoa Quả (${book.shortTitle})`,
+              subtitle: 'Giải trí 3 phút kích phản xạ nghĩa Việt ↔ Nhật theo đúng giáo trình.',
+              skill: 'quiz',
+              minutes: 3,
+              to: `/games?game=slash&level=${level}&book=${book.id}`,
+            });
+          }
+          break;
+        }
+        case 3: {
+          title = `Từ vựng mới, Kanji JLPT & Nghe · ${unitLabel}`;
+          theme = 'Ngày 4/7 · Mở rộng vốn từ + Phản xạ chữ Hán & nghe';
+          if (allowedSkills.has('vocab')) {
+            candidateTasks.push({
+              id: `${stageId}-t1`,
+              title: `Lật Flashcard tốc độ · ${unitLabel}`,
+              subtitle: `Nạp nhóm từ vựng mới của ${book.shortTitle} & đánh dấu ★ từ khó.`,
+              skill: 'vocab',
+              minutes: 5,
+              to: flashcardPath,
+            });
+          }
+          if (allowedSkills.has('kanji')) {
+            candidateTasks.push({
+              id: `${stageId}-t2`,
+              title: `Trắc nghiệm Kanji JLPT ${level} (10 câu)`,
+              subtitle: 'Chọn nhanh cách đọc Hiragana / chữ Hán chuẩn đề thi thật.',
+              skill: 'kanji',
+              minutes: 5,
+              to: `/jlpt/kanji${jlptQuery}`,
+            });
+          }
+          if (allowedSkills.has('listening')) {
+            candidateTasks.push({
+              id: `${stageId}-t3`,
+              title: `Luyện Nghe hiểu & Transcript ${level}`,
+              subtitle: 'Bắt từ khóa câu hỏi trước khi nghe đoạn hội thoại.',
+              skill: 'listening',
+              minutes: 4,
+              to: `/jlpt/listening${jlptQuery}`,
+            });
+          }
+          break;
+        }
+        case 4: {
+          title = 'Quiz 24h, Ngữ pháp & Đọc hiểu';
+          theme = 'Ngày 5/7 · Nối mệnh đề nâng cao + Phân tích mạch văn';
+          if (allowedSkills.has('quiz')) {
+            candidateTasks.push({
+              id: `${stageId}-t1`,
+              title: `Quiz nhanh 24h · ${prevPaths.unitLabel}`,
+              subtitle: 'Quét lại bài hôm qua để đạt ≥ 80% trước khi chuyển cấu trúc mới.',
+              skill: 'quiz',
+              minutes: 4,
+              to: prevPaths.quizPath,
+            });
+          }
+          if (allowedSkills.has('grammar')) {
+            candidateTasks.push({
+              id: `${stageId}-t2`,
+              title: `Học ${resolvedGrammarLabel}`,
+              subtitle: 'Phân biệt sắc thái với các mẫu tương đồng và làm bài tập thực hành.',
+              skill: 'grammar',
               minutes: 6,
+              to: resolvedGrammarPath,
+            });
+          }
+          if (allowedSkills.has('reading')) {
+            candidateTasks.push({
+              id: `${stageId}-t3`,
+              title:
+                level === 'N5'
+                  ? `Đọc hiểu Đoản văn ${level}`
+                  : `Đọc hiểu Trung văn ${level}`,
+              subtitle:
+                level === 'N5'
+                  ? 'Đọc tin nhắn & đoạn văn ngắn N5 kèm câu hỏi suy luận.'
+                  : 'Đọc đoạn văn 250–350 chữ, tập xác định câu chủ đề & lý do.',
+              skill: 'reading',
+              minutes: 5,
               to:
-                level === 'N5' || level === 'N4'
+                level === 'N5'
                   ? `/jlpt/reading-short${jlptQuery}`
-                  : `/jlpt/star${jlptQuery}`,
+                  : `/jlpt/reading-medium${jlptQuery}`,
             });
           }
           break;
         }
         case 5: {
-          title = 'Thực chiến Đọc – Nghe & Từ đánh dấu ★';
-          theme = 'Kỹ năng phòng thi JLPT';
-          if (allowedSkills.has('listening')) {
+          title = 'Thực chiến Phòng thi 5 Kỹ năng';
+          theme = 'Ngày 6/7 · Mondai JLPT tổng hợp + Thính giác Ninja';
+          if (allowedSkills.has('quiz') || allowedSkills.has('vocab')) {
             candidateTasks.push({
               id: `${stageId}-t1`,
-              title: `Luyện Nghe hiểu ${level}`,
-              subtitle: 'Nghe hội thoại tình huống và đối chiếu transcript sau khi trả lời.',
-              skill: 'listening',
-              minutes: 6,
-              to: `/jlpt/listening${jlptQuery}`,
+              title: `Mondai Từ vựng & Ngữ pháp JLPT ${level}`,
+              subtitle: 'Giải đề chọn từ đúng ngữ cảnh & phân biệt mẫu câu hay bẫy.',
+              skill: 'quiz',
+              minutes: 5,
+              to: `/jlpt/vocab${jlptQuery}`,
             });
           }
           if (allowedSkills.has('reading')) {
             candidateTasks.push({
               id: `${stageId}-t2`,
-              title: level === 'N5' || level === 'N4' ? 'Đọc hiểu Đoản văn' : 'Đọc hiểu Trung văn',
-              subtitle: 'Phân tích mạch văn và trả lời câu hỏi trọng tâm.',
+              title:
+                level === 'N5'
+                  ? 'Đọc hiểu Trung văn N5'
+                  : `Đọc hiểu Trường văn ${level}`,
+              subtitle: 'Rèn sức bền đọc văn bản dài & đối chiếu phần giải thích chi tiết.',
               skill: 'reading',
               minutes: 6,
               to:
-                level === 'N5' || level === 'N4'
-                  ? `/jlpt/reading-short${jlptQuery}`
-                  : `/jlpt/reading-medium${jlptQuery}`,
+                level === 'N5'
+                  ? `/jlpt/reading-medium${jlptQuery}`
+                  : `/jlpt/reading-long${jlptQuery}`,
             });
           }
-          if (allowedSkills.has('review')) {
+          if (allowedSkills.has('listening')) {
             candidateTasks.push({
               id: `${stageId}-t3`,
-              title: `Ôn từ đánh dấu ★ (${book.shortTitle})`,
-              subtitle: 'Rà soát lại những từ bạn đánh dấu sao trong tuần.',
-              skill: 'review',
-              minutes: 4,
-              to: `/vocabulary/review${toolQuery}`,
+              title: `Dojo Mini-game: Thính giác Ninja (${book.shortTitle})`,
+              subtitle: 'Ẩn mặt chữ, nghe giọng đọc tiếng Nhật và bắt đúng mục tiêu trong 3 phút.',
+              skill: 'listening',
+              minutes: 3,
+              to: `/games?game=listening&level=${level}&book=${book.id}`,
             });
           }
           break;
         }
         default: {
-          title = 'Dọn sạch lỗi sai & Tổng ôn tuần';
-          theme = 'Review Day — Không nạp bài mới';
+          title = 'Review Day · Dọn sạch lỗi sai & Tổng ôn tuần';
+          theme = 'Ngày 7/7 · Không nạp bài mới — Khóa chắc 100% kiến thức tuần';
           if (allowedSkills.has('review')) {
             candidateTasks.push({
               id: `${stageId}-t1`,
               title: 'Xử lý toàn bộ Bài sai cần ôn',
-              subtitle: 'Làm lại các câu sai tích lũy trong tuần cho tới khi đạt 100%.',
+              subtitle: 'Làm lại tất cả câu ngữ pháp & từ vựng từng trả lời nhầm trong tuần.',
               skill: 'review',
-              minutes: 6,
+              minutes: 5,
               to: '/grammar/mistakes',
+            });
+            candidateTasks.push({
+              id: `${stageId}-t2`,
+              title: `Ôn từ đánh dấu ★ (${book.shortTitle})`,
+              subtitle: 'Rà soát kho từ khó bạn đã gắn sao để hạ tỷ lệ quên xuống 0%.',
+              skill: 'review',
+              minutes: 4,
+              to: `/vocabulary/review${toolQuery}`,
             });
           }
           if (allowedSkills.has('quiz')) {
             candidateTasks.push({
-              id: `${stageId}-t2`,
-              title: `Quiz tổng hợp tuần · ${book.shortTitle}`,
-              subtitle: 'Kiểm tra tổng lực kiến thức cả tuần để chốt sang tuần mới.',
+              id: `${stageId}-t3`,
+              title: `Mini-test Ngữ pháp JLPT ${level} / Chốt tuần`,
+              subtitle: 'Kiểm tra tổng hợp cuối tuần để sẵn sàng bước sang chu kỳ mới.',
               skill: 'quiz',
-              minutes: 6,
-              to: `/vocabulary/quiz${toolQuery}`,
+              minutes: 5,
+              to: `/jlpt/grammar${jlptQuery}`,
             });
           }
           break;

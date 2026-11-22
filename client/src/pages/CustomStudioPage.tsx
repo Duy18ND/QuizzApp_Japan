@@ -34,6 +34,7 @@ import {
 import { buttonStyles } from '../components/ui/styles';
 import { useAuth } from '../context/auth-context';
 import {
+  createFiveSkillPresetVisualRoadmap,
   createStarterVisualRoadmap,
   CUSTOM_STUDIO_SYNC_EVENT,
   loadCustomStudioState,
@@ -84,6 +85,7 @@ export const CustomStudioPage: React.FC = () => {
   const [newMapModalOpen, setNewMapModalOpen] = useState(false);
   const [newMapName, setNewMapName] = useState('');
   const [newMapLevel, setNewMapLevel] = useState<JLPTLevel>(studyLevel ?? 'N5');
+  const [newMapTemplate, setNewMapTemplate] = useState<'five-skill' | 'starter'>('five-skill');
 
   // Instant Lesson Player Modal (auto-opens when ?lesson=<id> deep link is present)
   const [playingLesson, setPlayingLesson] = useState<{
@@ -269,7 +271,10 @@ export const CustomStudioPage: React.FC = () => {
   );
 
   const handleCreateVisualRoadmap = () => {
-    const created = createStarterVisualRoadmap(newMapName, newMapLevel);
+    const created =
+      newMapTemplate === 'five-skill'
+        ? createFiveSkillPresetVisualRoadmap(newMapName, newMapLevel)
+        : createStarterVisualRoadmap(newMapName, newMapLevel);
     commitStudio({
       ...studio,
       visualRoadmaps: [created, ...studio.visualRoadmaps],
@@ -278,6 +283,20 @@ export const CustomStudioPage: React.FC = () => {
     setNewMapName('');
     setNewMapModalOpen(false);
     toast({ title: `Đã tạo bản đồ "${created.name}"!`, tone: 'success' });
+  };
+
+  const handleQuickCreateFiveSkillMap = () => {
+    const targetLevel = (studyLevel ?? 'N5') as JLPTLevel;
+    const created = createFiveSkillPresetVisualRoadmap('', targetLevel);
+    commitStudio({
+      ...studio,
+      visualRoadmaps: [created, ...studio.visualRoadmaps],
+    });
+    setActiveRoadmapId(created.id);
+    toast({
+      title: `Đã sinh nhanh Lộ trình Chuẩn 5 Kỹ năng (${targetLevel}) · 7 ngày!`,
+      tone: 'success',
+    });
   };
 
   const handleUpdateVisualRoadmap = (updated: VisualRoadmap) => {
@@ -509,6 +528,15 @@ export const CustomStudioPage: React.FC = () => {
                 onClick={() => setNewMapModalOpen(true)}
               >
                 Vẽ Bản đồ mới
+              </Button>
+              <Button
+                type="button"
+                variant="soft"
+                size="sm"
+                leftIcon={<Sparkles className="size-3.5" aria-hidden />}
+                onClick={handleQuickCreateFiveSkillMap}
+              >
+                + Sinh nhanh Mẫu 5 Kỹ năng
               </Button>
             </div>
             {activeRoadmap && (
@@ -904,6 +932,18 @@ export const CustomStudioPage: React.FC = () => {
                   JLPT {lv}
                 </option>
               ))}
+            </Select>
+          </Field>
+          <Field label="Mẫu khởi tạo" htmlFor="new-vmap-template">
+            <Select
+              id="new-vmap-template"
+              value={newMapTemplate}
+              onChange={(e) => setNewMapTemplate(e.target.value as 'five-skill' | 'starter')}
+            >
+              <option value="five-skill">
+                Chuẩn 5 Kỹ năng (7 chặng: Từ · Kanji · Ngữ · Nghe · Đọc · Dojo · Boss)
+              </option>
+              <option value="starter">Khung cơ bản (4 chặng gọn nhẹ để tự vẽ thêm)</option>
             </Select>
           </Field>
         </div>

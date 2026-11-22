@@ -343,12 +343,13 @@ export function isVisualNodeUnlocked(roadmap: VisualRoadmap, nodeId: string): bo
 
 export function createStarterVisualRoadmap(name: string, level: JLPTLevel): VisualRoadmap {
   const now = new Date().toISOString();
-  const n1 = `node-${Date.now()}-1`;
-  const n2 = `node-${Date.now()}-2`;
-  const n3 = `node-${Date.now()}-3`;
-  const n4 = `node-${Date.now()}-4`;
+  const ts = Date.now();
+  const n1 = `node-${ts}-1`;
+  const n2 = `node-${ts}-2`;
+  const n3 = `node-${ts}-3`;
+  const n4 = `node-${ts}-4`;
   return {
-    id: `vmap-${Date.now()}`,
+    id: `vmap-${ts}`,
     name: name.trim() || `Lộ trình ${level} tự vẽ`,
     level,
     description: 'Kéo thả các điểm bài học, nối dây mở khóa hoặc rẽ nhánh theo ý thích.',
@@ -362,6 +363,106 @@ export function createStarterVisualRoadmap(name: string, level: JLPTLevel): Visu
       { id: `edge-${n1}-${n2}`, fromId: n1, toId: n2 },
       { id: `edge-${n2}-${n3}`, fromId: n2, toId: n3 },
       { id: `edge-${n3}-${n4}`, fromId: n3, toId: n4 },
+    ],
+    completedNodeIds: [],
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+/**
+ * Generates a ready-to-play 7-node Visual Roadmap balancing all 5 JLPT skills
+ * (Vocab, Kanji, Grammar, Reading, Listening) + Dojo Mini-game + Full Test Boss.
+ */
+export function createFiveSkillPresetVisualRoadmap(name: string, level: JLPTLevel): VisualRoadmap {
+  const now = new Date().toISOString();
+  const ts = Date.now();
+  const lvlLower = level.toLowerCase();
+  const jlptQuery = level === 'N5' || level === 'N4' || level === 'N3' ? `?level=${level}` : '';
+  const ids = Array.from({ length: 7 }, (_, idx) => `node-${ts}-5k-${idx + 1}`);
+
+  const rawNodes: VisualRoadmapNode[] = [
+    {
+      id: ids[0],
+      title: 'Ngày 1: Từ vựng nền & Flashcard',
+      kind: 'vocab',
+      xPct: 20,
+      yPct: 16,
+      targetPath: `/vocabulary/${lvlLower}`,
+    },
+    {
+      id: ids[1],
+      title: `Ngày 2: Kanji ${level} & Trắc nghiệm chữ Hán`,
+      kind: 'kanji',
+      xPct: 50,
+      yPct: 16,
+      targetPath: `/jlpt/kanji${jlptQuery}`,
+    },
+    {
+      id: ids[2],
+      title: 'Ngày 3: Ngữ pháp & Hái sao ★',
+      kind: 'grammar',
+      xPct: 80,
+      yPct: 16,
+      targetPath: '/grammar',
+    },
+    {
+      id: ids[3],
+      title: 'Ngày 4: Nghe hiểu hội thoại & Transcript',
+      kind: 'minigame',
+      xPct: 80,
+      yPct: 50,
+      targetPath: `/jlpt/listening${jlptQuery}`,
+    },
+    {
+      id: ids[4],
+      title:
+        level === 'N5'
+          ? 'Ngày 5: Đọc hiểu Đoản văn N5'
+          : `Ngày 5: Đọc hiểu Đoản & Trung văn ${level}`,
+      kind: 'grammar',
+      xPct: 50,
+      yPct: 50,
+      targetPath:
+        level === 'N5'
+          ? `/jlpt/reading-short${jlptQuery}`
+          : `/jlpt/reading-medium${jlptQuery}`,
+    },
+    {
+      id: ids[5],
+      title: 'Ngày 6: Dojo Mini-game phản xạ 5 kỹ năng',
+      kind: 'minigame',
+      xPct: 20,
+      yPct: 50,
+      targetPath: `/games?game=slash&level=${level}`,
+    },
+    {
+      id: ids[6],
+      title: `Ngày 7 (Boss): Tổng ôn & Full Test ${level}`,
+      kind: 'boss',
+      xPct: 50,
+      yPct: 84,
+      targetPath: `/jlpt/full-test${jlptQuery}`,
+    },
+  ];
+
+  const nodes = autoArrangeSnakeLayout(rawNodes);
+  return {
+    id: `vmap-${ts}`,
+    name: name.trim() || `Lộ trình Chuẩn 5 Kỹ năng · ${level}`,
+    level,
+    description:
+      'Chu kỳ 7 ngày cân đối Từ vựng · Kanji · Ngữ pháp · Nghe hiểu · Đọc hiểu · Dojo Mini-game & Full Test.',
+    nodes,
+    edges: [
+      { id: `edge-${ids[0]}-${ids[1]}`, fromId: ids[0], toId: ids[1] },
+      { id: `edge-${ids[1]}-${ids[2]}`, fromId: ids[1], toId: ids[2] },
+      { id: `edge-${ids[2]}-${ids[3]}`, fromId: ids[2], toId: ids[3] },
+      { id: `edge-${ids[3]}-${ids[4]}`, fromId: ids[3], toId: ids[4] },
+      { id: `edge-${ids[4]}-${ids[5]}`, fromId: ids[4], toId: ids[5] },
+      { id: `edge-${ids[5]}-${ids[6]}`, fromId: ids[5], toId: ids[6] },
+      // Bonus shortcut branch: mastering Grammar unlocks direct Dojo practice
+      { id: `edge-${ids[2]}-${ids[5]}`, fromId: ids[2], toId: ids[5] },
     ],
     completedNodeIds: [],
     createdAt: now,
