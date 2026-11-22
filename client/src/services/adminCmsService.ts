@@ -253,11 +253,45 @@ export async function loadCmsSnapshot(): Promise<CmsSnapshot> {
     const remoteGrammars = (grammarRes.data ?? []).map((r) => mapGrammarFromDb(r as Record<string, unknown>));
     const remoteJlpt = (jlptRes.data ?? []).map((r) => mapJlptFromDb(r as Record<string, unknown>));
 
-    const baseUnits = remoteUnits.length > 0 ? remoteUnits : local.units;
-    const baseVocabs = remoteVocabs.length > 0 ? remoteVocabs : local.vocabularies;
-    const baseKanjis = remoteKanjis.length > 0 ? remoteKanjis : local.kanjis;
-    const baseGrammars = remoteGrammars.length > 0 ? remoteGrammars : local.grammars;
-    const baseJlpt = remoteJlpt.length > 0 ? remoteJlpt : local.jlptQuestions;
+    const toRecordMap = <T extends object>(items: T[], keyName: keyof T): Record<string, T> => {
+      const out: Record<string, T> = {};
+      for (const item of items) {
+        out[String(item[keyName])] = item;
+      }
+      return out;
+    };
+
+    const overlay = loadLocalOverlay();
+    const baseUnits = mergeByKey<string, AdminUnitRecord>(
+      local.units,
+      'id',
+      toRecordMap(remoteUnits, 'id'),
+      overlay.unitDeletedIds,
+    );
+    const baseVocabs = mergeByKey<number, AdminVocabRecord>(
+      local.vocabularies,
+      'id',
+      toRecordMap(remoteVocabs, 'id'),
+      overlay.vocabDeletedIds,
+    );
+    const baseKanjis = mergeByKey<string, AdminKanjiRecord>(
+      local.kanjis,
+      'id',
+      toRecordMap(remoteKanjis, 'id'),
+      overlay.kanjiDeletedIds,
+    );
+    const baseGrammars = mergeByKey<string, AdminGrammarRecord>(
+      local.grammars,
+      'id',
+      toRecordMap(remoteGrammars, 'id'),
+      overlay.grammarDeletedIds,
+    );
+    const baseJlpt = mergeByKey<string, AdminJlptRecord>(
+      local.jlptQuestions,
+      'id',
+      toRecordMap(remoteJlpt, 'id'),
+      overlay.jlptDeletedIds,
+    );
 
     return {
       source: 'supabase',

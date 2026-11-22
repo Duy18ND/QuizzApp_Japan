@@ -8,8 +8,19 @@ import {
   MINNA_N5_STAR_ITEMS,
   MINNA_N5_VOCAB_MCQS,
 } from './minnaN5JlptPack';
+import {
+  PACK_GRAMMAR_MCQS,
+  PACK_KANJI_MCQS,
+  PACK_LISTENING_ITEMS,
+  PACK_READING_PASSAGES,
+  PACK_STAR_ITEMS,
+  PACK_VOCAB_MCQS,
+} from './n5n4n3FullPack';
 import kanjiDataRaw from '../kanji/kanjiDataset.json';
 import { unit1Data } from '../n3/unit1';
+import { N3_EXTRA_TEXTBOOK_UNITS } from '../n3/extraTextbooksN3';
+import { N4_ALL_TEXTBOOK_UNITS } from '../n4/allTextbooksN4';
+import { buildMultiUnitVocab } from '../n5/extraTextbooksN5';
 import type { KanjiItem } from '../../types/kanji';
 import type { GrammarMistake, MultipleChoiceQuestion, StarQuestion } from '../../types/grammar';
 
@@ -1887,22 +1898,52 @@ function rotateSlice<T>(items: T[], offset: number, count: number): T[] {
 const kanjiDataset = kanjiDataRaw as KanjiItem[];
 
 function buildDatasetKanjiMcqs(): JLPTMcqItem[] {
-  const validItems = kanjiDataset.filter(
-    (item) =>
-      (item.jlptLevel === 'N5' || item.jlptLevel === 'N4' || item.jlptLevel === 'N3') &&
-      item.examples &&
-      item.examples.length > 0 &&
-      item.examples[0].word &&
-      item.examples[0].hiragana &&
-      item.examples[0].word !== item.examples[0].hiragana,
-  );
+  const validByLevel = {
+    N5: kanjiDataset.filter(
+      (item) =>
+        item.jlptLevel === 'N5' &&
+        item.examples &&
+        item.examples.length > 0 &&
+        item.examples[0].word &&
+        item.examples[0].hiragana &&
+        item.examples[0].word !== item.examples[0].hiragana,
+    ),
+    N4: kanjiDataset.filter(
+      (item) =>
+        item.jlptLevel === 'N4' &&
+        item.examples &&
+        item.examples.length > 0 &&
+        item.examples[0].word &&
+        item.examples[0].hiragana &&
+        item.examples[0].word !== item.examples[0].hiragana,
+    ),
+    N3: kanjiDataset.filter(
+      (item) =>
+        item.jlptLevel === 'N3' &&
+        item.examples &&
+        item.examples.length > 0 &&
+        item.examples[0].word &&
+        item.examples[0].hiragana &&
+        item.examples[0].word !== item.examples[0].hiragana,
+    ),
+  };
+
+  const validItems = [
+    ...validByLevel.N5.slice(0, 12),
+    ...validByLevel.N4.slice(0, 14),
+    ...validByLevel.N3.slice(0, 14),
+  ];
 
   const allHiragana = Array.from(
-    new Set(validItems.map((item) => item.examples?.[0]?.hiragana || '').filter(Boolean)),
+    new Set(
+      [...validByLevel.N5, ...validByLevel.N4, ...validByLevel.N3]
+        .map((item) => item.examples?.[0]?.hiragana || '')
+        .filter(Boolean),
+    ),
   );
 
   const generated: JLPTMcqItem[] = [];
-  validItems.slice(0, 18).forEach((item, idx) => {
+  validItems.forEach((item, idx) => {
     const example = item.examples![0];
     const distractors = allHiragana.filter((h) => h !== example.hiragana);
     const picked = rotateSlice(distractors, idx * 3, 3);
@@ -1929,34 +1970,49 @@ function buildDatasetKanjiMcqs(): JLPTMcqItem[] {
 }
 
 function buildDatasetVocabMcqs(): JLPTMcqItem[] {
-  const validWords = unit1Data.filter(
+  const n3Words = [
+    ...unit1Data,
+    ...N3_EXTRA_TEXTBOOK_UNITS.slice(0, 2).flatMap((d) =>
+      buildMultiUnitVocab('N3', d.unitId, d.startId, d.words),
+    ),
+  ].filter(
     (w): w is (typeof unit1Data)[number] & { kanji: string } =>
       Boolean(w.kanji && w.hiragana && w.meaning),
   );
-  const allMeanings = Array.from(new Set(validWords.map((w) => w.meaning)));
-
-  return validWords.slice(0, 16).map((word, idx) => {
-    const distractors = rotateSlice(
-      allMeanings.filter((m) => m !== word.meaning),
-      idx * 5,
-      3,
+  const n4Words = N4_ALL_TEXTBOOK_UNITS.slice(0, 3)
+    .flatMap((d) => buildMultiUnitVocab('N4', d.unitId, d.startId, d.words))
+    .filter(
+      (w): w is (typeof unit1Data)[number] & { kanji: string } =>
+        Boolean(w.kanji && w.hiragana && w.meaning),
     );
-    const correctPos = idx % 4;
-    const optionsList = [...distractors];
-    optionsList.splice(correctPos, 0, word.meaning);
 
-    return {
-      id: `jlpt-vocab-n3-u1-${word.id}`,
-      moduleId: 'vocab',
-      level: 'N3',
-      mondaiLabel: 'Mondai 4 · Ý nghĩa từ vựng N3',
-      prompt: `Từ 【${word.kanji}（${word.hiragana}）】 có nghĩa là gì?`,
-      highlight: word.kanji,
-      options: optionsList as [string, string, string, string],
-      correctIndex: correctPos,
-      explanation: `${word.kanji} (${word.hiragana})${word.hanViet ? ` [${word.hanViet}]` : ''}: ${word.meaning}.`,
-    };
-  });
+  const buildForLevel = (lvl: 'N4' | 'N3', pool: typeof n3Words, count: number): JLPTMcqItem[] => {
+    const allMeanings = Array.from(new Set(pool.map((w) => w.meaning)));
+    return pool.slice(0, count).map((word, idx) => {
+      const distractors = rotateSlice(
+        allMeanings.filter((m) => m !== word.meaning),
+        idx * 5,
+        3,
+      );
+      const correctPos = idx % 4;
+      const optionsList = [...distractors];
+      optionsList.splice(correctPos, 0, word.meaning);
+
+      return {
+        id: `jlpt-vocab-${lvl.toLowerCase()}-ds-${word.id}`,
+        moduleId: 'vocab',
+        level: lvl,
+        mondaiLabel: `Mondai 4 · Ý nghĩa từ vựng ${lvl}`,
+        prompt: `Từ 【${word.kanji}（${word.hiragana}）】 có nghĩa là gì?`,
+        highlight: word.kanji,
+        options: optionsList as [string, string, string, string],
+        correctIndex: correctPos,
+        explanation: `${word.kanji} (${word.hiragana})${word.hanViet ? ` [${word.hanViet}]` : ''}: ${word.meaning}.`,
+      };
+    });
+  };
+
+  return [...buildForLevel('N4', n4Words, 14), ...buildForLevel('N3', n3Words, 16)];
 }
 
 function buildBankGrammarMcqs(): JLPTMcqItem[] {
@@ -2027,30 +2083,36 @@ function buildBankStarItems(): JLPTStarItem[] {
 const ALL_KANJI_MCQS: JLPTMcqItem[] = [
   ...MINNA_N5_KANJI_MCQS,
   ...CURATED_KANJI_QUESTIONS,
+  ...PACK_KANJI_MCQS,
   ...buildDatasetKanjiMcqs(),
 ];
 const ALL_VOCAB_MCQS: JLPTMcqItem[] = [
   ...MINNA_N5_VOCAB_MCQS,
   ...CURATED_VOCAB_QUESTIONS,
+  ...PACK_VOCAB_MCQS,
   ...buildDatasetVocabMcqs(),
 ];
 const ALL_GRAMMAR_MCQS: JLPTMcqItem[] = [
   ...MINNA_N5_GRAMMAR_MCQS,
   ...CURATED_GRAMMAR_QUESTIONS,
+  ...PACK_GRAMMAR_MCQS,
   ...buildBankGrammarMcqs(),
 ];
 const ALL_STAR_ITEMS: JLPTStarItem[] = [
   ...MINNA_N5_STAR_ITEMS,
   ...CURATED_STAR_QUESTIONS,
+  ...PACK_STAR_ITEMS,
   ...buildBankStarItems(),
 ];
 const ALL_READING_PASSAGES: JLPTReadingPassage[] = [
   ...MINNA_N5_READING_PASSAGES,
   ...CURATED_READING_PASSAGES,
+  ...PACK_READING_PASSAGES,
 ];
 const ALL_LISTENING_ITEMS: JLPTListeningItem[] = [
   ...MINNA_N5_LISTENING_ITEMS,
   ...CURATED_LISTENING_ITEMS,
+  ...PACK_LISTENING_ITEMS,
 ];
 
 function filterByLevel<T extends { level: JLPTExamLevel }>(items: T[], level: JLPTLevelFilter): T[] {

@@ -12,12 +12,18 @@ import {
   getInMemoryKanjiState,
   getInMemoryMistakes,
   MISTAKE_RESOLUTIONS_ITEM_ID,
+  ONLINE_TIME_CLOUD_ITEM_ID,
   PRACTICE_TYPE_KEYS,
   serializeToCloudRows,
+  USER_CUSTOM_STUDIO_ITEM_ID,
   type AttemptMistakeResolutions,
 } from './cloudProgressWriter';
 import { hydrateAttemptMistakeResolutions } from './attemptMistakeService';
-import { syncStudyScheduleFromCloud } from './notificationService';
+import { hydrateCustomStudioFromCloud } from './customStudioService';
+import {
+  hydrateOnlineTimeFromCloud,
+  syncStudyScheduleFromCloud,
+} from './notificationService';
 import {
   saveQuizHistory,
   type QuizAttemptRecord,
@@ -143,6 +149,8 @@ function parseRemoteRows(rows: CloudProgressRow[]) {
     resolvedItemKeys: [],
     clearedAttemptIds: [],
   };
+  const remoteOnlineTime: Record<string, number> = {};
+  let remoteCustomStudio: Record<string, unknown> | null = null;
 
   for (const row of rows) {
     if (!row || UNSAFE_KEYS.has(row.item_id)) continue;
@@ -200,12 +208,33 @@ function parseRemoteRows(rows: CloudProgressRow[]) {
           (id): id is string => typeof id === 'string',
         );
       }
+    } else if (row.item_type === 'mistake' && row.item_id === ONLINE_TIME_CLOUD_ITEM_ID) {
+      if (meta.dailySeconds && typeof meta.dailySeconds === 'object' && !Array.isArray(meta.dailySeconds)) {
+        for (const [dateKey, rawSecs] of Object.entries(meta.dailySeconds as Record<string, unknown>)) {
+          const secs = Math.floor(Number(rawSecs) || 0);
+          if (secs > 0) {
+            remoteOnlineTime[dateKey] = Math.min(secs, 86_400);
+          }
+        }
+      }
+    } else if (row.item_type === 'mistake' && row.item_id === USER_CUSTOM_STUDIO_ITEM_ID) {
+      if (meta.studio && typeof meta.studio === 'object' && !Array.isArray(meta.studio)) {
+        remoteCustomStudio = meta.studio as Record<string, unknown>;
+      }
     } else if (row.item_type === 'mistake' && meta.mistake && typeof meta.mistake === 'object') {
       remoteMistakes.push(meta.mistake as GrammarMistake);
     }
   }
 
-  return { remoteUser, remoteKanji, remoteGrammar, remoteMistakes, remoteResolutions };
+  return {
+    remoteUser,
+    remoteKanji,
+    remoteGrammar,
+    remoteMistakes,
+    remoteResolutions,
+    remoteOnlineTime,
+    remoteCustomStudio,
+  };
 }
 
 /**
@@ -238,12 +267,20 @@ export async function syncLocalProgressWithCloud(
     throw progressErr;
   }
 
-  const { remoteUser, remoteKanji, remoteGrammar, remoteMistakes, remoteResolutions } = parseRemoteRows(
-    (remoteRows || []) as CloudProgressRow[],
-  );
+  const {
+    remoteUser,
+    remoteKanji,
+    remoteGrammar,
+    remoteMistakes,
+    remoteResolutions,
+    remoteOnlineTime,
+    remoteCustomStudio,
+  } = parseRemoteRows((remoteRows || []) as CloudProgressRow[]);
 
   commitUserProgress(remoteUser, userId);
   hydrateAttemptMistakeResolutions(remoteResolutions, userId);
+  hydrateOnlineTimeFromCloud(remoteOnlineTime, userId);
+  hydrateCustomStudioFromCloud(remoteCustomStudio, userId);
   dispatch(
     hydrateKanjiState({
       progress: remoteKanji,

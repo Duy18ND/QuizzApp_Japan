@@ -94,12 +94,12 @@ export interface Crumb {
 
 export function Breadcrumbs({ items, className }: { items: Crumb[]; className?: string }) {
   return (
-    <nav aria-label="Breadcrumb" className={cn('mb-3', className)}>
-      <ol className="flex flex-wrap items-center gap-1 text-sm text-muted">
+    <nav aria-label="Breadcrumb" className={cn('mb-2 sm:mb-3', className)}>
+      <ol className="hide-scrollbar flex flex-nowrap items-center gap-1 overflow-x-auto text-xs whitespace-nowrap text-muted sm:flex-wrap sm:text-sm">
         {items.map((item, index) => {
           const last = index === items.length - 1;
           return (
-            <li key={index} className="flex items-center gap-1">
+            <li key={index} className="flex shrink-0 items-center gap-1">
               {item.to && !last ? (
                 <Link to={item.to} className="rounded transition-colors hover:text-fg">
                   {item.label}
@@ -128,13 +128,13 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, description, breadcrumbs, actions, className }: PageHeaderProps) {
   return (
-    <header className={cn('relative mb-4 md:mb-5', className)}>
+    <header className={cn('relative mb-3 md:mb-5', className)}>
       {breadcrumbs && <Breadcrumbs items={breadcrumbs} />}
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="flex flex-wrap items-end justify-between gap-2.5 sm:gap-4">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight text-fg md:text-3xl">{title}</h1>
-          {description && <p className="mt-1.5 max-w-prose text-base text-muted">{description}</p>}
-          <span aria-hidden className="mt-3 block h-0.5 w-16 rounded-full bg-linear-to-r from-primary via-sakura to-transparent" />
+          <h1 className="text-xl font-bold tracking-tight text-fg sm:text-2xl md:text-3xl">{title}</h1>
+          {description && <p className="mt-1 max-w-prose text-sm text-muted sm:mt-1.5 sm:text-base">{description}</p>}
+          <span aria-hidden className="mt-2 block h-0.5 w-14 rounded-full bg-linear-to-r from-primary via-sakura to-transparent sm:mt-3 sm:w-16" />
         </div>
         {actions && <div className="flex max-w-full min-w-0 flex-wrap items-center gap-2">{actions}</div>}
       </div>

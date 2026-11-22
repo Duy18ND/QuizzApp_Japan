@@ -1,6 +1,4 @@
-import { grammarBooks } from '../data/grammar';
-import { lesson01Sentences } from '../data/grammar/shinkanzen-n3/lesson01Sentences';
-import { lesson02Sentences } from '../data/grammar/shinkanzen-n3/lesson02Sentences';
+import { allGrammarSentencesBank, grammarBooks } from '../data/grammar';
 import {
   getJLPTListeningItems,
   getJLPTMcqQuestions,
@@ -92,13 +90,14 @@ export function buildStaticUnits(): AdminUnitRecord[] {
         level: level as JLPTLevel,
         unitNumber: u.id,
         textbookId:
-          level === 'N5'
+          u.textbookId ??
+          (level === 'N5'
             ? 'minna-n5'
             : level === 'N4'
               ? 'minna-n4'
               : level === 'N3'
                 ? 'mimi-n3'
-                : null,
+                : null),
         title: u.name,
         description: u.totalWords > 0 ? `${u.totalWords} từ vựng chuẩn JLPT ${level}` : 'Sắp ra mắt',
         orderIndex: orderCounter++,
@@ -144,7 +143,7 @@ export function buildStaticKanji(): AdminKanjiRecord[] {
 }
 
 export function buildStaticGrammar(): AdminGrammarRecord[] {
-  const allSentences = [...lesson01Sentences, ...lesson02Sentences];
+  const allSentences = allGrammarSentencesBank;
   const rules: AdminGrammarRecord[] = [];
   for (const book of grammarBooks) {
     for (const ch of book.chapters) {

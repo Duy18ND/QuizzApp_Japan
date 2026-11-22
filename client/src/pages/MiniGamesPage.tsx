@@ -1,8 +1,9 @@
-import React, { useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Trophy } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { BookOpen, ChevronDown, ChevronUp, Sparkles, Volume2, VolumeX } from 'lucide-react';
 import {
   Badge,
+  Button,
   Card,
   Chip,
   EmptyState,
@@ -11,6 +12,7 @@ import {
   Select,
   useToast,
 } from '../components/ui';
+import { buttonStyles } from '../components/ui/styles';
 import {
   ListeningDojoGame,
   MemoryFlipGame,
@@ -35,12 +37,19 @@ import {
   getLiveGrammarBooks,
   getLiveKanjis,
 } from '../services/curriculumStore';
+import {
+  CUSTOM_STUDIO_SYNC_EVENT,
+  customVocabToVocabularyItems,
+  loadCustomStudioState,
+  type CustomLesson,
+} from '../services/customStudioService';
 import { recordQuizAttempt } from '../services/quizHistoryService';
 import {
   recordDailyStageSkillActivity,
   type StageSkill,
 } from '../services/stageRoadmapService';
 import { requestOpenLevelModal, type StudyLevel } from '../services/userLevelService';
+import { stopJapaneseSpeech } from '../utils/tts';
 
 export type MiniGameId = 'shooter' | 'slash' | 'match' | 'memory' | 'truefalse' | 'listening';
 
@@ -58,7 +67,7 @@ const MINI_GAMES: MiniGameSpec[] = [
     id: 'shooter',
     glyph: '剣',
     title: 'Chém Từ Vựng (Ninja Cầu Anh Đào)',
-    subtitle: 'PC gõ Romaji · iPad/Mobile ghép mảnh Kana phóng kiếm khí hạ Yōkai.',
+    subtitle: 'PC gõ Hiragana / Chữ Hán · iPad/Mobile ghép mảnh Kana phóng kiếm khí hạ Yōkai.',
     badge: 'Game chính',
     featured: true,
   },
@@ -101,6 +110,7 @@ const MINI_GAMES: MiniGameSpec[] = [
 ];
 
 const HIGH_SCORE_KEY = 'nihonmaster_minigame_highscores_v1';
+const SOUND_PREF_KEY = 'nihonmaster_minigame_sound_v1';
 
 function loadHighScores(): Record<string, number> {
   if (typeof window === 'undefined') return {};
@@ -109,6 +119,16 @@ function loadHighScores(): Record<string, number> {
     return raw ? (JSON.parse(raw) as Record<string, number>) : {};
   } catch {
     return {};
+  }
+}
+
+function loadSoundPref(): boolean {
+  if (typeof window === 'undefined') return true;
+  try {
+    const raw = window.localStorage.getItem(SOUND_PREF_KEY);
+    return raw === null ? true : raw !== 'false';
+  } catch {
+    return true;
   }
 }
 
@@ -141,16 +161,118 @@ export const MiniGamesPage: React.FC = () => {
     [activeLevel, searchParams, studyLevel, studyTextbookId, user?.id],
   );
 
-  const [selectedUnitId, setSelectedUnitId] = useState<string>(
-    () => searchParams.get('unit') || 'ALL',
+  const [studioVocabLessons, setStudioVocabLessons] = useState<CustomLesson[]>(() =>
+    loadCustomStudioState(user?.id).lessons.filter(
+      (l) => l.kind === 'vocab' && (l.vocabItems?.length ?? 0) >= 2,
+    ),
   );
+  const [selectedCustomLessonId, setSelectedCustomLessonId] = useState<string | null>(() =>
+    searchParams.get('customLesson'),
+  );
+  const [selectedUnitIds, setSelectedUnitIds] = useState<string[]>(() => {
+    const param = searchParams.get('unit');
+    if (!param || param === 'ALL') return [];
+    return param
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+  });
+  const [showLessonPicker, setShowLessonPicker] = useState(false);
   const [onlyStarred, setOnlyStarred] = useState(false);
   const [highScores, setHighScores] = useState<Record<string, number>>(() => loadHighScores());
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => loadSoundPref());
+
+  useEffect(() => {
+    const syncStudio = () => {
+      setStudioVocabLessons(
+        loadCustomStudioState(user?.id).lessons.filter(
+          (l) => l.kind === 'vocab' && (l.vocabItems?.length ?? 0) >= 2,
+        ),
+      );
+    };
+    syncStudio();
+    window.addEventListener(CUSTOM_STUDIO_SYNC_EVENT, syncStudio);
+    return () => window.removeEventListener(CUSTOM_STUDIO_SYNC_EVENT, syncStudio);
+  }, [user?.id]);
+
+  const activeCustomLesson = useMemo(
+    () =>
+      selectedCustomLessonId
+        ? (studioVocabLessons.find((l) => l.id === selectedCustomLessonId) ?? null)
+        : null,
+    [selectedCustomLessonId, studioVocabLessons],
+  );
 
   const bookUnits = useMemo(
     () => getUnitsForVocabTextbook(cmsSnapshot, activeLevel, activeBook),
     [activeBook, activeLevel, cmsSnapshot],
   );
+
+  // Normalize selected unit IDs against active book units so switching book never traps stale IDs
+  const validSelectedUnits = useMemo(() => {
+    if (selectedUnitIds.length === 0) return [];
+    return bookUnits.filter(
+      (u) =>
+        selectedUnitIds.includes(String(u.id)) ||
+        (u.dbUnitId !== undefined && selectedUnitIds.includes(String(u.dbUnitId))),
+    );
+  }, [bookUnits, selectedUnitIds]);
+
+  const applySelectedUnitIds = useCallback(
+    (nextIds: string[]) => {
+      setSelectedCustomLessonId(null);
+      setSelectedUnitIds(nextIds);
+      const next = new URLSearchParams(searchParams);
+      next.delete('customLesson');
+      if (nextIds.length === 0) {
+        next.delete('unit');
+      } else {
+        next.set('unit', nextIds.join(','));
+      }
+      setSearchParams(next, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
+
+  const applyCustomLessonId = useCallback(
+    (lessonId: string) => {
+      setSelectedCustomLessonId(lessonId);
+      setSelectedUnitIds([]);
+      setShowLessonPicker(false);
+      const next = new URLSearchParams(searchParams);
+      next.delete('unit');
+      next.set('customLesson', lessonId);
+      setSearchParams(next, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
+
+  const toggleUnitSelection = useCallback(
+    (unitIdStr: string) => {
+      const current = validSelectedUnits.map((u) => String(u.id));
+      const exists = current.includes(unitIdStr);
+      const next = exists
+        ? current.filter((id) => id !== unitIdStr)
+        : [...current, unitIdStr];
+      applySelectedUnitIds(next);
+    },
+    [applySelectedUnitIds, validSelectedUnits],
+  );
+
+  const handleToggleSound = useCallback(() => {
+    setSoundEnabled((prev) => {
+      const next = !prev;
+      if (!next) {
+        stopJapaneseSpeech();
+      }
+      try {
+        window.localStorage.setItem(SOUND_PREF_KEY, String(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  }, []);
 
   const allVocab = useMemo(() => getLiveAllVocabulary(cmsSnapshot), [cmsSnapshot]);
   const bookWords = useMemo(
@@ -159,22 +281,21 @@ export const MiniGamesPage: React.FC = () => {
   );
 
   const filteredWords = useMemo(() => {
+    if (activeCustomLesson) {
+      return customVocabToVocabularyItems(activeCustomLesson);
+    }
     let pool = bookWords;
-    if (selectedUnitId !== 'ALL') {
-      const targetUnit = bookUnits.find(
-        (u) => String(u.id) === selectedUnitId || String(u.dbUnitId) === selectedUnitId,
-      );
-      if (targetUnit) {
-        const unitScoped = bookWords.filter((w) => w.unitId === targetUnit.id);
-        if (unitScoped.length > 0) pool = unitScoped;
-      }
+    if (validSelectedUnits.length > 0) {
+      const selectedSet = new Set(validSelectedUnits.map((u) => u.id));
+      const unitScoped = bookWords.filter((w) => selectedSet.has(w.unitId));
+      if (unitScoped.length > 0) pool = unitScoped;
     }
     if (onlyStarred) {
       const starred = pool.filter((w) => starredIds.includes(Number(w.id)));
       if (starred.length >= 4) return starred;
     }
     return pool.length > 0 ? pool : allVocab;
-  }, [allVocab, bookUnits, bookWords, onlyStarred, selectedUnitId, starredIds]);
+  }, [activeCustomLesson, allVocab, bookWords, onlyStarred, starredIds, validSelectedUnits]);
 
   const levelKanjis = useMemo(() => {
     const all = getLiveKanjis(cmsSnapshot);
@@ -234,32 +355,51 @@ export const MiniGamesPage: React.FC = () => {
     });
   };
 
-  const selectedUnitLabel =
-    selectedUnitId === 'ALL'
+  const selectedUnitKey = activeCustomLesson
+    ? `custom-${activeCustomLesson.id}`
+    : validSelectedUnits.length === 0
+      ? 'ALL'
+      : validSelectedUnits.map((u) => String(u.id)).join(',');
+
+  const selectedUnitLabel = activeCustomLesson
+    ? `Bài tự tạo: ${activeCustomLesson.title}`
+    : validSelectedUnits.length === 0
       ? `Trọn bộ ${activeBook.shortTitle}`
-      : bookUnits.find((u) => String(u.id) === selectedUnitId)?.name ?? `Bài ${selectedUnitId}`;
+      : validSelectedUnits.length === 1
+        ? validSelectedUnits[0].name
+        : `${validSelectedUnits.length} bài đã chọn (${filteredWords.length} từ)`;
+
+  const selectValue = activeCustomLesson
+    ? `custom:${activeCustomLesson.id}`
+    : validSelectedUnits.length === 0
+      ? 'ALL'
+      : validSelectedUnits.length === 1
+        ? String(validSelectedUnits[0].id)
+        : 'MULTI';
 
   return (
-    <PageContainer size="lg" className="max-w-5xl space-y-5 py-2">
+    <PageContainer size="lg" className="max-w-5xl space-y-3 py-1">
       <PageHeader
         breadcrumbs={[
           { label: 'Trang chủ', to: '/' },
           { label: 'Phòng Mini-game (Dojo)' },
         ]}
         title={
-          <span className="flex flex-wrap items-center gap-2.5">
+          <span className="flex flex-wrap items-center gap-2">
             <span>Phòng Mini-game · Dojo Phản Xạ</span>
             <Badge tone="primary">
-              JLPT {activeLevel} · {activeBook.shortTitle}
+              {activeCustomLesson
+                ? `Bài tự tạo · ${activeCustomLesson.level}`
+                : `${activeLevel} · ${activeBook.shortTitle}`}
             </Badge>
             <Badge tone="sakura">{filteredWords.length} từ sẵn sàng</Badge>
           </span>
         }
-        description="Học mà chơi — mỗi ván 1–3 phút tự động lấy từ đúng bài bạn đang học, cộng vào thời gian online 10–15p và tự động tích xanh nhiệm vụ Màn."
+        description="Chọn trò chơi và chọn bài học (hoặc bài tự tạo trong Studio) bên dưới — tự động tính vào mục tiêu học hằng ngày."
       />
 
-      {/* 6 Mini-Game Switcher Strip */}
-      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+      {/* Compact 6 Mini-Game Switcher Strip */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
         {MINI_GAMES.map((g) => {
           const isSelected = activeGame === g.id;
           const best = highScores[g.id] ?? 0;
@@ -268,75 +408,211 @@ export const MiniGamesPage: React.FC = () => {
               key={g.id}
               type="button"
               onClick={() => handleSelectGame(g.id)}
+              title={g.subtitle}
               className={cn(
-                'flex cursor-pointer flex-col justify-between rounded-xl border p-3 text-left shadow-card transition-all duration-150',
+                'flex cursor-pointer flex-col justify-between rounded-xl border px-2.5 py-2 text-left shadow-card transition-all duration-150',
                 isSelected
-                  ? 'border-primary bg-primary-soft/65 ring-2 ring-primary/25'
+                  ? 'border-primary bg-primary-soft/75 ring-2 ring-primary/30'
                   : 'border-line bg-glass hover:border-primary/60',
               )}
             >
-              <div>
-                <div className="flex items-center justify-between gap-1.5">
-                  <span
-                    lang="ja"
-                    className={cn(
-                      'grid size-8 place-items-center rounded-lg text-sm font-bold',
-                      isSelected
-                        ? 'bg-primary text-on-primary'
-                        : 'bg-primary-soft text-primary-fg',
-                    )}
-                  >
-                    {g.glyph}
-                  </span>
-                  <Badge tone={g.featured ? 'sakura' : 'neutral'} className="text-[10px]">
-                    {g.badge}
-                  </Badge>
+              <div className="flex items-center gap-2">
+                <span
+                  lang="ja"
+                  className={cn(
+                    'grid size-7 shrink-0 place-items-center rounded-lg text-xs font-bold',
+                    isSelected
+                      ? 'bg-primary text-on-primary'
+                      : 'bg-primary-soft text-primary-fg',
+                  )}
+                >
+                  {g.glyph}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-bold text-fg">
+                    {g.title.split('(')[0].trim()}
+                  </p>
+                  <p className="truncate text-[10px] text-muted">
+                    {best > 0 ? `🏆 ${best.toLocaleString('vi-VN')}` : g.badge}
+                  </p>
                 </div>
-                <p className="mt-2 text-xs font-bold text-fg sm:text-sm">{g.title}</p>
-                <p className="mt-0.5 line-clamp-2 text-[11px] text-muted">{g.subtitle}</p>
               </div>
-              {best > 0 && (
-                <div className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-success-fg">
-                  <Trophy className="size-3" aria-hidden />
-                  <span>Kỷ lục: {best.toLocaleString('vi-VN')}</span>
-                </div>
-              )}
             </button>
           );
         })}
       </div>
 
-      {/* Lesson & Scope Filter Bar */}
-      <Card padding="md" className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-1 flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold text-muted">Nguồn bài học:</span>
-          <Select
-            aria-label="Chọn bài học cho Mini-game"
-            value={selectedUnitId}
-            onChange={(e) => setSelectedUnitId(e.target.value)}
-            className="sm:w-72"
-          >
-            <option value="ALL">
-              Tất cả các bài · {activeBook.title} ({bookWords.length} từ)
-            </option>
-            {bookUnits.map((u) => (
-              <option key={u.id} value={String(u.id)}>
-                {u.name} ({u.totalWords} từ)
-              </option>
-            ))}
-          </Select>
+      {/* Unified Lesson Picker & Audio Control Card */}
+      <Card padding="sm" className="space-y-2.5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold text-muted">Bài chơi:</span>
+            <Select
+              aria-label="Chọn bài học cho Mini-game"
+              value={selectValue}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val.startsWith('custom:')) {
+                  applyCustomLessonId(val.slice('custom:'.length));
+                } else if (val === 'ALL') {
+                  applySelectedUnitIds([]);
+                } else if (val !== 'MULTI') {
+                  applySelectedUnitIds([val]);
+                }
+              }}
+              wrapperClassName="w-full sm:w-64"
+              className="w-full"
+            >
+              {studioVocabLessons.length > 0 && (
+                <optgroup label="Bài tự tạo của bạn (Studio)">
+                  {studioVocabLessons.map((lesson) => (
+                    <option key={lesson.id} value={`custom:${lesson.id}`}>
+                      ★ {lesson.title} ({lesson.vocabItems?.length ?? 0} từ)
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              <optgroup label={`Giáo trình ${activeBook.shortTitle}`}>
+                <option value="ALL">
+                  Tất cả ({bookUnits.length} bài · {bookWords.length} từ)
+                </option>
+                {selectValue === 'MULTI' && (
+                  <option value="MULTI">
+                    Đã chọn {validSelectedUnits.length} bài ({filteredWords.length} từ)
+                  </option>
+                )}
+                {bookUnits.map((u) => (
+                  <option key={u.id} value={String(u.id)}>
+                    {u.name} ({u.totalWords} từ)
+                  </option>
+                ))}
+              </optgroup>
+            </Select>
 
-          <Chip
-            selected={onlyStarred}
-            onClick={() => setOnlyStarred((v) => !v)}
-          >
-            ★ Ưu tiên từ đánh dấu sao ({starredIds.length})
-          </Chip>
+            {bookUnits.length > 1 && (
+              <Button
+                type="button"
+                variant={showLessonPicker ? 'primary' : 'soft'}
+                size="sm"
+                onClick={() => setShowLessonPicker((v) => !v)}
+                leftIcon={<BookOpen className="size-3.5" aria-hidden />}
+                rightIcon={
+                  showLessonPicker ? (
+                    <ChevronUp className="size-3.5" aria-hidden />
+                  ) : (
+                    <ChevronDown className="size-3.5" aria-hidden />
+                  )
+                }
+              >
+                {validSelectedUnits.length > 0
+                  ? `Chọn từng bài (${validSelectedUnits.length})`
+                  : 'Chọn từng bài / nhiều bài'}
+              </Button>
+            )}
+
+            <Chip
+              selected={onlyStarred}
+              onClick={() => setOnlyStarred((v) => !v)}
+            >
+              ★ Từ sao ({starredIds.length})
+            </Chip>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={handleToggleSound}
+              leftIcon={
+                soundEnabled ? (
+                  <Volume2 className="size-4 text-primary-fg" aria-hidden />
+                ) : (
+                  <VolumeX className="size-4 text-muted" aria-hidden />
+                )
+              }
+            >
+              {soundEnabled ? 'Âm thanh: BẬT' : 'Âm thanh: TẮT'}
+            </Button>
+
+            <Link
+              to="/studio"
+              className={buttonStyles({ variant: 'soft', size: 'sm' })}
+            >
+              <Sparkles className="size-3.5" aria-hidden />
+              <span>Tự tạo bài</span>
+            </Link>
+
+            <Chip selected={false} onClick={requestOpenLevelModal}>
+              Đổi giáo trình ({activeLevel})
+            </Chip>
+          </div>
         </div>
 
-        <Chip selected={false} onClick={requestOpenLevelModal}>
-          Đổi trình độ / giáo trình ({activeLevel})
-        </Chip>
+        {/* Collapsible Multi-Lesson Pill Grid */}
+        {showLessonPicker && bookUnits.length > 0 && (
+          <div className="space-y-2 border-t border-line pt-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+              <span className="text-muted">
+                Chạm từng bài để bật/tắt (có thể gộp nhiều bài để luyện cùng lúc):
+              </span>
+              <div className="flex flex-wrap items-center gap-1">
+                <Chip
+                  selected={validSelectedUnits.length === 0}
+                  onClick={() => applySelectedUnitIds([])}
+                >
+                  Tất cả ({bookUnits.length} bài)
+                </Chip>
+                {bookUnits.length >= 10 &&
+                  [
+                    [0, 5],
+                    [5, 10],
+                    [10, 15],
+                    [15, 20],
+                    [20, 25],
+                  ]
+                    .filter(([start]) => start < bookUnits.length)
+                    .map(([start, end]) => {
+                      const sliceIds = bookUnits
+                        .slice(start, end)
+                        .map((u) => String(u.id));
+                      const isRangeActive =
+                        sliceIds.length > 0 &&
+                        validSelectedUnits.length === sliceIds.length &&
+                        sliceIds.every((id) =>
+                          validSelectedUnits.some((u) => String(u.id) === id),
+                        );
+                      return (
+                        <Chip
+                          key={`${start}-${end}`}
+                          selected={isRangeActive}
+                          onClick={() => applySelectedUnitIds(sliceIds)}
+                        >
+                          Bài {start + 1}–{Math.min(end, bookUnits.length)}
+                        </Chip>
+                      );
+                    })}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-1.5">
+              {bookUnits.map((u, idx) => {
+                const uid = String(u.id);
+                const isSelected = validSelectedUnits.some((v) => String(v.id) === uid);
+                const shortLabel = u.name.split('(')[0].split('—')[0].trim() || `Bài ${idx + 1}`;
+                return (
+                  <Chip
+                    key={u.id}
+                    selected={isSelected}
+                    onClick={() => toggleUnitSelection(uid)}
+                  >
+                    {shortLabel} ({u.totalWords})
+                  </Chip>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* Active Mini-Game Arena */}
@@ -347,11 +623,13 @@ export const MiniGamesPage: React.FC = () => {
         />
       ) : activeGame === 'shooter' ? (
         <NinjaBridgeShooterGame
-          key={`shooter-${activeBook.id}-${selectedUnitId}-${onlyStarred}`}
+          key={`shooter-${activeBook.id}-${selectedUnitKey}-${onlyStarred}`}
           words={filteredWords}
           contextLabel={`${activeLevel} · ${selectedUnitLabel}`}
           starredIds={starredIds}
           onToggleStar={(id) => toggleStar(id)}
+          soundEnabled={soundEnabled}
+          onToggleSound={handleToggleSound}
           onSessionFinish={({ score, defeatedCount, missedWords, durationSeconds }) =>
             handleRecordGameCompletion({
               gameId: 'shooter',
@@ -365,11 +643,13 @@ export const MiniGamesPage: React.FC = () => {
         />
       ) : activeGame === 'slash' ? (
         <FruitSlashVocabGame
-          key={`slash-${activeBook.id}-${selectedUnitId}-${onlyStarred}`}
+          key={`slash-${activeBook.id}-${selectedUnitKey}-${onlyStarred}`}
           words={filteredWords}
           contextLabel={`${activeLevel} · ${selectedUnitLabel}`}
           starredIds={starredIds}
           onToggleStar={(id) => toggleStar(id)}
+          soundEnabled={soundEnabled}
+          onToggleSound={handleToggleSound}
           onSessionFinish={({ score, correctCount, missedWords, durationSeconds }) =>
             handleRecordGameCompletion({
               gameId: 'slash',
@@ -383,11 +663,13 @@ export const MiniGamesPage: React.FC = () => {
         />
       ) : activeGame === 'match' ? (
         <PairMatchGame
-          key={`match-${activeBook.id}-${selectedUnitId}-${onlyStarred}`}
+          key={`match-${activeBook.id}-${selectedUnitKey}-${onlyStarred}`}
           words={filteredWords}
           kanjis={levelKanjis}
           grammars={levelGrammars}
           levelLabel={`${activeLevel} · ${selectedUnitLabel}`}
+          soundEnabled={soundEnabled}
+          onToggleSound={handleToggleSound}
           onCompleteRound={({ score, skill, seconds }) =>
             handleRecordGameCompletion({
               gameId: 'match',
@@ -401,9 +683,11 @@ export const MiniGamesPage: React.FC = () => {
         />
       ) : activeGame === 'memory' ? (
         <MemoryFlipGame
-          key={`memory-${activeBook.id}-${selectedUnitId}-${onlyStarred}`}
+          key={`memory-${activeBook.id}-${selectedUnitKey}-${onlyStarred}`}
           words={filteredWords}
           kanjis={levelKanjis}
+          soundEnabled={soundEnabled}
+          onToggleSound={handleToggleSound}
           onCompleteRound={({ score, skill, moves }) =>
             handleRecordGameCompletion({
               gameId: 'memory',
@@ -417,9 +701,11 @@ export const MiniGamesPage: React.FC = () => {
         />
       ) : activeGame === 'truefalse' ? (
         <SpeedTrueFalseGame
-          key={`tf-${activeBook.id}-${selectedUnitId}-${onlyStarred}`}
+          key={`tf-${activeBook.id}-${selectedUnitKey}-${onlyStarred}`}
           words={filteredWords}
           kanjis={levelKanjis}
+          soundEnabled={soundEnabled}
+          onToggleSound={handleToggleSound}
           onCompleteRound={({ score, skill, correctCount }) =>
             handleRecordGameCompletion({
               gameId: 'truefalse',
@@ -433,8 +719,10 @@ export const MiniGamesPage: React.FC = () => {
         />
       ) : (
         <ListeningDojoGame
-          key={`list-${activeBook.id}-${selectedUnitId}-${onlyStarred}`}
+          key={`list-${activeBook.id}-${selectedUnitKey}-${onlyStarred}`}
           words={filteredWords}
+          soundEnabled={soundEnabled}
+          onToggleSound={handleToggleSound}
           onCompleteRound={({ score, skill, correctCount }) =>
             handleRecordGameCompletion({
               gameId: 'listening',

@@ -146,6 +146,46 @@ export interface KanaMora {
   romaji: string;
 }
 
+/**
+ * Returns the cumulative normalized Romaji end-index for each mora in `moras`
+ * so typing Romaji can highlight completed Hiragana cells accurately.
+ */
+export function computeMoraRomajiEnds(moras: KanaMora[]): number[] {
+  const ends: number[] = [];
+  let totalLen = 0;
+
+  for (let i = 0; i < moras.length; i += 1) {
+    const m = moras[i];
+    if (m.kana === 'っ') {
+      const next = moras[i + 1];
+      const nextNorm = next ? normalizeRomajiInput(next.romaji) : '';
+      totalLen += nextNorm && /^[a-z]/.test(nextNorm) ? 1 : 0;
+    } else if (m.kana === 'ー') {
+      totalLen += i > 0 ? 1 : 0;
+    } else {
+      totalLen += normalizeRomajiInput(m.romaji).length || m.romaji.length;
+    }
+    ends.push(totalLen);
+  }
+
+  return ends;
+}
+
+export function countCompletedMorasByRomajiLen(
+  normRomajiLen: number,
+  moraEnds: number[],
+): number {
+  let count = 0;
+  for (const end of moraEnds) {
+    if (normRomajiLen >= end) {
+      count += 1;
+    } else {
+      break;
+    }
+  }
+  return count;
+}
+
 const SMALL_YOO_ON = new Set(['ゃ', 'ゅ', 'ょ', 'ぁ', 'ぃ', 'ぅ', 'ぇ', 'ぉ', 'ゎ']);
 
 /**

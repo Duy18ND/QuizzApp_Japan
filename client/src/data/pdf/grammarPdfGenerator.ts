@@ -1,8 +1,7 @@
-import { lesson01Sentences } from '../grammar/shinkanzen-n3/lesson01Sentences';
-import { lesson02Sentences } from '../grammar/shinkanzen-n3/lesson02Sentences';
+import { allGrammarSentencesBank } from '../grammar';
 import { shuffleArray } from '../../utils/shuffle';
 
-const allGrammarSentences = [...lesson01Sentences, ...lesson02Sentences];
+const allGrammarSentences = allGrammarSentencesBank;
 
 export type PdfMode = 'vi_to_ja' | 'ja_to_vi';
 export type PdfScope = 'grammar' | 'lesson';

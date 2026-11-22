@@ -79,6 +79,12 @@ const JLPTModulePage = lazy(() =>
 const MiniGamesPage = lazy(() =>
   import('./pages/MiniGamesPage').then((m) => ({ default: m.MiniGamesPage })),
 );
+const CustomStudioPage = lazy(() =>
+  import('./pages/CustomStudioPage').then((m) => ({ default: m.CustomStudioPage })),
+);
+const LegalPage = lazy(() =>
+  import('./pages/LegalPage').then((m) => ({ default: m.LegalPage })),
+);
 
 function RouteFallback() {
   return (
@@ -154,6 +160,7 @@ function App() {
 
             <Route path="jlpt/:moduleId" element={<JLPTModulePage />} />
             <Route path="games" element={<MiniGamesPage />} />
+            <Route path="studio" element={<CustomStudioPage />} />
             <Route path="login" element={<AuthPage initialMode="login" />} />
             <Route path="register" element={<AuthPage initialMode="register" />} />
             <Route path="profile" element={<ProfilePage />} />
@@ -168,6 +175,8 @@ function App() {
             />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="pdf" element={<PdfPage />} />
+            <Route path="privacy" element={<LegalPage doc="privacy" />} />
+            <Route path="terms" element={<LegalPage doc="terms" />} />
             <Route
               path="*"
               element={

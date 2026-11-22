@@ -14,7 +14,7 @@ import { cn } from '../../lib/cn';
 import type { VocabularyItem } from '../../types/vocabulary';
 import { cleanReadingForGame } from '../../utils/kanaToRomaji';
 import { shuffleArray } from '../../utils/shuffle';
-import { speakJapanese } from '../../utils/tts';
+import { speakJapanese, stopJapaneseSpeech } from '../../utils/tts';
 
 interface SlashWord {
   id: number;
@@ -68,6 +68,8 @@ export interface FruitSlashVocabGameProps {
   contextLabel: string;
   starredIds?: number[];
   onToggleStar?: (vocabId: number) => void;
+  soundEnabled?: boolean;
+  onToggleSound?: () => void;
   onSessionFinish?: (stats: {
     score: number;
     correctCount: number;
@@ -79,13 +81,16 @@ export interface FruitSlashVocabGameProps {
 const ORB_PALETTE = ['#0284c7', '#db2777', '#059669', '#d97706', '#7c3aed'];
 const CANVAS_W = 900;
 const CANVAS_H = 520;
-const GRAVITY = 420;
+// Lower gravity + apex slow-motion zone so orbs hover gracefully in the middle of the screen for easy glance-and-slash
+const GRAVITY = 210;
 
 export const FruitSlashVocabGame: React.FC<FruitSlashVocabGameProps> = ({
   words,
   contextLabel,
   starredIds = [],
   onToggleStar,
+  soundEnabled: externalSoundEnabled,
+  onToggleSound,
   onSessionFinish,
 }) => {
   const baseUrl = import.meta.env.BASE_URL || '/';
@@ -108,7 +113,20 @@ export const FruitSlashVocabGame: React.FC<FruitSlashVocabGameProps> = ({
 
   const [phase, setPhase] = useState<'ready' | 'playing' | 'ended'>('ready');
   const [targetRounds, setTargetRounds] = useState<12 | 20>(12);
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [internalSoundEnabled, setInternalSoundEnabled] = useState(true);
+  const soundEnabled = externalSoundEnabled ?? internalSoundEnabled;
+
+  const handleToggleSound = useCallback(() => {
+    if (onToggleSound) {
+      onToggleSound();
+      return;
+    }
+    setInternalSoundEnabled((prev) => {
+      const next = !prev;
+      if (!next) stopJapaneseSpeech();
+      return next;
+    });
+  }, [onToggleSound]);
   const [lives, setLives] = useState(3);
   const [score, setScore] = useState(0);
   const [combo, setCombo] = useState(0);
@@ -117,6 +135,7 @@ export const FruitSlashVocabGame: React.FC<FruitSlashVocabGameProps> = ({
   const [missedWords, setMissedWords] = useState<SlashWord[]>([]);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const arenaContainerRef = useRef<HTMLDivElement | null>(null);
   const bgImgRef = useRef<HTMLImageElement | null>(null);
   const orbsRef = useRef<FlyingOrb[]>([]);
   const halvesRef = useRef<SlicedHalf[]>([]);
@@ -167,42 +186,48 @@ export const FruitSlashVocabGame: React.FC<FruitSlashVocabGameProps> = ({
     setCurrentTarget(target);
     roundResolvedRef.current = false;
 
+    // Auto-speak Japanese pronunciation immediately when each new question wave begins!
+    if (soundRef.current) {
+      speakJapanese(target.reading || target.word);
+    }
+
     const distractors = shuffleArray(pool.filter((w) => w.id !== target.id)).slice(0, 2);
     const waveWords = shuffleArray([target, ...distractors]);
     const includeBomb = clearedRef.current >= 2 && Math.random() < 0.35;
 
     const totalItems = waveWords.length + (includeBomb ? 1 : 0);
-    const spacing = (CANVAS_W - 220) / Math.max(1, totalItems - 1);
+    const spacing = (CANVAS_W - 240) / Math.max(1, totalItems - 1);
 
     const newOrbs: FlyingOrb[] = waveWords.map((w, idx) => {
-      const startX = 110 + idx * spacing + (Math.random() * 44 - 22);
-      const centerPull = (CANVAS_W / 2 - startX) * 0.32;
+      const startX = 120 + idx * spacing + (Math.random() * 28 - 14);
+      const centerPull = (CANVAS_W / 2 - startX) * 0.16;
       return {
         uid: `orb-${Date.now()}-${idx}`,
         word: w,
         isTarget: w.id === target.id,
         isBomb: false,
         x: startX,
-        y: CANVAS_H + 35 + idx * 14,
-        vx: centerPull + (Math.random() * 50 - 25),
-        vy: -(525 + Math.random() * 75),
-        radius: 56,
+        y: CANVAS_H + 20 + idx * 8,
+        vx: centerPull + (Math.random() * 24 - 12),
+        // Gentle launch velocity so orbs rise to upper-middle sightline and hover slowly
+        vy: -(385 + Math.random() * 35),
+        radius: 58,
         color: ORB_PALETTE[(idx + clearedRef.current) % ORB_PALETTE.length],
         sliced: false,
       };
     });
 
     if (includeBomb) {
-      const bombX = 160 + Math.random() * (CANVAS_W - 320);
+      const bombX = 170 + Math.random() * (CANVAS_W - 340);
       newOrbs.push({
         uid: `bomb-${Date.now()}`,
         word: null,
         isTarget: false,
         isBomb: true,
         x: bombX,
-        y: CANVAS_H + 45,
-        vx: (CANVAS_W / 2 - bombX) * 0.28,
-        vy: -(515 + Math.random() * 60),
+        y: CANVAS_H + 28,
+        vx: (CANVAS_W / 2 - bombX) * 0.15,
+        vy: -(370 + Math.random() * 28),
         radius: 42,
         color: '#1e293b',
         sliced: false,
@@ -234,6 +259,9 @@ export const FruitSlashVocabGame: React.FC<FruitSlashVocabGameProps> = ({
     setMissedWords([]);
     setPhase('playing');
     launchNextWave();
+    window.setTimeout(() => {
+      arenaContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 60);
   }, [launchNextWave, pool]);
 
   const spawnSlicedHalves = (orb: FlyingOrb) => {
@@ -314,9 +342,9 @@ export const FruitSlashVocabGame: React.FC<FruitSlashVocabGameProps> = ({
         textsRef.current.push({
           x: orb.x,
           y: orb.y - 12,
-          text: `+${gained} ⚔ Chính xác!`,
+          text: `🌸 “${orb.word.meaning}” (${orb.word.reading})`,
           color: '#34d399',
-          life: 1,
+          life: 1.25,
         });
 
         if (clearedRef.current >= targetRoundsRef.current) {
@@ -351,13 +379,16 @@ export const FruitSlashVocabGame: React.FC<FruitSlashVocabGameProps> = ({
         }
       }
 
-      // Physics update for orbs
+      // Physics update for orbs (with Apex Hover Slow-Motion so players can glance & slice comfortably)
       let targetFellOut = false;
       for (const orb of orbsRef.current) {
         if (orb.sliced) continue;
-        orb.x += orb.vx * dt;
-        orb.y += orb.vy * dt;
-        orb.vy += GRAVITY * dt;
+        const isInApexHoverZone = orb.y < CANVAS_H * 0.65 && Math.abs(orb.vy) < 135;
+        const effDt = isInApexHoverZone ? dt * 0.42 : dt;
+
+        orb.x += orb.vx * effDt;
+        orb.y += orb.vy * effDt;
+        orb.vy += GRAVITY * effDt;
 
         // Bounce softly off side walls
         if (orb.x < orb.radius + 12) {
@@ -413,6 +444,34 @@ export const FruitSlashVocabGame: React.FC<FruitSlashVocabGameProps> = ({
         } else {
           ctx.fillStyle = '#0f172a';
           ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+        }
+
+        // In-Canvas Sightline Target Banner (right above the apex where orbs hover, so eyes never jump far!)
+        if (currentTargetRef.current) {
+          ctx.save();
+          const pillW = 520;
+          const pillH = 44;
+          const pillX = (CANVAS_W - pillW) / 2;
+          const pillY = 14;
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.82)';
+          ctx.strokeStyle = 'rgba(56, 189, 248, 0.75)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.roundRect(pillX, pillY, pillW, pillH, 22);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = '#e0f2fe';
+          ctx.font = 'bold 17px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(
+            `⚔ Chém từ: “${currentTargetRef.current.meaning}”`,
+            CANVAS_W / 2,
+            pillY + pillH / 2,
+            pillW - 28,
+          );
+          ctx.restore();
         }
 
         // Draw Sliced Halves
@@ -600,36 +659,14 @@ export const FruitSlashVocabGame: React.FC<FruitSlashVocabGameProps> = ({
   const isVictory = phase === 'ended' && lives > 0 && clearedCount >= targetRounds;
 
   return (
-    <div className="space-y-4">
-      {/* Top Bar */}
-      <Card padding="md" className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge tone="sakura">{contextLabel}</Badge>
-          <span className="text-xs text-muted">
-            Vuốt (kéo chuột / ngón tay) chém trúng quả cầu mang từ tiếng Nhật khớp với nghĩa ở trên!
-          </span>
-        </div>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={() => setSoundEnabled((s) => !s)}
-          leftIcon={
-            soundEnabled ? (
-              <Volume2 className="size-4 text-primary-fg" aria-hidden />
-            ) : (
-              <VolumeX className="size-4 text-muted" aria-hidden />
-            )
-          }
-        >
-          {soundEnabled ? 'Âm đọc BẬT' : 'Âm đọc TẮT'}
-        </Button>
-      </Card>
-
+    <div className="space-y-3">
       {/* Main Fruit Slash Arena */}
-      <div className="relative overflow-hidden rounded-2xl border-2 border-sakura/50 bg-surface shadow-card">
+      <div
+        ref={arenaContainerRef}
+        className="relative overflow-hidden rounded-2xl border-2 border-sakura/50 bg-surface shadow-card"
+      >
         {/* Target Word Banner on Top */}
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-surface px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-surface px-2.5 py-2 sm:px-4 sm:py-2.5">
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1" aria-label={`Còn ${lives} mạng`}>
               {[1, 2, 3].map((idx) => (
@@ -653,20 +690,50 @@ export const FruitSlashVocabGame: React.FC<FruitSlashVocabGameProps> = ({
             )}
           </div>
 
-          {/* Center Target Prompt */}
-          <div className="flex items-center gap-2">
+          {/* Center Target Prompt + Replay Japanese Audio */}
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-semibold uppercase tracking-wider text-muted">
               Chém từ nghĩa là:
             </span>
             <span className="rounded-xl border border-primary/40 bg-primary-soft px-3.5 py-1 text-base font-bold text-primary-fg sm:text-lg">
               {currentTarget ? `“${currentTarget.meaning}”` : 'Sẵn sàng!'}
             </span>
+            {currentTarget && phase === 'playing' && (
+              <Button
+                type="button"
+                variant="soft"
+                size="sm"
+                onClick={() => speakJapanese(currentTarget.reading || currentTarget.word)}
+                leftIcon={<Volume2 className="size-3.5 text-primary-fg" aria-hidden />}
+              >
+                Nghe lại
+              </Button>
+            )}
           </div>
 
-          <Badge tone="success" className="tabular text-sm">
-            <Trophy className="size-3.5" aria-hidden />
-            {score.toLocaleString('vi-VN')} điểm
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge tone="success" className="tabular text-sm">
+              <Trophy className="size-3.5" aria-hidden />
+              {score.toLocaleString('vi-VN')} điểm
+            </Badge>
+            {!onToggleSound && (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={handleToggleSound}
+                leftIcon={
+                  soundEnabled ? (
+                    <Volume2 className="size-4 text-primary-fg" aria-hidden />
+                  ) : (
+                    <VolumeX className="size-4 text-muted" aria-hidden />
+                  )
+                }
+              >
+                {soundEnabled ? 'BẬT' : 'TẮT'}
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* 60fps Canvas */}
@@ -688,7 +755,7 @@ export const FruitSlashVocabGame: React.FC<FruitSlashVocabGameProps> = ({
                 {phase === 'ready' ? (
                   <>
                     <Badge tone="sakura" className="mx-auto">
-                      Kiếm Đạo Chém Hoa Quả · {pool.length} từ
+                      {contextLabel} · {pool.length} từ
                     </Badge>
                     <h2 className="text-xl font-bold text-fg">
                       Chém Hoa Quả Từ Vựng (Fruit Slash)

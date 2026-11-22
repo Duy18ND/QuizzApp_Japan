@@ -14,6 +14,7 @@ interface SeedUnitRow {
   id: string;
   level: string;
   unit_number: number;
+  textbook_id: string | null;
   title: string;
   description: string;
   order_index: number;
@@ -102,26 +103,25 @@ async function main() {
   });
 
   try {
-    const [{ UNIT_DATA }, { unit1Data }, kanjiRaw, { grammarBooks }, jlptMod] = await Promise.all([
+    const [{ UNIT_DATA }, { allVocabularyData }, kanjiRaw, { grammarBooks, allGrammarSentencesBank }, jlptMod] = await Promise.all([
       vite.ssrLoadModule('/src/data/unitData.ts'),
-      vite.ssrLoadModule('/src/data/n3/unit1.ts'),
+      vite.ssrLoadModule('/src/data/index.ts'),
       fs.promises.readFile(path.join(CLIENT_DIR, 'src/data/kanji/kanjiDataset.json'), 'utf8'),
       vite.ssrLoadModule('/src/data/grammar/index.ts'),
       vite.ssrLoadModule('/src/data/jlpt/jlptDataset.ts'),
     ]);
 
-    const { lesson01Sentences } = await vite.ssrLoadModule('/src/data/grammar/shinkanzen-n3/lesson01Sentences.ts');
-    const { lesson02Sentences } = await vite.ssrLoadModule('/src/data/grammar/shinkanzen-n3/lesson02Sentences.ts');
-    const allSentences = [...lesson01Sentences, ...lesson02Sentences];
+    const allSentences = allGrammarSentencesBank as Array<{ grammarId: string; japanese: string; hiragana: string; vietnamese: string }>;
 
     const units: SeedUnitRow[] = [];
     let orderCounter = 1;
-    for (const [level, list] of Object.entries(UNIT_DATA as Record<string, Array<{ id: number; name: string; totalWords: number }>>)) {
+    for (const [level, list] of Object.entries(UNIT_DATA as Record<string, Array<{ id: number; name: string; totalWords: number; textbookId?: string }>>)) {
       for (const u of list) {
         units.push({
           id: `${level.toLowerCase()}-unit-${u.id}`,
           level,
           unit_number: u.id,
+          textbook_id: u.textbookId ?? null,
           title: u.name,
           description: u.totalWords > 0 ? `${u.totalWords} từ vựng chuẩn JLPT ${level}` : 'Sắp ra mắt',
           order_index: orderCounter++,
@@ -130,22 +130,33 @@ async function main() {
       }
     }
 
-    const vocabularies: SeedVocabRow[] = (unit1Data as Array<Record<string, unknown>>).map((w) => ({
-      id: Number(w.id),
-      unit_id: 'n3-unit-1',
-      word_number: typeof w.wordNumber === 'number' ? w.wordNumber : null,
-      kanji: typeof w.kanji === 'string' && w.kanji.trim() ? w.kanji.trim() : null,
-      hiragana: String(w.hiragana || ''),
-      han_viet: typeof w.hanViet === 'string' && w.hanViet.trim() ? w.hanViet.trim() : null,
-      meaning: String(w.meaning || ''),
-      word_type: String(w.wordType || 'Khác'),
-      example_sentence: typeof w.exampleSentence === 'string' ? w.exampleSentence : null,
-      example_meaning: typeof w.exampleMeaning === 'string' ? w.exampleMeaning : null,
-      notes: typeof w.notes === 'string' ? w.notes : null,
-      level: String(w.level || 'N3'),
-      tags: Array.isArray(w.tags) ? w.tags.map(String) : [],
-      semantic_roles: Array.isArray(w.semanticRoles) ? w.semanticRoles.map(String) : [],
-    }));
+    const vocabularies: SeedVocabRow[] = [];
+    for (const [lvlKey, unitMap] of Object.entries(
+      allVocabularyData as Record<string, Record<string, Array<Record<string, unknown>>>>,
+    )) {
+      for (const [unitKey, words] of Object.entries(unitMap)) {
+        const level = lvlKey.toUpperCase();
+        const unit_id = `${lvlKey.toLowerCase()}-unit-${unitKey}`;
+        for (const w of words) {
+          vocabularies.push({
+            id: Number(w.id),
+            unit_id,
+            word_number: typeof w.wordNumber === 'number' ? w.wordNumber : null,
+            kanji: typeof w.kanji === 'string' && w.kanji.trim() ? w.kanji.trim() : null,
+            hiragana: String(w.hiragana || ''),
+            han_viet: typeof w.hanViet === 'string' && w.hanViet.trim() ? w.hanViet.trim() : null,
+            meaning: String(w.meaning || ''),
+            word_type: String(w.wordType || 'Khác'),
+            example_sentence: typeof w.exampleSentence === 'string' ? w.exampleSentence : null,
+            example_meaning: typeof w.exampleMeaning === 'string' ? w.exampleMeaning : null,
+            notes: typeof w.notes === 'string' ? w.notes : null,
+            level: typeof w.level === 'string' ? w.level : level,
+            tags: Array.isArray(w.tags) ? w.tags.map(String) : [],
+            semantic_roles: Array.isArray(w.semanticRoles) ? w.semanticRoles.map(String) : [],
+          });
+        }
+      }
+    }
 
     const parsedKanji = JSON.parse(kanjiRaw) as Array<Record<string, unknown>>;
     const kanjis: SeedKanjiRow[] = parsedKanji.map((k) => ({
@@ -250,7 +261,7 @@ async function main() {
         module_id: 'listening',
         level: listen.level,
         question_type: 'listening',
-        prompt: listen.prompt,
+        prompt: listen.questionPrompt || '',
         passage: null,
         options: listen.options,
         correct_index: listen.correctIndex,
@@ -289,7 +300,7 @@ async function main() {
 
     for (const u of units) {
       sqlLines.push(
-        `insert into public.units (id, level, unit_number, title, description, order_index, is_published) values (${sqlStr(u.id)}, ${sqlStr(u.level)}, ${u.unit_number}, ${sqlStr(u.title)}, ${sqlStr(u.description)}, ${u.order_index}, ${u.is_published}) on conflict (id) do update set level = excluded.level, unit_number = excluded.unit_number, title = excluded.title, description = excluded.description, order_index = excluded.order_index, is_published = excluded.is_published;`,
+        `insert into public.units (id, level, unit_number, textbook_id, title, description, order_index, is_published) values (${sqlStr(u.id)}, ${sqlStr(u.level)}, ${u.unit_number}, ${sqlStr(u.textbook_id)}, ${sqlStr(u.title)}, ${sqlStr(u.description)}, ${u.order_index}, ${u.is_published}) on conflict (id) do update set level = excluded.level, unit_number = excluded.unit_number, textbook_id = excluded.textbook_id, title = excluded.title, description = excluded.description, order_index = excluded.order_index, is_published = excluded.is_published;`,
       );
     }
     sqlLines.push('');

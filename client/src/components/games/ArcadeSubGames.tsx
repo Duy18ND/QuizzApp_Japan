@@ -7,6 +7,7 @@ import {
   RotateCcw,
   Trophy,
   Volume2,
+  VolumeX,
   XCircle,
 } from 'lucide-react';
 import { Badge, Button, Card, Chip, ProgressBar } from '../ui';
@@ -42,8 +43,18 @@ export const PairMatchGame: React.FC<{
   kanjis: KanjiItem[];
   grammars: SmartGrammarRule[];
   levelLabel: string;
+  soundEnabled?: boolean;
+  onToggleSound?: () => void;
   onCompleteRound: (stats: { score: number; skill: StageSkill; seconds: number }) => void;
-}> = ({ words, kanjis, grammars, levelLabel, onCompleteRound }) => {
+}> = ({
+  words,
+  kanjis,
+  grammars,
+  levelLabel,
+  soundEnabled = true,
+  onToggleSound,
+  onCompleteRound,
+}) => {
   const [sourceMode, setSourceMode] = useState<PairMatchSourceMode>('kanji-meaning');
   const [wave, setWave] = useState(1);
   const [score, setScore] = useState(0);
@@ -132,7 +143,7 @@ export const PairMatchGame: React.FC<{
     (leftId: string, rightId: string) => {
       if (leftId === rightId) {
         const pair = wavePairs.find((p) => p.id === leftId);
-        if (pair?.speakText) speakJapanese(pair.speakText);
+        if (soundEnabled && pair?.speakText) speakJapanese(pair.speakText);
         const nextCombo = combo + 1;
         setCombo(nextCombo);
         const nextScore = score + 100 + nextCombo * 20;
@@ -171,7 +182,7 @@ export const PairMatchGame: React.FC<{
         }, 320);
       }
     },
-    [combo, onCompleteRound, score, seconds, sourceMode, wave, wavePairs],
+    [combo, onCompleteRound, score, seconds, soundEnabled, sourceMode, wave, wavePairs],
   );
 
   const handlePickLeft = (id: string) => {
@@ -225,6 +236,23 @@ export const PairMatchGame: React.FC<{
           <Badge tone="success" className="tabular">
             {score} điểm
           </Badge>
+          {onToggleSound && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={onToggleSound}
+              leftIcon={
+                soundEnabled ? (
+                  <Volume2 className="size-4 text-primary-fg" aria-hidden />
+                ) : (
+                  <VolumeX className="size-4 text-muted" aria-hidden />
+                )
+              }
+            >
+              {soundEnabled ? 'Âm đọc BẬT' : 'Âm đọc TẮT'}
+            </Button>
+          )}
         </div>
       </Card>
 
@@ -255,10 +283,10 @@ export const PairMatchGame: React.FC<{
             </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 sm:gap-5">
+          <div className="grid grid-cols-2 gap-2 sm:gap-5">
             {/* Left Column: Japanese / Kanji / Grammar */}
-            <div className="space-y-2.5">
-              <p className="text-xs font-bold tracking-wider text-primary-fg uppercase">
+            <div className="space-y-2 sm:space-y-2.5">
+              <p className="text-[11px] font-bold tracking-wider text-primary-fg uppercase sm:text-xs">
                 Cột A · Tiếng Nhật
               </p>
               {leftItems.map((item) => {
@@ -271,7 +299,7 @@ export const PairMatchGame: React.FC<{
                     disabled={isMatched}
                     onClick={() => handlePickLeft(item.id)}
                     className={cn(
-                      'flex min-h-[60px] w-full cursor-pointer flex-col items-center justify-center rounded-xl border-2 px-3 py-2 text-center transition-all duration-150',
+                      'flex min-h-[56px] w-full cursor-pointer flex-col items-center justify-center rounded-xl border-2 px-2 py-1.5 text-center transition-all duration-150 sm:min-h-[60px] sm:px-3 sm:py-2',
                       isMatched
                         ? 'border-success-line bg-success-soft/35 text-success-fg opacity-45'
                         : isSelected && wrongFlash
@@ -281,11 +309,11 @@ export const PairMatchGame: React.FC<{
                             : 'border-line bg-surface-2/60 text-fg hover:border-primary/60 hover:bg-surface',
                     )}
                   >
-                    <span lang="ja" className="text-base font-bold sm:text-lg">
+                    <span lang="ja" className="text-sm font-bold sm:text-lg">
                       {item.leftText}
                     </span>
                     {item.leftSub && (
-                      <span className="text-[11px] font-medium text-muted">
+                      <span className="text-[10px] font-medium text-muted sm:text-[11px]">
                         {item.leftSub}
                       </span>
                     )}
@@ -295,8 +323,8 @@ export const PairMatchGame: React.FC<{
             </div>
 
             {/* Right Column: Vietnamese Meaning / Reading */}
-            <div className="space-y-2.5">
-              <p className="text-xs font-bold tracking-wider text-sakura uppercase">
+            <div className="space-y-2 sm:space-y-2.5">
+              <p className="text-[11px] font-bold tracking-wider text-sakura uppercase sm:text-xs">
                 Cột B · Ý nghĩa / Cách đọc
               </p>
               {rightItems.map((item) => {
@@ -309,7 +337,7 @@ export const PairMatchGame: React.FC<{
                     disabled={isMatched}
                     onClick={() => handlePickRight(item.id)}
                     className={cn(
-                      'flex min-h-[60px] w-full cursor-pointer items-center justify-center rounded-xl border-2 px-3 py-2 text-center text-sm font-semibold transition-all duration-150',
+                      'flex min-h-[56px] w-full cursor-pointer items-center justify-center rounded-xl border-2 px-2 py-1.5 text-center text-xs font-semibold transition-all duration-150 sm:min-h-[60px] sm:px-3 sm:py-2 sm:text-sm',
                       isMatched
                         ? 'border-success-line bg-success-soft/35 text-success-fg opacity-45'
                         : isSelected && wrongFlash
@@ -347,8 +375,10 @@ interface MemoryCardTile {
 export const MemoryFlipGame: React.FC<{
   words: VocabularyItem[];
   kanjis: KanjiItem[];
+  soundEnabled?: boolean;
+  onToggleSound?: () => void;
   onCompleteRound: (stats: { score: number; skill: StageSkill; moves: number }) => void;
-}> = ({ words, kanjis, onCompleteRound }) => {
+}> = ({ words, kanjis, soundEnabled = true, onToggleSound, onCompleteRound }) => {
   const [poolType, setPoolType] = useState<'vocab' | 'kanji'>('vocab');
   const [seed, setSeed] = useState(0);
   const [flippedUids, setFlippedUids] = useState<string[]>([]);
@@ -415,7 +445,7 @@ export const MemoryFlipGame: React.FC<{
     ) {
       return;
     }
-    if (tile.speakText) speakJapanese(tile.speakText);
+    if (soundEnabled && tile.speakText) speakJapanese(tile.speakText);
 
     const nextFlipped = [...flippedUids, tile.uid];
     setFlippedUids(nextFlipped);
@@ -478,6 +508,23 @@ export const MemoryFlipGame: React.FC<{
           >
             Trộn bài mới
           </Button>
+          {onToggleSound && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={onToggleSound}
+              leftIcon={
+                soundEnabled ? (
+                  <Volume2 className="size-4 text-primary-fg" aria-hidden />
+                ) : (
+                  <VolumeX className="size-4 text-muted" aria-hidden />
+                )
+              }
+            >
+              {soundEnabled ? 'Âm đọc BẬT' : 'Âm đọc TẮT'}
+            </Button>
+          )}
         </div>
       </Card>
 
@@ -560,8 +607,10 @@ export const MemoryFlipGame: React.FC<{
 export const SpeedTrueFalseGame: React.FC<{
   words: VocabularyItem[];
   kanjis: KanjiItem[];
+  soundEnabled?: boolean;
+  onToggleSound?: () => void;
   onCompleteRound: (stats: { score: number; skill: StageSkill; correctCount: number }) => void;
-}> = ({ words, kanjis, onCompleteRound }) => {
+}> = ({ words, kanjis, soundEnabled = true, onToggleSound, onCompleteRound }) => {
   const [running, setRunning] = useState(false);
   const [timeLeft, setTimeLeft] = useState(45);
   const [score, setScore] = useState(0);
@@ -622,6 +671,12 @@ export const SpeedTrueFalseGame: React.FC<{
   }, [kanjis, words]);
 
   const currentQ = questions[qIndex % Math.max(1, questions.length)];
+
+  useEffect(() => {
+    if (running && soundEnabled && currentQ) {
+      speakJapanese(currentQ.sub && currentQ.sub !== 'Chữ Hán (Kanji)' ? currentQ.sub : currentQ.prompt);
+    }
+  }, [currentQ, running, soundEnabled]);
 
   useEffect(() => {
     if (!running) return;
@@ -703,6 +758,23 @@ export const SpeedTrueFalseGame: React.FC<{
             <Trophy className="size-3.5" aria-hidden />
             {score} điểm ({correctCount} câu đúng)
           </Badge>
+          {onToggleSound && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={onToggleSound}
+              leftIcon={
+                soundEnabled ? (
+                  <Volume2 className="size-4 text-primary-fg" aria-hidden />
+                ) : (
+                  <VolumeX className="size-4 text-muted" aria-hidden />
+                )
+              }
+            >
+              {soundEnabled ? 'Âm đọc BẬT' : 'Âm đọc TẮT'}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -789,8 +861,10 @@ export const SpeedTrueFalseGame: React.FC<{
 
 export const ListeningDojoGame: React.FC<{
   words: VocabularyItem[];
+  soundEnabled?: boolean;
+  onToggleSound?: () => void;
   onCompleteRound: (stats: { score: number; skill: StageSkill; correctCount: number }) => void;
-}> = ({ words, onCompleteRound }) => {
+}> = ({ words, soundEnabled = true, onToggleSound, onCompleteRound }) => {
   const [roundIdx, setRoundIdx] = useState(0);
   const [score, setScore] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
@@ -812,10 +886,10 @@ export const ListeningDojoGame: React.FC<{
   const isFinished = roundIdx >= questions.length;
 
   useEffect(() => {
-    if (current && !isFinished) {
+    if (soundEnabled && current && !isFinished) {
       speakJapanese(current.target.hiragana || current.target.kanji || '');
     }
-  }, [current, isFinished]);
+  }, [current, isFinished, soundEnabled]);
 
   const handleSelect = (opt: VocabularyItem) => {
     if (!current || pickedId !== null) return;
@@ -869,11 +943,30 @@ export const ListeningDojoGame: React.FC<{
 
   return (
     <Card padding="lg" className="space-y-5 text-center">
-      <div className="flex items-center justify-between text-xs">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
         <Badge tone="primary">
           Câu {roundIdx + 1}/{totalRounds}
         </Badge>
-        <Badge tone="success">{score} điểm</Badge>
+        <div className="flex items-center gap-2">
+          <Badge tone="success">{score} điểm</Badge>
+          {onToggleSound && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={onToggleSound}
+              leftIcon={
+                soundEnabled ? (
+                  <Volume2 className="size-4 text-primary-fg" aria-hidden />
+                ) : (
+                  <VolumeX className="size-4 text-muted" aria-hidden />
+                )
+              }
+            >
+              {soundEnabled ? 'Âm đọc BẬT' : 'Âm đọc TẮT'}
+            </Button>
+          )}
+        </div>
       </div>
 
       {current && (

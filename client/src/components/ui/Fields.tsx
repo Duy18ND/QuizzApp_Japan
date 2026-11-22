@@ -211,7 +211,7 @@ export function Chip({ selected, onClick, children, disabled, className }: ChipP
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        'inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition-colors duration-150',
+        'inline-flex min-h-9 touch-manipulation items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.98] sm:px-3 sm:text-sm',
         'disabled:pointer-events-none disabled:opacity-50',
         selected
           ? 'border-primary bg-primary-soft text-primary-fg'

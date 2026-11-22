@@ -11,7 +11,7 @@ import {
 } from '../../data/vocabTextbooks';
 import { useAuth } from '../../context/auth-context';
 import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
-import { Button, EmptyState, Field, PageContainer, PageHeader, Select } from '../../components/ui';
+import { Badge, Button, EmptyState, Field, PageContainer, PageHeader, Select } from '../../components/ui';
 import { buttonStyles } from '../../components/ui/styles';
 import type { JLPTLevel } from '../../types/quiz';
 
@@ -30,6 +30,17 @@ export const VocabularyTextbooksPage: React.FC = () => {
     '';
   const cmsSnapshot = useCurriculumSnapshot();
   const textbooks = getVocabTextbooksForLevel(levelKey);
+
+  const textbookStats = useMemo(
+    () =>
+      textbooks.map((book) => {
+        const bookUnits = getUnitsForVocabTextbook(cmsSnapshot, levelKey, book);
+        const wordCount = bookUnits.reduce((sum, u) => sum + u.totalWords, 0);
+        return { book, unitCount: bookUnits.length, wordCount, isReady: wordCount > 0 };
+      }),
+    [cmsSnapshot, levelKey, textbooks],
+  );
+  const firstReadyBook = textbookStats.find((s) => s.isReady)?.book ?? null;
 
   const textbook = useMemo(
     () => textbooks.find((book) => book.id === selectedBookId) ?? textbooks[0],
@@ -103,20 +114,24 @@ export const VocabularyTextbooksPage: React.FC = () => {
             value={textbook?.id ?? ''}
             onChange={(event) => handleBookChange(event.target.value)}
           >
-            {textbooks.map((book) => (
+            {textbookStats.map(({ book, wordCount, isReady }) => (
               <option key={book.id} value={book.id}>
-                {book.title}
+                {book.title} {isReady ? `(${wordCount} từ)` : '— Sắp ra mắt'}
               </option>
             ))}
           </Select>
         </Field>
         {textbook && (
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 sm:col-span-2">
-            <p className="text-sm text-muted">
+            <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
               <span lang="ja" className="font-medium text-primary-fg">{textbook.japaneseTitle}</span>
-              <span className="mx-2" aria-hidden>·</span>
-              <span className="tabular">{availableUnits} bài có dữ liệu · {totalWords} từ</span>
-            </p>
+              <span aria-hidden>·</span>
+              {totalWords > 0 ? (
+                <span className="tabular">{availableUnits} bài có dữ liệu · {totalWords} từ</span>
+              ) : (
+                <Badge tone="warning">Sắp ra mắt</Badge>
+              )}
+            </div>
             <p className="text-xs text-muted">Lựa chọn giáo trình được ghi nhớ cho lần sau.</p>
           </div>
         )}
@@ -132,8 +147,29 @@ export const VocabularyTextbooksPage: React.FC = () => {
 
         {!textbook || units.length === 0 ? (
           <EmptyState
-            title="Chưa có bài học trong giáo trình này"
-            description={`Khi dữ liệu ${textbook?.title ?? 'giáo trình'} (${levelKey}) được nhập, các bài sẽ xuất hiện tại đây.`}
+            title={`Giáo trình ${textbook?.shortTitle ?? ''} (${levelKey}) — Sắp ra mắt`}
+            description={`Đội ngũ đang biên soạn và kiểm duyệt bộ từ vựng cho ${textbook?.title ?? 'giáo trình này'}. Bạn có thể học ngay các giáo trình đã hoàn thiện trong lúc chờ cập nhật.`}
+            action={
+              firstReadyBook && firstReadyBook.id !== textbook?.id ? (
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  onClick={() => handleBookChange(firstReadyBook.id)}
+                >
+                  Học ngay: {firstReadyBook.title}
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  onClick={() => void handleLevelChange('N5')}
+                >
+                  Mở trọn bộ N5 · Minna no Nihongo I (25 bài)
+                </Button>
+              )
+            }
           />
         ) : (
           <ol className="divide-y divide-line border-y border-line">

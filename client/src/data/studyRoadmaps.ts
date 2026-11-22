@@ -43,14 +43,14 @@ export interface LevelRoadmapSpec {
 export const STUDY_ROADMAPS: Record<StudyLevel, LevelRoadmapSpec> = {
   N5: {
     level: 'N5',
-    title: 'Sơ cấp 1 — Trọn bộ Minna no Nihongo I (Bài 1–25)',
-    japaneseLabel: '初級 I · 全25課',
-    summary: 'Lộ trình 60 ngày (6 Chặng × 10 Màn) đi trọn 25 bài Minna no Nihongo I: Từ vựng, 112 Kanji N5, 80 mẫu ngữ pháp, Đọc hiểu, Nghe hiểu và Thi thử JLPT N5.',
+    title: 'Sơ cấp 1 — Trọn bộ 4 Giáo trình N5 (Minna I · Shin Kanzen · Mimi · Sou Matome)',
+    japaneseLabel: '初級 I · 全4教材',
+    summary: 'Lộ trình 60 ngày đi trọn 25 bài Minna no Nihongo I + 3 giáo trình bổ trợ Shin Kanzen N5, Mimi kara N5, Sou Matome N5: ~884 từ vựng, 112 Kanji N5, 90 mẫu ngữ pháp, Đọc hiểu, Nghe hiểu và Thi thử JLPT N5.',
     durationWeeks: '9 tuần (60 màn)',
     dailyMinutes: '10 – 15 phút/ngày',
-    vocabTarget: '25 bài (~518 từ)',
+    vocabTarget: '43 bài (884 từ)',
     kanjiTarget: '112 chữ N5',
-    grammarTarget: '25 bài (~80 mẫu)',
+    grammarTarget: '30 bài (90 mẫu)',
     phases: [
       {
         id: 'n5-p1',
@@ -169,14 +169,14 @@ export const STUDY_ROADMAPS: Record<StudyLevel, LevelRoadmapSpec> = {
 
   N4: {
     level: 'N4',
-    title: 'Sơ cấp 2 — Giao tiếp đời sống',
-    japaneseLabel: '初級 II',
-    summary: 'Hoàn thiện chia thể động từ, mở rộng ~1.500 từ vựng, ~300 Kanji và đọc hiểu hội thoại tự nhiên.',
+    title: 'Sơ cấp 2 — Trọn bộ Minna II, Shin Kanzen, Mimi & Sou Matome N4',
+    japaneseLabel: '初級 II · 全4教材',
+    summary: 'Hoàn thiện chia thể động từ & kính ngữ qua 4 bộ sách N4 (Minna II Bài 26–50, Shin Kanzen, Mimi kara, Sou Matome): 560 từ vựng, 177 Kanji N4, 48 mẫu ngữ pháp kèm Đọc – Nghe – Thi thử JLPT N4.',
     durationWeeks: '10 – 12 tuần',
-    dailyMinutes: '35 phút/ngày',
-    vocabTarget: '~1.500 từ',
-    kanjiTarget: '~300 chữ',
-    grammarTarget: '~100 mẫu',
+    dailyMinutes: '15 – 30 phút/ngày',
+    vocabTarget: '28 bài (560 từ)',
+    kanjiTarget: '177 chữ N4',
+    grammarTarget: '16 bài (48 mẫu)',
     phases: [
       {
         id: 'n4-p1',
@@ -295,14 +295,14 @@ export const STUDY_ROADMAPS: Record<StudyLevel, LevelRoadmapSpec> = {
 
   N3: {
     level: 'N3',
-    title: 'Trung cấp — Cầu nối Sơ cấp lên Cao cấp',
-    japaneseLabel: '中級',
-    summary: 'Chinh phục Mimi kara Oboeru N3, Shin Kanzen Master Ngữ pháp, ~650 Kanji và đọc hiểu báo chí cơ bản.',
+    title: 'Trung cấp — Trọn bộ Mimi kara N3, Shin Kanzen, Minna Trung cấp I & Sou Matome',
+    japaneseLabel: '中級 · 全4教材',
+    summary: 'Chinh phục đầy đủ 4 giáo trình N3 (Mimi kara Oboeru N3, Shin Kanzen Master, Minna Trung cấp I, Sou Matome N3): 590 từ vựng, 177 Kanji N3, 47 mẫu ngữ pháp kèm bài tập ngữ cảnh, Đọc hiểu, Nghe hiểu & Full Test N3.',
     durationWeeks: '12 – 16 tuần',
-    dailyMinutes: '45 phút/ngày',
-    vocabTarget: '~3.000 từ',
-    kanjiTarget: '~650 chữ',
-    grammarTarget: '~150 mẫu',
+    dailyMinutes: '20 – 45 phút/ngày',
+    vocabTarget: '24 bài (590 từ)',
+    kanjiTarget: '177 chữ N3',
+    grammarTarget: '17 bài (47 mẫu)',
     phases: [
       {
         id: 'n3-p1',

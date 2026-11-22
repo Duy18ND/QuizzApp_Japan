@@ -50,6 +50,8 @@ export const PRACTICE_TYPE_KEYS: Array<keyof GrammarProgress> = [
 ];
 
 export const MISTAKE_RESOLUTIONS_ITEM_ID = '__attempt_mistake_resolutions__';
+export const ONLINE_TIME_CLOUD_ITEM_ID = '__daily_online_study_time__';
+export const USER_CUSTOM_STUDIO_ITEM_ID = '__user_custom_studio__';
 
 export interface AttemptMistakeResolutions {
   resolvedItemKeys: string[];
@@ -64,6 +66,7 @@ const ramMistakeResolutions = new Map<string, AttemptMistakeResolutions>();
 const ramQuizHistory = new Map<string, QuizHistoryAttemptEntry[]>();
 const ramStudySchedules = new Map<string, Record<string, unknown>>();
 const ramOnlineTime = new Map<string, Record<string, number>>();
+const ramCustomStudio = new Map<string, Record<string, unknown>>();
 
 export function getInMemoryUserProgress(uid: string): UserProgress {
   return ramVocabProgress.get(uid) ?? { starredWords: [], wrongWords: {} };
@@ -164,6 +167,80 @@ export function setInMemoryOnlineTime(uid: string, value: Record<string, number>
   ramOnlineTime.set(uid, value);
 }
 
+export async function writeOnlineTimeDirectToSupabase(
+  userId: string,
+  onlineMap: Record<string, number>,
+): Promise<void> {
+  if (!supabase || !isSupabaseAccountUuid(userId)) return;
+  const trimmedEntries = Object.entries(onlineMap)
+    .filter(([, secs]) => typeof secs === 'number' && Number.isFinite(secs) && secs > 0)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .slice(-90);
+  if (trimmedEntries.length === 0) return;
+
+  const dailySeconds: Record<string, number> = {};
+  let totalSeconds = 0;
+  for (const [dateKey, secs] of trimmedEntries) {
+    const clean = Math.min(86_400, Math.floor(secs));
+    dailySeconds[dateKey] = clean;
+    totalSeconds += clean;
+  }
+
+  try {
+    await supabase.from('user_progress').upsert(
+      {
+        user_id: userId,
+        item_type: 'mistake',
+        item_id: ONLINE_TIME_CLOUD_ITEM_ID,
+        status: 'learning',
+        score: totalSeconds,
+        attempts: trimmedEntries.length,
+        starred: false,
+        wrong_count: 0,
+        metadata_json: { dailySeconds },
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id,item_type,item_id' },
+    );
+  } catch (err) {
+    console.warn('Could not persist online study time to Supabase:', err);
+  }
+}
+
+export function getInMemoryCustomStudio(uid: string): Record<string, unknown> | null {
+  return ramCustomStudio.get(uid) ?? null;
+}
+
+export function setInMemoryCustomStudio(uid: string, value: Record<string, unknown>): void {
+  ramCustomStudio.set(uid, value);
+}
+
+export async function writeCustomStudioDirectToSupabase(
+  userId: string,
+  studioPayload: Record<string, unknown>,
+): Promise<void> {
+  if (!supabase || !isSupabaseAccountUuid(userId)) return;
+  try {
+    await supabase.from('user_progress').upsert(
+      {
+        user_id: userId,
+        item_type: 'mistake',
+        item_id: USER_CUSTOM_STUDIO_ITEM_ID,
+        status: 'learning',
+        score: 0,
+        attempts: 0,
+        starred: false,
+        wrong_count: 0,
+        metadata_json: { studio: studioPayload },
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id,item_type,item_id' },
+    );
+  } catch (err) {
+    console.warn('Could not persist custom studio to Supabase:', err);
+  }
+}
+
 export function clearInMemoryAccountData(uid?: string | null): void {
   if (uid) {
     ramVocabProgress.delete(uid);
@@ -174,6 +251,7 @@ export function clearInMemoryAccountData(uid?: string | null): void {
     ramQuizHistory.delete(uid);
     ramStudySchedules.delete(uid);
     ramOnlineTime.delete(uid);
+    ramCustomStudio.delete(uid);
     return;
   }
   ramVocabProgress.clear();
@@ -184,6 +262,7 @@ export function clearInMemoryAccountData(uid?: string | null): void {
   ramQuizHistory.clear();
   ramStudySchedules.clear();
   ramOnlineTime.clear();
+  ramCustomStudio.clear();
 }
 
 export function buildVocabCloudRow(
@@ -450,7 +529,14 @@ export async function deleteMistakesByGrammarDirectFromSupabase(
 export async function deleteAllMistakesDirectFromSupabase(uid: string): Promise<void> {
   if (!supabase || !isSupabaseAccountUuid(uid)) return;
   try {
-    await supabase.from('user_progress').delete().eq('user_id', uid).eq('item_type', 'mistake');
+    await supabase
+      .from('user_progress')
+      .delete()
+      .eq('user_id', uid)
+      .eq('item_type', 'mistake')
+      .neq('item_id', MISTAKE_RESOLUTIONS_ITEM_ID)
+      .neq('item_id', ONLINE_TIME_CLOUD_ITEM_ID)
+      .neq('item_id', USER_CUSTOM_STUDIO_ITEM_ID);
   } catch (err) {
     console.warn('Direct mistakes reset failed:', err);
   }

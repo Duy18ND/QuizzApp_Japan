@@ -625,6 +625,21 @@
   }
 }
 
+@layer base {
+  html,
+  body {
+    overscroll-behavior-y: contain;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button,
+  a,
+  select,
+  input,
+  textarea {
+    touch-action: manipulation;
+  }
+}
+
 /* Short colour cross-fade only while the theme is being toggled (set from JS),
    excluding landscape/celestial transition layers so cross-fade (700ms) and rise/set (900ms) run smoothly. */
 html.theme-transition,

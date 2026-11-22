@@ -1,7 +1,19 @@
 import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LogIn, LogOut, Settings, ShieldCheck, UserRound } from 'lucide-react';
+import {
+  BookOpen,
+  Gamepad2,
+  Home,
+  LogIn,
+  LogOut,
+  Map,
+  RotateCcw,
+  Settings,
+  ShieldCheck,
+  UserRound,
+} from 'lucide-react';
 import { useAuth } from '../../context/auth-context';
+import { cn } from '../../lib/cn';
 import { startWebOnlineTimeTracker } from '../../services/notificationService';
 import {
   hasDismissedLevelModal,
@@ -85,7 +97,7 @@ export const AppLayout: React.FC = () => {
           aria-hidden
           className="seigaiha-mask pointer-events-none absolute inset-0 overflow-hidden bg-wave opacity-[0.035]"
         />
-        <div className="relative mx-auto flex min-h-14 max-w-6xl flex-wrap items-center justify-between gap-x-2 gap-y-1.5 px-2.5 py-1.5 sm:h-15 sm:flex-nowrap sm:gap-3 sm:px-5 sm:py-0 lg:px-8">
+        <div className="relative mx-auto flex h-13 max-w-6xl flex-nowrap items-center justify-between gap-2 px-3 sm:h-15 sm:gap-3 sm:px-5 lg:px-8">
           <Link to="/" className="group flex shrink-0 items-center gap-1.5 rounded-lg sm:gap-2.5" aria-label="Nihongo 問 — Trang chủ">
             <span
               lang="ja"
@@ -215,7 +227,7 @@ export const AppLayout: React.FC = () => {
         tabIndex={-1}
         className="relative z-10 flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto focus:outline-none"
       >
-        <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-3 py-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-5 sm:py-5 lg:px-8 lg:py-6">
+        <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-3 py-3 pb-4 sm:px-5 sm:py-5 md:pb-[max(1.25rem,env(safe-area-inset-bottom))] lg:px-8 lg:py-6">
           <JapaneseLookupProvider containerRef={mainRef}>
             <Suspense
               fallback={
@@ -229,6 +241,74 @@ export const AppLayout: React.FC = () => {
           </JapaneseLookupProvider>
         </div>
       </main>
+
+      {/* Mobile Bottom Navigation Bar (< md) for easy 1-thumb switching across core pages */}
+      {!isAuthOrAdminRoute && (
+        <nav
+          aria-label="Điều hướng nhanh di động"
+          className="relative z-40 flex-none border-t border-line bg-glass-header pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden print:hidden"
+        >
+          <div className="mx-auto grid max-w-lg grid-cols-5">
+            {(
+              [
+                { to: '/', label: 'Trang chủ', icon: Home, match: (p: string) => p === '/' },
+                {
+                  to: '/roadmap',
+                  label: 'Lộ trình',
+                  icon: Map,
+                  match: (p: string) => p.startsWith('/roadmap'),
+                },
+                {
+                  to: '/games',
+                  label: 'Mini-game',
+                  icon: Gamepad2,
+                  match: (p: string) => p.startsWith('/games'),
+                },
+                {
+                  to: '/vocabulary',
+                  label: 'Từ vựng',
+                  icon: BookOpen,
+                  match: (p: string) =>
+                    p.startsWith('/vocabulary') && !p.startsWith('/vocabulary/review'),
+                },
+                {
+                  to: '/vocabulary/review',
+                  label: 'Ôn tập',
+                  icon: RotateCcw,
+                  match: (p: string) =>
+                    p.startsWith('/vocabulary/review') || p.startsWith('/jlpt'),
+                },
+              ] as const
+            ).map((item) => {
+              const active = item.match(pathname);
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  aria-current={active ? 'page' : undefined}
+                  className={cn(
+                    'flex min-h-[54px] flex-col items-center justify-center gap-0.5 px-1 py-1.5 text-[10px] font-medium transition-colors',
+                    active
+                      ? 'text-primary-fg'
+                      : 'text-muted active:text-fg',
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'grid h-7 w-11 place-items-center rounded-full transition-colors',
+                      active && 'bg-primary-soft',
+                    )}
+                  >
+                    <Icon className="size-4.5" aria-hidden />
+                  </span>
+                  <span className="truncate">{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
+      )}
 
       <LevelSelectionModal
         open={levelModalOpen}

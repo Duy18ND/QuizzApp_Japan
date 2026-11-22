@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { LogIn, UserPlus } from 'lucide-react';
-import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { GoogleSignInButton } from '../components/auth/LoginRequiredState';
 import {
   Button,
@@ -270,6 +270,18 @@ export function AuthPage({ initialMode = 'login' }: AuthPageProps) {
             >
               Xem thử với chế độ Khách (không lưu tiến độ)
             </Button>
+
+            <p className="pt-1 text-center text-[11px] leading-relaxed text-muted">
+              Bằng việc đăng nhập hoặc đăng ký, bạn đồng ý với{' '}
+              <Link to="/terms" className="font-medium text-primary-fg underline underline-offset-2">
+                Điều khoản sử dụng
+              </Link>{' '}
+              và{' '}
+              <Link to="/privacy" className="font-medium text-primary-fg underline underline-offset-2">
+                Chính sách bảo mật
+              </Link>{' '}
+              của Nihongo 問.
+            </p>
           </div>
         </Card>
       </div>

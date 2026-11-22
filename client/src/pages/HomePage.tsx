@@ -151,6 +151,16 @@ const JLPT_FULL_TEST_AREA: Area = {
   spanFull: true,
 };
 
+const STUDIO_CREATOR_AREA: Area = {
+  to: '/studio',
+  glyph: '創',
+  title: 'Studio Tự tạo bài & Vẽ bản đồ lộ trình',
+  description:
+    'Tự soạn bài Từ vựng (nhập tay hoặc dán nhanh từ Excel), Ngữ pháp, Kanji như Admin, chơi ngay trên 6 Mini-game và kéo-thả tự vẽ lộ trình riêng.',
+  badgeText: 'Creator · Mới',
+  spanFull: true,
+};
+
 function FeatureNavCard({ area, compact = false }: { area: Area; compact?: boolean }) {
   return (
     <Link
@@ -778,7 +788,7 @@ export const HomePage: React.FC = () => {
               )}
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
               <div className="flex flex-col gap-1.5">
                 <Stat label="Kanji đã thuộc" value={`${kanjiLearned}/${kanjiTotal}`} />
                 <ProgressBar value={kanjiLearned} max={kanjiTotal} label="Kanji đã thuộc" size="sm" />
@@ -879,6 +889,10 @@ export const HomePage: React.FC = () => {
             </li>
           ))}
         </ul>
+
+        <div className="mt-3 lg:mt-4">
+          <FeatureNavCard area={STUDIO_CREATOR_AREA} />
+        </div>
       </section>
 
       {/* =================================================================== */}

@@ -13,6 +13,7 @@ import {
   Download,
   ExternalLink,
   Lock,
+  Map as MapIcon,
   Pencil,
   Plus,
   Settings2,
@@ -102,6 +103,10 @@ import {
   type TotalStagesOption,
   type UserStageRoadmapState,
 } from '../services/stageRoadmapService';
+import {
+  CUSTOM_STUDIO_SYNC_EVENT,
+  loadCustomStudioState,
+} from '../services/customStudioService';
 import { requestOpenLevelModal, type StudyLevel } from '../services/userLevelService';
 
 const LEVELS: StudyLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1'];
@@ -146,6 +151,7 @@ export const StageRoadmapPage: React.FC = () => {
   const [builderIsNew, setBuilderIsNew] = useState(() => searchParams.get('create') === '1');
   const [iosGuideOpen, setIosGuideOpen] = useState(false);
   const [selectedCatalogKey, setSelectedCatalogKey] = useState('');
+  const [selectedStudioLessonId, setSelectedStudioLessonId] = useState('');
   const [customTaskTitle, setCustomTaskTitle] = useState('');
   const [customTaskSkill, setCustomTaskSkill] = useState<StageSkill>('vocab');
   const [stageTitleDraft, setStageTitleDraft] = useState<{ stageId: string; value: string } | null>(
@@ -181,18 +187,24 @@ export const StageRoadmapPage: React.FC = () => {
     window.addEventListener(STAGE_ROADMAP_SYNC_EVENT, bump);
     window.addEventListener(DAILY_STAGE_ACTIVITY_SYNC_EVENT, bump);
     window.addEventListener(ONLINE_TIME_SYNC_EVENT, bump);
+    window.addEventListener(CUSTOM_STUDIO_SYNC_EVENT, bump);
     window.addEventListener(PWA_INSTALL_CHANGE_EVENT, onPwaChange);
     void isWebPushSubscribedOnDevice().then(setWebPushActive);
     return () => {
       window.removeEventListener(STAGE_ROADMAP_SYNC_EVENT, bump);
       window.removeEventListener(DAILY_STAGE_ACTIVITY_SYNC_EVENT, bump);
       window.removeEventListener(ONLINE_TIME_SYNC_EVENT, bump);
+      window.removeEventListener(CUSTOM_STUDIO_SYNC_EVENT, bump);
       window.removeEventListener(PWA_INSTALL_CHANGE_EVENT, onPwaChange);
     };
   }, []);
 
   const roadmapState = useMemo(
     () => (syncVersion >= 0 ? loadStageRoadmapState(user?.id) : loadStageRoadmapState(user?.id)),
+    [syncVersion, user?.id],
+  );
+  const studioState = useMemo(
+    () => (syncVersion >= 0 ? loadCustomStudioState(user?.id) : loadCustomStudioState(user?.id)),
     [syncVersion, user?.id],
   );
   const todayOnlineSeconds = useMemo(
@@ -483,6 +495,53 @@ export const StageRoadmapPage: React.FC = () => {
     });
     setSelectedCatalogKey('');
     toast({ title: `Đã gắn "${preset.title}" vào Màn ${stage.stageNumber}`, tone: 'success' });
+  };
+
+  const handleAddStudioLessonToStage = (stage: RoadmapStage) => {
+    if (!selectedStudioLessonId || !roadmapState.customConfig) return;
+    const lesson = studioState.lessons.find((l) => l.id === selectedStudioLessonId);
+    if (!lesson) return;
+    const count =
+      lesson.kind === 'vocab'
+        ? (lesson.vocabItems?.length ?? 0)
+        : lesson.kind === 'grammar'
+          ? (lesson.grammarItems?.length ?? 0)
+          : (lesson.kanjiItems?.length ?? 0);
+    const kindLabel =
+      lesson.kind === 'vocab' ? 'Từ vựng' : lesson.kind === 'grammar' ? 'Ngữ pháp' : 'Kanji';
+    const newTask: StageTask = {
+      id: `${stage.id}-studio-${Date.now()}`,
+      title: `[Tự tạo] ${lesson.title}`,
+      subtitle:
+        lesson.kind === 'vocab'
+          ? `Bài Từ vựng tự soạn (${count} từ) — mở chơi ngay trên 6 Mini-game & Studio.`
+          : `Bài ${kindLabel} tự soạn (${count} mục) — học ngay bằng Flashcard & Quiz trong Studio.`,
+      skill: lesson.kind === 'kanji' ? 'kanji' : lesson.kind === 'grammar' ? 'grammar' : 'vocab',
+      minutes: 5,
+      to:
+        lesson.kind === 'vocab'
+          ? `/games?customLesson=${encodeURIComponent(lesson.id)}`
+          : `/studio?lesson=${encodeURIComponent(lesson.id)}`,
+      isCustomAdded: true,
+    };
+    updateActiveCustomConfig((cfg) => {
+      const prevOv = cfg.stageOverrides?.[stage.stageNumber];
+      return {
+        ...cfg,
+        stageOverrides: {
+          ...(cfg.stageOverrides ?? {}),
+          [stage.stageNumber]: {
+            ...prevOv,
+            extraTasks: [...(prevOv?.extraTasks ?? []), newTask],
+          },
+        },
+      };
+    });
+    setSelectedStudioLessonId('');
+    toast({
+      title: `Đã gắn bài tự tạo "${lesson.title}" vào Màn ${stage.stageNumber}`,
+      tone: 'success',
+    });
   };
 
   const handleRemoveTaskFromStage = (stage: RoadmapStage, task: StageTask) => {
@@ -849,6 +908,20 @@ export const StageRoadmapPage: React.FC = () => {
             >
               Tạo lộ trình mới
             </Button>
+            <Link
+              to="/studio"
+              className={buttonStyles({ variant: 'soft', size: 'sm' })}
+            >
+              <Sparkles className="size-4" aria-hidden />
+              <span>Studio Tự tạo bài</span>
+            </Link>
+            <Link
+              to="/studio?tab=canvas"
+              className={buttonStyles({ variant: 'secondary', size: 'sm' })}
+            >
+              <MapIcon className="size-4 text-primary-fg" aria-hidden />
+              <span>Vẽ bản đồ tự do</span>
+            </Link>
             <Button
               type="button"
               variant="secondary"
@@ -924,6 +997,36 @@ export const StageRoadmapPage: React.FC = () => {
                 Xóa lộ trình này
               </Button>
             )}
+          </div>
+        )}
+
+        {/* User's Visual Canvas Roadmaps Quick Strip */}
+        {studioState.visualRoadmaps.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="flex items-center gap-1.5 text-xs font-medium text-muted">
+                <MapIcon className="size-3.5 text-primary-fg" aria-hidden />
+                Bản đồ tự vẽ (Canvas):
+              </span>
+              {studioState.visualRoadmaps.map((vm) => (
+                <Link
+                  key={vm.id}
+                  to={`/studio?tab=canvas&map=${encodeURIComponent(vm.id)}`}
+                  className={buttonStyles({ variant: 'soft', size: 'sm', className: 'h-7 px-2.5 text-xs' })}
+                >
+                  <span>{vm.name}</span>
+                  <Badge tone="neutral" className="px-1.5 py-0 text-[10px]">
+                    {vm.completedNodeIds.length}/{vm.nodes.length} node
+                  </Badge>
+                </Link>
+              ))}
+            </div>
+            <Link
+              to="/studio?tab=canvas"
+              className="text-xs font-semibold text-primary-fg hover:underline"
+            >
+              Mở Studio vẽ bản đồ →
+            </Link>
           </div>
         )}
 
@@ -1582,6 +1685,64 @@ export const StageRoadmapPage: React.FC = () => {
                   </Button>
                 </div>
 
+                {/* Pick User's Custom Lesson from Creator Studio */}
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  {studioState.lessons.length > 0 ? (
+                    <>
+                      <Select
+                        aria-label="Chọn bài tự tạo từ Studio"
+                        value={selectedStudioLessonId}
+                        onChange={(e) => setSelectedStudioLessonId(e.target.value)}
+                        className="flex-1"
+                      >
+                        <option value="">
+                          -- Chọn bài tự tạo trong Studio để gắn vào Màn --
+                        </option>
+                        {studioState.lessons.map((lesson) => {
+                          const count =
+                            lesson.kind === 'vocab'
+                              ? (lesson.vocabItems?.length ?? 0)
+                              : lesson.kind === 'grammar'
+                                ? (lesson.grammarItems?.length ?? 0)
+                                : (lesson.kanjiItems?.length ?? 0);
+                          const kindLabel =
+                            lesson.kind === 'vocab'
+                              ? 'Từ vựng'
+                              : lesson.kind === 'grammar'
+                                ? 'Ngữ pháp'
+                                : 'Kanji';
+                          return (
+                            <option key={lesson.id} value={lesson.id}>
+                              ★ [{kindLabel} · {lesson.level}] {lesson.title} ({count} mục)
+                            </option>
+                          );
+                        })}
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="soft"
+                        size="sm"
+                        disabled={!selectedStudioLessonId}
+                        leftIcon={<Sparkles className="size-4" aria-hidden />}
+                        onClick={() => handleAddStudioLessonToStage(selectedStage)}
+                      >
+                        Gắn bài tự tạo
+                      </Button>
+                    </>
+                  ) : (
+                    <div className="flex flex-1 flex-wrap items-center justify-between gap-2 rounded-lg border border-line bg-surface/60 px-3 py-2 text-xs text-muted">
+                      <span>Bạn chưa tự soạn bài nào trong Studio (Từ vựng / Ngữ pháp / Kanji).</span>
+                      <Link
+                        to="/studio"
+                        onClick={() => setSelectedStageId(null)}
+                        className="font-semibold text-primary-fg hover:underline"
+                      >
+                        + Mở Studio tự tạo bài →
+                      </Link>
+                    </div>
+                  )}
+                </div>
+
                 {/* Pick Real Lesson / Unit from Book Catalog */}
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <Select
@@ -1976,34 +2137,36 @@ export const StageRoadmapPage: React.FC = () => {
             >
               Đóng
             </Button>
-            <Button
-              type="button"
-              variant="soft"
-              onClick={() => {
-                setProCreatorDemoUnlocked(user?.id, true);
-                setSyncVersion((v) => v + 1);
-                setProPaywallOpen(false);
-                setShareModalOpen(true);
-                toast({
-                  title: 'Đã bật chế độ Dùng thử PRO Creator trên thiết bị này!',
-                  tone: 'success',
-                });
-              }}
-            >
-              Bật thử quyền PRO (Demo/Test)
-            </Button>
+            {(import.meta.env.DEV || user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
+              <Button
+                type="button"
+                variant="soft"
+                onClick={() => {
+                  setProCreatorDemoUnlocked(user?.id, true);
+                  setSyncVersion((v) => v + 1);
+                  setProPaywallOpen(false);
+                  setShareModalOpen(true);
+                  toast({
+                    title: 'Đã bật chế độ Dùng thử PRO Creator (Admin/Dev)!',
+                    tone: 'success',
+                  });
+                }}
+              >
+                Bật thử PRO (Dev/Admin)
+              </Button>
+            )}
             <Button
               type="button"
               variant="primary"
               leftIcon={<Sparkles className="size-4" aria-hidden />}
               onClick={() =>
                 toast({
-                  title: 'Cổng nạp tiền tự động (VietQR / SePay) đang được tích hợp và sẽ mở sớm!',
+                  title: 'Cổng thanh toán PRO (VietQR / SePay) đang trong giai đoạn hoàn thiện — sẽ sớm mở chính thức!',
                   tone: 'info',
                 })
               }
             >
-              Nạp tiền mở khóa PRO (Sắp ra mắt)
+              Đăng ký PRO (Sắp ra mắt)
             </Button>
           </>
         }
@@ -2031,7 +2194,7 @@ export const StageRoadmapPage: React.FC = () => {
           </div>
           <Notice tone="info">
             <span className="text-xs text-muted">
-              Gợi ý cho chủ dự án: Bạn có thể bấm nút <strong className="text-fg">“Bật thử quyền PRO (Demo/Test)”</strong> bên dưới để kiểm thử ngay lập tức toàn bộ luồng Tạo Mã &amp; Link chia sẻ trước khi kết nối cổng nạp tiền thật.
+              Trong giai đoạn Beta, toàn bộ tính năng học N5, Mini-game và tạo lộ trình cá nhân đều <strong className="text-fg">miễn phí 100%</strong>. Gói PRO Creator cho tính năng chia sẻ lớp học sẽ sớm được mở cổng nâng cấp.
             </span>
           </Notice>
         </div>
