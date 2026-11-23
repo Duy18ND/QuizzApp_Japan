@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-11-22T14:44:35.533Z",
+  "generatedAt": "2026-11-23T10:29:09.817Z",
   "counts": {
     "units": 97,
     "vocabularies": 2034,
     "kanjis": 513,
     "grammar_rules": 185,
-    "jlpt_questions": 430
+    "jlpt_questions": 470
   },
   "units": [
     {
@@ -60822,6 +60822,108 @@
       "audio_text": null
     },
     {
+      "id": "real-read-n5-s1_real-read-n5-s1-q1",
+      "module_id": "reading-short",
+      "level": "N5",
+      "question_type": "reading",
+      "prompt": "土曜日に図書館は何時に閉まりますか。",
+      "passage": "Thông báo giờ mở cửa Thư viện Trường",
+      "options": [
+        "午後５時です。",
+        "夜８時です。",
+        "朝９時です。",
+        "休みです。"
+      ],
+      "correct_index": 0,
+      "explanation": "Trong bài viết rõ: 「土曜日は午後５時に閉まります」(Thứ Bảy đóng cửa lúc 5 giờ chiều).",
+      "audio_text": null
+    },
+    {
+      "id": "real-read-n5-s2_real-read-n5-s2-q1",
+      "module_id": "reading-short",
+      "level": "N5",
+      "question_type": "reading",
+      "prompt": "リンさんはあした何を持ってきますか。",
+      "passage": "Tin nhắn rủ đi công viên ngắm hoa",
+      "options": [
+        "飲み物",
+        "お弁当",
+        "カメラ",
+        "お菓子"
+      ],
+      "correct_index": 0,
+      "explanation": "Câu cuối ghi: 「リンさんは飲み物を持ってきてください」(Linh hãy mang đồ uống tới).",
+      "audio_text": null
+    },
+    {
+      "id": "real-read-n4-s1_real-read-n4-s1-q1",
+      "module_id": "reading-short",
+      "level": "N4",
+      "question_type": "reading",
+      "prompt": "ペットボトルはいつ出さなければなりませんか。",
+      "passage": "Thông báo đổi ngày thu gom rác tái chế",
+      "options": [
+        "１６日（木）の朝８時半まで",
+        "１５日（水）の朝８時半まで",
+        "１６日（木）の夕方まで",
+        "来週の水曜日まで"
+      ],
+      "correct_index": 0,
+      "explanation": "Thông báo ghi đổi sang ngày 16 (Thứ 5) và để ra trước 8:30 sáng.",
+      "audio_text": null
+    },
+    {
+      "id": "real-read-n4-s2_real-read-n4-s2-q1",
+      "module_id": "reading-short",
+      "level": "N4",
+      "question_type": "reading",
+      "prompt": "この人は店長に何をお願いしていますか。",
+      "passage": "Tin nhắn xin đổi ca làm thêm ở quán cà phê",
+      "options": [
+        "金曜日に休んで、かわりに土曜日の午後に入りたいこと。",
+        "土曜日も金曜日も両方休みたいこと。",
+        "大学の試験の日にちを変えてほしいこと。",
+        "今月でアルバイトを辞めたいこと。"
+      ],
+      "correct_index": 0,
+      "explanation": "Người viết xin nghỉ thứ Sáu vì thi đại học và đề xuất làm bù vào chiều thứ Bảy.",
+      "audio_text": null
+    },
+    {
+      "id": "real-read-n3-s1_real-read-n3-s1-q1",
+      "module_id": "reading-short",
+      "level": "N3",
+      "question_type": "reading",
+      "prompt": "このメールを送った一番の目的は何ですか。",
+      "passage": "Email công việc đề nghị đổi lịch họp với đối tác",
+      "options": [
+        "来週火曜日の打ち合わせの日時を変更してもらうこと。",
+        "来週の出張に佐藤さんも参加してもらうこと。",
+        "打ち合わせを完全に中止にすること。",
+        "金曜日の午後に会議室を予約してもらうこと。"
+      ],
+      "correct_index": 0,
+      "explanation": "Người gửi nêu lý do công tác đột xuất và xin đổi lịch họp thứ Ba sang chiều thứ Năm hoặc sáng thứ Sáu.",
+      "audio_text": null
+    },
+    {
+      "id": "real-read-n3-s2_real-read-n3-s2-q1",
+      "module_id": "reading-short",
+      "level": "N3",
+      "question_type": "reading",
+      "prompt": "このお知らせの内容と合っているものはどれですか。",
+      "passage": "Thông báo kiểm tra bảo trì thang máy tòa nhà",
+      "options": [
+        "点検が正午より早く終われば、その時点でエレベーターが使えるようになる。",
+        "８月２０日は一日中エレベーターが使えない。",
+        "作業中は非常階段も利用できない。",
+        "点検は午後の２時間で行われる。"
+      ],
+      "correct_index": 0,
+      "explanation": "Câu cuối dùng ngữ pháp N3 「〜次第」: 「点検が早く終わり次第、運転を再開いたします」(Ngay khi kiểm tra xong sớm sẽ vận hành lại ngay).",
+      "audio_text": null
+    },
+    {
       "id": "mnn5-read-med-1_mnn5-rm1-q1",
       "module_id": "reading-medium",
       "level": "N5",
@@ -61060,6 +61162,142 @@
       "audio_text": null
     },
     {
+      "id": "real-read-n5-m1_real-read-n5-m1-q1",
+      "module_id": "reading-medium",
+      "level": "N5",
+      "question_type": "reading",
+      "prompt": "この人はどうしてどこへも行きませんでしたか。",
+      "passage": "Một ngày cuối tuần ở nhà của Minh",
+      "options": [
+        "天気がよくなかったからです。",
+        "宿題がたくさんあったからです。",
+        "映画を見たかったからです。",
+        "体の調子が悪かったからです。"
+      ],
+      "correct_index": 0,
+      "explanation": "Câu thứ 2 nêu rõ nguyên nhân: 「天気がよくなかったので、どこへも行きませんでした」.",
+      "audio_text": null
+    },
+    {
+      "id": "real-read-n5-m1_real-read-n5-m1-q2",
+      "module_id": "reading-medium",
+      "level": "N5",
+      "question_type": "reading",
+      "prompt": "日本の映画はどうでしたか。",
+      "passage": "Một ngày cuối tuần ở nhà của Minh",
+      "options": [
+        "すこし難しかったですが、おもしろかったです。",
+        "とても簡単で、おもしろかったです。",
+        "難しくて、つまらなかったです。",
+        "長すぎて、最後まで見ませんでした。"
+      ],
+      "correct_index": 0,
+      "explanation": "Câu cuối ghi rõ: 「すこし難しかったですが、とてもおもしろかったです」.",
+      "audio_text": null
+    },
+    {
+      "id": "real-read-n5-m2_real-read-n5-m2-q1",
+      "module_id": "reading-medium",
+      "level": "N5",
+      "question_type": "reading",
+      "prompt": "「さくら」はどんな店ですか。",
+      "passage": "Quán cà phê yêu thích gần nhà ga",
+      "options": [
+        "静かで、コーヒーもケーキもおいしい店です。",
+        "駅から遠くて、にぎやかな店です。",
+        "日曜日だけ開いている店です。",
+        "本を売っている大きい店です。"
+      ],
+      "correct_index": 0,
+      "explanation": "Đoạn 2 miêu tả: 「店の中はいつも静かで、コーヒーもケーキもとてもおいしいです」.",
+      "audio_text": null
+    },
+    {
+      "id": "real-read-n5-m2_real-read-n5-m2-q2",
+      "module_id": "reading-medium",
+      "level": "N5",
+      "question_type": "reading",
+      "prompt": "わたしは毎週土曜日に「さくら」で何をしますか。",
+      "passage": "Quán cà phê yêu thích gần nhà ga",
+      "options": [
+        "本を読みます。",
+        "アルバイトをします。",
+        "友達と料理を作ります。",
+        "日本語を教えます。"
+      ],
+      "correct_index": 0,
+      "explanation": "Câu cuối ghi rõ: 「わたしは毎週土曜日にここで本を読みます」.",
+      "audio_text": null
+    },
+    {
+      "id": "real-read-n4-m1_real-read-n4-m1-q1",
+      "module_id": "reading-medium",
+      "level": "N4",
+      "question_type": "reading",
+      "prompt": "どうして小さい袋に入っているお菓子が人気なのですか。",
+      "passage": "Văn hóa tặng quà Omiyage ở công ty Nhật",
+      "options": [
+        "分けやすく、いない人の机にも置いておけるから。",
+        "値段が一番安くて、甘いから。",
+        "日本の空港でしか買えないから。",
+        "長い時間食べなくても悪くならないから。"
+      ],
+      "correct_index": 0,
+      "explanation": "Câu cuối giải thích rõ: 「みんなで分けやすく、席にいない人の机にも置いておけるからです」.",
+      "audio_text": null
+    },
+    {
+      "id": "real-read-n4-m2_real-read-n4-m2-q1",
+      "module_id": "reading-medium",
+      "level": "N4",
+      "question_type": "reading",
+      "prompt": "温泉に入るときのルールとして正しいものはどれですか。",
+      "passage": "Vì sao người Nhật thích đi suối nước nóng Onsen mùa đông",
+      "options": [
+        "入る前に体を洗い、タオルはお湯に入れない。",
+        "タオルでお湯をかき混ぜてから入る。",
+        "水着を着て入らなければならない。",
+        "出たあとで体を洗わなければならない。"
+      ],
+      "correct_index": 0,
+      "explanation": "Đoạn 2 nêu rõ 2 quy tắc: tắm sạch trước khi xuống nước và không nhúng khăn vào bồn.",
+      "audio_text": null
+    },
+    {
+      "id": "real-read-n3-m1_real-read-n3-m1-q1",
+      "module_id": "reading-medium",
+      "level": "N3",
+      "question_type": "reading",
+      "prompt": "筆者がテレワークの課題として挙げていることは何か。",
+      "passage": "Làm việc từ xa (Telework) và ranh giới nghỉ ngơi",
+      "options": [
+        "仕事と私生活の区別がつきにくくなり、夜遅くまで働いてしまいやすいこと。",
+        "通勤時間が長くなって家族と話す時間が減ったこと。",
+        "自宅のパソコンの性能が会社より低いこと。",
+        "同僚とメールで連絡が取れなくなること。"
+      ],
+      "correct_index": 0,
+      "explanation": "Sau từ chuyển tiếp 「一方で」, tác giả chỉ rõ vấn đề: 「仕事と私生活の区別がつきにくくなり、つい夜遅くまでパソコンを見てしまう」.",
+      "audio_text": null
+    },
+    {
+      "id": "real-read-n3-m2_real-read-n3-m2-q1",
+      "module_id": "reading-medium",
+      "level": "N3",
+      "question_type": "reading",
+      "prompt": "「金継ぎ」が世界中で注目されている理由として最も適切なものはどれか。",
+      "passage": "Nghệ thuật Kintsugi (金継ぎ) và vẻ đẹp của sự không hoàn hảo",
+      "options": [
+        "傷を隠さず、新しい美しさとして受け入れる考え方に魅力があるから。",
+        "壊れた器を新品と全く見分けがつかないほど綺麗に直せるから。",
+        "誰でも数分で安く修理できる簡単な方法だから。",
+        "古い器を高く売るための技術だから。"
+      ],
+      "correct_index": 0,
+      "explanation": "Câu trọng tâm: 「傷を隠すのではなく、その跡を新しい美しさとして受け入れる考え方が…注目を集めている」.",
+      "audio_text": null
+    },
+    {
       "id": "jlpt-rl-n3-1_jlpt-rl-n3-1-q1",
       "module_id": "reading-long",
       "level": "N3",
@@ -61210,6 +61448,142 @@
       ],
       "correct_index": 2,
       "explanation": "Đoạn 3: 2 giờ chiều Ari đến phòng và hai người cùng nấu món Việt.",
+      "audio_text": null
+    },
+    {
+      "id": "real-read-n5-l1_real-read-n5-l1-q1",
+      "module_id": "reading-long",
+      "level": "N5",
+      "question_type": "reading",
+      "prompt": "ナムさんは月曜日から金曜日まで夕方６時まで働いています。会話の勉強をしたいです。どのクラスがいいですか。",
+      "passage": "Tìm kiếm thông tin: Lớp học tiếng Nhật cộng đồng",
+      "options": [
+        "Bクラス",
+        "Aクラス",
+        "Cクラス",
+        "どのクラスも行けません"
+      ],
+      "correct_index": 0,
+      "explanation": "Nam làm việc đến 18:00 từ T2–T6 và muốn học hội thoại → Lớp B học Thứ 5 lúc 19:00–20:30 (毎日 の 会話) là phù hợp nhất!",
+      "audio_text": null
+    },
+    {
+      "id": "real-read-n5-l1_real-read-n5-l1-q2",
+      "module_id": "reading-long",
+      "level": "N5",
+      "question_type": "reading",
+      "prompt": "お金がかからないクラスはどれですか。",
+      "passage": "Tìm kiếm thông tin: Lớp học tiếng Nhật cộng đồng",
+      "options": [
+        "Aクラス",
+        "Bクラス",
+        "Cクラス",
+        "全部無料です"
+      ],
+      "correct_index": 0,
+      "explanation": "Lớp A ghi rõ 「無料（０円）」(miễn phí).",
+      "audio_text": null
+    },
+    {
+      "id": "real-read-n5-l2_real-read-n5-l2-q1",
+      "module_id": "reading-long",
+      "level": "N5",
+      "question_type": "reading",
+      "prompt": "２日目に何をしましたか。",
+      "passage": "Chuyến du lịch Kyoto đầu tiên bằng Shinkansen",
+      "options": [
+        "抹茶のアイスクリームを食べて、お土産を買いました。",
+        "古いお寺を見て、写真を撮りました。",
+        "新幹線に乗って東京へ帰りました。",
+        "友達と映画を見ました。"
+      ],
+      "correct_index": 0,
+      "explanation": "Câu trong đoạn 2 nêu rõ: 「２日目は抹茶のアイスクリームを食べて、お土産を買いました」.",
+      "audio_text": null
+    },
+    {
+      "id": "real-read-n5-l2_real-read-n5-l2-q2",
+      "module_id": "reading-long",
+      "level": "N5",
+      "question_type": "reading",
+      "prompt": "この人はいつまた京都へ行きたいですか。",
+      "passage": "Chuyến du lịch Kyoto đầu tiên bằng Shinkansen",
+      "options": [
+        "秋",
+        "夏",
+        "冬",
+        "来週"
+      ],
+      "correct_index": 0,
+      "explanation": "Câu cuối bài: 「また秋に行きたいです」(Muốn đi lại vào mùa thu).",
+      "audio_text": null
+    },
+    {
+      "id": "real-read-n4-l1_real-read-n4-l1-q1",
+      "module_id": "reading-long",
+      "level": "N4",
+      "question_type": "reading",
+      "prompt": "大学生のマイさんは平日の夜７時にプールで泳ぎたいです。どのコースを申し込んで、いくら払いますか。",
+      "passage": "Tìm kiếm thông tin: So sánh 3 gói thẻ Trung tâm Thể thao",
+      "options": [
+        "フルコース・8,000円",
+        "ナイトコース・5,500円",
+        "デイコース・4,000円",
+        "フルコース・9,000円"
+      ],
+      "correct_index": 0,
+      "explanation": "Mai muốn bơi lúc 19:00 tối ngày thường → Gói Night chỉ có Gym (không có hồ bơi) nên phải chọn Full Course (9.000 yên), trừ ưu đãi sinh viên 1.000 yên còn 8.000 yên!",
+      "audio_text": null
+    },
+    {
+      "id": "real-read-n4-l2_real-read-n4-l2-q1",
+      "module_id": "reading-long",
+      "level": "N4",
+      "question_type": "reading",
+      "prompt": "散歩を続けてから、どんなよいことがありましたか。",
+      "passage": "Thói quen đi bộ 20 phút mỗi sáng",
+      "options": [
+        "頭がすっきりして、昼間の仕事に集中できるようになった。",
+        "体重が半年で１０キロも減った。",
+        "近所に新しい友達がたくさんできた。",
+        "夜遅くまで起きられるようになった。"
+      ],
+      "correct_index": 0,
+      "explanation": "Đoạn 2 nêu rõ: 「頭がすっきりして、昼間の仕事にも集中できるようになりました」.",
+      "audio_text": null
+    },
+    {
+      "id": "real-read-n3-l1_real-read-n3-l1-q1",
+      "module_id": "reading-long",
+      "level": "N3",
+      "question_type": "reading",
+      "prompt": "フンさんは土曜日が仕事で、自宅からオンラインで受けられる講座を探しています。開始３週間前に申し込む場合、どれを選んでいくら払いますか。",
+      "passage": "Tìm kiếm thông tin: Khóa học cuối tuần Kỹ năng Số",
+      "options": [
+        "C講座・16,000円",
+        "C講座・18,000円",
+        "A講座・14,000円",
+        "B講座・18,000円"
+      ],
+      "correct_index": 0,
+      "explanation": "Hùng bận thứ 7 (loại A), cần học online tại nhà (loại B vì B chỉ học tại lớp) → chọn C (18.000 yên), đăng ký trước 3 tuần (đạt điều kiện trước 2 tuần) nên giảm 2.000 yên còn 16.000 yên.",
+      "audio_text": null
+    },
+    {
+      "id": "real-read-n3-l2_real-read-n3-l2-q1",
+      "module_id": "reading-long",
+      "level": "N3",
+      "question_type": "reading",
+      "prompt": "筆者が最も言いたいことは何か。",
+      "passage": "Sách giấy và sách điện tử trong thói quen đọc hiện đại",
+      "options": [
+        "紙の本と電子書籍を目的に応じて使い分けることが大切だ。",
+        "これからは紙の本をすべて電子書籍に変えるべきだ。",
+        "電子書籍は学習に全く向いていないので使うべきではない。",
+        "持ち歩きやすい紙の本を新しく開発する必要がある。"
+      ],
+      "correct_index": 0,
+      "explanation": "Câu kết luận của tác giả (sau 「〜のではなく」): 「目的に応じて使い分けることが大切だろう」.",
       "audio_text": null
     },
     {
@@ -61619,6 +61993,312 @@
       "correct_index": 0,
       "explanation": "Dùng khiêm nhường ngữ 「拝見します」 (\"Xin lỗi, tôi sẽ xem ngay bây giờ ạ\").",
       "audio_text": "さっき メールで 送った 企画書の データ、もう 確認して いただけましたか。"
+    },
+    {
+      "id": "real-lis-n5-1",
+      "module_id": "listening",
+      "level": "N5",
+      "question_type": "listening",
+      "prompt": "女の人は何を飲みますか。",
+      "passage": null,
+      "options": [
+        "冷たいお茶",
+        "熱いコーヒー",
+        "オレンジジュース",
+        "冷たい水"
+      ],
+      "correct_index": 0,
+      "explanation": "Chú ý từ khóa đổi ý kinh điển trong đề nghe JLPT 「やっぱり」(thôi thì / suy nghĩ lại thì) → đáp án cuối là trà lạnh (冷たいお茶).",
+      "audio_text": "お飲み物は何になさいますか。\nコーヒーをお願いします。あ、やっぱり冷たいお茶にしてください。"
+    },
+    {
+      "id": "real-lis-n5-2",
+      "module_id": "listening",
+      "level": "N5",
+      "question_type": "listening",
+      "prompt": "二人は何時に会いますか。",
+      "passage": null,
+      "options": [
+        "２時",
+        "２時半",
+        "３時",
+        "１時半"
+      ],
+      "correct_index": 0,
+      "explanation": "Nam đề xuất 2:30 nhưng Nữ đề nghị 2:00 để kịp mua vé và Nam chốt 「じゃあ、２時に」.",
+      "audio_text": "映画は３時からですね。２時半に駅で会いましょうか。\nチケットを買いますから、２時にしませんか。\nわかりました。じゃあ、２時に。"
+    },
+    {
+      "id": "real-lis-n5-3",
+      "module_id": "listening",
+      "level": "N5",
+      "question_type": "listening",
+      "prompt": "女の人はどうして昨日学校を休みましたか。",
+      "passage": null,
+      "options": [
+        "歯が痛かったから",
+        "かぜをひいたから",
+        "アルバイトがあったから",
+        "寝坊したから"
+      ],
+      "correct_index": 0,
+      "explanation": "Bạn nữ phủ định bị cảm (いいえ) và nói rõ 「歯がとても痛くて」(vì rất đau răng).",
+      "audio_text": "きのう学校に来ませんでしたね。かぜですか。\nいいえ、歯がとても痛くて、病院へ行きました。"
+    },
+    {
+      "id": "real-lis-n5-4",
+      "module_id": "listening",
+      "level": "N5",
+      "question_type": "listening",
+      "prompt": "男の人は母の日に何をあげますか。",
+      "passage": null,
+      "options": [
+        "ハンカチ",
+        "お花",
+        "かばん",
+        "ケーキ"
+      ],
+      "correct_index": 0,
+      "explanation": "Chú ý mốc thời gian: 「去年」(năm ngoái) tặng hoa → 「今年」(năm nay) tặng khăn tay (ハンカチ).",
+      "audio_text": "母の日に何をあげますか。お花ですか。\n去年はお花をあげましたから、今年はきれいなハンカチをあげます。"
+    },
+    {
+      "id": "real-lis-n5-5",
+      "module_id": "listening",
+      "level": "N5",
+      "question_type": "listening",
+      "prompt": "何と言いますか。",
+      "passage": null,
+      "options": [
+        "すみません、ペンを貸してください。",
+        "すみません、ペンを借りてください。",
+        "すみません、ペンをあげてください。",
+        "すみません、ペンを教えてください。"
+      ],
+      "correct_index": 0,
+      "explanation": "「貸してください」= Hãy cho tôi mượn (đúng). Còn 「借りてください」= Bạn hãy đi mượn đi (sai hướng).",
+      "audio_text": "ペンを忘れました。友達のペンを使いたいです。何と言いますか。"
+    },
+    {
+      "id": "real-lis-n5-6",
+      "module_id": "listening",
+      "level": "N5",
+      "question_type": "listening",
+      "prompt": "正しい返事を選んでください。",
+      "passage": null,
+      "options": [
+        "おじゃまします。",
+        "いってきます。",
+        "ごちそうさまでした。",
+        "おかえりなさい。"
+      ],
+      "correct_index": 0,
+      "explanation": "Khi bước vào nhà người khác ở Nhật luôn nói 「おじゃまします」(Xin phép làm phiền).",
+      "audio_text": "いらっしゃい。どうぞ、お上がりください。"
+    },
+    {
+      "id": "real-lis-n4-1",
+      "module_id": "listening",
+      "level": "N4",
+      "question_type": "listening",
+      "prompt": "女の人はこれからまず何をしますか。",
+      "passage": null,
+      "options": [
+        "会議室のエアコンをつける",
+        "資料をコピーする",
+        "お茶を入れる",
+        "机の上に資料を並べる"
+      ],
+      "correct_index": 0,
+      "explanation": "Tài liệu đã xếp xong; trà để sau (あとでいい); việc cần làm NGAY trước tiên là bật điều hòa (エアコンをつけておいてください).",
+      "audio_text": "あと３０分でお客さんが来ます。資料のコピーは終わりましたか。\nはい、机の上に並べておきました。\nありがとう。じゃあ、会議室が暑いので、エアコンをつけておいてください。お茶はあとでいいです。"
+    },
+    {
+      "id": "real-lis-n4-2",
+      "module_id": "listening",
+      "level": "N4",
+      "question_type": "listening",
+      "prompt": "男の人はどの電車に乗りますか。",
+      "passage": null,
+      "options": [
+        "２番線の急行",
+        "１番線の普通",
+        "３番線の特急",
+        "バス"
+      ],
+      "correct_index": 0,
+      "explanation": "Nam chốt chọn tàu tốc hành ở sân ga số 2 (２番線の急行).",
+      "audio_text": "すみません、空港まで行きたいんですが。\n２番線の急行なら乗り換えなしで３０分で着きますよ。１番線の普通は１時間かかります。\nじゃあ、急行に乗ります。"
+    },
+    {
+      "id": "real-lis-n4-3",
+      "module_id": "listening",
+      "level": "N4",
+      "question_type": "listening",
+      "prompt": "男の人はどうして自転車で会社へ来るようになりましたか。",
+      "passage": null,
+      "options": [
+        "運動不足を解消し、健康のため",
+        "電車賃を節約するため",
+        "駅の近くへ引っ越したから",
+        "新しい自転車をもらったから"
+      ],
+      "correct_index": 0,
+      "explanation": "Nam phủ định tiết kiệm tiền (いや) và nêu lý do thật: 「運動不足…健康のため」.",
+      "audio_text": "最近、自転車で来ていますね。電車賃を節約しているんですか。\nいや、運動不足で少し太ってしまったので、健康のために始めたんです。"
+    },
+    {
+      "id": "real-lis-n4-4",
+      "module_id": "listening",
+      "level": "N4",
+      "question_type": "listening",
+      "prompt": "女の人が北海道で一番よかったと言っていることは何ですか。",
+      "passage": null,
+      "options": [
+        "新鮮な海の幸（食べ物）",
+        "きれいな雪景色",
+        "安いホテル",
+        "親切な地元の人々"
+      ],
+      "correct_index": 0,
+      "explanation": "Cụm từ khóa 「何より…が最高でした」(hơn hết là ... tuyệt nhất) chỉ hải sản tươi sống (新鮮な海の幸).",
+      "audio_text": "北海道旅行、どうでしたか。景色がきれいだったでしょう？\nええ、景色もすてきでしたが、何より新鮮な海の幸が最高でした。"
+    },
+    {
+      "id": "real-lis-n4-5",
+      "module_id": "listening",
+      "level": "N4",
+      "question_type": "listening",
+      "prompt": "何と言いますか。",
+      "passage": null,
+      "options": [
+        "すみません、このメールをチェックしていただけませんか。",
+        "すみません、このメールをチェックしてあげましょうか。",
+        "すみません、このメールをチェックしてもいいですか。",
+        "すみません、このメールをチェックしましたか。"
+      ],
+      "correct_index": 0,
+      "explanation": "Nhờ cấp trên/tiền bối làm giúp dùng mẫu kính ngữ 「〜ていただけませんか」(Anh/chị có thể ... giúp em không ạ?).",
+      "audio_text": "書いたメールに間違いがないか、先輩に見てほしいです。何と言いますか。"
+    },
+    {
+      "id": "real-lis-n4-6",
+      "module_id": "listening",
+      "level": "N4",
+      "question_type": "listening",
+      "prompt": "自然な返事を選んでください。",
+      "passage": null,
+      "options": [
+        "いいえ、まだまだです。",
+        "はい、とても上手です。",
+        "こちらこそ、おめでとうございます。",
+        "どういたしまして。"
+      ],
+      "correct_index": 0,
+      "explanation": "Trong văn hóa khiêm tốn của Nhật, khi được khen luôn đáp 「いいえ、まだまだです」(Dạ không, em vẫn còn kém lắm ạ).",
+      "audio_text": "最近、日本語がずいぶん上手になりましたね。"
+    },
+    {
+      "id": "real-lis-n3-1",
+      "module_id": "listening",
+      "level": "N3",
+      "question_type": "listening",
+      "prompt": "女の人はこのあとまず何をしますか。",
+      "passage": null,
+      "options": [
+        "納品書の数字を確認する",
+        "すぐに相手先に電話する",
+        "５箱新しく注文する",
+        "荷物をすべて送り返す"
+      ],
+      "correct_index": 0,
+      "explanation": "Trình tự hành động rõ ràng: 「まずは納品書の数字を確認して」(Trước tiên kiểm tra phiếu giao hàng) → rồi mới gọi điện.",
+      "audio_text": "課長、さきほど届いた荷物なんですが、注文より５箱足りないんです。\n本当？まずは納品書の数字を確認して、それから相手先に電話しよう。"
+    },
+    {
+      "id": "real-lis-n3-2",
+      "module_id": "listening",
+      "level": "N3",
+      "question_type": "listening",
+      "prompt": "二人はどの店に決めましたか。",
+      "passage": null,
+      "options": [
+        "個室のある和食の店",
+        "駅前の安いイタリアンの店",
+        "会社の中の会議室",
+        "食べ放題の焼肉の店"
+      ],
+      "correct_index": 0,
+      "explanation": "Nam đồng ý với đề xuất của Nữ và chốt đặt quán món Nhật có phòng riêng (個室のある和食の店).",
+      "audio_text": "送別会の店、駅前のイタリアンはどう？個室はないけど安いよ。\nうーん、今回は部長も来るし、静かに話せる個室のある和食の店のほうがいいんじゃない？\nたしかにそうだね。じゃあ、和食の店を予約するよ。"
+    },
+    {
+      "id": "real-lis-n3-3",
+      "module_id": "listening",
+      "level": "N3",
+      "question_type": "listening",
+      "prompt": "男の人が紙の手帳を使う一番の理由は何ですか。",
+      "passage": null,
+      "options": [
+        "自分で書くほうが予定をしっかり覚えられるから",
+        "スマホの電池がすぐ切れるから",
+        "紙の手帳のほうが軽くて安いから",
+        "会社でアプリの使用が禁止されているから"
+      ],
+      "correct_index": 0,
+      "explanation": "Lý do chính được nhấn mạnh: 「自分の手で書くほうが予定をしっかり覚えられる」.",
+      "audio_text": "スマホのアプリじゃなくて、紙の手帳を使っているんですね。\nええ。アプリも便利なんですが、自分の手で書くほうが予定をしっかり覚えられるんですよ。"
+    },
+    {
+      "id": "real-lis-n3-4",
+      "module_id": "listening",
+      "level": "N3",
+      "question_type": "listening",
+      "prompt": "このスーパーで最近変わったことは何ですか。",
+      "passage": null,
+      "options": [
+        "８割以上の客がエコバッグを持ってくるようになった",
+        "スーパーの売り上げが半分に減った",
+        "レジ袋を再び無料に戻した",
+        "プラスチック容器をすべて廃止した"
+      ],
+      "correct_index": 0,
+      "explanation": "「８割以上」= hơn 80% (1割 = 10%); 「持参する」= tự mang theo.",
+      "audio_text": "レジ袋を有料にしてから、お客さんの反応はいかがですか。\n最初は戸惑う方もいましたが、今では８割以上のお客様がエコバッグを持参してくださいます。"
+    },
+    {
+      "id": "real-lis-n3-5",
+      "module_id": "listening",
+      "level": "N3",
+      "question_type": "listening",
+      "prompt": "この美術館の一番の特徴は何ですか。",
+      "passage": null,
+      "options": [
+        "ガラス張りの壁から作品と四季の景色を同時に楽しめること",
+        "入館料が一年中無料であること",
+        "１００年以上前に建てられた木造建築であること",
+        "館内で写真撮影や飲食が自由にできること"
+      ],
+      "correct_index": 0,
+      "explanation": "Cụm khóa 「最大の特徴です」(đặc trưng lớn nhất là) gắn với tường kính ngắm tác phẩm cùng thiên nhiên 4 mùa.",
+      "audio_text": "この美術館は、建物の壁がすべてガラスでできており、作品だけでなく四季ごとの自然の景色も同時に楽しめるのが最大の特徴です。"
+    },
+    {
+      "id": "real-lis-n3-6",
+      "module_id": "listening",
+      "level": "N3",
+      "question_type": "listening",
+      "prompt": "最も適切な返答を選んでください。",
+      "passage": null,
+      "options": [
+        "申し訳ありません、今仕上げているところで、あと１時間ほどで提出いたします。",
+        "いいえ、まだ出していませんから、待ってください。",
+        "お疲れ様でした、来週までに出しましょうか。",
+        "おかげさまで、もうすぐ忘れそうでした。"
+      ],
+      "correct_index": 0,
+      "explanation": "Trong môi trường công sở Nhật, khi trễ hạn cần xin lỗi lịch sự (申し訳ありません) + báo rõ tiến độ hiện tại (今仕上げているところで) + hẹn thời gian nộp cụ thể (あと１時間ほどで提出いたします).",
+      "audio_text": "先週頼んだ報告書、もう出してくれた？"
     }
   ]
 }

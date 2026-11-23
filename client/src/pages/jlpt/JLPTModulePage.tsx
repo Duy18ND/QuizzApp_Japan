@@ -90,13 +90,20 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
   const sessionStartRef = useRef<number>(0);
   const sessionMistakesRef = useRef<Array<Record<string, unknown>>>([]);
 
+  const lessonParam = Math.max(0, Number(searchParams.get('lesson')) || 0);
+  const limitParam = Math.max(0, Number(searchParams.get('limit')) || 0);
+  const [ignoreLessonScope, setIgnoreLessonScope] = useState(false);
+  const activeLesson = !ignoreLessonScope && lessonParam > 0 ? lessonParam : 0;
+
   const [levelFilter, setLevelFilter] = useState<JLPTLevelFilter>(() => {
     const raw = (searchParams.get('level') || '').toUpperCase();
     if (raw === 'N5' || raw === 'N4' || raw === 'N3') return raw;
     if (studyLevel === 'N5' || studyLevel === 'N4' || studyLevel === 'N3') return studyLevel;
     return 'ALL';
   });
-  const [questionLimit, setQuestionLimit] = useState<number>(5);
+  const [questionLimit, setQuestionLimit] = useState<number>(() =>
+    limitParam > 0 ? limitParam : 5,
+  );
   const [sessionSeed, setSessionSeed] = useState<number>(0);
 
   useEffect(() => {
@@ -127,6 +134,8 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
   } | null>(null);
   const [showTranscript, setShowTranscript] = useState(false);
   const [showFurigana, setShowFurigana] = useState(true);
+  const [activeListeningLineIdx, setActiveListeningLineIdx] = useState<number | null>(null);
+  const [playLineRequest, setPlayLineRequest] = useState<{ idx: number; nonce: number } | null>(null);
 
   const resetSequentialSession = useCallback(() => {
     sessionStartRef.current = Date.now();
@@ -138,6 +147,8 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
     setSelectedMcqIdx(null);
     setStarResult(null);
     setShowTranscript(false);
+    setActiveListeningLineIdx(null);
+    setPlayLineRequest(null);
   }, []);
 
   const handleLevelChange = (nextLevel: JLPTLevelFilter) => {
@@ -194,19 +205,38 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
 
   const cmsSnapshot = useCurriculumSnapshot();
 
+  const sliceForDailyLesson = useCallback(<T,>(items: T[], lessonNum: number, count: number): T[] => {
+    if (items.length === 0) return [];
+    const effCount = count > 0 ? Math.min(count, items.length) : items.length;
+    const startIdx = ((lessonNum - 1) * effCount) % items.length;
+    const result: T[] = [];
+    for (let i = 0; i < effCount; i += 1) {
+      result.push(items[(startIdx + i) % items.length]);
+    }
+    return result;
+  }, []);
+
   const mcqItems = useMemo(() => {
-    void sessionSeed;
     if (meta.id !== 'kanji' && meta.id !== 'vocab' && meta.id !== 'grammar') return [];
-    const pool = shuffleArray(getLiveJlptMcqQuestions(cmsSnapshot, meta.id, levelFilter));
+    const raw = getLiveJlptMcqQuestions(cmsSnapshot, meta.id, levelFilter);
+    if (activeLesson > 0 && sessionSeed === 0) {
+      return sliceForDailyLesson(raw, activeLesson, questionLimit);
+    }
+    void sessionSeed;
+    const pool = shuffleArray(raw);
     return questionLimit > 0 ? pool.slice(0, questionLimit) : pool;
-  }, [cmsSnapshot, meta.id, levelFilter, questionLimit, sessionSeed]);
+  }, [activeLesson, cmsSnapshot, levelFilter, meta.id, questionLimit, sessionSeed, sliceForDailyLesson]);
 
   const starItems = useMemo(() => {
-    void sessionSeed;
     if (meta.id !== 'star') return [];
-    const pool = shuffleArray(getLiveJlptStarQuestions(cmsSnapshot, levelFilter));
+    const raw = getLiveJlptStarQuestions(cmsSnapshot, levelFilter);
+    if (activeLesson > 0 && sessionSeed === 0) {
+      return sliceForDailyLesson(raw, activeLesson, questionLimit);
+    }
+    void sessionSeed;
+    const pool = shuffleArray(raw);
     return questionLimit > 0 ? pool.slice(0, questionLimit) : pool;
-  }, [cmsSnapshot, meta.id, levelFilter, questionLimit, sessionSeed]);
+  }, [activeLesson, cmsSnapshot, levelFilter, meta.id, questionLimit, sessionSeed, sliceForDailyLesson]);
 
   const readingPassages = useMemo(() => {
     if (
@@ -216,15 +246,23 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
     ) {
       return [];
     }
-    return getLiveJlptReadingPassages(cmsSnapshot, meta.id, levelFilter);
-  }, [cmsSnapshot, meta.id, levelFilter]);
+    const raw = getLiveJlptReadingPassages(cmsSnapshot, meta.id, levelFilter);
+    if (activeLesson > 0 && raw.length > 0) {
+      return [raw[(activeLesson - 1) % raw.length]];
+    }
+    return raw;
+  }, [activeLesson, cmsSnapshot, levelFilter, meta.id]);
 
   const listeningItems = useMemo(() => {
-    void sessionSeed;
     if (meta.id !== 'listening') return [];
-    const pool = shuffleArray(getLiveJlptListeningItems(cmsSnapshot, levelFilter));
+    const raw = getLiveJlptListeningItems(cmsSnapshot, levelFilter);
+    if (activeLesson > 0 && sessionSeed === 0) {
+      return sliceForDailyLesson(raw, activeLesson, questionLimit);
+    }
+    void sessionSeed;
+    const pool = shuffleArray(raw);
     return questionLimit > 0 ? pool.slice(0, questionLimit) : pool;
-  }, [cmsSnapshot, meta.id, levelFilter, questionLimit, sessionSeed]);
+  }, [activeLesson, cmsSnapshot, levelFilter, meta.id, questionLimit, sessionSeed, sliceForDailyLesson]);
 
   const isMcqMode = meta.id === 'kanji' || meta.id === 'vocab' || meta.id === 'grammar';
   const isStarMode = meta.id === 'star';
@@ -277,6 +315,8 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
       setSelectedMcqIdx(null);
       setStarResult(null);
       setShowTranscript(false);
+      setActiveListeningLineIdx(null);
+      setPlayLineRequest(null);
     }
   }, [currentIndex, sequentialTotal, meta.id, levelFilter, correctCount, user?.id, retryAttemptId]);
 
@@ -315,6 +355,39 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
         }
         description={meta.subtitle}
       />
+
+      {activeLesson > 0 && (
+        <Card padding="sm" className="mb-4 flex flex-wrap items-center justify-between gap-2 border-primary/50 bg-primary-soft/35">
+          <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
+            <Badge tone="primary">Nhiệm vụ hôm nay · Bài {activeLesson}</Badge>
+            <span className="font-medium text-fg">
+              {isReadingMode
+                ? `Đang mở riêng Bài đọc số ${activeLesson} (${levelFilter})`
+                : `Đang lọc riêng ${sequentialTotal} câu bài tập của Bài ${activeLesson} (${levelFilter})`}
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              to="/roadmap"
+              className={buttonStyles({ variant: 'soft', size: 'sm' })}
+            >
+              ← Về Bản đồ Màn
+            </Link>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setIgnoreLessonScope(true);
+                setQuestionLimit(5);
+                resetSequentialSession();
+              }}
+            >
+              Mở toàn bộ kho đề {levelFilter}
+            </Button>
+          </div>
+        </Card>
+      )}
 
       <Card tone="muted" padding="sm" className="mb-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -395,7 +468,7 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
                 </p>
               </div>
 
-              <div className="grid grid-cols-3 gap-4 rounded-xl border border-line bg-surface-2 p-4 text-left">
+              <div className="grid grid-cols-3 gap-2 rounded-xl border border-line bg-surface-2 p-3 text-center sm:gap-4 sm:p-4 sm:text-left">
                 <Stat label="Đúng" value={correctCount} />
                 <Stat label="Sai" value={wrongCount} />
                 <Stat
@@ -411,8 +484,14 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
               )}
 
               <div className="flex flex-wrap justify-center gap-3">
+                <Link
+                  to="/roadmap"
+                  className={buttonStyles({ variant: 'primary', size: 'lg' })}
+                >
+                  ← Về Bản đồ Màn
+                </Link>
                 <Button
-                  variant="primary"
+                  variant="secondary"
                   size="lg"
                   leftIcon={<RotateCcw className="size-4" aria-hidden />}
                   onClick={handleReshuffle}
@@ -431,10 +510,31 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
             </Card>
           ) : (
             <div className="space-y-5">
-              <div className="space-y-2">
+              <div className="space-y-2.5 rounded-xl border border-line bg-glass p-3.5 shadow-card backdrop-blur-md">
+                {sequentialTotal > 1 && (
+                  <div className="flex flex-wrap items-center gap-1.5 border-b border-line pb-2.5">
+                    <span className="mr-1 text-xs font-bold text-primary-fg">
+                      📖 Mục lục bài ({sequentialTotal}):
+                    </span>
+                    {Array.from({ length: sequentialTotal }).map((_, idx) => (
+                      <Chip
+                        key={idx}
+                        selected={idx === currentIndex}
+                        onClick={() => {
+                          setCurrentIndex(idx);
+                          setSelectedMcqIdx(null);
+                          setStarResult(null);
+                          setShowTranscript(false);
+                        }}
+                      >
+                        {isListeningMode ? `Hội thoại ${idx + 1}` : `Câu ${idx + 1}`}
+                      </Chip>
+                    ))}
+                  </div>
+                )}
                 <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
                   <span className="font-semibold text-fg tabular">
-                    Câu {currentIndex + 1} / {sequentialTotal}
+                    {isListeningMode ? `Bài nghe ${currentIndex + 1}` : `Câu ${currentIndex + 1}`} / {sequentialTotal}
                   </span>
                   <div className="flex items-center gap-3 tabular">
                     <span className="font-medium text-success-fg">Đúng: {correctCount}</span>
@@ -597,15 +697,28 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
                       <AudioSpeechPlayer
                         key={`${item.id}-${sessionSeed}-${currentIndex}`}
                         dialogue={item.dialogue}
+                        situation={item.situation}
+                        questionPrompt={item.questionPrompt}
+                        onActiveLineChange={setActiveListeningLineIdx}
+                        playLineRequest={playLineRequest}
                       />
 
                       {transcriptVisible && (
                         <ListeningTranscriptPanel
                           dialogue={item.dialogue}
                           translation={item.translation}
-                          showTranslation={selectedMcqIdx !== null}
+                          showTranslation={true}
                           showFurigana={showFurigana}
                           onToggleFurigana={setShowFurigana}
+                          situation={item.situation}
+                          questionPrompt={item.questionPrompt}
+                          activeLineIdx={activeListeningLineIdx}
+                          onPlayLine={(lineIdx) =>
+                            setPlayLineRequest((prev) => ({
+                              idx: lineIdx,
+                              nonce: (prev?.nonce ?? 0) + 1,
+                            }))
+                          }
                         />
                       )}
 

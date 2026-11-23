@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Pencil, Plus, Square, Target, Trash2, Upload, Volume2 } from 'lucide-react';
 import { AdminImportExportModal } from '../../components/admin/AdminImportExportModal';
 import { AdminPagination } from '../../components/admin/AdminPagination';
+import { AudioSpeechPlayer } from '../../components/jlpt/AudioSpeechPlayer';
 import {
   Badge,
   Button,
@@ -23,6 +24,7 @@ import {
 import type { AuthUser } from '../../store/slices/authSlice';
 import type { AdminJlptModuleId, AdminJlptRecord } from '../../types/admin';
 import type { JLPTLevel } from '../../types/quiz';
+import { parsePlainDialogueScript } from '../../utils/dialogueAudioEngine';
 import { isSpeechSupported, speakJapanese, stopJapaneseSpeech } from '../../utils/tts';
 
 const LEVELS: JLPTLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1'];
@@ -588,6 +590,13 @@ export function AdminJlptManager({ snapshot, actor, onRefresh }: AdminJlptManage
                   className="font-jp"
                 />
               </Field>
+              {form.audioText.trim().length > 0 && (
+                <AudioSpeechPlayer
+                  dialogue={parsePlainDialogueScript(form.audioText)}
+                  situation={form.passage}
+                  questionPrompt={form.prompt}
+                />
+              )}
             </div>
           )}
 

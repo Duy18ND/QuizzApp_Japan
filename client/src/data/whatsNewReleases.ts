@@ -42,9 +42,9 @@ export const WHATS_NEW_RELEASES: WhatsNewRelease[] = [
         tag: 'Bản đồ Màn · Mới',
         tone: 'sakura',
         glyph: '道',
-        title: 'Chặng 0 Bảng chữ cái Kana (5 màn) & Chu kỳ 5 Kỹ năng/ngày',
+        title: 'Chặng 0 Kana & Nhiệm vụ trỏ thẳng vào Bài học riêng của từng ngày',
         description:
-          'Người học N5 có thể bật/tắt 5 màn khởi động Hiragana & Katakana hoặc vào thẳng Bài 1. Mỗi màn tự động sắp xếp Bước 1 → Bước 2 → Bước 3 không trùng kỹ năng.',
+          'Mỗi Màn sắp xếp Bước 1 → Bước 2 → Bước 3 không trùng kỹ năng, mở đúng Từ vựng, Nhóm 5 chữ Kanji và Bài Nghe/Đọc riêng của ngày hôm đó (tự động tích xanh khi hoàn thành).',
         to: '/roadmap',
         ctaLabel: 'Mở Bản đồ Màn',
       },

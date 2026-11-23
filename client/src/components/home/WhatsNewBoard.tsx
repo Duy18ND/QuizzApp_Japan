@@ -72,7 +72,7 @@ export const WhatsNewBoard: React.FC = () => {
             <span className="text-xs text-muted">({latest.date})</span>
           </div>
 
-          <div className="flex shrink-0 items-center gap-1.5">
+          <div className="flex w-full shrink-0 flex-wrap items-center justify-end gap-1.5 sm:w-auto">
             <Button
               type="button"
               variant="ghost"

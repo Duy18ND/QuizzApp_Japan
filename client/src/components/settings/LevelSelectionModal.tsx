@@ -2,9 +2,12 @@ import React, { useMemo, useState } from 'react';
 import { BookOpen, CheckCircle2, Compass } from 'lucide-react';
 import { useAuth } from '../../context/auth-context';
 import {
+  getPreferredVocabLevel,
   getUnitsForVocabTextbook,
   getVocabTextbooksForLevel,
   resolveActiveVocabTextbook,
+  savePreferredVocabLevel,
+  savePreferredVocabTextbookId,
 } from '../../data/vocabTextbooks';
 import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
 import { cn } from '../../lib/cn';
@@ -35,7 +38,8 @@ export const LevelSelectionModal: React.FC<LevelSelectionModalProps> = ({
   } | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const selectedLevel = draftLevel ?? studyLevel;
+  const effectiveCurrentLevel = studyLevel ?? getPreferredVocabLevel(user?.id);
+  const selectedLevel = draftLevel ?? effectiveCurrentLevel;
 
   const levelTextbooks = useMemo(
     () => (selectedLevel ? getVocabTextbooksForLevel(selectedLevel) : []),
@@ -66,12 +70,10 @@ export const LevelSelectionModal: React.FC<LevelSelectionModalProps> = ({
     return map;
   }, [cmsSnapshot, levelTextbooks, selectedLevel]);
 
-  if (!user) return null;
-
   const handleClose = () => {
     setDraftLevel(null);
     setDraftBookChoice(null);
-    if (!studyLevel) {
+    if (!effectiveCurrentLevel) {
       onDismissWithoutSelection?.();
     }
     onClose();
@@ -81,7 +83,7 @@ export const LevelSelectionModal: React.FC<LevelSelectionModalProps> = ({
     setDraftLevel(level);
     const defaultBook = resolveActiveVocabTextbook(
       level,
-      user.id,
+      user?.id,
       level === studyLevel ? studyTextbookId : null,
     );
     setDraftBookChoice({ level, bookId: defaultBook.id });
@@ -91,7 +93,14 @@ export const LevelSelectionModal: React.FC<LevelSelectionModalProps> = ({
     if (!selectedLevel) return;
     setSaving(true);
     const targetBookId = selectedBook?.id ?? null;
-    await updateStudyLevel(selectedLevel, targetBookId);
+    if (user) {
+      await updateStudyLevel(selectedLevel, targetBookId);
+    } else {
+      savePreferredVocabLevel(selectedLevel, null);
+      if (targetBookId) {
+        savePreferredVocabTextbookId(selectedLevel, targetBookId, null);
+      }
+    }
     setSaving(false);
     setDraftLevel(null);
     setDraftBookChoice(null);
@@ -114,7 +123,7 @@ export const LevelSelectionModal: React.FC<LevelSelectionModalProps> = ({
       footer={
         <>
           <Button type="button" variant="secondary" onClick={handleClose}>
-            {studyLevel ? 'Đóng' : 'Để sau'}
+            {effectiveCurrentLevel ? 'Đóng' : 'Để sau'}
           </Button>
           <Button
             type="button"

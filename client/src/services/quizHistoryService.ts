@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getInMemoryQuizHistory, setInMemoryQuizHistory } from './cloudProgressWriter';
 import { recordStudyCompletion } from './notificationService';
+import { recordDailyStageSkillActivity } from './stageRoadmapService';
 import {
   getActiveAuthenticatedUserId,
   isSupabaseAccountUuid,
@@ -109,6 +110,34 @@ export async function recordQuizAttempt(
   userId?: string | null,
 ): Promise<QuizAttemptRecord | null> {
   const effectiveUid = userId === undefined ? getActiveAuthenticatedUserId() : userId;
+
+  // Record daily stage skill activity (supports both authenticated and guest sessions).
+  // Require >= 70% accuracy for main Quiz attempts so learners read & understand before clearing!
+  const qt = (input.quizType || '').toLowerCase();
+  const totalQ = Math.max(1, Math.round(input.totalQuestions));
+  const accuracy = Math.max(0, input.score) / totalQ;
+  if (qt.includes('writing')) {
+    recordDailyStageSkillActivity('vocab', effectiveUid);
+  } else if (qt.includes('grammar')) {
+    recordDailyStageSkillActivity('grammar', effectiveUid);
+  } else if (qt.includes('reading') || qt.includes('star')) {
+    recordDailyStageSkillActivity('reading', effectiveUid);
+  } else if (qt.includes('listening')) {
+    recordDailyStageSkillActivity('listening', effectiveUid);
+  } else if (qt.includes('jlpt-kanji')) {
+    recordDailyStageSkillActivity('kanji', effectiveUid);
+  } else if (qt.includes('jlpt-full')) {
+    if (accuracy >= 0.7) {
+      recordDailyStageSkillActivity('quiz', effectiveUid);
+    }
+    recordDailyStageSkillActivity('reading', effectiveUid);
+    recordDailyStageSkillActivity('listening', effectiveUid);
+  } else if (qt.includes('mistake') || qt.includes('review')) {
+    recordDailyStageSkillActivity('review', effectiveUid);
+  } else if (accuracy >= 0.7) {
+    recordDailyStageSkillActivity('quiz', effectiveUid);
+  }
+
   if (!effectiveUid) {
     return null;
   }

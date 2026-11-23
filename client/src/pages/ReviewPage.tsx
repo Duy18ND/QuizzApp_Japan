@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowRight,
@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { LoginRequiredState } from '../components/auth/LoginRequiredState';
 import { useAuth } from '../context/auth-context';
+import { recordDailyStageSkillActivity } from '../services/stageRoadmapService';
 import {
   buildVocabToolQuery,
   findVocabTextbook,
@@ -102,6 +103,10 @@ export const ReviewPage: React.FC = () => {
   const [sessionIdx, setSessionIdx] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const [completedCount, setCompletedCount] = useState(0);
+
+  useEffect(() => {
+    recordDailyStageSkillActivity('review', user?.id);
+  }, [user?.id]);
 
   const vocabReviewItems = useMemo<ReviewQueueItem[]>(() => {
     const starredSet = new Set(progress.starredWords);

@@ -74,7 +74,11 @@ export const WritingPage: React.FC = () => {
     return undefined;
   }, [activeLevel, explicitBook, levelParam, studyLevel, studyTextbookId, user?.id]);
 
-  const allWords = useMemo(() => {
+  const unitParam = Math.max(0, Number(searchParams.get('unit')) || 0);
+  const autoStartParam = searchParams.get('autoStart') === '1';
+  const hasAutoStartedRef = useRef(false);
+
+  const bookOrLevelWords = useMemo(() => {
     if (textbook) {
       return getWordsForVocabTextbook(cmsSnapshot, textbook.level, textbook);
     }
@@ -84,6 +88,14 @@ export const WritingPage: React.FC = () => {
     }
     return all;
   }, [cmsSnapshot, textbook, activeLevel]);
+
+  const allWords = useMemo(() => {
+    if (unitParam > 0) {
+      const unitScoped = bookOrLevelWords.filter((w) => w.unitId === unitParam);
+      if (unitScoped.length > 0) return unitScoped;
+    }
+    return bookOrLevelWords;
+  }, [bookOrLevelWords, unitParam]);
 
   const [sourceScope, setSourceScope] = useState<SourceScope>(() => {
     const raw = searchParams.get('source');
@@ -144,6 +156,13 @@ export const WritingPage: React.FC = () => {
     },
     [candidateWords, limit, user?.id],
   );
+
+  useEffect(() => {
+    if (autoStartParam && !hasAutoStartedRef.current && candidateWords.length > 0) {
+      hasAutoStartedRef.current = true;
+      startSession(candidateWords);
+    }
+  }, [autoStartParam, candidateWords, startSession]);
 
   useEffect(() => {
     return () => stopJapaneseSpeech();
@@ -258,11 +277,17 @@ export const WritingPage: React.FC = () => {
   };
 
   if (!isActive) {
-    const scopeTitle = textbook
+    const baseScopeTitle = textbook
       ? `${textbook.title} (${textbook.level})`
       : activeLevel
         ? `JLPT ${activeLevel}`
         : null;
+    const scopeTitle =
+      unitParam > 0 && baseScopeTitle
+        ? `${baseScopeTitle} · Bài ${unitParam}`
+        : unitParam > 0
+          ? `Bài ${unitParam}`
+          : baseScopeTitle;
     const breadcrumbs = textbook
       ? [
           { label: 'Trang chủ', to: '/' },

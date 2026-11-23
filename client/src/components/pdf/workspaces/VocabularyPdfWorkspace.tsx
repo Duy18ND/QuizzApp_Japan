@@ -1,13 +1,18 @@
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { CheckCircle2, FileDown, Trash2 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { DraggableColumnList, type ColumnOption } from '../DraggableColumnList';
 import { CustomDataImport } from '../../common/CustomDataImport';
 import { VocabularyPdfBuilder } from './VocabularyPdfBuilder';
 import { useAuth } from '../../../context/auth-context';
-import { getPreferredVocabLevel } from '../../../data/vocabTextbooks';
+import {
+  getPreferredVocabLevel,
+  getUnitsForVocabTextbook,
+  getVocabTextbooksForLevel,
+  resolveActiveVocabTextbook,
+} from '../../../data/vocabTextbooks';
 import { useCurriculumSnapshot } from '../../../hooks/useCurriculumData';
-import { getLiveUnitsForLevel, getLiveVocabForUnit } from '../../../services/curriculumStore';
+import { getLiveVocabForUnit } from '../../../services/curriculumStore';
 import { useUserProgress } from '../../../hooks/useUserProgress';
 import { FontManager } from '../../../utils/fontManager';
 import type { JLPTLevel, QuizRangeType, QuizSource } from '../../../types/quiz';
@@ -22,17 +27,17 @@ interface ExportWord {
 }
 
 const DEFAULT_COLUMNS: ColumnOption[] = [
-  { id: 'kanji', label: 'Kanji', showContent: false },
+  { id: 'kanji', label: 'Kanji', showContent: true },
   { id: 'hanviet', label: 'Âm Hán Việt', showContent: false },
   { id: 'hiragana', label: 'Hiragana', showContent: false },
-  { id: 'meaning', label: 'Nghĩa', showContent: false },
+  { id: 'meaning', label: 'Nghĩa', showContent: true },
 ];
 
 const LEVELS: JLPTLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1'];
 
 export const VocabularyPdfWorkspace: React.FC = () => {
   const { toast } = useToast();
-  const { user, studyLevel } = useAuth();
+  const { user, studyLevel, studyTextbookId } = useAuth();
   const { progress } = useUserProgress();
   const [columns, setColumns] = useState<ColumnOption[]>(DEFAULT_COLUMNS);
   const [isExporting, setIsExporting] = useState(false);
@@ -40,23 +45,62 @@ export const VocabularyPdfWorkspace: React.FC = () => {
   const [exportError, setExportError] = useState<string | null>(null);
   const isExportingRef = useRef(false);
 
+  const cmsSnapshot = useCurriculumSnapshot();
   const [tab, setTab] = useState<'system' | 'custom'>('system');
   const [level, setLevel] = useState<JLPTLevel>(
-    () => studyLevel ?? getPreferredVocabLevel(user?.id) ?? 'N3',
+    () => studyLevel ?? getPreferredVocabLevel(user?.id) ?? 'N5',
   );
-  const [unitId, setUnitId] = useState<number>(1);
+  const [bookId, setBookId] = useState<string>(() =>
+    resolveActiveVocabTextbook(
+      studyLevel ?? getPreferredVocabLevel(user?.id) ?? 'N5',
+      user?.id,
+      studyTextbookId,
+    ).id,
+  );
+
+  const textbooksForLevel = useMemo(() => getVocabTextbooksForLevel(level), [level]);
+  const activeBook = useMemo(
+    () =>
+      textbooksForLevel.find((b) => b.id === bookId) ??
+      resolveActiveVocabTextbook(level, user?.id),
+    [bookId, level, textbooksForLevel, user?.id],
+  );
+  const activeUnits = useMemo(
+    () => getUnitsForVocabTextbook(cmsSnapshot, level, activeBook),
+    [activeBook, cmsSnapshot, level],
+  );
+
+  const [unitKey, setUnitKey] = useState<string>(() => {
+    const first = activeUnits.find((u) => u.totalWords > 0) ?? activeUnits[0];
+    return first ? String(first.dbUnitId ?? first.id) : '1';
+  });
+
+  const effectiveUnitKey = activeUnits.some((u) => String(u.dbUnitId ?? u.id) === unitKey)
+    ? unitKey
+    : String((activeUnits.find((u) => u.totalWords > 0) ?? activeUnits[0])?.dbUnitId ?? 1);
+
   const [source, setSource] = useState<QuizSource>('all');
   const [rangeType, setRangeType] = useState<QuizRangeType>('fixed');
   const [customRange, setCustomRange] = useState({ start: 1, end: 20 });
   const [manualWords, setManualWords] = useState<Record<string, unknown>[]>([]);
-  const cmsSnapshot = useCurriculumSnapshot();
-
-  const activeUnits = getLiveUnitsForLevel(cmsSnapshot, level);
 
   const handleLevelChange = (newLevel: JLPTLevel) => {
-    const defaultUnitId = getLiveUnitsForLevel(cmsSnapshot, newLevel)[0]?.id || 1;
+    const nextBook = resolveActiveVocabTextbook(newLevel, user?.id);
+    const nextUnits = getUnitsForVocabTextbook(cmsSnapshot, newLevel, nextBook);
+    const firstUnit = nextUnits.find((u) => u.totalWords > 0) ?? nextUnits[0];
     setLevel(newLevel);
-    setUnitId(defaultUnitId);
+    setBookId(nextBook.id);
+    setUnitKey(firstUnit ? String(firstUnit.dbUnitId ?? firstUnit.id) : '1');
+  };
+
+  const handleBookChange = (nextBookId: string) => {
+    const nextBook =
+      textbooksForLevel.find((b) => b.id === nextBookId) ??
+      resolveActiveVocabTextbook(level, user?.id);
+    const nextUnits = getUnitsForVocabTextbook(cmsSnapshot, level, nextBook);
+    const firstUnit = nextUnits.find((u) => u.totalWords > 0) ?? nextUnits[0];
+    setBookId(nextBook.id);
+    setUnitKey(firstUnit ? String(firstUnit.dbUnitId ?? firstUnit.id) : '1');
   };
 
   const handleExport = async () => {
@@ -86,10 +130,13 @@ export const VocabularyPdfWorkspace: React.FC = () => {
               ? Object.keys(progress.wrongWords).map(Number)
               : [];
 
-        let words = getLiveVocabForUnit(cmsSnapshot, level, unitId);
+        const lookupKey = Number.isFinite(Number(effectiveUnitKey))
+          ? Number(effectiveUnitKey)
+          : effectiveUnitKey;
+        let words = getLiveVocabForUnit(cmsSnapshot, level, lookupKey);
 
         if (words.length === 0) {
-          throw new Error(`Dữ liệu cho ${level} - Unit ${unitId} hiện chưa có sẵn.`);
+          throw new Error(`Dữ liệu cho ${level} · ${activeBook.shortTitle} hiện chưa có sẵn.`);
         }
 
         if (source !== 'all') {
@@ -97,6 +144,10 @@ export const VocabularyPdfWorkspace: React.FC = () => {
             targetWordIds.length > 0
               ? words.filter((w) => targetWordIds.includes(Number(w.id)))
               : [];
+        }
+
+        if (words.length === 0) {
+          throw new Error('Không có từ vựng nào khớp với phạm vi đã chọn (★ / từ sai).');
         }
 
         if (rangeType === 'custom') {
@@ -186,20 +237,37 @@ export const VocabularyPdfWorkspace: React.FC = () => {
                   </Select>
                 </Field>
 
-                <Field label="Bài học" htmlFor="pdf-vocab-unit">
+                <Field label="Giáo trình" htmlFor="pdf-vocab-book">
                   <Select
-                    id="pdf-vocab-unit"
-                    value={unitId}
-                    onChange={(e) => setUnitId(Number(e.target.value))}
+                    id="pdf-vocab-book"
+                    value={activeBook.id}
+                    onChange={(e) => handleBookChange(e.target.value)}
                   >
-                    {activeUnits.map((unit) => (
-                      <option key={unit.id} value={unit.id} disabled={unit.totalWords === 0}>
-                        {unit.name} ({unit.totalWords > 0 ? `${unit.totalWords} từ` : 'Sắp ra mắt'})
+                    {textbooksForLevel.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.title}
                       </option>
                     ))}
                   </Select>
                 </Field>
               </div>
+
+              <Field label="Bài học (Unit)" htmlFor="pdf-vocab-unit">
+                <Select
+                  id="pdf-vocab-unit"
+                  value={effectiveUnitKey}
+                  onChange={(e) => setUnitKey(e.target.value)}
+                >
+                  {activeUnits.map((unit) => {
+                    const keyStr = String(unit.dbUnitId ?? unit.id);
+                    return (
+                      <option key={keyStr} value={keyStr} disabled={unit.totalWords === 0}>
+                        {unit.name} ({unit.totalWords > 0 ? `${unit.totalWords} từ` : 'Sắp ra mắt'})
+                      </option>
+                    );
+                  })}
+                </Select>
+              </Field>
 
               <Field label="Phạm vi từ vựng" htmlFor="pdf-vocab-source">
                 <Select
@@ -207,7 +275,7 @@ export const VocabularyPdfWorkspace: React.FC = () => {
                   value={source}
                   onChange={(e) => setSource(e.target.value as QuizSource)}
                 >
-                  <option value="all">Tất cả từ vựng trong Unit</option>
+                  <option value="all">Tất cả từ vựng trong Bài</option>
                   <option value="starred">Chỉ từ đã lưu (★)</option>
                   <option value="wrong">Từ làm sai</option>
                 </Select>
@@ -284,8 +352,8 @@ export const VocabularyPdfWorkspace: React.FC = () => {
             <div>
               <h2 className="text-base font-semibold text-fg">Cấu hình cột</h2>
               <p className="mt-1 text-sm text-muted">
-                Kéo thả để sắp xếp vị trí các cột. Bỏ chọn nội dung nếu muốn chừa khoảng trống để
-                luyện viết.
+                Kéo thả trực tiếp hoặc bấm mũi tên ↑/↓ để sắp xếp vị trí các cột. Bỏ chọn nội dung
+                nếu muốn chừa khoảng trống để luyện viết.
               </p>
             </div>
             <DraggableColumnList columns={columns} onColumnsChange={setColumns} />

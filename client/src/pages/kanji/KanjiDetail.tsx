@@ -1,8 +1,15 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { CircleCheck, Edit3, Volume2 } from 'lucide-react';
+import { CircleCheck, Edit3, Star, Volume2 } from 'lucide-react';
+import { useAuth } from '../../context/auth-context';
 import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
 import { getLiveKanjis } from '../../services/curriculumStore';
+import {
+  SAVED_KANJI_SYNC_EVENT,
+  loadSavedKanjiIds,
+  toggleSavedKanjiId,
+} from '../../services/kanjiBookmarkService';
+import { recordDailyStageSkillActivity } from '../../services/stageRoadmapService';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { markKanjiLearned } from '../../store/slices/kanjiSlice';
 import {
@@ -17,12 +24,32 @@ import {
 
 export const KanjiDetail: React.FC = () => {
   const { kanjiId } = useParams();
+  const { user } = useAuth();
   const dispatch = useAppDispatch();
   const cmsSnapshot = useCurriculumSnapshot();
   const kanjiList = useMemo(() => getLiveKanjis(cmsSnapshot), [cmsSnapshot]);
   const progress = useAppSelector((state) => (kanjiId ? state.kanji.progress[kanjiId] : undefined));
 
   const kanji = kanjiList.find((k) => k.id === kanjiId);
+  const [savedState, setSavedState] = useState<{ userId: string | undefined; ids: string[] }>(() => ({
+    userId: user?.id,
+    ids: loadSavedKanjiIds(user?.id),
+  }));
+  const savedIds = savedState.userId === user?.id ? savedState.ids : loadSavedKanjiIds(user?.id);
+
+  useEffect(() => {
+    const syncSaved = () => {
+      setSavedState({ userId: user?.id, ids: loadSavedKanjiIds(user?.id) });
+    };
+    window.addEventListener(SAVED_KANJI_SYNC_EVENT, syncSaved);
+    return () => window.removeEventListener(SAVED_KANJI_SYNC_EVENT, syncSaved);
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (kanji) {
+      recordDailyStageSkillActivity('kanji', user?.id);
+    }
+  }, [kanji, user?.id]);
 
   if (!kanji) {
     return (
@@ -80,6 +107,25 @@ export const KanjiDetail: React.FC = () => {
               >
                 Làm bài tập (Quiz)
               </Link>
+
+              <Button
+                variant={savedIds.includes(kanji.id) ? 'soft' : 'secondary'}
+                size="sm"
+                fullWidth
+                aria-pressed={savedIds.includes(kanji.id)}
+                leftIcon={
+                  <Star
+                    className={`size-4 ${savedIds.includes(kanji.id) ? 'fill-current text-warning-fg' : ''}`}
+                    aria-hidden
+                  />
+                }
+                onClick={() => {
+                  const res = toggleSavedKanjiId(kanji.id, user?.id);
+                  setSavedState({ userId: user?.id, ids: res.ids });
+                }}
+              >
+                {savedIds.includes(kanji.id) ? 'Đã lưu Kanji ★' : 'Lưu Kanji để xuất PDF'}
+              </Button>
 
               <Button
                 variant={isLearned ? 'soft' : 'ghost'}

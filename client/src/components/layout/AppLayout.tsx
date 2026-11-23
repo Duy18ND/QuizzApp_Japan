@@ -62,7 +62,8 @@ export const AppLayout: React.FC = () => {
     dismissedScope !== currentLevelScope &&
     !hasDismissedLevelModal(user?.id);
 
-  const levelModalOpen = Boolean(user) && (manualLevelModalOpen || shouldAutoOpenLevelModal);
+  const levelModalOpen =
+    manualLevelModalOpen || (Boolean(user) && shouldAutoOpenLevelModal);
 
   useEffect(() => {
     const stopOnlineTracker = startWebOnlineTimeTracker(() => userIdRef.current);
@@ -97,7 +98,7 @@ export const AppLayout: React.FC = () => {
           aria-hidden
           className="seigaiha-mask pointer-events-none absolute inset-0 overflow-hidden bg-wave opacity-[0.035]"
         />
-        <div className="relative mx-auto flex h-13 max-w-6xl flex-nowrap items-center justify-between gap-2 px-3 sm:h-15 sm:gap-3 sm:px-5 lg:px-8">
+        <div className="relative mx-auto flex min-h-13 max-w-6xl flex-nowrap items-center justify-between gap-2 px-3 py-1.5 sm:min-h-15 sm:gap-3 sm:px-5 sm:py-2 lg:px-8">
           <Link to="/" className="group flex shrink-0 items-center gap-1.5 rounded-lg sm:gap-2.5" aria-label="Nihongo 問 — Trang chủ">
             <span
               lang="ja"
@@ -227,7 +228,7 @@ export const AppLayout: React.FC = () => {
         tabIndex={-1}
         className="relative z-10 flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto focus:outline-none"
       >
-        <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-3 py-3 pb-4 sm:px-5 sm:py-5 md:pb-[max(1.25rem,env(safe-area-inset-bottom))] lg:px-8 lg:py-6">
+        <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-3 py-3 pb-6 sm:px-5 sm:py-5 md:pb-[max(1.25rem,env(safe-area-inset-bottom))] lg:px-8 lg:py-6">
           <JapaneseLookupProvider containerRef={mainRef}>
             <Suspense
               fallback={
