@@ -92,13 +92,21 @@ export const FlashcardViewer: React.FC = () => {
     });
   }, [deckKey]);
 
+  const flippedIdsRef = React.useRef<Set<number>>(new Set());
+
   const handleFlip = useCallback(() => {
-    recordDailyStageSkillActivity('vocab', user?.id);
+    if (currentWord) {
+      flippedIdsRef.current.add(currentWord.id);
+      const minFlips = Math.min(3, Math.max(1, words.length));
+      if (flippedIdsRef.current.size >= minFlips) {
+        recordDailyStageSkillActivity('vocab', user?.id);
+      }
+    }
     setCardState((prev) => {
       if (prev.deckKey !== deckKey) return { deckKey, index: 0, flipped: true };
       return { ...prev, flipped: !prev.flipped };
     });
-  }, [deckKey, user?.id]);
+  }, [currentWord, deckKey, user?.id, words.length]);
 
   const handleShuffle = useCallback(() => {
     const shuffled = [...words];

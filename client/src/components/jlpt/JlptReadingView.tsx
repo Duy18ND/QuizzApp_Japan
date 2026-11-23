@@ -189,22 +189,36 @@ export const JlptReadingView: React.FC<JlptReadingViewProps> = ({
   return (
     <div className="space-y-4">
       {passages.length > 1 && (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold tracking-wide text-muted uppercase">Chọn bài đọc:</span>
-          {passages.map((p, idx) => (
-            <Chip
-              key={p.id}
-              selected={idx === activePassageIdx}
-              onClick={() => {
-                setActivePassageIdx(idx);
-                setShowSupport(false);
-              }}
-            >
-              <span>Bài {idx + 1}</span>
-              <span className="text-xs text-muted">({p.level})</span>
-            </Chip>
-          ))}
-        </div>
+        <Card padding="sm" className="space-y-2 border-line bg-surface-2/60">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs font-bold tracking-wide text-primary-fg uppercase">
+              📖 Mục lục sách đọc hiểu ({passages.length} bài)
+            </span>
+            <span className="text-xs text-muted">
+              Bấm chọn từng bài để đọc như sách giáo trình
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {passages.map((p, idx) => {
+              const allPassageAnswered = p.questions.every((q) => answers[q.id] !== undefined);
+              return (
+                <Chip
+                  key={p.id}
+                  selected={idx === activePassageIdx}
+                  onClick={() => {
+                    setActivePassageIdx(idx);
+                    setShowSupport(false);
+                  }}
+                >
+                  <span>
+                    {allPassageAnswered ? '✓ ' : ''}Bài {idx + 1}: {p.title}
+                  </span>
+                  <span className="text-xs opacity-75">({p.level})</span>
+                </Chip>
+              );
+            })}
+          </div>
+        </Card>
       )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">

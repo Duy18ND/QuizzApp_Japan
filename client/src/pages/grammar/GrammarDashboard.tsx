@@ -5,7 +5,7 @@ import type { JLPTLevel } from '../../types/grammar';
 import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
 import { getLiveGrammarBooks } from '../../services/curriculumStore';
 import { useAuth } from '../../context/auth-context';
-import { getPreferredVocabLevel } from '../../data/vocabTextbooks';
+import { getPreferredVocabLevel, resolveActiveVocabTextbook } from '../../data/vocabTextbooks';
 import {
   Badge,
   Button,
@@ -20,27 +20,42 @@ import {
 const LEVELS: (JLPTLevel | 'All')[] = ['All', 'N5', 'N4', 'N3', 'N2', 'N1'];
 
 export const GrammarDashboard: React.FC = () => {
-  const { studyLevel, user } = useAuth();
+  const { studyLevel, studyTextbookId, user } = useAuth();
   const [selectedLevelOverride, setSelectedLevelOverride] = useState<JLPTLevel | 'All' | null>(null);
   const [expandedBooks, setExpandedBooks] = useState<Record<string, boolean>>({});
 
   const selectedLevel =
     selectedLevelOverride ?? studyLevel ?? getPreferredVocabLevel(user?.id) ?? 'All';
 
-  const isExpanded = (bookId: string) => expandedBooks[bookId] !== false;
-
-  const toggleBook = (bookId: string) => {
-    setExpandedBooks((prev) => ({
-      ...prev,
-      [bookId]: !isExpanded(bookId),
-    }));
-  };
-
   const cmsSnapshot = useCurriculumSnapshot();
   const grammarBooks = getLiveGrammarBooks(cmsSnapshot);
   const filteredBooks = grammarBooks.filter(
     (book) => selectedLevel === 'All' || book.level === selectedLevel,
   );
+
+  const activeTextbookId =
+    selectedLevel !== 'All'
+      ? resolveActiveVocabTextbook(
+          selectedLevel,
+          user?.id,
+          selectedLevel === studyLevel ? studyTextbookId : null,
+        ).id
+      : null;
+
+  const isExpanded = (bookId: string, index: number) => {
+    if (expandedBooks[bookId] !== undefined) return expandedBooks[bookId];
+    if (activeTextbookId && filteredBooks.some((b) => b.id === activeTextbookId)) {
+      return bookId === activeTextbookId;
+    }
+    return index === 0;
+  };
+
+  const toggleBook = (bookId: string, index: number) => {
+    setExpandedBooks((prev) => ({
+      ...prev,
+      [bookId]: !isExpanded(bookId, index),
+    }));
+  };
 
   return (
     <PageContainer>
@@ -99,14 +114,15 @@ export const GrammarDashboard: React.FC = () => {
         />
       ) : (
         <div className="space-y-4">
-          {filteredBooks.map((book) => {
-            const expanded = isExpanded(book.id);
+          {filteredBooks.map((book, bookIdx) => {
+            const expanded = isExpanded(book.id, bookIdx);
+            const isActiveBook = activeTextbookId === book.id;
             return (
               <Card key={book.id} padding="none" className="overflow-hidden">
                 <button
                   type="button"
                   aria-expanded={expanded}
-                  onClick={() => toggleBook(book.id)}
+                  onClick={() => toggleBook(book.id, bookIdx)}
                   className="flex w-full items-center justify-between gap-4 bg-glass-soft px-5 py-3.5 text-left transition-colors hover:bg-glass-hover md:px-6"
                 >
                   <div className="flex min-w-0 items-center gap-3.5">
@@ -115,8 +131,9 @@ export const GrammarDashboard: React.FC = () => {
                     </span>
                     <div className="min-w-0">
                       <h2 className="truncate text-lg font-bold text-fg">{book.title}</h2>
-                      <div className="mt-1 flex items-center gap-2">
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
                         <Badge tone="primary">{book.level}</Badge>
+                        {isActiveBook && <Badge tone="sakura">Giáo trình đang chọn</Badge>}
                         <span className="tabular text-xs text-muted">
                           {book.chapters.length} bài học
                         </span>
@@ -148,17 +165,27 @@ export const GrammarDashboard: React.FC = () => {
                           </div>
                         </div>
 
-                        <Link
-                          to={`/grammar/${book.id}/${chapter.id}`}
-                          className={buttonStyles({
-                            variant: 'soft',
-                            size: 'sm',
-                            className: 'self-start sm:self-center',
-                          })}
-                        >
-                          Học ngay
-                          <ChevronRight className="size-4" aria-hidden />
-                        </Link>
+                        <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
+                          <Link
+                            to={`/grammar/${book.id}/${chapter.id}/practice?mode=scenario&count=12`}
+                            className={buttonStyles({
+                              variant: 'primary',
+                              size: 'sm',
+                            })}
+                          >
+                            🎯 Quiz Tình huống
+                          </Link>
+                          <Link
+                            to={`/grammar/${book.id}/${chapter.id}`}
+                            className={buttonStyles({
+                              variant: 'soft',
+                              size: 'sm',
+                            })}
+                          >
+                            Lý thuyết &amp; Mẹo nhớ
+                            <ChevronRight className="size-4" aria-hidden />
+                          </Link>
+                        </div>
                       </div>
                     ))}
                   </div>

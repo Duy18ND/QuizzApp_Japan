@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { CircleCheck } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { ArrowRight, CircleCheck, Edit3 } from 'lucide-react';
 import { useAuth } from '../../context/auth-context';
 import { getPreferredVocabLevel } from '../../data/vocabTextbooks';
 import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
@@ -8,6 +9,7 @@ import { useAppSelector } from '../../store/hooks';
 import {
   Badge,
   Button,
+  Card,
   CardLink,
   Chip,
   EmptyState,
@@ -15,6 +17,7 @@ import {
   PageHeader,
   ProgressBar,
   SearchInput,
+  buttonStyles,
 } from '../../components/ui';
 import { cn } from '../../lib/cn';
 
@@ -22,18 +25,28 @@ const LEVELS = ['All', 'N5', 'N4', 'N3', 'N2', 'N1'];
 
 export const KanjiDashboard: React.FC = () => {
   const { studyLevel, user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const cmsSnapshot = useCurriculumSnapshot();
   const kanjiList = useMemo(() => getLiveKanjis(cmsSnapshot), [cmsSnapshot]);
   const progress = useAppSelector((state) => state.kanji.progress);
 
+  const urlLevelParam = (searchParams.get('level') || '').toUpperCase();
+  const validUrlLevel = LEVELS.includes(urlLevelParam) && urlLevelParam !== 'All' ? urlLevelParam : null;
+  const groupParam = Math.max(0, Number(searchParams.get('group')) || 0);
+  const sizeParam = Math.max(1, Math.min(20, Number(searchParams.get('size')) || 5));
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLevelOverride, setSelectedLevelOverride] = useState<string | null>(null);
   const selectedLevel =
-    selectedLevelOverride ?? studyLevel ?? getPreferredVocabLevel(user?.id) ?? 'All';
+    selectedLevelOverride ??
+    validUrlLevel ??
+    studyLevel ??
+    getPreferredVocabLevel(user?.id) ??
+    'All';
 
   const learnedCount = kanjiList.filter((k) => progress[k.id]?.learned).length;
 
-  const filteredKanji = kanjiList.filter((k) => {
+  const baseLevelKanji = kanjiList.filter((k) => {
     const q = searchTerm.trim().toLowerCase();
     const matchesSearch =
       !q ||
@@ -47,6 +60,26 @@ export const KanjiDashboard: React.FC = () => {
 
     return matchesSearch && matchesLevel;
   });
+
+  const filteredKanji = useMemo(() => {
+    if (groupParam <= 0 || searchTerm.trim().length > 0 || baseLevelKanji.length === 0) {
+      return baseLevelKanji;
+    }
+    const startIdx = ((groupParam - 1) * sizeParam) % baseLevelKanji.length;
+    const picked = [];
+    const count = Math.min(sizeParam, baseLevelKanji.length);
+    for (let i = 0; i < count; i += 1) {
+      picked.push(baseLevelKanji[(startIdx + i) % baseLevelKanji.length]);
+    }
+    return picked;
+  }, [baseLevelKanji, groupParam, searchTerm, sizeParam]);
+
+  const handleClearGroupFilter = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('group');
+    next.delete('size');
+    setSearchParams(next, { replace: true });
+  };
 
   return (
     <PageContainer>
@@ -71,6 +104,47 @@ export const KanjiDashboard: React.FC = () => {
           </div>
         }
       />
+
+      {/* Daily Stage Lesson Scoped Banner (when opened from Roadmap Màn N) */}
+      {groupParam > 0 && !searchTerm.trim() && filteredKanji.length > 0 && (
+        <Card padding="sm" className="mb-4 flex flex-col gap-2.5 border-primary/50 bg-primary-soft/35 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-0.5">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Badge tone="primary">Bài học Kanji hôm nay</Badge>
+              <span className="text-sm font-bold text-fg">
+                Nhóm Bài {groupParam} · {filteredKanji.length} chữ Kanji {selectedLevel} ({filteredKanji.map((k) => k.kanji).join(' · ')})
+              </span>
+            </div>
+            <p className="text-xs text-muted">
+              Đã lọc riêng {filteredKanji.length} chữ Kanji của bài học hôm nay để bạn tập trung học âm Hán Việt, On-Kun và luyện viết nét.
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <Link
+              to={`/kanji/${filteredKanji[0].id}/practice`}
+              className={buttonStyles({ variant: 'primary', size: 'sm' })}
+            >
+              <Edit3 className="size-3.5" aria-hidden />
+              <span>Tập viết chữ {filteredKanji[0].kanji}</span>
+              <ArrowRight className="size-3.5" aria-hidden />
+            </Link>
+            <Link
+              to="/roadmap"
+              className={buttonStyles({ variant: 'soft', size: 'sm' })}
+            >
+              ← Về Bản đồ Màn
+            </Link>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={handleClearGroupFilter}
+            >
+              Xem toàn bộ {baseLevelKanji.length} chữ {selectedLevel}
+            </Button>
+          </div>
+        </Card>
+      )}
 
       {/* Search & Level Filter */}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

@@ -353,23 +353,27 @@ export const CustomStudioPage: React.FC = () => {
         </Notice>
       )}
 
-      <Tabs
-        aria-label="Chế độ Studio"
-        value={activeTab}
-        onChange={setTab}
-        items={[
-          {
-            value: 'lessons',
-            label: `1. Kho Bài Tự Tạo (${studio.lessons.length})`,
-            icon: <BookOpen className="size-4" aria-hidden />,
-          },
-          {
-            value: 'canvas',
-            label: `2. Tự Vẽ Bản Đồ Lộ Trình (${studio.visualRoadmaps.length})`,
-            icon: <MapIcon className="size-4" aria-hidden />,
-          },
-        ]}
-      />
+      <div className="rounded-xl border border-line bg-glass px-3 py-1.5 shadow-card backdrop-blur-md">
+        <Tabs
+          aria-label="Chế độ Studio"
+          variant="pill"
+          value={activeTab}
+          onChange={setTab}
+          className="gap-1.5"
+          items={[
+            {
+              value: 'lessons',
+              label: `1. Kho Bài Tự Tạo (${studio.lessons.length})`,
+              icon: <BookOpen className="size-4" aria-hidden />,
+            },
+            {
+              value: 'canvas',
+              label: `2. Tự Vẽ Bản Đồ Lộ Trình (${studio.visualRoadmaps.length})`,
+              icon: <MapIcon className="size-4" aria-hidden />,
+            },
+          ]}
+        />
+      </div>
 
       {/* PHASE 1: CUSTOM LESSONS MINI-CMS */}
       {activeTab === 'lessons' ? (

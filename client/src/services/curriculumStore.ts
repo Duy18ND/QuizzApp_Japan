@@ -421,14 +421,21 @@ export function getLiveJlptListeningItems(
     .filter((q) => q.moduleId === 'listening' && matchesJlptLevel(q.level, levelFilter))
     .map((q) => {
       const base = staticMap.get(q.id);
-      const dialogueLines = (q.audioText || '')
+      const baseSerialized = base
+        ? base.dialogue.map((line) => `${line.speaker}: ${line.plainText}`).join('\n').trim()
+        : '';
+      const rawAudioText = (q.audioText || '').trim();
+      const matchesBaseScript = Boolean(base && (!rawAudioText || rawAudioText === baseSerialized));
+
+      const dialogueLines = rawAudioText
         .split('\n')
         .map((line) => line.trim())
         .filter(Boolean)
         .map((line) => {
-          const sepIdx = line.indexOf(':');
-          const speaker = sepIdx > 0 && sepIdx < 16 ? line.slice(0, sepIdx).trim() : '話者';
-          const plainText = sepIdx > 0 && sepIdx < 16 ? line.slice(sepIdx + 1).trim() : line;
+          const sepIdx = line.search(/[:：]/);
+          const hasSpeaker = sepIdx > 0 && sepIdx < 16;
+          const speaker = hasSpeaker ? line.slice(0, sepIdx).trim() : '話者';
+          const plainText = hasSpeaker ? line.slice(sepIdx + 1).trim() : line;
           return {
             speaker,
             plainText,
@@ -442,7 +449,11 @@ export function getLiveJlptListeningItems(
         mondaiLabel: base?.mondaiLabel ?? `Choukai · ${q.level}`,
         situation: q.passage || base?.situation || 'Nghe đoạn hội thoại và chọn đáp án đúng.',
         questionPrompt: q.prompt,
-        dialogue: base && !q.audioText ? base.dialogue : dialogueLines.length > 0 ? dialogueLines : base?.dialogue ?? [],
+        dialogue: matchesBaseScript && base
+          ? base.dialogue
+          : dialogueLines.length > 0
+            ? dialogueLines
+            : base?.dialogue ?? [],
         options: padFourOptions(q.options),
         correctIndex: Math.min(3, Math.max(0, q.correctIndex)),
         translation: base?.translation ?? q.audioText ?? '',

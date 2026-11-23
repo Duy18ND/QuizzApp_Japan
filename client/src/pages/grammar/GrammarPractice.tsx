@@ -1,7 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { ArrowLeft, ArrowRight, CheckCircle2, FileText, RefreshCw, XCircle } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle2,
+  FileText,
+  RefreshCw,
+  Sparkles,
+  Volume2,
+  X,
+  XCircle,
+} from 'lucide-react';
 import { useAuth } from '../../context/auth-context';
 import { clearAttemptMistakeGroup } from '../../services/attemptMistakeService';
 import { saveLastPracticeTarget } from '../../services/lastPracticeService';
@@ -19,7 +29,13 @@ import { PracticeQuestionRenderer } from '../../components/practice/PracticeQues
 import type { PracticeQuestion, PracticeType } from '../../types/grammar';
 import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
 import { getLiveGrammarBooks } from '../../services/curriculumStore';
+import {
+  buildGrammarDeepInsight,
+  toScenarioPracticeQuestion,
+  type ScenarioOptionExplanation,
+} from '../../utils/grammarEngine/grammarInsightEngine';
 import { shuffleArray } from '../../utils/shuffle';
+import { speakJapanese } from '../../utils/tts';
 import {
   lesson01PracticeBank,
   validateGrammarPracticeBanks,
@@ -28,7 +44,6 @@ import {
 validateGrammarPracticeBanks();
 import { generateSmartQuestionSet } from '../../utils/grammarEngine/questionGenerator';
 import {
-  Badge,
   Button,
   Card,
   ErrorState,
@@ -47,11 +62,14 @@ interface FeedbackState {
 }
 
 interface QuestionMetadata {
+  isScenarioQuestion?: boolean;
+  badgeLabel?: string;
   japanese?: string;
   vietnamese?: string;
   grammarName?: string;
   grammarMeaning?: string;
   grammarExplanation?: string;
+  optionBreakdowns?: ScenarioOptionExplanation[];
 }
 
 const selectBankQuestions = (ruleId: string, practiceMode: PracticeType): PracticeQuestion[] => {
@@ -67,10 +85,13 @@ export const GrammarPractice: React.FC = () => {
     chapterId: string;
     grammarId?: string;
   }>();
-  const [searchParams] = useSearchParams();
-  const mode = (searchParams.get('mode') as PracticeType) || 'fill_blank';
-  const countParam = parseInt(searchParams.get('count') || '10', 10);
-  const questionCount = isNaN(countParam) || countParam <= 0 ? 10 : countParam;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const rawModeParam = searchParams.get('mode') || 'scenario';
+  const isScenarioMode = rawModeParam === 'scenario';
+  const mode: PracticeType =
+    rawModeParam === 'scenario' ? 'grammar_selection' : (rawModeParam as PracticeType) || 'mixed';
+  const countParam = parseInt(searchParams.get('count') || '12', 10);
+  const questionCount = isNaN(countParam) || countParam <= 0 ? 12 : countParam;
   const [currentSeed] = useState<number>(() => Date.now());
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -81,10 +102,13 @@ export const GrammarPractice: React.FC = () => {
   const practice = useSelector((state: RootState) => state.practice);
   const cmsSnapshot = useCurriculumSnapshot();
 
-  const { isInvalidTarget, rulesToPractice } = useMemo(() => {
+  const { isInvalidTarget, rulesToPractice, chapterObj, allLevelRules } = useMemo(() => {
     const books = getLiveGrammarBooks(cmsSnapshot);
     const b = books.find((bk) => bk.id === bookId);
     const c = b?.chapters.find((ch) => ch.id === chapterId);
+    const levelRules = books
+      .filter((bk) => bk.level === (b?.level ?? 'N3'))
+      .flatMap((bk) => bk.chapters.flatMap((ch) => ch.grammars));
 
     let rules = c?.grammars || [];
     if (grammarId) {
@@ -93,6 +117,8 @@ export const GrammarPractice: React.FC = () => {
     return {
       isInvalidTarget: !b || !c || rules.length === 0,
       rulesToPractice: rules,
+      chapterObj: c,
+      allLevelRules: levelRules,
     };
   }, [cmsSnapshot, bookId, chapterId, grammarId]);
 
@@ -103,13 +129,29 @@ export const GrammarPractice: React.FC = () => {
       setFeedback(null);
       dispatch(resetPractice());
     };
-  }, [dispatch, bookId, chapterId, grammarId, mode, questionCount]);
+  }, [dispatch, bookId, chapterId, grammarId, mode, isScenarioMode, questionCount]);
 
   useEffect(() => {
     if (rulesToPractice.length > 0 && !practice.isActive && !practice.isFinished) {
       let allQuestions: PracticeQuestion[] = [];
 
-      if (grammarId) {
+      const buildScenarioQuestionsForRules = () => {
+        const scenarioList: PracticeQuestion[] = [];
+        const peerRules = chapterObj?.grammars ?? rulesToPractice;
+        for (const rule of rulesToPractice) {
+          const insight = buildGrammarDeepInsight(rule, peerRules, allLevelRules);
+          for (const sc of insight.scenarioQuestions) {
+            scenarioList.push(
+              toScenarioPracticeQuestion(sc, rule, shuffleArray([...sc.options])),
+            );
+          }
+        }
+        return scenarioList;
+      };
+
+      if (isScenarioMode) {
+        allQuestions = buildScenarioQuestionsForRules();
+      } else if (grammarId) {
         const bankQuestions = selectBankQuestions(grammarId, mode);
         if (bankQuestions.length > 0) {
           allQuestions = [...bankQuestions];
@@ -123,7 +165,13 @@ export const GrammarPractice: React.FC = () => {
           });
           allQuestions = generated.questions;
         }
+        if (mode === 'mixed') {
+          allQuestions = [...buildScenarioQuestionsForRules(), ...allQuestions];
+        }
       } else {
+        if (mode === 'mixed') {
+          allQuestions = [...buildScenarioQuestionsForRules()];
+        }
         rulesToPractice.forEach((rule) => {
           const bankQuestions = selectBankQuestions(rule.id, mode);
           if (bankQuestions.length > 0) {
@@ -175,7 +223,22 @@ export const GrammarPractice: React.FC = () => {
       );
       dispatch(startPractice({ mode, questions: shuffled }));
     }
-  }, [rulesToPractice, mode, questionCount, currentSeed, practice.isActive, practice.isFinished, dispatch, grammarId, bookId, chapterId, user?.id]);
+  }, [
+    rulesToPractice,
+    chapterObj,
+    allLevelRules,
+    isScenarioMode,
+    mode,
+    questionCount,
+    currentSeed,
+    practice.isActive,
+    practice.isFinished,
+    dispatch,
+    grammarId,
+    bookId,
+    chapterId,
+    user?.id,
+  ]);
 
   const handleSubmit = (answer: string, isCorrect: boolean, feedbackMsg?: string) => {
     const currentQ = practice.questions[practice.currentQuestionIndex];
@@ -379,11 +442,21 @@ export const GrammarPractice: React.FC = () => {
 
   const currentQ = practice.questions[practice.currentQuestionIndex];
   const meta = currentQ.metadata as QuestionMetadata | undefined;
+  const currentLevelLabel = rulesToPractice[0]?.level || 'N3';
+  const currentLessonLabel = chapterObj ? `Bài ${chapterObj.chapterNumber}` : 'Bài học';
+
+  const switchPracticeMode = (nextModeKey: string) => {
+    setFeedback(null);
+    dispatch(resetPractice());
+    const next = new URLSearchParams(searchParams);
+    next.set('mode', nextModeKey);
+    setSearchParams(next, { replace: true });
+  };
 
   return (
-    <PageContainer size="md" className="space-y-5">
-      {/* Top context bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <PageContainer size="md" className="space-y-4">
+      {/* Hình 1 Clean Quiz Header: ← Thoát | Mode Switcher | X */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Button
           variant="ghost"
           size="sm"
@@ -394,17 +467,30 @@ export const GrammarPractice: React.FC = () => {
           }}
           className="-ml-2"
         >
-          Về bài học
+          Thoát
         </Button>
 
-        <div className="flex items-center gap-2">
-          <Badge tone="neutral" className="jp max-w-48 truncate">
-            {grammarId
-              ? rulesToPractice[0]?.name
-              : `Toàn bộ bài (${rulesToPractice.length} cấu trúc)`}
-          </Badge>
+        <div className="flex flex-wrap items-center gap-1.5">
           <Button
-            variant="secondary"
+            type="button"
+            variant={isScenarioMode ? 'primary' : 'secondary'}
+            size="sm"
+            leftIcon={<Sparkles className="size-3.5" aria-hidden />}
+            onClick={() => switchPracticeMode('scenario')}
+          >
+            Tình huống &amp; Sắc thái
+          </Button>
+          <Button
+            type="button"
+            variant={!isScenarioMode && rawModeParam === 'mixed' ? 'primary' : 'secondary'}
+            size="sm"
+            onClick={() => switchPracticeMode('mixed')}
+          >
+            Tổng hợp
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
             size="sm"
             leftIcon={<FileText className="size-4" aria-hidden />}
             onClick={() =>
@@ -413,25 +499,41 @@ export const GrammarPractice: React.FC = () => {
               )
             }
           >
-            Tạo PDF
+            PDF
           </Button>
+          <button
+            type="button"
+            aria-label="Đóng bài luyện tập"
+            onClick={() => {
+              dispatch(resetPractice());
+              navigate(`/grammar/${bookId}/${chapterId}`);
+            }}
+            className="grid size-8 cursor-pointer place-items-center rounded-full border border-line bg-surface text-muted transition-colors hover:bg-surface-2 hover:text-fg"
+          >
+            <X className="size-4" aria-hidden />
+          </button>
         </div>
       </div>
 
-      {/* Progress & Counter */}
+      {/* Progress & Counter (Matches Hình 1: Câu 1/12 left, N3 · Bài 1 right) */}
       <div className="space-y-2">
-        <div className="flex items-center justify-between gap-3">
-          <Badge tone="primary" className="tabular">
-            Câu {practice.currentQuestionIndex + 1} / {practice.questions.length}
-          </Badge>
-          <div className="tabular flex items-center gap-3 text-sm font-semibold">
-            <span className="inline-flex items-center gap-1 text-success-fg">
-              <CheckCircle2 className="size-4" aria-hidden />
-              {practice.score.correct}
-            </span>
-            <span className="inline-flex items-center gap-1 text-danger-fg">
-              <XCircle className="size-4" aria-hidden />
-              {practice.score.wrong}
+        <div className="flex items-center justify-between gap-3 text-sm">
+          <span className="tabular font-semibold text-muted">
+            Câu {practice.currentQuestionIndex + 1}/{practice.questions.length}
+          </span>
+          <div className="flex items-center gap-3">
+            <div className="tabular flex items-center gap-2.5 text-xs font-semibold">
+              <span className="inline-flex items-center gap-1 text-success-fg">
+                <CheckCircle2 className="size-3.5" aria-hidden />
+                {practice.score.correct}
+              </span>
+              <span className="inline-flex items-center gap-1 text-danger-fg">
+                <XCircle className="size-3.5" aria-hidden />
+                {practice.score.wrong}
+              </span>
+            </div>
+            <span className="font-bold text-sakura">
+              {currentLevelLabel} · {currentLessonLabel}
             </span>
           </div>
         </div>
@@ -439,6 +541,8 @@ export const GrammarPractice: React.FC = () => {
         <ProgressBar
           value={practice.currentQuestionIndex + 1}
           max={practice.questions.length}
+          tone="primary"
+          size="sm"
           label="Tiến độ luyện tập ngữ pháp"
         />
       </div>
@@ -484,24 +588,48 @@ export const GrammarPractice: React.FC = () => {
               <div className="space-y-4 rounded-xl border border-line bg-surface-2 p-5 text-sm">
                 {meta?.japanese ? (
                   <>
-                    <div className="space-y-1">
-                      <p className="text-xs font-semibold tracking-wide text-primary-fg uppercase">
-                        Câu gốc & Dịch nghĩa
-                      </p>
-                      <p lang="ja" className="text-lg font-semibold text-fg">
-                        {meta.japanese}
-                      </p>
-                      {meta.vietnamese && <p className="text-muted">{meta.vietnamese}</p>}
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="space-y-1">
+                        <p className="text-xs font-semibold tracking-wide text-primary-fg uppercase">
+                          Câu tiếng Nhật thực tế &amp; Dịch nghĩa
+                        </p>
+                        <p lang="ja" className="text-lg font-semibold text-fg">
+                          {meta.japanese}
+                        </p>
+                        {meta.vietnamese && <p className="text-muted">{meta.vietnamese}</p>}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="soft"
+                        size="sm"
+                        leftIcon={<Volume2 className="size-4" aria-hidden />}
+                        onClick={() => meta.japanese && speakJapanese(meta.japanese)}
+                      >
+                        Nghe phát âm
+                      </Button>
                     </div>
-                    <div className="space-y-1 border-t border-line pt-4">
+                    <div className="space-y-1.5 border-t border-line pt-3.5">
                       <p className="text-xs font-semibold tracking-wide text-primary-fg uppercase">
-                        Ngữ pháp: <span lang="ja">{meta.grammarName}</span>
+                        Ngữ pháp trọng tâm: <span lang="ja">{meta.grammarName}</span>
                       </p>
                       <p className="font-medium text-fg">Ý nghĩa: {meta.grammarMeaning}</p>
                       {meta.grammarExplanation && (
                         <p className="leading-relaxed text-muted">{meta.grammarExplanation}</p>
                       )}
                     </div>
+                    {meta.optionBreakdowns && meta.optionBreakdowns.length > 0 && (
+                      <div className="space-y-1.5 border-t border-line pt-3.5">
+                        <p className="text-xs font-semibold tracking-wide text-muted uppercase">
+                          Phân tích đối chiếu 4 đáp án (Vì sao đúng / sai):
+                        </p>
+                        {meta.optionBreakdowns.map((b, bIdx) => (
+                          <p key={bIdx} className="text-xs leading-relaxed text-fg">
+                            {b.isCorrect ? '✅' : '❌'}{' '}
+                            <strong lang="ja">{b.option}:</strong> {b.reason}
+                          </p>
+                        ))}
+                      </div>
+                    )}
                   </>
                 ) : (
                   <div className="space-y-1">

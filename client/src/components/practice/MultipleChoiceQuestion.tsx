@@ -56,21 +56,38 @@ export const MultipleChoiceQuestionComp: React.FC<Props> = ({ mode, question, on
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [options, handleSelect]);
 
+  const isScenario = Boolean(
+    (question.metadata as { isScenarioQuestion?: boolean } | undefined)?.isScenarioQuestion,
+  );
+
   return (
     <div className="space-y-6">
-      <div className="space-y-2 text-center">
+      <div className={cn('space-y-2.5', isScenario ? 'text-left' : 'text-center')}>
         {question.instruction && (
-          <p className="text-sm font-semibold text-primary-fg">{question.instruction}</p>
+          <p className="text-xs font-bold tracking-wider text-primary-fg uppercase">
+            {question.instruction}
+          </p>
         )}
-        <div className="flex items-start justify-center gap-1.5">
-          <h3 lang="ja" className="text-xl leading-relaxed font-semibold text-fg md:text-2xl">
+        <div className={cn('flex items-start gap-2', !isScenario && 'justify-center')}>
+          <h3
+            lang={isScenario ? 'vi' : 'ja'}
+            className={cn(
+              'leading-relaxed font-bold text-fg',
+              isScenario ? 'text-lg md:text-xl' : 'text-xl md:text-2xl',
+            )}
+          >
             {question.question}
           </h3>
-          <JapaneseLookupButton text={question.question} className="mt-1" />
+          {!isScenario && <JapaneseLookupButton text={question.question} className="mt-1" />}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div
+        className={cn(
+          'grid grid-cols-1 gap-3',
+          !isScenario && 'sm:grid-cols-2',
+        )}
+      >
         {options.map((opt, idx) => {
           const isSelected = selectedOpt === opt;
           return (
@@ -80,23 +97,28 @@ export const MultipleChoiceQuestionComp: React.FC<Props> = ({ mode, question, on
               onClick={() => handleSelect(opt)}
               aria-pressed={isSelected}
               className={cn(
-                'flex min-h-14 w-full items-center gap-3 rounded-xl border p-3.5 text-left transition-colors duration-150 md:p-4',
+                'flex w-full cursor-pointer items-center gap-3 border text-left transition-all duration-150',
+                isScenario
+                  ? 'min-h-13 rounded-full px-5 py-3.5'
+                  : 'min-h-14 rounded-xl p-3.5 md:p-4',
                 isSelected
-                  ? 'border-primary bg-primary-soft text-primary-fg'
+                  ? 'border-primary bg-primary-soft text-primary-fg ring-2 ring-primary/20'
                   : 'border-line-strong bg-surface text-fg hover:border-primary hover:bg-surface-2',
               )}
             >
-              <span
-                className={cn(
-                  'grid size-8 shrink-0 place-items-center rounded-lg text-sm font-bold',
-                  isSelected
-                    ? 'bg-primary text-on-primary'
-                    : 'border border-line bg-surface-2 text-muted',
-                )}
-              >
-                {String.fromCharCode(65 + idx)}
-              </span>
-              <span lang="ja" className="flex-1 text-base font-medium md:text-lg">
+              {!isScenario && (
+                <span
+                  className={cn(
+                    'grid size-8 shrink-0 place-items-center rounded-lg text-sm font-bold',
+                    isSelected
+                      ? 'bg-primary text-on-primary'
+                      : 'border border-line bg-surface-2 text-muted',
+                  )}
+                >
+                  {String.fromCharCode(65 + idx)}
+                </span>
+              )}
+              <span lang="ja" className="flex-1 text-base font-semibold md:text-lg">
                 {opt}
               </span>
             </button>

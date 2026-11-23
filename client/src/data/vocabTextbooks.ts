@@ -371,6 +371,15 @@ export function savePreferredVocabLevel(level: JLPTLevel, userId?: string | null
   } catch {
     // Keep the current selection usable if browser storage is unavailable.
   }
+  try {
+    window.dispatchEvent(
+      new CustomEvent<{ level: JLPTLevel; userId?: string | null }>(VOCAB_TEXTBOOK_SYNC_EVENT, {
+        detail: { level, userId },
+      }),
+    );
+  } catch {
+    // Ignore event dispatch issues in non-DOM environments.
+  }
 }
 
 export function getWordsForVocabTextbook(

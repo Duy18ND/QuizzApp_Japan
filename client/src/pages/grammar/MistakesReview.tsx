@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { Link } from 'react-router-dom';
 import {
@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/auth-context';
 import { LoginRequiredState } from '../../components/auth/LoginRequiredState';
+import { recordDailyStageSkillActivity } from '../../services/stageRoadmapService';
 import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
 import { useUserProgress } from '../../hooks/useUserProgress';
 import {
@@ -99,6 +100,10 @@ export const MistakesReview: React.FC = () => {
 
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
   const [drill, setDrill] = useState<DrillSession | null>(null);
+
+  useEffect(() => {
+    recordDailyStageSkillActivity('review', user?.id);
+  }, [user?.id]);
 
   const attemptGroups = useMemo(
     () => buildAttemptMistakeGroups(quizHistory, allVocab, liveGrammarBooks, resolutions),

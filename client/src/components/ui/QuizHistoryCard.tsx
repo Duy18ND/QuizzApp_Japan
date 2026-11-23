@@ -198,7 +198,7 @@ export function QuizHistoryCard({ limit, showProfileLink = false, className }: Q
       >
         {reviewAttempt && (
           <div className="space-y-4">
-            <div className="grid grid-cols-3 gap-3 rounded-xl border border-line bg-surface-2 p-3.5 text-center">
+            <div className="grid grid-cols-3 gap-2 rounded-xl border border-line bg-surface-2 p-2.5 text-center sm:gap-3 sm:p-3.5">
               <div>
                 <p className="text-xs font-medium text-success-fg">Đúng</p>
                 <p className="tabular mt-0.5 text-xl font-bold text-fg">{reviewAttempt.score}</p>

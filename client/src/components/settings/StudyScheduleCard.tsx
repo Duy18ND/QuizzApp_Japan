@@ -45,6 +45,11 @@ import {
   type StudyTimeSlot,
 } from '../../services/notificationService';
 import {
+  loadStageRoadmapState,
+  saveStageRoadmapState,
+  type RepeatMinutesOption,
+} from '../../services/stageRoadmapService';
+import {
   Badge,
   Button,
   Card,
@@ -162,9 +167,40 @@ export const StudyScheduleCard: React.FC<{ embedded?: boolean }> = ({ embedded =
     };
   }, []);
 
+  const syncToStageRoadmap = (nextSchedule: StudyScheduleConfig) => {
+    const rmState = loadStageRoadmapState(user?.id);
+    const repeatMin: RepeatMinutesOption =
+      nextSchedule.continuousRepeatMinutes === 5 ||
+      nextSchedule.continuousRepeatMinutes === 10 ||
+      nextSchedule.continuousRepeatMinutes === 15
+        ? nextSchedule.continuousRepeatMinutes
+        : rmState.fixedRepeatIntervalMinutes;
+    const nextCustom = rmState.customConfig
+      ? {
+          ...rmState.customConfig,
+          reminderTime: nextSchedule.primaryTime || rmState.customConfig.reminderTime,
+          repeatIntervalMinutes: repeatMin,
+        }
+      : null;
+    saveStageRoadmapState(
+      {
+        ...rmState,
+        notificationsEnabled: nextSchedule.enabled,
+        fixedReminderTime: nextSchedule.primaryTime || rmState.fixedReminderTime,
+        fixedRepeatIntervalMinutes: repeatMin,
+        customConfig: nextCustom,
+        customRoadmaps: nextCustom
+          ? rmState.customRoadmaps.map((c) => (c.id === nextCustom.id ? nextCustom : c))
+          : rmState.customRoadmaps,
+      },
+      user?.id,
+    );
+  };
+
   const applyUpdate = async (patch: Partial<StudyScheduleConfig>, toastMsg?: string) => {
     const updated = await saveStudySchedule(patch, user?.id);
     setSchedule(updated);
+    syncToStageRoadmap(updated);
     if (toastMsg) {
       toast({ title: toastMsg, tone: 'success' });
     }
@@ -228,6 +264,7 @@ export const StudyScheduleCard: React.FC<{ embedded?: boolean }> = ({ embedded =
     }
 
     setSchedule(res.schedule);
+    syncToStageRoadmap(res.schedule);
     if (editingSlotId) {
       toast({
         title: `Đã cập nhật lịch ${res.slot?.time ?? formTime}`,

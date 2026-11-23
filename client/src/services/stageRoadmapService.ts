@@ -9,6 +9,7 @@ import {
   getWeekdayForDateKey,
   recordStudyCompletion,
   sanitizeDaysArray,
+  saveStudySchedule,
 } from './notificationService';
 import { isSupabaseAccountUuid } from './sessionScope';
 import { supabase } from './supabaseClient';
@@ -106,6 +107,7 @@ export interface UserStageRoadmapState {
   fixedDailyMinutesTarget: DailyMinutesTarget;
   fixedReminderTime: string;
   fixedRepeatIntervalMinutes: RepeatMinutesOption;
+  fixedStudyWeekdays?: number[];
   fixedIncludeKanaStarter?: boolean;
   notificationsEnabled: boolean;
   customConfig: CustomRoadmapConfig | null;
@@ -191,6 +193,7 @@ export function createDefaultStageRoadmapState(todayKey = getLocalDateKey()): Us
     fixedDailyMinutesTarget: 10,
     fixedReminderTime: '20:00',
     fixedRepeatIntervalMinutes: 10,
+    fixedStudyWeekdays: [...ALL_WEEKDAYS],
     notificationsEnabled: true,
     customConfig: null,
     customRoadmaps: [],
@@ -361,6 +364,7 @@ export function sanitizeStageRoadmapState(
     fixedDailyMinutesTarget: sanitizeDailyTarget(obj.fixedDailyMinutesTarget),
     fixedReminderTime: sanitizeTimeStr(obj.fixedReminderTime, '20:00'),
     fixedRepeatIntervalMinutes: sanitizeRepeatInterval(obj.fixedRepeatIntervalMinutes),
+    fixedStudyWeekdays: sanitizeDaysArray(obj.fixedStudyWeekdays, ALL_WEEKDAYS),
     fixedIncludeKanaStarter: Boolean(obj.fixedIncludeKanaStarter),
     notificationsEnabled: obj.notificationsEnabled !== false,
     customConfig: activeCustom,
@@ -410,6 +414,20 @@ export function saveStageRoadmapState(
     } catch {
       // Ignore event errors
     }
+
+    // Keep global StudyScheduleConfig (HomePage / StudyScheduleModal) synchronized with Roadmap reminder settings
+    const effectiveLocal = getEffectiveReminderSettings(stamped);
+    void saveStudySchedule(
+      {
+        enabled: effectiveLocal.enabled,
+        primaryTime: effectiveLocal.reminderTime,
+        continuousRepeatEnabled: true,
+        continuousRepeatMinutes: effectiveLocal.repeatIntervalMinutes,
+        streakDaysOfWeek: effectiveLocal.studyWeekdays,
+        daysOfWeek: effectiveLocal.studyWeekdays,
+      },
+      userId,
+    );
   }
 
   if (supabase && userId && isSupabaseAccountUuid(userId)) {
@@ -501,6 +519,8 @@ export function deriveAutoCompletedSkillsToday(options: {
     const attemptDate = getLocalDateKey(new Date(attempt.createdAt));
     if (attemptDate !== todayKey) continue;
     const qt = (attempt.quizType || '').toLowerCase();
+    const totalQ = Math.max(1, attempt.totalQuestions || 1);
+    const accuracy = Math.max(0, attempt.score || 0) / totalQ;
     if (qt.includes('writing')) {
       skills.add('vocab');
     } else if (qt.includes('grammar')) {
@@ -512,12 +532,14 @@ export function deriveAutoCompletedSkillsToday(options: {
     } else if (qt.includes('jlpt-kanji')) {
       skills.add('kanji');
     } else if (qt.includes('jlpt-full')) {
-      skills.add('quiz');
+      if (accuracy >= 0.7) {
+        skills.add('quiz');
+      }
       skills.add('reading');
       skills.add('listening');
     } else if (qt.includes('mistake') || qt.includes('review')) {
       skills.add('review');
-    } else {
+    } else if (accuracy >= 0.7) {
       skills.add('quiz');
     }
   }
@@ -575,6 +597,32 @@ function generateScheduledDates(
     guard += 1;
   }
   return dates;
+}
+
+/**
+ * Computes the exact `startDate` so that the stage at 0-based `activeStageIndex`
+ * lands on `todayKey` (or the next study weekday if today is not in `studyWeekdays`).
+ */
+export function computeStartDateToAlignStageWithToday(
+  activeStageIndex: number,
+  studyWeekdays: number[],
+  todayKey = getLocalDateKey(),
+): string {
+  if (activeStageIndex <= 0) return todayKey;
+  const allowed = new Set(
+    studyWeekdays.length > 0 ? studyWeekdays : ALL_WEEKDAYS,
+  );
+  let cursor = todayKey;
+  let remainingSteps = activeStageIndex;
+  let guard = 0;
+  while (remainingSteps > 0 && guard < activeStageIndex * 10 + 21) {
+    cursor = addDaysToDateKey(cursor, -1);
+    if (allowed.has(getWeekdayForDateKey(cursor))) {
+      remainingSteps -= 1;
+    }
+    guard += 1;
+  }
+  return cursor;
 }
 
 const MINNA_N5_CHUNK_TITLES: Record<number, string> = {
@@ -699,11 +747,16 @@ export function generateStageMap(options: {
   const bookUnits = getUnitsForVocabTextbook(snapshot, level, book);
   const availableUnits = bookUnits.filter((u) => u.totalWords > 0);
   const grammarBooks = getLiveGrammarBooks(snapshot).filter((b) => b.level === level);
-  const fallbackGrammarBooks = grammarBooks.length > 0 ? grammarBooks : getLiveGrammarBooks(snapshot);
+  const exactBookGrammar = grammarBooks.filter((b) => b.id === book.id);
+  const fallbackGrammarBooks =
+    exactBookGrammar.length > 0
+      ? [...exactBookGrammar, ...grammarBooks.filter((b) => b.id !== book.id)]
+      : grammarBooks.length > 0
+        ? grammarBooks
+        : getLiveGrammarBooks(snapshot);
   const grammarChapters = fallbackGrammarBooks.flatMap((b) =>
     b.chapters.map((c) => ({ bookId: b.id, bookTitle: b.title, chapter: c })),
   );
-  const levelKanjiCount = getLiveKanjis(snapshot).filter((k) => k.jlptLevel === level).length;
   const toolQuery = buildVocabToolQuery(level, book.id);
   const jlptQuery = level === 'N5' || level === 'N4' || level === 'N3' ? `?level=${level}` : '';
   const allowedSkills = new Set<StageSkill>(skills.length > 0 ? skills : DEFAULT_SKILLS);
@@ -729,10 +782,84 @@ export function generateStageMap(options: {
 
   const useMinna60Curriculum =
     level === 'N5' && book.id === 'minna-n5' && totalStages === 60;
+  const jlptLevel = level === 'N5' || level === 'N4' || level === 'N3' ? level : 'N3';
+
+  const buildLessonPaths = (lessonIdx: number) => {
+    const unit = getUnitAt(lessonIdx);
+    const unitNum = unit ? unit.id : lessonIdx + 1;
+    const lessonNum = lessonIdx + 1;
+    const unitLabel = unit ? unit.name : `Bài ${lessonNum} (${book.shortTitle})`;
+    const unitPath = unit
+      ? `/vocabulary/${levelLower}/book/${book.id}/${unit.dbUnitId ?? unit.id}`
+      : `/vocabulary/${levelLower}/book/${book.id}`;
+    const flashcardPath = unit
+      ? `/flashcard/${levelLower}/book/${book.id}/${unit.dbUnitId ?? unit.id}`
+      : `/flashcard/${levelLower}/book/${book.id}`;
+    const quickQuizParams = new URLSearchParams({ level, book: book.id });
+    if (unit) {
+      quickQuizParams.set('unit', String(unit.id));
+      if (unit.dbUnitId) quickQuizParams.set('unitDbId', unit.dbUnitId);
+      if (unit.totalWords > 0) quickQuizParams.set('autoStart', '1');
+    }
+    const quizPath = `/vocabulary/quiz?${quickQuizParams.toString()}`;
+    const writingParams = new URLSearchParams({
+      level,
+      book: book.id,
+      unit: String(unitNum),
+      autoStart: '1',
+    });
+    const writingPath = `/vocabulary/writing?${writingParams.toString()}`;
+    const kanjiGroupPath = `/kanji?level=${level}&group=${lessonNum}&size=5`;
+    const grammarRef = getGrammarAt(lessonIdx);
+    const grammarPath = grammarRef
+      ? `/grammar/${grammarRef.bookId}/${grammarRef.chapter.id}`
+      : '/grammar';
+    const grammarLabel = grammarRef ? grammarRef.chapter.title : `Ngữ pháp Bài ${lessonNum}`;
+    const listeningLessonPath = `/jlpt/listening?level=${jlptLevel}&lesson=${lessonNum}&limit=2`;
+    const readingShortLessonPath = `/jlpt/reading-short?level=${jlptLevel}&lesson=${lessonNum}`;
+    const readingMediumLessonPath = `/jlpt/reading-medium?level=${jlptLevel}&lesson=${lessonNum}`;
+    const readingLongLessonPath = `/jlpt/reading-long?level=${jlptLevel}&lesson=${lessonNum}`;
+    const starLessonPath = `/jlpt/star?level=${jlptLevel}&lesson=${lessonNum}&limit=3`;
+    const kanjiQuizLessonPath = `/jlpt/kanji?level=${jlptLevel}&lesson=${lessonNum}&limit=5`;
+    const vocabQuizLessonPath = `/jlpt/vocab?level=${jlptLevel}&lesson=${lessonNum}&limit=5`;
+    const grammarQuizLessonPath = `/jlpt/grammar?level=${jlptLevel}&lesson=${lessonNum}&limit=5`;
+    const dojoSlashPath = `/games?game=slash&level=${level}&book=${book.id}&unit=${unitNum}`;
+    const dojoListeningPath = `/games?game=listening&level=${level}&book=${book.id}&unit=${unitNum}`;
+    const dojoMemoryPath = `/games?game=memory&level=${level}&book=${book.id}&unit=${unitNum}`;
+    const dojoMatchPath = `/games?game=match&level=${level}&book=${book.id}&unit=${unitNum}`;
+    const dojoShooterPath = `/games?game=shooter&level=${level}&book=${book.id}&unit=${unitNum}`;
+    return {
+      unitNum,
+      lessonNum,
+      unitLabel,
+      unitPath,
+      flashcardPath,
+      quizPath,
+      writingPath,
+      kanjiGroupPath,
+      grammarPath,
+      grammarLabel,
+      listeningLessonPath,
+      readingShortLessonPath,
+      readingMediumLessonPath,
+      readingLongLessonPath,
+      starLessonPath,
+      kanjiQuizLessonPath,
+      vocabQuizLessonPath,
+      grammarQuizLessonPath,
+      dojoSlashPath,
+      dojoListeningPath,
+      dojoMemoryPath,
+      dojoMatchPath,
+      dojoShooterPath,
+    };
+  };
 
   const stages: RoadmapStage[] = [];
 
   if (enableKanaZeroChunk) {
+    const firstLesson = buildLessonPaths(0);
+    const secondLesson = buildLessonPaths(1);
     const kanaChunkTitle =
       chunkTitles[0]?.trim() ||
       'Chặng 0 · Khởi động Bảng chữ cái Hiragana & Katakana (5 màn cho người mới từ số 0)';
@@ -751,23 +878,23 @@ export function generateStageMap(options: {
             subtitle: 'Nghe mẫu âm tiết tiếng Nhật và đọc to mặt chữ Hiragana cơ bản.',
             skill: 'vocab',
             minutes: 5,
-            to: `/vocabulary/n5/book/${book.id}`,
+            to: firstLesson.unitPath,
           },
           {
             id: `${modePrefix}-kana-s1-t2`,
-            title: 'Lật thẻ Flashcard mặt chữ Hiragana',
+            title: 'Lật thẻ Flashcard mặt chữ Hiragana (Bài 1)',
             subtitle: 'Phản xạ nhanh mặt chữ Hiragana ↔ âm đọc & nghĩa cơ bản.',
             skill: 'quiz',
             minutes: 4,
-            to: `/flashcard/n5/book/${book.id}`,
+            to: firstLesson.flashcardPath,
           },
           {
             id: `${modePrefix}-kana-s1-t3`,
-            title: 'Dojo: Thính giác Ninja (Nghe & Bắt âm Kana)',
+            title: 'Dojo: Thính giác Ninja (Nghe & Bắt âm Bài 1)',
             subtitle: 'Nghe phát âm tiếng Nhật và chạm đúng mặt chữ trong 3 phút.',
             skill: 'listening',
             minutes: 3,
-            to: `/games?game=listening&level=N5&book=${book.id}`,
+            to: firstLesson.dojoListeningPath,
           },
         ],
       },
@@ -777,27 +904,27 @@ export function generateStageMap(options: {
         tasks: [
           {
             id: `${modePrefix}-kana-s2-t1`,
-            title: 'Luyện gõ mặt chữ Hiragana (Romaji → Hiragana)',
+            title: 'Luyện gõ mặt chữ Hiragana (Bài 1)',
             subtitle: 'Gõ chuẩn trường âm (おう/えい), âm ngắt (っ) và âm ghép (きゃ/しゅ/ちょ).',
             skill: 'vocab',
             minutes: 5,
-            to: `/vocabulary/writing${toolQuery}`,
+            to: firstLesson.writingPath,
           },
           {
             id: `${modePrefix}-kana-s2-t2`,
-            title: 'Dojo: Lật Thẻ Ký Ức (Ghép cặp mặt chữ)',
+            title: 'Dojo: Lật Thẻ Ký Ức (Ghép cặp mặt chữ Bài 1)',
             subtitle: 'Lật 12 thẻ bùa Nhật để nhớ sâu toàn bộ bảng Hiragana.',
             skill: 'quiz',
             minutes: 4,
-            to: `/games?game=memory&level=N5&book=${book.id}`,
+            to: firstLesson.dojoMemoryPath,
           },
           {
             id: `${modePrefix}-kana-s2-t3`,
-            title: 'Nghe hội thoại chào hỏi cơ bản N5',
+            title: 'Nghe hội thoại chào hỏi cơ bản N5 (Bài 1)',
             subtitle: 'Làm quen nhịp điệu câu chào hỏi tiếng Nhật kèm Transcript Hiragana.',
             skill: 'listening',
             minutes: 4,
-            to: '/jlpt/listening?level=N5',
+            to: firstLesson.listeningLessonPath,
           },
         ],
       },
@@ -807,27 +934,27 @@ export function generateStageMap(options: {
         tasks: [
           {
             id: `${modePrefix}-kana-s3-t1`,
-            title: 'Đọc mặt chữ Katakana & từ mượn thông dụng (カメラ, パソコン...)',
+            title: 'Đọc mặt chữ Katakana & từ mượn thông dụng (Bài 2)',
             subtitle: 'Phân biệt các nét cứng của Katakana với Hiragana tương ứng.',
             skill: 'vocab',
             minutes: 5,
-            to: `/vocabulary/n5/book/${book.id}`,
+            to: secondLesson.unitPath,
           },
           {
             id: `${modePrefix}-kana-s3-t2`,
-            title: 'Dojo: Nối Cặp 2 Cột (Liên kết mặt chữ ↔ nghĩa)',
+            title: 'Dojo: Nối Cặp 2 Cột (Liên kết mặt chữ Bài 2)',
             subtitle: 'Nối nhanh mặt chữ với nghĩa Việt để không nhầm ソ/ン, シ/ツ.',
             skill: 'quiz',
             minutes: 4,
-            to: `/games?game=match&level=N5&book=${book.id}`,
+            to: secondLesson.dojoMatchPath,
           },
           {
             id: `${modePrefix}-kana-s3-t3`,
-            title: 'Làm quen 5 chữ Kanji tượng hình đầu tiên (一, 二, 三, 人, 日)',
+            title: 'Làm quen 5 chữ Kanji tượng hình đầu tiên (Nhóm Bài 1)',
             subtitle: 'Xem cách người Nhật kết hợp Hiragana, Katakana và Kanji.',
             skill: 'kanji',
             minutes: 4,
-            to: '/kanji',
+            to: firstLesson.kanjiGroupPath,
           },
         ],
       },
@@ -837,27 +964,27 @@ export function generateStageMap(options: {
         tasks: [
           {
             id: `${modePrefix}-kana-s4-t1`,
-            title: 'Luyện gõ chính tả Hiragana & Katakana tổng hợp',
+            title: 'Luyện gõ chính tả Hiragana & Katakana (Bài 2)',
             subtitle: 'Kiểm tra khả năng đọc & gõ lại chính xác không cần nhìn bảng.',
             skill: 'vocab',
             minutes: 5,
-            to: `/vocabulary/writing${toolQuery}`,
+            to: secondLesson.writingPath,
           },
           {
             id: `${modePrefix}-kana-s4-t2`,
-            title: 'Dojo: Chém Hoa Quả Mặt Chữ (Fruit Slash N5)',
+            title: 'Dojo: Chém Hoa Quả Mặt Chữ (Bài 1)',
             subtitle: 'Phản xạ mắt nhìn nghĩa Việt — chém ngay chữ Nhật tương ứng.',
             skill: 'quiz',
             minutes: 4,
-            to: `/games?game=slash&level=N5&book=${book.id}`,
+            to: firstLesson.dojoSlashPath,
           },
           {
             id: `${modePrefix}-kana-s4-t3`,
-            title: 'Đọc câu ngắn bằng Hiragana/Katakana',
+            title: 'Đọc câu ngắn bằng Hiragana/Katakana (Bài đọc 1)',
             subtitle: 'Tập đọc trôi chảy các câu giới thiệu bản thân đầu tiên.',
             skill: 'reading',
             minutes: 4,
-            to: '/jlpt/reading-short?level=N5',
+            to: firstLesson.readingShortLessonPath,
           },
         ],
       },
@@ -867,19 +994,19 @@ export function generateStageMap(options: {
         tasks: [
           {
             id: `${modePrefix}-kana-s5-t1`,
-            title: 'Bài kiểm tra phản xạ Mặt chữ & Từ vựng cơ bản (10 câu)',
+            title: 'Bài kiểm tra phản xạ Mặt chữ & Từ vựng Bài 1 (10 câu)',
             subtitle: 'Đạt ≥ 80% để chính thức tốt nghiệp Bảng chữ cái Kana.',
             skill: 'quiz',
             minutes: 5,
-            to: `/vocabulary/quiz?level=N5&book=${book.id}&unit=1&autoStart=1`,
+            to: firstLesson.quizPath,
           },
           {
             id: `${modePrefix}-kana-s5-t2`,
-            title: 'Dojo Boss: Chém Từ Vựng Cầu Anh Đào (15 Yōkai)',
+            title: 'Dojo Boss: Chém Từ Vựng Cầu Anh Đào (Bài 1)',
             subtitle: 'Ghép mảnh Kana / gõ chữ hạ 15 Yōkai bảo vệ Cầu Anh Đào.',
             skill: 'vocab',
             minutes: 5,
-            to: `/games?game=shooter&level=N5&book=${book.id}&unit=1`,
+            to: firstLesson.dojoShooterPath,
           },
         ],
       },
@@ -924,34 +1051,12 @@ export function generateStageMap(options: {
         ? MINNA_N5_CHUNK_TITLES[chunkNumber]
         : defaultGenericChunkTitle);
 
-    const buildLessonPaths = (lessonIdx: number) => {
-      const unit = getUnitAt(lessonIdx);
-      const unitLabel = unit ? unit.name : `Bài ${lessonIdx + 1} (${book.shortTitle})`;
-      const unitPath = unit
-        ? `/vocabulary/${levelLower}/book/${book.id}/${unit.dbUnitId ?? unit.id}`
-        : `/vocabulary/${levelLower}/book/${book.id}`;
-      const flashcardPath = unit
-        ? `/flashcard/${levelLower}/book/${book.id}/${unit.dbUnitId ?? unit.id}`
-        : `/flashcard/${levelLower}/book/${book.id}`;
-      const quickQuizParams = new URLSearchParams({ level, book: book.id });
-      if (unit) {
-        quickQuizParams.set('unit', String(unit.id));
-        if (unit.dbUnitId) quickQuizParams.set('unitDbId', unit.dbUnitId);
-        if (unit.totalWords > 0) quickQuizParams.set('autoStart', '1');
-      }
-      const quizPath = `/vocabulary/quiz?${quickQuizParams.toString()}`;
-      const grammarRef = getGrammarAt(lessonIdx);
-      const grammarPath = grammarRef
-        ? `/grammar/${grammarRef.bookId}/${grammarRef.chapter.id}`
-        : '/grammar';
-      const grammarLabel = grammarRef ? grammarRef.chapter.title : `Ngữ pháp Bài ${lessonIdx + 1}`;
-      return { unitLabel, unitPath, flashcardPath, quizPath, grammarPath, grammarLabel };
-    };
-
     if (useMinna60Curriculum) {
       const slot = MINNA_N5_60_SLOTS[i];
       if (slot.kind === 'lesson-a') {
-        const { unitLabel, unitPath } = buildLessonPaths(slot.lessonNum - 1);
+        const { unitLabel, unitPath, kanjiGroupPath, listeningLessonPath } = buildLessonPaths(
+          slot.lessonNum - 1,
+        );
         title = `Nạp Từ vựng, Kanji & Nghe ngắn · ${unitLabel}`;
         theme = `Minna I — Bài ${slot.lessonNum} (Ngày 1/2: Nạp từ → Chữ Hán → Phản xạ nghe)`;
         if (allowedSkills.has('vocab')) {
@@ -967,25 +1072,27 @@ export function generateStageMap(options: {
         if (allowedSkills.has('kanji')) {
           candidateTasks.push({
             id: `${stageId}-t2`,
-            title: `Học 4–5 chữ Kanji N5 (Nhóm Bài ${slot.lessonNum})`,
-            subtitle: `Luyện Hán Việt, âm On-Kun và nét viết trong kho ${levelKanjiCount || 112} Kanji N5.`,
+            title: `Học 5 chữ Kanji N5 · Nhóm Bài ${slot.lessonNum}`,
+            subtitle: `Chỉ lọc đúng 5 chữ Kanji của Bài ${slot.lessonNum} để học âm Hán Việt, On-Kun & tập viết nét.`,
             skill: 'kanji',
             minutes: 5,
-            to: '/kanji',
+            to: kanjiGroupPath,
           });
         }
         if (allowedSkills.has('listening')) {
           candidateTasks.push({
             id: `${stageId}-t3`,
             title: `Vi-bài tập Nghe hiểu & Bắt âm N5 (Bài ${slot.lessonNum})`,
-            subtitle: 'Nghe hội thoại ngắn không nhìn chữ, sau đó mở Transcript đọc nhại theo.',
+            subtitle: 'Mở đúng 2 đoạn hội thoại ngắn của Bài này, nghe và mở Transcript đọc nhại.',
             skill: 'listening',
             minutes: 4,
-            to: `/jlpt/listening${jlptQuery}`,
+            to: listeningLessonPath,
           });
         }
       } else if (slot.kind === 'lesson-b') {
-        const { unitLabel, quizPath, grammarPath, grammarLabel } = buildLessonPaths(slot.lessonNum - 1);
+        const { unitLabel, quizPath, grammarPath, grammarLabel, writingPath } = buildLessonPaths(
+          slot.lessonNum - 1,
+        );
         title = `Quiz 24h & Ngữ pháp · Bài ${slot.lessonNum}`;
         theme = `Minna I — Bài ${slot.lessonNum} (Ngày 2/2: Củng cố & Đặt câu)`;
         if (allowedSkills.has('quiz')) {
@@ -1002,7 +1109,7 @@ export function generateStageMap(options: {
           candidateTasks.push({
             id: `${stageId}-t2`,
             title: `Học ${grammarLabel}`,
-            subtitle: 'Nắm công thức kết hợp, ví dụ mẫu và làm bài tập vận dụng.',
+            subtitle: 'Nắm công thức kết hợp, ví dụ mẫu và làm bài tập vận dụng của đúng bài này.',
             skill: 'grammar',
             minutes: 6,
             to: grammarPath,
@@ -1012,10 +1119,10 @@ export function generateStageMap(options: {
           candidateTasks.push({
             id: `${stageId}-t3`,
             title: `Luyện gõ chính tả · Bài ${slot.lessonNum}`,
-            subtitle: 'Gõ Hiragana chuẩn trường âm, âm ngắt cho các từ trong bài.',
+            subtitle: `Vào gõ ngay các từ vựng của riêng Bài ${slot.lessonNum} (chuẩn trường âm & âm ngắt).`,
             skill: 'vocab',
             minutes: 4,
-            to: `/vocabulary/writing${toolQuery}`,
+            to: writingPath,
           });
         }
       } else if (slot.kind === 'lesson-ab') {
@@ -1055,43 +1162,47 @@ export function generateStageMap(options: {
           });
         }
       } else if (slot.kind === 'jlpt-practice') {
+        const chunkLessonPaths = buildLessonPaths(slot.chunkNum - 1);
         title = slot.label;
         theme = `Chặng ${slot.chunkNum} — Thực chiến Đọc hiểu · Nghe hiểu · Hái sao`;
         if (allowedSkills.has('reading')) {
           candidateTasks.push({
             id: `${stageId}-t1`,
-            title: slot.useMediumReading ? 'Đọc hiểu Trung văn N5' : 'Đọc hiểu Đoản văn N5',
+            title: slot.useMediumReading
+              ? `Đọc hiểu Trung văn N5 (Bài ${slot.chunkNum})`
+              : `Đọc hiểu Đoản văn N5 (Bài ${slot.chunkNum})`,
             subtitle: slot.useMediumReading
-              ? 'Đọc bài luận Trung văn N5 và trả lời câu hỏi lý giải nguyên nhân.'
-              : 'Đọc nhanh thông báo, tin nhắn, nhật ký N5 có Furigana & giải thích.',
+              ? 'Mở đúng bài Trung văn của Chặng này và trả lời câu hỏi lý giải.'
+              : 'Mở đúng bài Đoản văn của Chặng này (có Furigana & giải thích).',
             skill: 'reading',
             minutes: 6,
             to: slot.useMediumReading
-              ? `/jlpt/reading-medium${jlptQuery}`
-              : `/jlpt/reading-short${jlptQuery}`,
+              ? chunkLessonPaths.readingMediumLessonPath
+              : chunkLessonPaths.readingShortLessonPath,
           });
         }
         if (allowedSkills.has('listening')) {
           candidateTasks.push({
             id: `${stageId}-t2`,
-            title: `Luyện Nghe hiểu N5 (Chặng ${slot.chunkNum})`,
-            subtitle: 'Nghe hội thoại tình huống Minna I kèm phát âm & transcript.',
+            title: `Luyện Nghe hiểu N5 (Bài nghe Chặng ${slot.chunkNum})`,
+            subtitle: 'Nghe hội thoại tình huống của Chặng này kèm phát âm & transcript.',
             skill: 'listening',
             minutes: 6,
-            to: `/jlpt/listening${jlptQuery}`,
+            to: chunkLessonPaths.listeningLessonPath,
           });
         }
         if (allowedSkills.has('reading') || allowedSkills.has('grammar')) {
           candidateTasks.push({
             id: `${stageId}-t3`,
-            title: 'Luyện Hái sao (★) N5',
-            subtitle: 'Sắp xếp 4 mảnh ghép câu đúng ngữ pháp chuẩn đề thi JLPT N5.',
+            title: `Luyện Hái sao (★) N5 (Nhóm Chặng ${slot.chunkNum})`,
+            subtitle: 'Sắp xếp 3 câu Hái sao ★ trọng tâm của Chặng này.',
             skill: 'reading',
             minutes: 4,
-            to: `/jlpt/star${jlptQuery}`,
+            to: chunkLessonPaths.starLessonPath,
           });
         }
       } else if (slot.kind === 'chunk-review') {
+        const chunkLessonPaths = buildLessonPaths(slot.chunkNum - 1);
         title = slot.label;
         theme = `Chặng ${slot.chunkNum} — Review Day (Không nạp bài mới)`;
         if (allowedSkills.has('review')) {
@@ -1116,10 +1227,10 @@ export function generateStageMap(options: {
           candidateTasks.push({
             id: `${stageId}-t3`,
             title: `Quiz tổng hợp Chặng ${slot.chunkNum} · Minna I`,
-            subtitle: 'Đánh giá tổng lực từ vựng & ngữ pháp trước khi sang chặng mới.',
+            subtitle: 'Đánh giá 5 câu ngữ pháp trọng tâm của Chặng trước khi sang chặng mới.',
             skill: 'quiz',
             minutes: 6,
-            to: `/jlpt/grammar${jlptQuery}`,
+            to: chunkLessonPaths.grammarQuizLessonPath,
           });
         }
       } else {
@@ -1170,8 +1281,28 @@ export function generateStageMap(options: {
     } else {
       const dayInCycle = i % 7;
       const unitIndex = Math.floor((i * 2) / 7) + (dayInCycle >= 3 ? 1 : 0);
-      const { unitLabel, unitPath, flashcardPath, quizPath, grammarPath, grammarLabel } =
-        buildLessonPaths(unitIndex);
+      const curPaths = buildLessonPaths(unitIndex);
+      const {
+        lessonNum,
+        unitLabel,
+        unitPath,
+        flashcardPath,
+        quizPath,
+        writingPath,
+        kanjiGroupPath,
+        grammarPath,
+        grammarLabel,
+        listeningLessonPath,
+        readingShortLessonPath,
+        readingMediumLessonPath,
+        readingLongLessonPath,
+        starLessonPath,
+        kanjiQuizLessonPath,
+        vocabQuizLessonPath,
+        grammarQuizLessonPath,
+        dojoSlashPath,
+        dojoListeningPath,
+      } = curPaths;
       const prevPaths = buildLessonPaths(Math.max(0, unitIndex - 1));
       const grammarRef = getGrammarAt(Math.floor(i / 2));
       const resolvedGrammarPath = grammarRef
@@ -1196,24 +1327,21 @@ export function generateStageMap(options: {
           if (allowedSkills.has('kanji')) {
             candidateTasks.push({
               id: `${stageId}-t2`,
-              title: `Học 5–6 chữ Kanji ${level}`,
-              subtitle:
-                levelKanjiCount > 0
-                  ? `Ghi nhớ âm Hán Việt, On-Kun và viết nét trong kho ${levelKanjiCount} Kanji ${level}.`
-                  : 'Luyện nhận diện âm On-Kun, Hán Việt và thứ tự nét viết.',
+              title: `Học 5 chữ Kanji ${level} · Nhóm Bài ${lessonNum}`,
+              subtitle: `Chỉ lọc đúng 5 chữ Kanji thuộc Nhóm Bài ${lessonNum} để học âm đọc & tập viết nét.`,
               skill: 'kanji',
               minutes: 5,
-              to: '/kanji',
+              to: kanjiGroupPath,
             });
           }
           if (allowedSkills.has('listening')) {
             candidateTasks.push({
               id: `${stageId}-t3`,
-              title: `Vi-bài tập Nghe hiểu ${level} (1–2 đoạn)`,
-              subtitle: 'Nghe hội thoại tình huống không nhìn chữ, sau đó bật Transcript đọc nhại.',
+              title: `Vi-bài tập Nghe hiểu ${level} (Bài nghe ${lessonNum})`,
+              subtitle: 'Mở đúng 2 đoạn hội thoại của Bài hôm nay, nghe và bật Transcript đọc nhại.',
               skill: 'listening',
               minutes: 4,
-              to: `/jlpt/listening${jlptQuery}`,
+              to: listeningLessonPath,
             });
           }
           break;
@@ -1244,11 +1372,11 @@ export function generateStageMap(options: {
           if (allowedSkills.has('reading')) {
             candidateTasks.push({
               id: `${stageId}-t3`,
-              title: `Vi-bài tập Hái sao (★) ${level}`,
-              subtitle: 'Rèn tư duy trật tự từ & trợ từ chuẩn đề JLPT qua 3–5 câu xếp câu.',
+              title: `Vi-bài tập Hái sao (★) ${level} (Bài ${lessonNum})`,
+              subtitle: 'Giải 3 câu xếp trật tự từ & trợ từ của đúng Bài học hôm nay.',
               skill: 'reading',
               minutes: 4,
-              to: `/jlpt/star${jlptQuery}`,
+              to: starLessonPath,
             });
           }
           break;
@@ -1259,31 +1387,31 @@ export function generateStageMap(options: {
           if (allowedSkills.has('vocab')) {
             candidateTasks.push({
               id: `${stageId}-t1`,
-              title: `Luyện gõ chính tả từ vựng · ${book.shortTitle}`,
-              subtitle: 'Gõ Hiragana/Kanji từ nghĩa Việt để tránh nhầm trường âm & âm ngắt.',
+              title: `Luyện gõ chính tả · ${unitLabel}`,
+              subtitle: 'Vào gõ ngay từ vựng của riêng bài này để không nhầm trường âm & âm ngắt.',
               skill: 'vocab',
               minutes: 4,
-              to: `/vocabulary/writing${toolQuery}`,
+              to: writingPath,
             });
           }
           if (allowedSkills.has('reading')) {
             candidateTasks.push({
               id: `${stageId}-t2`,
-              title: `Đọc hiểu Đoản văn ngắn ${level}`,
-              subtitle: 'Đọc 1 đoạn 100–150 chữ, luyện tìm thông tin chính nhanh trong 4 phút.',
+              title: `Đọc hiểu Đoản văn ${level} (Bài đọc ${lessonNum})`,
+              subtitle: 'Mở thẳng Bài đọc ngắn số này, luyện tìm thông tin chính trong 4 phút.',
               skill: 'reading',
               minutes: 5,
-              to: `/jlpt/reading-short${jlptQuery}`,
+              to: readingShortLessonPath,
             });
           }
           if (allowedSkills.has('quiz') || allowedSkills.has('vocab')) {
             candidateTasks.push({
               id: `${stageId}-t3`,
-              title: `Dojo Mini-game: Chém Hoa Quả (${book.shortTitle})`,
-              subtitle: 'Giải trí 3 phút kích phản xạ nghĩa Việt ↔ Nhật theo đúng giáo trình.',
+              title: `Dojo Mini-game: Chém Hoa Quả · ${unitLabel}`,
+              subtitle: 'Giải trí 3 phút chém đúng bộ từ vựng của bài đang học.',
               skill: 'quiz',
               minutes: 3,
-              to: `/games?game=slash&level=${level}&book=${book.id}`,
+              to: dojoSlashPath,
             });
           }
           break;
@@ -1295,7 +1423,7 @@ export function generateStageMap(options: {
             candidateTasks.push({
               id: `${stageId}-t1`,
               title: `Lật Flashcard tốc độ · ${unitLabel}`,
-              subtitle: `Nạp nhóm từ vựng mới của ${book.shortTitle} & đánh dấu ★ từ khó.`,
+              subtitle: `Nạp nhóm từ vựng mới của ${unitLabel} & đánh dấu ★ từ khó.`,
               skill: 'vocab',
               minutes: 5,
               to: flashcardPath,
@@ -1304,21 +1432,21 @@ export function generateStageMap(options: {
           if (allowedSkills.has('kanji')) {
             candidateTasks.push({
               id: `${stageId}-t2`,
-              title: `Trắc nghiệm Kanji JLPT ${level} (10 câu)`,
-              subtitle: 'Chọn nhanh cách đọc Hiragana / chữ Hán chuẩn đề thi thật.',
+              title: `Trắc nghiệm Kanji JLPT ${level} (Nhóm Bài ${lessonNum})`,
+              subtitle: 'Giải 5 câu chọn cách đọc Hiragana / chữ Hán của bài học hôm nay.',
               skill: 'kanji',
               minutes: 5,
-              to: `/jlpt/kanji${jlptQuery}`,
+              to: kanjiQuizLessonPath,
             });
           }
           if (allowedSkills.has('listening')) {
             candidateTasks.push({
               id: `${stageId}-t3`,
-              title: `Luyện Nghe hiểu & Transcript ${level}`,
-              subtitle: 'Bắt từ khóa câu hỏi trước khi nghe đoạn hội thoại.',
+              title: `Luyện Nghe hiểu & Transcript ${level} (Bài nghe ${lessonNum})`,
+              subtitle: 'Mở đúng 2 đoạn hội thoại của Bài này và bắt từ khóa câu hỏi.',
               skill: 'listening',
               minutes: 4,
-              to: `/jlpt/listening${jlptQuery}`,
+              to: listeningLessonPath,
             });
           }
           break;
@@ -1351,18 +1479,18 @@ export function generateStageMap(options: {
               id: `${stageId}-t3`,
               title:
                 level === 'N5'
-                  ? `Đọc hiểu Đoản văn ${level}`
-                  : `Đọc hiểu Trung văn ${level}`,
+                  ? `Đọc hiểu Đoản văn ${level} (Bài đọc ${lessonNum})`
+                  : `Đọc hiểu Trung văn ${level} (Bài đọc ${lessonNum})`,
               subtitle:
                 level === 'N5'
-                  ? 'Đọc tin nhắn & đoạn văn ngắn N5 kèm câu hỏi suy luận.'
-                  : 'Đọc đoạn văn 250–350 chữ, tập xác định câu chủ đề & lý do.',
+                  ? 'Mở thẳng Bài đọc ngắn của ngày hôm nay kèm câu hỏi suy luận.'
+                  : 'Mở thẳng Bài đọc Trung văn của ngày hôm nay, xác định câu chủ đề.',
               skill: 'reading',
               minutes: 5,
               to:
                 level === 'N5'
-                  ? `/jlpt/reading-short${jlptQuery}`
-                  : `/jlpt/reading-medium${jlptQuery}`,
+                  ? readingShortLessonPath
+                  : readingMediumLessonPath,
             });
           }
           break;
@@ -1373,11 +1501,11 @@ export function generateStageMap(options: {
           if (allowedSkills.has('quiz') || allowedSkills.has('vocab')) {
             candidateTasks.push({
               id: `${stageId}-t1`,
-              title: `Mondai Từ vựng & Ngữ pháp JLPT ${level}`,
-              subtitle: 'Giải đề chọn từ đúng ngữ cảnh & phân biệt mẫu câu hay bẫy.',
+              title: `Mondai Từ vựng JLPT ${level} (Bài ${lessonNum})`,
+              subtitle: 'Giải 5 câu chọn từ đúng ngữ cảnh thuộc phạm vi bài học này.',
               skill: 'quiz',
               minutes: 5,
-              to: `/jlpt/vocab${jlptQuery}`,
+              to: vocabQuizLessonPath,
             });
           }
           if (allowedSkills.has('reading')) {
@@ -1385,25 +1513,25 @@ export function generateStageMap(options: {
               id: `${stageId}-t2`,
               title:
                 level === 'N5'
-                  ? 'Đọc hiểu Trung văn N5'
-                  : `Đọc hiểu Trường văn ${level}`,
-              subtitle: 'Rèn sức bền đọc văn bản dài & đối chiếu phần giải thích chi tiết.',
+                  ? `Đọc hiểu Trung văn N5 (Bài đọc ${lessonNum})`
+                  : `Đọc hiểu Trường văn ${level} (Bài đọc ${lessonNum})`,
+              subtitle: 'Mở thẳng bài đọc nâng cao của ngày hôm nay & đối chiếu giải thích.',
               skill: 'reading',
               minutes: 6,
               to:
                 level === 'N5'
-                  ? `/jlpt/reading-medium${jlptQuery}`
-                  : `/jlpt/reading-long${jlptQuery}`,
+                  ? readingMediumLessonPath
+                  : readingLongLessonPath,
             });
           }
           if (allowedSkills.has('listening')) {
             candidateTasks.push({
               id: `${stageId}-t3`,
-              title: `Dojo Mini-game: Thính giác Ninja (${book.shortTitle})`,
-              subtitle: 'Ẩn mặt chữ, nghe giọng đọc tiếng Nhật và bắt đúng mục tiêu trong 3 phút.',
+              title: `Dojo Mini-game: Thính giác Ninja · ${unitLabel}`,
+              subtitle: 'Ẩn mặt chữ, nghe giọng đọc tiếng Nhật và bắt đúng từ của bài này.',
               skill: 'listening',
               minutes: 3,
-              to: `/games?game=listening&level=${level}&book=${book.id}`,
+              to: dojoListeningPath,
             });
           }
           break;
@@ -1432,11 +1560,11 @@ export function generateStageMap(options: {
           if (allowedSkills.has('quiz')) {
             candidateTasks.push({
               id: `${stageId}-t3`,
-              title: `Mini-test Ngữ pháp JLPT ${level} / Chốt tuần`,
-              subtitle: 'Kiểm tra tổng hợp cuối tuần để sẵn sàng bước sang chu kỳ mới.',
+              title: `Mini-test Ngữ pháp JLPT ${level} (Chốt tuần · Bài ${lessonNum})`,
+              subtitle: 'Kiểm tra 5 câu ngữ pháp cuối tuần để sẵn sàng bước sang chu kỳ mới.',
               skill: 'quiz',
               minutes: 5,
-              to: `/jlpt/grammar${jlptQuery}`,
+              to: grammarQuizLessonPath,
             });
           }
           break;
@@ -1795,7 +1923,10 @@ export function getEffectiveReminderSettings(state: UserStageRoadmapState): {
     reminderTime: state.fixedReminderTime,
     repeatIntervalMinutes: state.fixedRepeatIntervalMinutes,
     dailyMinutesTarget: state.fixedDailyMinutesTarget,
-    studyWeekdays: ALL_WEEKDAYS,
+    studyWeekdays:
+      state.fixedStudyWeekdays && state.fixedStudyWeekdays.length > 0
+        ? state.fixedStudyWeekdays
+        : ALL_WEEKDAYS,
   };
 }
 
@@ -1996,11 +2127,11 @@ export function encodeRoadmapShareCode(
   authorName?: string,
   studioLessons?: CustomLesson[],
 ): string {
-  // Collect any Custom Studio lessons referenced inside stageOverrides (/studio?lesson=...)
+  // Collect any Custom Studio lessons referenced inside stageOverrides (/studio?lesson=... or /games?customLesson=...)
   const referencedLessonIds = new Set<string>();
   for (const ov of Object.values(config.stageOverrides ?? {})) {
     for (const task of ov.extraTasks ?? []) {
-      const m = task.to.match(/\/studio\?lesson=([A-Za-z0-9_-]+)/);
+      const m = task.to.match(/[?&](?:lesson|customLesson)=([A-Za-z0-9_-]+)/);
       if (m) referencedLessonIds.add(m[1]);
     }
   }

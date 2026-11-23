@@ -7,11 +7,9 @@ import {
   Compass,
   Flame,
   GraduationCap,
-  Lock,
   LogIn,
   Plus,
 } from 'lucide-react';
-import { LoginRequiredState } from '../components/auth/LoginRequiredState';
 import { WhatsNewBoard } from '../components/home/WhatsNewBoard';
 import { StudyScheduleModal } from '../components/settings/StudyScheduleCard';
 import {
@@ -24,16 +22,18 @@ import {
   ProgressBar,
   QuizHistoryCard,
   Stat,
-  Tabs,
   useToast,
 } from '../components/ui';
 import { buttonStyles } from '../components/ui/styles';
 import { useAuth } from '../context/auth-context';
 import {
   buildVocabToolQuery,
+  getDefaultVocabTextbook,
   getPreferredVocabLevel,
   getUnitsForVocabTextbook,
   resolveActiveVocabTextbook,
+  savePreferredVocabLevel,
+  savePreferredVocabTextbookId,
   VOCAB_TEXTBOOK_SYNC_EVENT,
 } from '../data/vocabTextbooks';
 import { useCurriculumSnapshot } from '../hooks/useCurriculumData';
@@ -77,6 +77,12 @@ import {
 } from '../services/userLevelService';
 import { useAppSelector } from '../store/hooks';
 
+interface QuickActionLink {
+  label: string;
+  to: string;
+  primary?: boolean;
+}
+
 interface Area {
   to: string;
   glyph: string;
@@ -85,90 +91,18 @@ interface Area {
   featured?: boolean;
   badgeText?: string;
   spanFull?: boolean;
+  quickActions?: QuickActionLink[];
+  quickActionsCols?: 2 | 3;
 }
 
-const JLPT_LANGUAGE_AREAS: Area[] = [
-  {
-    to: '/jlpt/kanji',
-    glyph: '字',
-    title: 'Luyện Chữ Hán',
-    description: 'Luyện cách đọc Hiragana, âm On-Kun và chọn chữ Hán chuẩn trong câu.',
-  },
-  {
-    to: '/jlpt/vocab',
-    glyph: '詞',
-    title: 'Luyện Từ vựng',
-    description: 'Điền từ theo ngữ cảnh, tìm từ đồng nghĩa và cách dùng từ chuẩn JLPT.',
-  },
-  {
-    to: '/jlpt/grammar',
-    glyph: '法',
-    title: 'Luyện Ngữ pháp',
-    description: 'Chọn mẫu ngữ pháp phù hợp trong câu và điền ngữ pháp vào đoạn văn.',
-  },
-  {
-    to: '/jlpt/star',
-    glyph: '星',
-    title: 'Luyện Hái sao (★)',
-    description: 'Sắp xếp 4 mảnh ghép thành câu hoàn chỉnh và chọn từ đúng ở vị trí ngôi sao.',
-  },
-];
-
-const JLPT_SKILL_AREAS: Area[] = [
-  {
-    to: '/jlpt/reading-short',
-    glyph: '短',
-    title: 'Đọc hiểu Ngắn (Đoản văn)',
-    description: 'Đọc nhanh đoạn văn ngắn (150–200 chữ), email, thông báo và tìm ý chính.',
-  },
-  {
-    to: '/jlpt/reading-medium',
-    glyph: '中',
-    title: 'Đọc hiểu Trung văn',
-    description: 'Phân tích bài viết độ dài trung bình (400–500 chữ) và trả lời câu hỏi lý giải.',
-  },
-  {
-    to: '/jlpt/reading-long',
-    glyph: '長',
-    title: 'Đọc hiểu Trường văn',
-    description: 'Luyện đọc bài luận dài, nắm bắt mạch lập luận của tác giả và tìm thông tin.',
-  },
-  {
-    to: '/jlpt/listening',
-    glyph: '聴',
-    title: 'Luyện Nghe hiểu',
-    description: 'Luyện nghe theo từng Mondai kèm transcript và giải thích chi tiết.',
-  },
-];
-
-const JLPT_FULL_TEST_AREA: Area = {
-  to: '/jlpt/full-test',
-  glyph: '全',
-  title: 'Thi thử Toàn bộ (Full Test)',
-  description:
-    'Làm đề thi JLPT hoàn chỉnh đầy đủ các phần có bấm giờ, chấm điểm tự động và lưu câu sai để ôn lại.',
-  featured: true,
-  badgeText: 'JLPT Mock',
-  spanFull: true,
-};
-
-const STUDIO_CREATOR_AREA: Area = {
-  to: '/studio',
-  glyph: '創',
-  title: 'Studio Tự tạo bài & Vẽ bản đồ lộ trình',
-  description:
-    'Tự soạn bài Từ vựng (nhập tay hoặc dán nhanh từ Excel), Ngữ pháp, Kanji như Admin, chơi ngay trên 6 Mini-game và kéo-thả tự vẽ lộ trình riêng.',
-  badgeText: 'Creator · Mới',
-  spanFull: true,
-};
-
 function FeatureNavCard({ area, compact = false }: { area: Area; compact?: boolean }) {
+  const actionColsClass =
+    area.quickActionsCols === 3 ? 'grid-cols-3' : 'grid-cols-2';
   return (
-    <Link
-      to={area.to}
+    <div
       className={cn(
-        'animate-fade-up group relative flex h-full cursor-pointer items-start gap-3.5 overflow-hidden rounded-xl border shadow-card transition-[border-color,background-color,transform] duration-150 ease-out-soft hover:-translate-y-0.5 active:scale-[0.99]',
-        compact ? 'p-3' : 'p-3.5',
+        'animate-fade-up group relative flex h-full flex-col justify-between gap-3 overflow-hidden rounded-xl border shadow-card transition-[border-color,background-color,transform] duration-150 ease-out-soft hover:-translate-y-0.5',
+        compact ? 'p-3.5' : 'p-4',
         area.featured
           ? 'border-sakura/50 bg-glass-soft hover:border-sakura hover:bg-glass-hover'
           : area.spanFull
@@ -180,47 +114,67 @@ function FeatureNavCard({ area, compact = false }: { area: Area; compact?: boole
         aria-hidden
         className="seigaiha-mask pointer-events-none absolute -right-2 -bottom-2 h-8 w-20 bg-wave opacity-0 transition-opacity duration-150 group-hover:opacity-30"
       />
-      <span
-        lang="ja"
-        aria-hidden
-        className={cn(
-          'relative flex size-10 shrink-0 items-center justify-center rounded-lg text-base font-bold transition-colors duration-150',
-          area.featured
-            ? 'bg-sakura text-on-primary ring-2 ring-sakura/30 group-hover:bg-primary'
-            : area.spanFull
-              ? 'bg-primary text-on-primary ring-2 ring-primary/25'
-              : 'bg-primary-soft text-primary-fg ring-1 ring-primary/20 group-hover:bg-primary group-hover:text-on-primary group-hover:ring-sakura/45',
-        )}
-      >
-        {area.glyph}
-      </span>
-      <span className="relative min-w-0 flex-1">
-        <span className="flex flex-wrap items-center justify-between gap-2">
-          <span className="block text-sm font-semibold text-fg md:text-base">{area.title}</span>
-          {area.badgeText && (
-            <span
+      <Link to={area.to} className="relative flex items-start gap-3">
+        <span
+          lang="ja"
+          aria-hidden
+          className={cn(
+            'relative flex size-10 shrink-0 items-center justify-center rounded-lg text-base font-bold transition-colors duration-150',
+            area.featured
+              ? 'bg-sakura text-on-primary ring-2 ring-sakura/30 group-hover:bg-primary'
+              : area.spanFull
+                ? 'bg-primary text-on-primary ring-2 ring-primary/25'
+                : 'bg-primary-soft text-primary-fg ring-1 ring-primary/20 group-hover:bg-primary group-hover:text-on-primary group-hover:ring-sakura/45',
+          )}
+        >
+          {area.glyph}
+        </span>
+        <span className="relative min-w-0 flex-1">
+          <span className="flex items-center justify-between gap-2">
+            <span className="truncate text-sm font-bold text-fg md:text-base">{area.title}</span>
+            {area.badgeText && (
+              <span
+                className={cn(
+                  'shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap',
+                  area.featured
+                    ? 'border-sakura/35 bg-glass-soft text-sakura'
+                    : 'border-primary/35 bg-primary-soft text-primary-fg',
+                )}
+              >
+                {area.badgeText}
+              </span>
+            )}
+          </span>
+          <span className="mt-1 line-clamp-2 min-h-[2.4rem] block text-xs leading-relaxed text-muted">
+            {area.description}
+          </span>
+        </span>
+      </Link>
+
+      {area.quickActions && area.quickActions.length > 0 && (
+        <div
+          className={cn(
+            'relative grid gap-1.5 border-t border-line/70 pt-2.5',
+            actionColsClass,
+          )}
+        >
+          {area.quickActions.map((act) => (
+            <Link
+              key={act.to + act.label}
+              to={act.to}
               className={cn(
-                'rounded-full border px-2 py-0.5 text-[11px] font-semibold',
-                area.featured
-                  ? 'border-sakura/35 bg-glass-soft text-sakura'
-                  : 'border-primary/35 bg-primary-soft text-primary-fg',
+                'inline-flex h-8 items-center justify-center truncate rounded-lg border px-2 text-center text-xs font-semibold transition-colors',
+                act.primary
+                  ? 'border-primary/45 bg-primary-soft text-primary-fg hover:bg-primary hover:text-on-primary'
+                  : 'border-line bg-surface-2/75 text-fg hover:border-primary/50 hover:text-primary-fg',
               )}
             >
-              {area.badgeText}
-            </span>
-          )}
-        </span>
-        <span className="mt-0.5 block text-xs leading-relaxed text-muted md:text-sm">
-          {area.description}
-        </span>
-      </span>
-      {area.spanFull && (
-        <ArrowRight
-          className="relative mt-2.5 hidden size-4 shrink-0 text-primary-fg transition-transform duration-150 group-hover:translate-x-0.5 sm:block"
-          aria-hidden
-        />
+              <span className="truncate">{act.label}</span>
+            </Link>
+          ))}
+        </div>
       )}
-    </Link>
+    </div>
   );
 }
 
@@ -247,7 +201,6 @@ export const HomePage: React.FC = () => {
   const mistakeResolutions = useAttemptMistakeResolutions();
 
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
-  const [jlptTab, setJlptTab] = useState<'language' | 'skills'>('language');
   const [syncVersion, setSyncVersion] = useState(0);
 
   useEffect(() => {
@@ -307,9 +260,9 @@ export const HomePage: React.FC = () => {
     Object.values(record).some((score) => score > 0),
   ).length;
 
-  const activeLevelMeta = user ? getStudyLevelMeta(studyLevel) : null;
   const activeLevel: StudyLevel | null =
     studyLevel ?? (syncVersion >= 0 ? getPreferredVocabLevel(user?.id) : null);
+  const activeLevelMeta = getStudyLevelMeta(activeLevel);
   const activeTextbook = useMemo(
     () =>
       activeLevel && syncVersion >= 0
@@ -338,17 +291,18 @@ export const HomePage: React.FC = () => {
     };
   }, [activeLevel, activeTextbook, allKanjis, cmsSnapshot, liveGrammarBooks]);
 
-  // Stage Map summary for Tier 1 ("Hôm nay & Lộ trình")
+  // Stage Map summary for Tier 1 ("Hôm nay & Lộ trình") — available for both authenticated & guest users
   const stageMapSummary = useMemo(() => {
-    if (!user || !studyLevel) return null;
+    if (!activeLevel) return null;
     const isCustom = stageRoadmapState.activeMode === 'custom' && Boolean(stageRoadmapState.customConfig);
     const cfg = stageRoadmapState.customConfig;
+    const targetBookId = activeTextbook?.id ?? studyTextbookId;
     const stages = isCustom && cfg
       ? generateStageMap({
           mode: 'custom',
           level: cfg.level,
           textbookId: cfg.textbookId,
-          userId: user.id,
+          userId: user?.id,
           snapshot: cmsSnapshot,
           startDate: cfg.startDate,
           dailyMinutesTarget: cfg.dailyMinutesTarget,
@@ -360,13 +314,14 @@ export const HomePage: React.FC = () => {
         })
       : generateStageMap({
           mode: 'fixed',
-          level: studyLevel,
-          textbookId: studyTextbookId,
-          userId: user.id,
+          level: activeLevel,
+          textbookId: targetBookId,
+          userId: user?.id,
           snapshot: cmsSnapshot,
           startDate: stageRoadmapState.fixedStartDate,
           dailyMinutesTarget: stageRoadmapState.fixedDailyMinutesTarget,
-          totalStages: getRecommendedFixedStageCount(studyLevel, studyTextbookId),
+          totalStages: getRecommendedFixedStageCount(activeLevel, targetBookId),
+          studyWeekdays: stageRoadmapState.fixedStudyWeekdays,
           includeKanaStarter: stageRoadmapState.fixedIncludeKanaStarter,
         });
 
@@ -386,7 +341,7 @@ export const HomePage: React.FC = () => {
 
     return {
       isCustom,
-      planLabel: isCustom && cfg ? cfg.name : `Lộ trình JLPT ${studyLevel}`,
+      planLabel: isCustom && cfg ? cfg.name : `Lộ trình JLPT ${activeLevel}`,
       activeStage,
       doneCount,
       totalCount: stages.length,
@@ -394,154 +349,237 @@ export const HomePage: React.FC = () => {
       completedToday,
       forecast,
     };
-  }, [cmsSnapshot, stageRoadmapState, studyLevel, studyTextbookId, todayOnlineSeconds, user]);
+  }, [activeLevel, activeTextbook?.id, cmsSnapshot, stageRoadmapState, studyTextbookId, todayOnlineSeconds, user?.id]);
 
-  // Tier 2: Read like a Textbook (3 core pillars)
-  const bookAreas: Area[] = useMemo(() => {
-    if (activeLevel && activeTextbook) {
-      return [
-        {
-          to: `/vocabulary/${activeLevel.toLowerCase()}/book/${activeTextbook.id}`,
-          glyph: '語',
-          title: 'Từ vựng',
-          description:
-            activeTextbookStats.wordCount > 0
-              ? `Mở thẳng ${activeTextbook.title} (${activeTextbookStats.unitCount} bài · ${activeTextbookStats.wordCount} từ).`
-              : `Mở thẳng bài học & 4 công cụ của ${activeTextbook.title}.`,
-          badgeText: `${activeLevel} · ${activeTextbook.shortTitle}`,
-        },
-        {
-          to: '/grammar',
-          glyph: '文',
-          title: 'Ngữ pháp',
-          description:
-            activeTextbookStats.grammarRuleCount > 0
-              ? `${activeTextbookStats.grammarRuleCount} mẫu ngữ pháp trọng tâm cấp độ ${activeLevel} kèm ví dụ & bài tập.`
-              : `Bài học và luyện tập ngữ pháp trọng tâm cho trình độ JLPT ${activeLevel}.`,
-          badgeText: `JLPT ${activeLevel}`,
-        },
-        {
-          to: '/kanji',
-          glyph: '漢',
-          title: 'Kanji',
-          description:
-            activeTextbookStats.levelKanjiCount > 0
-              ? `${activeTextbookStats.levelKanjiCount} chữ Kanji ${activeLevel} có Hán Việt, nghĩa Việt & tập viết nét.`
-              : `Tra cứu Hán Việt, tập viết nét và theo dõi chữ Hán ${activeLevel}.`,
-          badgeText: `JLPT ${activeLevel}`,
-        },
-      ];
-    }
-    return [
-      {
-        to: '/vocabulary',
-        glyph: '語',
-        title: 'Từ vựng',
-        description: 'Danh sách từ theo cấp độ JLPT, giáo trình và từng bài học.',
-      },
-      {
-        to: '/grammar',
-        glyph: '文',
-        title: 'Ngữ pháp',
-        description: 'Bài học ngữ pháp phân theo giáo trình kèm bài luyện tập.',
-      },
-      {
-        to: '/kanji',
-        glyph: '漢',
-        title: 'Kanji',
-        description: 'Tra cứu âm Hán Việt, tập viết nét và theo dõi chữ đã thuộc.',
-      },
-    ];
-  }, [activeLevel, activeTextbook, activeTextbookStats]);
-
-  // Tier 3: Fast Practice Tools + Mini-game Dojo (4 cards)
-  const quickToolAreas: Area[] = useMemo(() => {
-    if (activeLevel && activeTextbook) {
-      const toolQuery = buildVocabToolQuery(activeLevel, activeTextbook.id);
-      return [
-        {
-          to: `/games${toolQuery}`,
-          glyph: '剣',
-          title: 'Phòng Mini-game (Dojo)',
-          description: `Chém Từ Vựng (Ninja), Chém Hoa Quả, Nối Cặp 2 Cột & 3 game ${activeTextbook.shortTitle}.`,
-          badgeText: `6 Game · ${activeLevel}`,
-          featured: true,
-        },
-        {
-          to: `/vocabulary/quiz${toolQuery}`,
-          glyph: '問',
-          title: 'Luyện Quiz nhanh',
-          description: `Trắc nghiệm 4 đáp án chọn sẵn ${activeTextbook.shortTitle} (${activeLevel}).`,
-          badgeText: `${activeLevel} · ${activeTextbook.shortTitle}`,
-        },
-        {
-          to: `/flashcard/${activeLevel.toLowerCase()}/book/${activeTextbook.id}`,
-          glyph: '札',
-          title: 'Flashcard thẻ lật',
-          description: `Ôn từ vựng theo từng bài của ${activeTextbook.shortTitle}.`,
-          badgeText: `${activeLevel} · ${activeTextbook.shortTitle}`,
-        },
-        {
-          to: '/pdf',
-          glyph: '印',
-          title: 'Xuất phiếu PDF',
-          description: `Tạo tài liệu từ vựng, ngữ pháp và Kanji chuẩn ${activeLevel} để in.`,
-          badgeText: `JLPT ${activeLevel}`,
-        },
-      ];
-    }
-    return [
-      {
-        to: '/games',
-        glyph: '剣',
-        title: 'Phòng Mini-game (Dojo)',
-        description: 'Chém Từ Vựng (Ninja), Chém Hoa Quả Từ Vựng, Nối Cặp 2 Cột, Lật Thẻ & Phản Xạ.',
-        badgeText: '6 Game · Mới',
-        featured: true,
-      },
-      {
-        to: '/vocabulary/quiz',
-        glyph: '問',
-        title: 'Luyện Quiz nhanh',
-        description: 'Trắc nghiệm 4 đáp án kèm giải thích đúng/sai.',
-      },
-      {
-        to: '/flashcard',
-        glyph: '札',
-        title: 'Flashcard thẻ lật',
-        description: 'Ôn từ vựng bằng thẻ lật theo từng bài học.',
-      },
-      {
-        to: '/pdf',
-        glyph: '印',
-        title: 'Xuất phiếu PDF',
-        description: 'Tạo tài liệu từ vựng, ngữ pháp và Kanji để in.',
-      },
-    ];
-  }, [activeLevel, activeTextbook]);
-
-  // Tier 4: JLPT Exam Room (2 compact tabs + featured Full Test)
   const jlptQuery =
     activeLevel === 'N5' || activeLevel === 'N4' || activeLevel === 'N3'
       ? `?level=${activeLevel}`
       : '';
 
-  const scopedJlptList = useMemo(() => {
-    const raw = jlptTab === 'language' ? JLPT_LANGUAGE_AREAS : JLPT_SKILL_AREAS;
-    return raw.map((area) => ({ ...area, to: `${area.to}${jlptQuery}` }));
-  }, [jlptQuery, jlptTab]);
+  const levelScopedStats = useMemo(() => {
+    if (!activeLevel) {
+      return {
+        kanjiDone: kanjiLearned,
+        kanjiMax: kanjiTotal,
+        grammarDone: grammarPracticed,
+        grammarMax: grammarTotal,
+      };
+    }
+    const levelKanjis = allKanjis.filter((k) => k.jlptLevel === activeLevel);
+    const levelKanjiDone = levelKanjis.filter((k) => kanjiProgress[k.id]?.learned).length;
+    const levelGrammarRules = liveGrammarBooks
+      .filter((b) => b.level === activeLevel)
+      .flatMap((b) => b.chapters.flatMap((c) => c.grammars));
+    const levelGrammarDone = levelGrammarRules.filter((g) => {
+      const rec = grammarRecords[g.id];
+      return rec && Object.values(rec).some((score) => (score ?? 0) > 0);
+    }).length;
+    return {
+      kanjiDone: levelKanjiDone,
+      kanjiMax: levelKanjis.length || kanjiTotal,
+      grammarDone: levelGrammarDone,
+      grammarMax: levelGrammarRules.length || grammarTotal,
+    };
+  }, [activeLevel, allKanjis, grammarPracticed, grammarRecords, grammarTotal, kanjiLearned, kanjiProgress, kanjiTotal, liveGrammarBooks]);
 
-  const scopedFullTest: Area = useMemo(
-    () => ({
-      ...JLPT_FULL_TEST_AREA,
-      to: `${JLPT_FULL_TEST_AREA.to}${jlptQuery}`,
-    }),
-    [jlptQuery],
-  );
+  // ZONE 2: "Học như Cuốn sách — Trọn bộ 5 Kỹ năng" (3 Core Pillars top row + 2 Applied Skills bottom row)
+  const coreBookAreas: Area[] = useMemo(() => {
+    const firstGrammarBook =
+      liveGrammarBooks.find((b) => activeTextbook && b.id === activeTextbook.id) ??
+      liveGrammarBooks.find((b) => b.level === (activeLevel ?? 'N5')) ??
+      liveGrammarBooks[0];
+    const firstChapter = firstGrammarBook?.chapters[0];
+    const scenarioQuizUrl =
+      firstGrammarBook && firstChapter
+        ? `/grammar/${firstGrammarBook.id}/${firstChapter.id}/practice?mode=scenario&count=12`
+        : '/grammar';
+
+    if (activeLevel && activeTextbook) {
+      const lvlLower = activeLevel.toLowerCase();
+      const toolQuery = buildVocabToolQuery(activeLevel, activeTextbook.id);
+      const bookPath = `/vocabulary/${lvlLower}/book/${activeTextbook.id}`;
+      return [
+        {
+          to: bookPath,
+          glyph: '語',
+          title: '1. Sách Từ vựng',
+          description:
+            activeTextbookStats.wordCount > 0
+              ? `${activeTextbook.title} (${activeTextbookStats.unitCount} bài · ${activeTextbookStats.wordCount} từ) kèm phát âm & Flashcard.`
+              : `Mở thẳng bài học & bộ công cụ từ vựng của ${activeTextbook.title}.`,
+          badgeText: `${activeLevel} · ${activeTextbook.shortTitle}`,
+          quickActionsCols: 2,
+          quickActions: [
+            { label: `Mở ${activeTextbookStats.unitCount || 25} bài →`, to: bookPath, primary: true },
+            { label: 'Flashcard', to: `/flashcard/${lvlLower}/book/${activeTextbook.id}` },
+            { label: 'Quiz nhanh', to: `/vocabulary/quiz${toolQuery}` },
+            { label: 'Luyện gõ', to: `/vocabulary/writing${toolQuery}` },
+          ],
+        },
+        {
+          to: '/grammar',
+          glyph: '文',
+          title: '2. Sách Ngữ pháp',
+          description:
+            activeTextbookStats.grammarRuleCount > 0
+              ? `${activeTextbookStats.grammarRuleCount} mẫu ngữ pháp ${activeLevel}: giải thích Dùng khi nào, So sánh dễ nhầm & Mẹo nhớ.`
+              : `Hệ thống ngữ pháp trọng tâm ${activeLevel} kèm ví dụ và Quiz Tình huống.`,
+          badgeText: `JLPT ${activeLevel}`,
+          quickActionsCols: 2,
+          quickActions: [
+            { label: 'Mở Ngữ pháp →', to: '/grammar', primary: true },
+            { label: '🎯 Quiz Tình huống', to: scenarioQuizUrl },
+            { label: 'Hái sao ★', to: `/jlpt/star${jlptQuery}` },
+            { label: 'Đề Ngữ pháp', to: `/jlpt/grammar${jlptQuery}` },
+          ],
+        },
+        {
+          to: `/kanji${jlptQuery}`,
+          glyph: '漢',
+          title: '3. Sách Chữ Hán',
+          description:
+            activeTextbookStats.levelKanjiCount > 0
+              ? `${activeTextbookStats.levelKanjiCount} chữ Kanji ${activeLevel} chia nhóm 5 chữ/bài, có Hán Việt, On-Kun & tập viết nét.`
+              : `Tra cứu Hán Việt, tập viết thứ tự nét và kiểm tra chữ Hán ${activeLevel}.`,
+          badgeText: `JLPT ${activeLevel}`,
+          quickActionsCols: 2,
+          quickActions: [
+            { label: `Bảng ${activeTextbookStats.levelKanjiCount || 112} chữ →`, to: `/kanji${jlptQuery}`, primary: true },
+            { label: '5 chữ Bài 1', to: `/kanji?level=${activeLevel}&group=1&size=5` },
+            { label: 'Quiz Chữ Hán', to: `/jlpt/kanji${jlptQuery}` },
+            { label: 'Nối cặp Kanji', to: `/games${toolQuery}&game=match` },
+          ],
+        },
+      ];
+    }
+
+    return [
+      {
+        to: '/vocabulary',
+        glyph: '語',
+        title: '1. Sách Từ vựng',
+        description: 'Trọn bộ 12 giáo trình N5–N3 chia theo từng bài kèm Flashcard, Quiz & Luyện gõ.',
+        quickActionsCols: 2,
+        quickActions: [
+          { label: 'Mở giáo trình →', to: '/vocabulary', primary: true },
+          { label: 'Flashcard', to: '/flashcard' },
+          { label: 'Quiz nhanh', to: '/vocabulary/quiz' },
+          { label: 'Luyện gõ', to: '/vocabulary/writing' },
+        ],
+      },
+      {
+        to: '/grammar',
+        glyph: '文',
+        title: '2. Sách Ngữ pháp',
+        description: 'Giải thích rõ Dùng khi nào, Sắc thái, So sánh cặp dễ nhầm & Quiz Tình huống.',
+        quickActionsCols: 2,
+        quickActions: [
+          { label: 'Mở Ngữ pháp →', to: '/grammar', primary: true },
+          { label: '🎯 Quiz Tình huống', to: scenarioQuizUrl },
+          { label: 'Hái sao ★', to: '/jlpt/star' },
+          { label: 'Đề Ngữ pháp', to: '/jlpt/grammar' },
+        ],
+      },
+      {
+        to: '/kanji',
+        glyph: '漢',
+        title: '3. Sách Chữ Hán',
+        description: '513 chữ Kanji N5–N3 có âm Hán Việt, On-Kun, từ ghép và tập viết nét.',
+        quickActionsCols: 2,
+        quickActions: [
+          { label: 'Bảng Kanji →', to: '/kanji', primary: true },
+          { label: '5 chữ Bài 1', to: '/kanji?level=N5&group=1&size=5' },
+          { label: 'Quiz Chữ Hán', to: '/jlpt/kanji' },
+          { label: 'Nối cặp Kanji', to: '/games?game=match' },
+        ],
+      },
+    ];
+  }, [activeLevel, activeTextbook, activeTextbookStats, jlptQuery, liveGrammarBooks]);
+
+  const skillBookAreas: Area[] = useMemo(() => {
+    const levelLabel = activeLevel ?? 'N5–N3';
+    const toolQuery =
+      activeLevel && activeTextbook ? buildVocabToolQuery(activeLevel, activeTextbook.id) : '';
+    return [
+      {
+        to: `/jlpt/reading-short${jlptQuery}`,
+        glyph: '読',
+        title: `4. Sách Đọc hiểu (${levelLabel})`,
+        description:
+          'Mục lục bài đọc đủ 3 cấp độ (Đoản văn → Trung văn → Trường văn), hỗ trợ chạm tra từ, Furigana & dịch chi tiết.',
+        badgeText: `Dokkai · ${levelLabel}`,
+        quickActionsCols: 3,
+        quickActions: [
+          { label: 'Đoản văn →', to: `/jlpt/reading-short${jlptQuery}`, primary: true },
+          { label: 'Trung văn', to: `/jlpt/reading-medium${jlptQuery}` },
+          { label: 'Trường văn', to: `/jlpt/reading-long${jlptQuery}` },
+        ],
+      },
+      {
+        to: `/jlpt/listening${jlptQuery}`,
+        glyph: '聴',
+        title: `5. Sách Nghe hiểu (${levelLabel})`,
+        description:
+          'Kho hội thoại Mondai 1–4 theo từng bài có bảng Transcript tiếng Nhật, dịch Việt và đọc nhại Shadowing.',
+        badgeText: `Choukai · ${levelLabel}`,
+        quickActionsCols: 3,
+        quickActions: [
+          { label: 'Bài Nghe →', to: `/jlpt/listening${jlptQuery}`, primary: true },
+          {
+            label: 'Game Nghe',
+            to: `/games${toolQuery ? `${toolQuery}&game=listening` : '?game=listening'}`,
+          },
+          { label: 'Đề Từ vựng', to: `/jlpt/vocab${jlptQuery}` },
+        ],
+      },
+    ];
+  }, [activeLevel, activeTextbook, jlptQuery]);
+
+  // ZONE 3: Fast Practice, Creator Studio, Full Mock Exam & PDF (1 symmetrical row of 4 cards)
+  const practiceAndStudioAreas: Area[] = useMemo(() => {
+    const toolQuery =
+      activeLevel && activeTextbook ? buildVocabToolQuery(activeLevel, activeTextbook.id) : '';
+    return [
+      {
+        to: `/games${toolQuery}`,
+        glyph: '剣',
+        title: 'Mini-game Dojo',
+        description: '6 game phản xạ: Chém Từ Vựng, Bắn Yōkai, Nối Cặp, Lật Thẻ & Thính Giác.',
+        badgeText: activeLevel ? `6 Game · ${activeLevel}` : '6 Game',
+        featured: true,
+      },
+      {
+        to: '/studio',
+        glyph: '創',
+        title: 'Studio Tự tạo',
+        description: 'Tự soạn bài Từ vựng (dán Excel), Ngữ pháp, Kanji & tự vẽ sơ đồ lộ trình.',
+        badgeText: 'Free Beta',
+      },
+      {
+        to: `/jlpt/full-test${jlptQuery}`,
+        glyph: '全',
+        title: 'Đề thi JLPT thật',
+        description: 'Bộ đề chuẩn 2023–2024 đủ 4 phần (thang 180 điểm + chấm điểm liệt).',
+        badgeText: activeLevel ? `3 Đề ${activeLevel}` : '9 Đề thật',
+      },
+      {
+        to: '/pdf',
+        glyph: '印',
+        title: 'Xuất phiếu PDF',
+        description: 'Tạo tài liệu Từ vựng, Ngữ pháp và Kanji chuẩn đẹp để tải về hoặc in.',
+        badgeText: activeLevel ? `JLPT ${activeLevel}` : 'In ấn',
+      },
+    ];
+  }, [activeLevel, activeTextbook, jlptQuery]);
 
   const handleQuickSelectLevel = async (level: StudyLevel) => {
-    if (!user) return;
-    await updateStudyLevel(level);
+    if (user) {
+      await updateStudyLevel(level);
+    } else {
+      const defaultBook = getDefaultVocabTextbook(level);
+      savePreferredVocabLevel(level, null);
+      savePreferredVocabTextbookId(level, defaultBook.id, null);
+    }
     toast({
       title: `Đã chọn trình độ JLPT ${level}`,
       tone: 'success',
@@ -631,22 +669,8 @@ export const HomePage: React.FC = () => {
               Lộ trình &amp; Mục tiêu hôm nay
             </h2>
           </div>
-          {!user ? (
-            <div className="flex items-center gap-2">
-              <Link
-                to="/roadmap"
-                className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'h-7 px-2.5 text-xs' })}
-              >
-                Xem thử Bản đồ Màn
-                <ArrowRight className="size-3.5" aria-hidden />
-              </Link>
-              <Badge tone="neutral">
-                <Lock className="size-3 shrink-0" aria-hidden />
-                Yêu cầu đăng nhập
-              </Badge>
-            </div>
-          ) : (
-            stageMapSummary && (
+          <div className="flex flex-wrap items-center gap-2">
+            {stageMapSummary && (
               <Badge tone={stageMapSummary.completedToday ? 'success' : 'primary'}>
                 <Clock className="size-3" aria-hidden />
                 <span className="tabular">
@@ -655,216 +679,244 @@ export const HomePage: React.FC = () => {
                     : `Online hôm nay: ${formatMmSs(todayOnlineSeconds)} / ${stageMapSummary.dailyTargetMinutes}:00`}
                 </span>
               </Badge>
-            )
-          )}
+            )}
+            {!user && (
+              <Badge tone="neutral">Chế độ Khách · Lưu trên thiết bị</Badge>
+            )}
+          </div>
         </div>
 
-        {user ? (
-          <>
-            <div className="mb-4">
-              {!studyLevel ? (
-                <div className="rounded-xl border border-primary/45 bg-primary-soft/50 p-4">
-                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                    <div className="flex items-start gap-3">
-                      <span
-                        aria-hidden
-                        className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-on-primary"
-                      >
-                        <Compass className="size-5" />
-                      </span>
-                      <div className="min-w-0">
-                        <h3 className="text-sm font-semibold text-fg sm:text-base">
-                          Chọn trình độ &amp; giáo trình để mở Bản đồ Màn học
-                        </h3>
-                        <p className="mt-0.5 text-xs text-muted sm:text-sm">
-                          Chọn 1 lần để tự động đồng bộ toàn bộ sách, Quiz, Flashcard và lộ trình học theo ngày.
-                        </p>
-                      </div>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="primary"
-                      size="sm"
-                      className="shrink-0"
-                      leftIcon={<GraduationCap className="size-4" aria-hidden />}
-                      onClick={requestOpenLevelModal}
-                    >
-                      Chọn trình độ
-                    </Button>
-                  </div>
-                  <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line/70 pt-3">
-                    <span className="text-xs font-medium text-muted">Chọn nhanh:</span>
-                    {STUDY_LEVEL_OPTIONS.map((opt) => (
-                      <Chip
-                        key={opt.level}
-                        selected={false}
-                        onClick={() => void handleQuickSelectLevel(opt.level)}
-                      >
-                        JLPT {opt.level}
-                      </Chip>
-                    ))}
+        <div className="mb-4">
+          {!activeLevel ? (
+            <div className="rounded-xl border border-primary/45 bg-primary-soft/50 p-4">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div className="flex items-start gap-3">
+                  <span
+                    aria-hidden
+                    className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-on-primary"
+                  >
+                    <Compass className="size-5" />
+                  </span>
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-semibold text-fg sm:text-base">
+                      Chọn trình độ &amp; giáo trình để mở Bản đồ Màn học
+                    </h3>
+                    <p className="mt-0.5 text-xs text-muted sm:text-sm">
+                      Chọn 1 lần để tự động đồng bộ toàn bộ sách, Quiz, Flashcard và lộ trình học theo ngày.
+                    </p>
                   </div>
                 </div>
-              ) : (
-                <div
-                  id="study-roadmap-slot"
-                  data-study-level={studyLevel}
-                  className="space-y-3 rounded-xl border border-line bg-surface-2/60 p-3.5 sm:p-4"
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  className="shrink-0"
+                  leftIcon={<GraduationCap className="size-4" aria-hidden />}
+                  onClick={requestOpenLevelModal}
                 >
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="flex items-start gap-3">
-                      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-sm font-bold text-on-primary">
-                        {studyLevel}
-                      </span>
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-sm font-semibold text-fg sm:text-base">
-                            {stageMapSummary?.planLabel ?? `Lộ trình học tập JLPT ${studyLevel}`}
-                            {activeLevelMeta && !stageMapSummary?.isCustom
-                              ? ` · ${activeLevelMeta.title}`
-                              : ''}
-                          </h3>
-                          {activeTextbook && (
-                            <Badge tone="neutral">{activeTextbook.shortTitle}</Badge>
-                          )}
-                          {stageMapSummary?.isCustom && (
-                            <Badge tone="primary">Tự tạo</Badge>
-                          )}
-                        </div>
-                        <p className="mt-0.5 text-xs text-muted sm:text-sm">
-                          {stageMapSummary?.activeStage
-                            ? `Màn hiện tại: Màn ${stageMapSummary.activeStage.stageNumber} — ${stageMapSummary.activeStage.title}`
-                            : `Bạn đã hoàn thành toàn bộ bản đồ lộ trình JLPT ${studyLevel}!`}
-                        </p>
-                      </div>
+                  Chọn trình độ
+                </Button>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line/70 pt-3">
+                <span className="text-xs font-medium text-muted">Chọn nhanh:</span>
+                {STUDY_LEVEL_OPTIONS.map((opt) => (
+                  <Chip
+                    key={opt.level}
+                    selected={false}
+                    onClick={() => void handleQuickSelectLevel(opt.level)}
+                  >
+                    JLPT {opt.level}
+                  </Chip>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div
+              id="study-roadmap-slot"
+              data-study-level={activeLevel}
+              className="space-y-3 rounded-xl border border-line bg-surface-2/60 p-3.5 sm:p-4"
+            >
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex items-start gap-3">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-sm font-bold text-on-primary">
+                    {activeLevel}
+                  </span>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-sm font-semibold text-fg sm:text-base">
+                        {stageMapSummary?.planLabel ?? `Lộ trình học tập JLPT ${activeLevel}`}
+                        {activeLevelMeta && !stageMapSummary?.isCustom
+                          ? ` · ${activeLevelMeta.title}`
+                          : ''}
+                      </h3>
+                      {activeTextbook && (
+                        <Badge tone="neutral">{activeTextbook.shortTitle}</Badge>
+                      )}
+                      {stageMapSummary?.isCustom && (
+                        <Badge tone="primary">Tự tạo</Badge>
+                      )}
                     </div>
-
-                    <div className="flex shrink-0 flex-wrap items-center gap-2">
-                      <Link
-                        to="/roadmap"
-                        className={buttonStyles({ variant: 'primary', size: 'sm' })}
-                      >
-                        {stageMapSummary?.activeStage
-                          ? `Mở Màn ${stageMapSummary.activeStage.stageNumber}`
-                          : 'Xem Bản đồ Màn'}
-                        <ArrowRight className="size-4" aria-hidden />
-                      </Link>
-                      <Link
-                        to="/roadmap?create=1"
-                        className={buttonStyles({ variant: 'soft', size: 'sm' })}
-                      >
-                        <Plus className="size-4" aria-hidden />
-                        Tự tạo lộ trình
-                      </Link>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        onClick={requestOpenLevelModal}
-                      >
-                        Đổi trình độ / sách
-                      </Button>
-                    </div>
+                    <p className="mt-0.5 text-xs text-muted sm:text-sm">
+                      {stageMapSummary?.activeStage
+                        ? `Màn hiện tại: Màn ${stageMapSummary.activeStage.stageNumber} — ${stageMapSummary.activeStage.title}`
+                        : `Bạn đã hoàn thành toàn bộ bản đồ lộ trình JLPT ${activeLevel}!`}
+                    </p>
                   </div>
+                </div>
 
-                  {stageMapSummary && (
-                    <div className="space-y-1">
-                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
-                        <span>
-                          Tiến độ Bản đồ Màn ({studyLevel}) ·{' '}
-                          <strong className="text-fg">
-                            {stageMapSummary.forecast.isCompleted
-                              ? 'Đã về đích!'
-                              : `Dự kiến xong: ${stageMapSummary.forecast.estimatedCompletionLabel} (~${stageMapSummary.forecast.estimatedWeeks} tuần)`}
-                          </strong>
-                        </span>
-                        <span className="font-medium text-fg tabular-nums">
-                          {stageMapSummary.doneCount}/{stageMapSummary.totalCount} màn
-                        </span>
-                      </div>
-                      <ProgressBar
-                        value={stageMapSummary.doneCount}
-                        max={stageMapSummary.totalCount}
-                        label={`Tiến độ Bản đồ Màn JLPT ${studyLevel}`}
-                        size="sm"
-                      />
-                    </div>
-                  )}
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  <Link
+                    to="/roadmap"
+                    className={buttonStyles({ variant: 'primary', size: 'sm' })}
+                  >
+                    {stageMapSummary?.activeStage
+                      ? `Mở Màn ${stageMapSummary.activeStage.stageNumber}`
+                      : 'Xem Bản đồ Màn'}
+                    <ArrowRight className="size-4" aria-hidden />
+                  </Link>
+                  <Link
+                    to="/roadmap?create=1"
+                    className={buttonStyles({ variant: 'soft', size: 'sm' })}
+                  >
+                    <Plus className="size-4" aria-hidden />
+                    Tự tạo lộ trình
+                  </Link>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={requestOpenLevelModal}
+                  >
+                    Đổi trình độ / sách
+                  </Button>
+                </div>
+              </div>
+
+              {stageMapSummary && (
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
+                    <span>
+                      Tiến độ Bản đồ Màn ({activeLevel}) ·{' '}
+                      <strong className="text-fg">
+                        {stageMapSummary.forecast.isCompleted
+                          ? 'Đã về đích!'
+                          : `Dự kiến xong: ${stageMapSummary.forecast.estimatedCompletionLabel} (~${stageMapSummary.forecast.estimatedWeeks} tuần)`}
+                      </strong>
+                    </span>
+                    <span className="font-medium text-fg tabular-nums">
+                      {stageMapSummary.doneCount}/{stageMapSummary.totalCount} màn
+                    </span>
+                  </div>
+                  <ProgressBar
+                    value={stageMapSummary.doneCount}
+                    max={stageMapSummary.totalCount}
+                    label={`Tiến độ Bản đồ Màn JLPT ${activeLevel}`}
+                    size="sm"
+                  />
                 </div>
               )}
             </div>
+          )}
+        </div>
 
-            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-              <div className="flex flex-col gap-1.5">
-                <Stat label="Kanji đã thuộc" value={`${kanjiLearned}/${kanjiTotal}`} />
-                <ProgressBar value={kanjiLearned} max={kanjiTotal} label="Kanji đã thuộc" size="sm" />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Stat label="Ngữ pháp đã luyện" value={`${grammarPracticed}/${grammarTotal}`} />
-                <ProgressBar
-                  value={grammarPracticed}
-                  max={grammarTotal}
-                  label="Ngữ pháp đã luyện"
-                  size="sm"
-                />
-              </div>
-              <Stat
-                label="Bài sai cần ôn"
-                value={attemptMistakeGroups.length}
-                hint={
-                  attemptMistakeGroups.length > 0
-                    ? `${totalMistakeCount} câu sai cần ôn`
-                    : 'Chưa có bài sai nào'
-                }
-              />
-              <div className="flex items-end">
-                <CardLink
-                  to="/grammar/mistakes"
-                  padding="sm"
-                  className="flex w-full items-center justify-between gap-2 border-sakura/40 bg-sakura-soft text-sm font-semibold text-fg hover:border-sakura hover:bg-glass-hover"
-                >
-                  <span className="flex items-center gap-2">
-                    <span aria-hidden className="size-2 rounded-full bg-sakura" />
-                    Ôn tập lỗi sai
-                    {attemptMistakeGroups.length > 0 && (
-                      <Badge tone="danger" className="tabular">
-                        {attemptMistakeGroups.length}
-                      </Badge>
-                    )}
-                  </span>
-                  <ArrowRight className="size-4 shrink-0 text-sakura" aria-hidden />
-                </CardLink>
-              </div>
-            </div>
-          </>
-        ) : (
-          <LoginRequiredState
-            compact
-            title="Đăng nhập để mở khóa Bản đồ Màn học, tạo lộ trình riêng & lưu tiến độ"
-            description="Chọn 1 lần Trình độ + Giáo trình, theo dõi đếm giờ 10–15p/ngày, tự tạo lộ trình như Admin và đồng bộ lịch sử trên mọi thiết bị."
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+          <div className="flex flex-col gap-1.5">
+            <Stat
+              label={activeLevel ? `Kanji ${activeLevel} đã thuộc` : 'Kanji đã thuộc'}
+              value={`${levelScopedStats.kanjiDone}/${levelScopedStats.kanjiMax}`}
+            />
+            <ProgressBar
+              value={levelScopedStats.kanjiDone}
+              max={levelScopedStats.kanjiMax}
+              label="Kanji đã thuộc"
+              size="sm"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Stat
+              label={activeLevel ? `Ngữ pháp ${activeLevel} đã luyện` : 'Ngữ pháp đã luyện'}
+              value={`${levelScopedStats.grammarDone}/${levelScopedStats.grammarMax}`}
+            />
+            <ProgressBar
+              value={levelScopedStats.grammarDone}
+              max={levelScopedStats.grammarMax}
+              label="Ngữ pháp đã luyện"
+              size="sm"
+            />
+          </div>
+          <Stat
+            label="Bài sai cần ôn"
+            value={attemptMistakeGroups.length}
+            hint={
+              attemptMistakeGroups.length > 0
+                ? `${totalMistakeCount} câu sai cần ôn`
+                : 'Chưa có bài sai nào'
+            }
           />
-        )}
+          <div className="flex items-end">
+            <CardLink
+              to="/grammar/mistakes"
+              padding="sm"
+              className="flex w-full items-center justify-between gap-2 border-sakura/40 bg-sakura-soft text-sm font-semibold text-fg hover:border-sakura hover:bg-glass-hover"
+            >
+              <span className="flex items-center gap-2">
+                <span aria-hidden className="size-2 rounded-full bg-sakura" />
+                Ôn tập lỗi sai
+                {attemptMistakeGroups.length > 0 && (
+                  <Badge tone="danger" className="tabular">
+                    {attemptMistakeGroups.length}
+                  </Badge>
+                )}
+              </span>
+              <ArrowRight className="size-4 shrink-0 text-sakura" aria-hidden />
+            </CardLink>
+          </div>
+        </div>
       </Card>
 
       {/* =================================================================== */}
-      {/* TẦNG 2: ĐỌC NHƯ CUỐN SÁCH (3 cột trụ: Từ vựng · Ngữ pháp · Kanji)   */}
+      {/* KHU VỰC 2: HỌC NHƯ CUỐN SÁCH — TRỌN BỘ 5 KỸ NĂNG                     */}
+      {/* (Từ vựng · Ngữ pháp · Chữ Hán · Đọc hiểu · Nghe hiểu)               */}
       {/* =================================================================== */}
-      <section aria-labelledby="section-textbook-mode">
-        <div className="mb-3 inline-flex flex-col rounded-xl border border-line bg-glass px-3.5 py-2 shadow-card">
-          <h2
-            id="section-textbook-mode"
-            className="flex items-center gap-2 text-base font-semibold text-fg md:text-lg"
+      <section aria-labelledby="section-textbook-mode" className="space-y-3">
+        <div className="flex w-full flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-glass px-4 py-2.5 shadow-card">
+          <div>
+            <h2
+              id="section-textbook-mode"
+              className="flex items-center gap-2 text-base font-bold text-fg md:text-lg"
+            >
+              <span aria-hidden className="h-4 w-1 rounded-full bg-wave" />
+              Học như Cuốn sách (Trọn bộ 5 Kỹ năng)
+            </h2>
+            <p className="mt-0.5 text-xs text-muted">
+              Mở tự do từng bài Từ vựng, Ngữ pháp, Chữ Hán, Đọc hiểu và Nghe hiểu theo đúng giáo trình đang chọn.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={requestOpenLevelModal}
           >
-            <span aria-hidden className="h-4 w-1 rounded-full bg-wave" />
-            Đọc như Cuốn sách
-          </h2>
-          <p className="mt-0.5 text-xs text-muted md:text-sm">
-            Mở tự do từng bài Từ vựng, Ngữ pháp và chữ Hán theo đúng giáo trình bạn đang học.
-          </p>
+            {activeLevel && activeTextbook
+              ? `Đang học: ${activeLevel} · ${activeTextbook.shortTitle}`
+              : 'Chọn giáo trình'}
+          </Button>
         </div>
-        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:gap-4">
-          {bookAreas.map((area) => (
-            <li key={area.to}>
+
+        {/* Hàng trên: 3 gốc kiến thức (Từ vựng · Ngữ pháp · Chữ Hán) */}
+        <ul className="grid grid-cols-1 gap-3 md:grid-cols-3 lg:gap-4">
+          {coreBookAreas.map((area) => (
+            <li key={area.to} className="h-full">
+              <FeatureNavCard area={area} />
+            </li>
+          ))}
+        </ul>
+
+        {/* Hàng dưới: 2 kỹ năng vận dụng (Sách Đọc hiểu · Sách Nghe hiểu) */}
+        <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:gap-4">
+          {skillBookAreas.map((area) => (
+            <li key={area.to} className="h-full">
               <FeatureNavCard area={area} />
             </li>
           ))}
@@ -872,82 +924,37 @@ export const HomePage: React.FC = () => {
       </section>
 
       {/* =================================================================== */}
-      {/* TẦNG 3: CÔNG CỤ LUYỆN TẬP NHANH                                     */}
+      {/* KHU VỰC 3: THỰC CHIẾN & CÔNG CỤ MỞ RỘNG (1 hàng 4 ô thẳng tắp)       */}
       {/* =================================================================== */}
-      <section aria-labelledby="section-quick-and-review">
-        <div className="mb-3 inline-flex flex-col rounded-xl border border-line bg-glass px-3.5 py-2 shadow-card">
-          <h2
-            id="section-quick-and-review"
-            className="flex items-center gap-2 text-base font-semibold text-fg md:text-lg"
-          >
-            <span aria-hidden className="h-4 w-1 rounded-full bg-wave" />
-            Luyện tập nhanh
-          </h2>
-          <p className="mt-0.5 text-xs text-muted md:text-sm">
-            Phiên ôn nhanh bằng Mini-game Chém Từ Vựng, Nối Cặp, Quiz 4 đáp án, Flashcard và xuất PDF.
-          </p>
+      <section aria-labelledby="section-quick-and-review" className="space-y-3">
+        <div className="flex w-full flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-glass px-4 py-2.5 shadow-card">
+          <div>
+            <h2
+              id="section-quick-and-review"
+              className="flex items-center gap-2 text-base font-bold text-fg md:text-lg"
+            >
+              <span aria-hidden className="h-4 w-1 rounded-full bg-wave" />
+              Thực chiến &amp; Công cụ mở rộng
+            </h2>
+            <p className="mt-0.5 text-xs text-muted">
+              Phòng 6 Mini-game Dojo, Studio tự tạo bài &amp; vẽ bản đồ, Bộ đề thi JLPT thật và Xuất PDF.
+            </p>
+          </div>
         </div>
 
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4">
-          {quickToolAreas.map((area) => (
-            <li key={area.to}>
+          {practiceAndStudioAreas.map((area) => (
+            <li key={area.to} className="h-full">
               <FeatureNavCard area={area} compact />
             </li>
           ))}
         </ul>
-
-        <div className="mt-3 lg:mt-4">
-          <FeatureNavCard area={STUDIO_CREATOR_AREA} />
-        </div>
       </section>
 
       {/* =================================================================== */}
-      {/* TẦNG 4: PHÒNG LUYỆN THI JLPT (Full Test nổi bật + 2 Tab gọn gàng)   */}
+      {/* LỊCH SỬ LÀM BÀI GẦN ĐÂY (Thu gọn 3 lượt gần nhất để trang chủ gọn)  */}
       {/* =================================================================== */}
-      <section aria-labelledby="section-jlpt-practice" className="space-y-3.5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div className="inline-flex flex-col rounded-xl border border-line bg-glass px-3.5 py-2 shadow-card">
-            <h2
-              id="section-jlpt-practice"
-              className="flex items-center gap-2 text-base font-semibold text-fg md:text-lg"
-            >
-              <span aria-hidden className="h-4 w-1 rounded-full bg-wave" />
-              Phòng luyện thi JLPT
-            </h2>
-            <p className="mt-0.5 text-xs text-muted md:text-sm">
-              Luyện chuyên sâu từng Mondai hoặc làm đề thi thử toàn bộ chuẩn cấu trúc JLPT.
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-line bg-glass p-1 shadow-card self-start sm:self-auto">
-            <Tabs
-              aria-label="Nhóm kỹ năng luyện thi JLPT"
-              variant="pill"
-              value={jlptTab}
-              onChange={setJlptTab}
-              items={[
-                { value: 'language', label: 'Kiến thức ngôn ngữ (4)' },
-                { value: 'skills', label: 'Đọc & Nghe hiểu (4)' },
-              ]}
-            />
-          </div>
-        </div>
-
-        <FeatureNavCard area={scopedFullTest} />
-
-        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:gap-4">
-          {scopedJlptList.map((area) => (
-            <li key={area.to}>
-              <FeatureNavCard area={area} />
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      {/* =================================================================== */}
-      {/* TẦNG 5: LỊCH SỬ LÀM BÀI GẦN ĐÂY                                     */}
-      {/* =================================================================== */}
-      <QuizHistoryCard limit={5} showProfileLink />
+      <QuizHistoryCard limit={3} showProfileLink />
     </PageContainer>
   );
 };

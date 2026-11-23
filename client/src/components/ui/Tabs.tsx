@@ -46,8 +46,9 @@ export function Tabs<T extends string>({ items, value, onChange, variant = 'unde
       aria-label={ariaLabel}
       onKeyDown={onKeyDown}
       className={cn(
-        'hide-scrollbar flex overflow-x-auto',
-        variant === 'underline' ? 'gap-5 border-b border-line' : 'gap-1',
+        variant === 'underline'
+          ? 'hide-scrollbar flex gap-5 overflow-x-auto border-b border-line'
+          : 'flex flex-wrap items-center gap-1.5',
         className,
       )}
     >

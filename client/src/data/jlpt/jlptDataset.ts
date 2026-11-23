@@ -16,6 +16,14 @@ import {
   PACK_STAR_ITEMS,
   PACK_VOCAB_MCQS,
 } from './n5n4n3FullPack';
+import {
+  EXTRA_LISTENING_ITEMS_N5_N4_N3,
+  EXTRA_READING_PASSAGES_N5_N4_N3,
+  REAL_JLPT_EXAM_PRESETS,
+  type RealJlptExamPreset,
+} from './realJlptExamsPack';
+
+export { REAL_JLPT_EXAM_PRESETS, type RealJlptExamPreset };
 import kanjiDataRaw from '../kanji/kanjiDataset.json';
 import { unit1Data } from '../n3/unit1';
 import { N3_EXTRA_TEXTBOOK_UNITS } from '../n3/extraTextbooksN3';
@@ -2108,11 +2116,13 @@ const ALL_READING_PASSAGES: JLPTReadingPassage[] = [
   ...MINNA_N5_READING_PASSAGES,
   ...CURATED_READING_PASSAGES,
   ...PACK_READING_PASSAGES,
+  ...EXTRA_READING_PASSAGES_N5_N4_N3,
 ];
 const ALL_LISTENING_ITEMS: JLPTListeningItem[] = [
   ...MINNA_N5_LISTENING_ITEMS,
   ...CURATED_LISTENING_ITEMS,
   ...PACK_LISTENING_ITEMS,
+  ...EXTRA_LISTENING_ITEMS_N5_N4_N3,
 ];
 
 function filterByLevel<T extends { level: JLPTExamLevel }>(items: T[], level: JLPTLevelFilter): T[] {

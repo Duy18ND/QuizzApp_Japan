@@ -53,10 +53,10 @@ export const DailyStudyGateBanner: React.FC = () => {
   );
 
   useEffect(() => {
-    if (!user || !enforcement.isDueNow || nowTick < snoozedUntilMs) return;
+    if (!enforcement.isDueNow || nowTick < snoozedUntilMs) return;
     const intervalMs = enforcement.repeatIntervalMinutes * 60_000;
     const elapsed = nowTick - lastBrowserNotifRef.current;
-    if (elapsed >= intervalMs) {
+    if (lastBrowserNotifRef.current === 0 || elapsed >= intervalMs) {
       lastBrowserNotifRef.current = nowTick;
       const missingText =
         enforcement.remainingSeconds > 0
@@ -74,13 +74,19 @@ export const DailyStudyGateBanner: React.FC = () => {
     nowTick,
     snoozedUntilMs,
     studyLevel,
-    user,
   ]);
 
   const isAuthOrAdmin =
     pathname === '/login' || pathname === '/register' || pathname.startsWith('/admin');
+  const isOnRoadmapPage =
+    pathname === '/roadmap' || pathname === '/roadmap/stages';
 
-  if (!user || isAuthOrAdmin || !enforcement.isDueNow || nowTick < snoozedUntilMs) {
+  if (
+    isAuthOrAdmin ||
+    isOnRoadmapPage ||
+    !enforcement.isDueNow ||
+    nowTick < snoozedUntilMs
+  ) {
     return null;
   }
 

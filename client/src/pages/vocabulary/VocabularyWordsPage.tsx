@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Star, Volume2 } from 'lucide-react';
+import { CheckCircle2, Star, Volume2 } from 'lucide-react';
 import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
 import {
   buildVocabToolQuery,
@@ -135,15 +135,34 @@ export const VocabularyWordsPage: React.FC = () => {
     });
   }, [words, selectedType, searchQuery]);
 
-  const speakText = (text: string) => {
-    speakJapanese(text, settings.ttsRate);
+  const [interactedWordIds, setInteractedWordIds] = useState<number[]>([]);
+  const [vocabMarkedUnderstood, setVocabMarkedUnderstood] = useState(false);
+
+  const requiredVocabInteractions = Math.min(3, Math.max(1, words.length));
+
+  const recordVocabEngagement = (wordId?: number) => {
+    if (wordId === undefined) {
+      setVocabMarkedUnderstood(true);
+      recordDailyStageSkillActivity('vocab', user?.id);
+      return;
+    }
+    setInteractedWordIds((prev) => {
+      if (prev.includes(wordId)) return prev;
+      const next = [...prev, wordId];
+      if (next.length >= requiredVocabInteractions) {
+        setVocabMarkedUnderstood(true);
+        recordDailyStageSkillActivity('vocab', user?.id);
+      }
+      return next;
+    });
   };
 
-  useEffect(() => {
-    if (words.length > 0) {
-      recordDailyStageSkillActivity('vocab', user?.id);
+  const speakText = (text: string, wordId?: number) => {
+    speakJapanese(text, settings.ttsRate);
+    if (wordId !== undefined) {
+      recordVocabEngagement(wordId);
     }
-  }, [user?.id, words.length]);
+  };
 
   useEffect(() => {
     return () => stopJapaneseSpeech();
@@ -170,8 +189,30 @@ export const VocabularyWordsPage: React.FC = () => {
         description={`Danh sách ${filteredWords.length} / ${words.length} từ vựng${textbook ? ` · ${textbook.title} (${levelKey})` : ''}`}
         actions={
           <div className="flex flex-wrap gap-2">
-            <Link to={`/vocabulary/writing${toolQuery}`} className={buttonStyles({ variant: 'secondary', size: 'sm' })}>
-              Luyện gõ từ
+            <Link
+              to={
+                textbook
+                  ? `/flashcard/${levelSegment}/book/${textbook.id}/${unitInfo?.dbUnitId ?? numericUnitId}`
+                  : `/flashcard/${levelSegment}/${numericUnitId}`
+              }
+              className={buttonStyles({ variant: 'primary', size: 'sm' })}
+            >
+              Lật Flashcard bài này
+            </Link>
+            <Link
+              to={`/vocabulary/quiz${toolQuery}&unit=${numericUnitId}&autoStart=1`}
+              className={buttonStyles({ variant: 'soft', size: 'sm' })}
+            >
+              Quiz bài này
+            </Link>
+            <Link
+              to={`/vocabulary/writing${toolQuery}&unit=${numericUnitId}&autoStart=1`}
+              className={buttonStyles({ variant: 'secondary', size: 'sm' })}
+            >
+              Luyện gõ bài này
+            </Link>
+            <Link to="/roadmap" className={buttonStyles({ variant: 'secondary', size: 'sm' })}>
+              ← Bản đồ Màn
             </Link>
             <Link to={`/vocabulary/review${toolQuery}`} className={buttonStyles({ variant: 'secondary', size: 'sm' })}>
               Ôn tập ★ & sai
@@ -281,7 +322,7 @@ export const VocabularyWordsPage: React.FC = () => {
                         <IconButton
                           aria-label={`Phát âm ${word.kanji || word.hiragana}`}
                           size="sm"
-                          onClick={() => speakText(word.kanji || word.hiragana)}
+                          onClick={() => speakText(word.kanji || word.hiragana, word.id)}
                         >
                           <Volume2 className="size-4" aria-hidden />
                         </IconButton>
@@ -289,7 +330,10 @@ export const VocabularyWordsPage: React.FC = () => {
                           aria-label={isStarred ? 'Bỏ lưu từ này' : 'Lưu từ này'}
                           aria-pressed={isStarred}
                           size="sm"
-                          onClick={() => toggleStar(word.id)}
+                          onClick={() => {
+                            toggleStar(word.id);
+                            recordVocabEngagement(word.id);
+                          }}
                           className={cn(isStarred && 'text-warning-fg')}
                         >
                           <Star className={cn('size-4', isStarred && 'fill-current')} aria-hidden />
@@ -374,7 +418,7 @@ export const VocabularyWordsPage: React.FC = () => {
                             <IconButton
                               aria-label={`Phát âm ${word.kanji || word.hiragana}`}
                               size="sm"
-                              onClick={() => speakText(word.kanji || word.hiragana)}
+                              onClick={() => speakText(word.kanji || word.hiragana, word.id)}
                             >
                               <Volume2 className="size-4" aria-hidden />
                             </IconButton>
@@ -382,7 +426,10 @@ export const VocabularyWordsPage: React.FC = () => {
                               aria-label={isStarred ? 'Bỏ lưu từ này' : 'Lưu từ này'}
                               aria-pressed={isStarred}
                               size="sm"
-                              onClick={() => toggleStar(word.id)}
+                              onClick={() => {
+                                toggleStar(word.id);
+                                recordVocabEngagement(word.id);
+                              }}
                               className={cn(isStarred && 'text-warning-fg')}
                             >
                               <Star className={cn('size-4', isStarred && 'fill-current')} aria-hidden />
@@ -398,6 +445,37 @@ export const VocabularyWordsPage: React.FC = () => {
           </>
         )}
       </Card>
+
+      {words.length > 0 && (
+        <Card padding="md" className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="space-y-0.5 text-sm">
+            <p className="font-semibold text-fg">
+              {vocabMarkedUnderstood
+                ? 'Đã ghi nhận hoàn thành phần Đọc & Hiểu Từ vựng hôm nay!'
+                : `Đọc & nghe phát âm ít nhất ${requiredVocabInteractions} từ để mở khóa Quiz lộ trình (${Math.min(interactedWordIds.length, requiredVocabInteractions)}/${requiredVocabInteractions})`}
+            </p>
+            <p className="text-xs text-muted">
+              Bấm biểu tượng loa 🔊 hoặc gắn ★ các từ khó để hệ thống tự ghi nhận, hoặc bấm xác nhận bên phải sau khi đọc xong.
+            </p>
+          </div>
+          {vocabMarkedUnderstood ? (
+            <Badge tone="success" className="px-3 py-1.5 text-xs">
+              <CheckCircle2 className="size-4" aria-hidden />
+              Đã hiểu bài từ vựng
+            </Badge>
+          ) : (
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              leftIcon={<CheckCircle2 className="size-4" aria-hidden />}
+              onClick={() => recordVocabEngagement()}
+            >
+              Tôi đã đọc &amp; hiểu bài này
+            </Button>
+          )}
+        </Card>
+      )}
     </PageContainer>
   );
 };

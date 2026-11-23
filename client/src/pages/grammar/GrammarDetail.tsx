@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { BookOpen, FileText, PlayCircle } from 'lucide-react';
+import { BookOpen, FileText, PlayCircle, Sparkles } from 'lucide-react';
 import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
 import { getLiveGrammarBooks } from '../../services/curriculumStore';
 import { useAppSelector } from '../../store/hooks';
@@ -56,6 +56,12 @@ export const GrammarDetail: React.FC = () => {
         description={book.title}
         actions={
           <>
+            <Link
+              to="/roadmap"
+              className={buttonStyles({ variant: 'soft', size: 'md' })}
+            >
+              ← Bản đồ Màn
+            </Link>
             <Button
               variant="secondary"
               leftIcon={<FileText className="size-4" aria-hidden />}
@@ -65,6 +71,15 @@ export const GrammarDetail: React.FC = () => {
             </Button>
             <Button
               variant="primary"
+              leftIcon={<Sparkles className="size-4" aria-hidden />}
+              onClick={() =>
+                navigate(`/grammar/${book.id}/${chapter.id}/practice?count=12&mode=scenario`)
+              }
+            >
+              Quiz Tình huống &amp; Sắc thái
+            </Button>
+            <Button
+              variant="soft"
               leftIcon={<PlayCircle className="size-4" aria-hidden />}
               onClick={() =>
                 navigate(`/grammar/${book.id}/${chapter.id}/practice?count=20&mode=mixed`)
@@ -113,13 +128,20 @@ export const GrammarDetail: React.FC = () => {
                     </p>
                   </div>
 
-                  <div className="flex shrink-0 items-center gap-2">
+                  <div className="flex shrink-0 flex-wrap items-center gap-2">
                     <Link
                       to={`/grammar/${bookId}/${chapterId}/lesson/${grammar.id}`}
-                      className={buttonStyles({ variant: 'soft', size: 'sm' })}
+                      className={buttonStyles({ variant: 'primary', size: 'sm' })}
                     >
                       <BookOpen className="size-4" aria-hidden />
-                      Học ngay
+                      Giải thích &amp; Mẹo nhớ
+                    </Link>
+                    <Link
+                      to={`/grammar/${bookId}/${chapterId}/practice/${grammar.id}?mode=scenario&count=6`}
+                      className={buttonStyles({ variant: 'soft', size: 'sm' })}
+                    >
+                      <Sparkles className="size-3.5" aria-hidden />
+                      Quiz Tình huống
                     </Link>
                   </div>
                 </div>

@@ -237,8 +237,8 @@ export const VisualRoadmapCanvas: React.FC<VisualRoadmapCanvasProps> = ({
     if (!drag || !container || mode !== 'edit') return;
 
     const rect = container.getBoundingClientRect();
-    const xPct = Math.round(Math.min(90, Math.max(10, ((e.clientX - rect.left) / rect.width) * 100)));
-    const yPct = Math.round(Math.min(88, Math.max(12, ((e.clientY - rect.top) / rect.height) * 100)));
+    const xPct = Math.round(Math.min(84, Math.max(16, ((e.clientX - rect.left) / rect.width) * 100)));
+    const yPct = Math.round(Math.min(86, Math.max(14, ((e.clientY - rect.top) / rect.height) * 100)));
     drag.moved = true;
 
     updateRoadmap({
@@ -419,7 +419,7 @@ export const VisualRoadmapCanvas: React.FC<VisualRoadmapCanvasProps> = ({
                 onClick={() => handleNodeClick(node)}
                 style={{ left: `${node.xPct}%`, top: `${node.yPct}%` }}
                 className={cn(
-                  'absolute z-20 flex w-[132px] -translate-x-1/2 -translate-y-1/2 flex-col items-center rounded-2xl border-2 px-2.5 py-2 text-center shadow-card transition-colors sm:w-[156px]',
+                  'absolute z-20 flex w-[104px] -translate-x-1/2 -translate-y-1/2 flex-col items-center rounded-2xl border-2 px-2 py-1.5 text-center shadow-card transition-colors sm:w-[144px] sm:px-2.5 sm:py-2 md:w-[152px]',
                   mode === 'edit' && !connectMode
                     ? 'cursor-grab touch-none active:cursor-grabbing'
                     : unlocked
