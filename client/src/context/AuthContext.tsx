@@ -13,11 +13,14 @@ import {
   setActiveAuthenticatedUserId,
 } from '../services/sessionScope';
 import {
+  clearSavedOAuthProviderToken,
   consumeOAuthLoginPending,
   consumePendingImplicitOAuthTokens,
   consumePendingOAuthCallbackError,
+  isEmbeddedInAppBrowser,
   isSupabaseConfigured,
   markOAuthLoginPending,
+  saveOAuthProviderToken,
   supabase,
   supabasePublicAnonKey,
   supabasePublicUrl,
@@ -319,14 +322,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     bootstrapSession()
-      .then(async ({ data }) => {
+      .then(async ({ data, error: sessionErr }) => {
         if (cancelled) return;
+        if (sessionErr && !pendingOAuthErrRef.current) {
+          pendingOAuthErrRef.current = translateSupabaseAuthError(sessionErr.message);
+        }
         const sessionUser = data.session?.user;
         if (!sessionUser) {
           applyGuestSession('supabase');
           restorePendingOAuthError();
           return;
         }
+        saveOAuthProviderToken(data.session?.provider_token);
         pendingOAuthErrRef.current = null;
         const meta = sessionUser.user_metadata as Record<string, unknown> | undefined;
         if (meta && Array.isArray(meta.roadmap_completed_steps)) {
@@ -364,6 +371,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
       pendingOAuthErrRef.current = null;
+      saveOAuthProviderToken(session.provider_token);
       const meta = session.user.user_metadata as Record<string, unknown> | undefined;
       const profile = await fetchProfileForUser(
         session.user.id,
@@ -492,6 +500,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!supabase) {
       return { ok: false, error: 'Đăng nhập bằng Google hiện tạm thời chưa khả dụng.' };
     }
+    if (isEmbeddedInAppBrowser()) {
+      const msg =
+        'Google chặn đăng nhập bên trong Zalo / Messenger / TikTok. Hãy bấm dấu ⋮ hoặc … chọn "Mở bằng Chrome / Safari" rồi đăng nhập nhé!';
+      dispatch(setAuthError(msg));
+      return { ok: false, error: msg };
+    }
     pendingOAuthErrRef.current = null;
     dispatch(setAuthError(null));
 
@@ -542,6 +556,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     purgeLegacyQuickTestStorage();
     purgeGuestStudyLevelStorage();
     clearInMemoryAccountData();
+    clearSavedOAuthProviderToken();
     if (supabase) {
       try {
         await supabase.auth.signOut();
