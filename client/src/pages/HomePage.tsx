@@ -10,7 +10,7 @@ import {
   LogIn,
   Plus,
 } from 'lucide-react';
-import { WhatsNewBoard } from '../components/home/WhatsNewBoard';
+import { CommunityReviewsSection } from '../components/home/CommunityReviewsSection';
 import { StudyScheduleModal } from '../components/settings/StudyScheduleCard';
 import {
   Badge,
@@ -649,9 +649,6 @@ export const HomePage: React.FC = () => {
       </section>
       <StudyScheduleModal open={scheduleModalOpen} onClose={() => setScheduleModalOpen(false)} />
 
-      {/* What's New / Feature Announcement Board */}
-      <WhatsNewBoard />
-
       {/* =================================================================== */}
       {/* TẦNG 1: LỘ TRÌNH & MỤC TIÊU HÔM NAY (Chế độ Kỷ luật — 1 điểm vào)   */}
       {/* =================================================================== */}
@@ -955,6 +952,11 @@ export const HomePage: React.FC = () => {
       {/* LỊCH SỬ LÀM BÀI GẦN ĐÂY (Thu gọn 3 lượt gần nhất để trang chủ gọn)  */}
       {/* =================================================================== */}
       <QuizHistoryCard limit={3} showProfileLink />
+
+      {/* =================================================================== */}
+      {/* ĐÁNH GIÁ THẬT TỪ CỘNG ĐỒNG HỌC VIÊN (1 tài khoản / 1 đánh giá)      */}
+      {/* =================================================================== */}
+      <CommunityReviewsSection />
     </PageContainer>
   );
 };
