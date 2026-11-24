@@ -32,6 +32,8 @@ export interface QuizConfig {
   customData?: any[];
   questionType?: string;
   kanjiFilter?: string;
+  masteryMode?: boolean;
+  returnStageId?: string;
 }
 
 export type WordType = 

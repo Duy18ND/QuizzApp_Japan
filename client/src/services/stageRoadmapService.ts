@@ -24,7 +24,7 @@ import {
 } from '../data/vocabTextbooks';
 
 export type RoadmapMode = 'fixed' | 'custom';
-export type DailyMinutesTarget = 10 | 15;
+export type DailyMinutesTarget = 10 | 15 | 20 | 25 | 30;
 export type RepeatMinutesOption = 5 | 10 | 15;
 export type TotalStagesOption = 10 | 20 | 30 | 60;
 export type StageSkill =
@@ -168,7 +168,9 @@ function sanitizeDateStr(raw: unknown, fallback: string): string {
 }
 
 function sanitizeDailyTarget(raw: unknown): DailyMinutesTarget {
-  return Number(raw) === 15 ? 15 : 10;
+  const n = Number(raw);
+  if (n === 10 || n === 15 || n === 20 || n === 25 || n === 30) return n;
+  return 25;
 }
 
 function sanitizeRepeatInterval(raw: unknown): RepeatMinutesOption {
@@ -190,7 +192,7 @@ export function createDefaultStageRoadmapState(todayKey = getLocalDateKey()): Us
   return {
     activeMode: 'fixed',
     fixedStartDate: todayKey,
-    fixedDailyMinutesTarget: 10,
+    fixedDailyMinutesTarget: 25,
     fixedReminderTime: '20:00',
     fixedRepeatIntervalMinutes: 10,
     fixedStudyWeekdays: [...ALL_WEEKDAYS],
@@ -231,7 +233,7 @@ export function createDefaultCustomConfig(
     level,
     textbookId: book.id,
     startDate: todayKey,
-    dailyMinutesTarget: 10,
+    dailyMinutesTarget: 25,
     totalStages: recommendedStages,
     studyWeekdays: [...ALL_WEEKDAYS],
     skills: [...DEFAULT_SKILLS],
@@ -487,6 +489,108 @@ export function recordDailyStageSkillActivity(
   } catch {
     // Ignore storage errors
   }
+}
+
+const DAILY_METRICS_KEY_PREFIX = 'nihonmaster_daily_stage_metrics_v1:';
+
+export interface DailyStageMetrics {
+  vocabIds: string[];
+  kanjiIds: string[];
+  grammarIds: string[];
+}
+
+export function loadDailyStageMetrics(
+  userId?: string | null,
+  dateKey = getLocalDateKey(),
+): DailyStageMetrics {
+  const empty: DailyStageMetrics = { vocabIds: [], kanjiIds: [], grammarIds: [] };
+  if (typeof window === 'undefined') return empty;
+  const owner = userId || 'guest';
+  try {
+    const raw = window.localStorage.getItem(`${DAILY_METRICS_KEY_PREFIX}${owner}:${dateKey}`);
+    if (!raw) return empty;
+    const parsed = JSON.parse(raw) as Partial<DailyStageMetrics>;
+    return {
+      vocabIds: Array.isArray(parsed.vocabIds) ? parsed.vocabIds.map(String) : [],
+      kanjiIds: Array.isArray(parsed.kanjiIds) ? parsed.kanjiIds.map(String) : [],
+      grammarIds: Array.isArray(parsed.grammarIds) ? parsed.grammarIds.map(String) : [],
+    };
+  } catch {
+    return empty;
+  }
+}
+
+function saveDailyStageMetrics(
+  metrics: DailyStageMetrics,
+  userId?: string | null,
+  dateKey = getLocalDateKey(),
+): void {
+  if (typeof window === 'undefined') return;
+  const owner = userId || 'guest';
+  try {
+    window.localStorage.setItem(
+      `${DAILY_METRICS_KEY_PREFIX}${owner}:${dateKey}`,
+      JSON.stringify(metrics),
+    );
+    window.dispatchEvent(
+      new CustomEvent(DAILY_STAGE_ACTIVITY_SYNC_EVENT, {
+        detail: { metrics, userId: owner, dateKey },
+      }),
+    );
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+export const DAILY_VOCAB_TARGET = 8;
+export const DAILY_KANJI_TARGET = 3;
+
+export function recordDailyVocabInteraction(
+  wordId: string | number,
+  userId?: string | null,
+  requiredThreshold = DAILY_VOCAB_TARGET,
+): DailyStageMetrics {
+  const current = loadDailyStageMetrics(userId);
+  const idStr = String(wordId);
+  if (!current.vocabIds.includes(idStr)) {
+    current.vocabIds = [...current.vocabIds, idStr];
+    saveDailyStageMetrics(current, userId);
+  }
+  if (current.vocabIds.length >= Math.max(1, requiredThreshold)) {
+    recordDailyStageSkillActivity('vocab', userId);
+  }
+  return current;
+}
+
+export function recordDailyKanjiInteraction(
+  kanjiId: string,
+  userId?: string | null,
+  requiredThreshold = DAILY_KANJI_TARGET,
+): DailyStageMetrics {
+  const current = loadDailyStageMetrics(userId);
+  const idStr = String(kanjiId);
+  if (!current.kanjiIds.includes(idStr)) {
+    current.kanjiIds = [...current.kanjiIds, idStr];
+    saveDailyStageMetrics(current, userId);
+  }
+  if (current.kanjiIds.length >= Math.max(1, requiredThreshold)) {
+    recordDailyStageSkillActivity('kanji', userId);
+  }
+  return current;
+}
+
+export function recordDailyGrammarInteraction(
+  grammarId: string,
+  userId?: string | null,
+): DailyStageMetrics {
+  const current = loadDailyStageMetrics(userId);
+  const idStr = String(grammarId);
+  if (!current.grammarIds.includes(idStr)) {
+    current.grammarIds = [...current.grammarIds, idStr];
+    saveDailyStageMetrics(current, userId);
+  }
+  recordDailyStageSkillActivity('grammar', userId);
+  return current;
 }
 
 export function loadDailyStageSkillActivities(

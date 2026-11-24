@@ -10,7 +10,11 @@ import {
 import { parseDbUnitNumber } from '../../services/migrationService';
 import { getLiveUnitsForLevel, getLiveVocabForUnit } from '../../services/curriculumStore';
 import { useAuth } from '../../context/auth-context';
-import { recordDailyStageSkillActivity } from '../../services/stageRoadmapService';
+import {
+  DAILY_VOCAB_TARGET,
+  recordDailyStageSkillActivity,
+  recordDailyVocabInteraction,
+} from '../../services/stageRoadmapService';
 import { useAppSettings } from '../../hooks/useAppSettings';
 import { useUserProgress } from '../../hooks/useUserProgress';
 import type { JLPTLevel, WordType } from '../../types/quiz';
@@ -138,7 +142,10 @@ export const VocabularyWordsPage: React.FC = () => {
   const [interactedWordIds, setInteractedWordIds] = useState<number[]>([]);
   const [vocabMarkedUnderstood, setVocabMarkedUnderstood] = useState(false);
 
-  const requiredVocabInteractions = Math.min(3, Math.max(1, words.length));
+  const requiredVocabInteractions = Math.min(
+    DAILY_VOCAB_TARGET,
+    Math.max(3, Math.ceil(words.length * 0.5)),
+  );
 
   const recordVocabEngagement = (wordId?: number) => {
     if (wordId === undefined) {
@@ -146,12 +153,12 @@ export const VocabularyWordsPage: React.FC = () => {
       recordDailyStageSkillActivity('vocab', user?.id);
       return;
     }
+    recordDailyVocabInteraction(wordId, user?.id, requiredVocabInteractions);
     setInteractedWordIds((prev) => {
       if (prev.includes(wordId)) return prev;
       const next = [...prev, wordId];
       if (next.length >= requiredVocabInteractions) {
         setVocabMarkedUnderstood(true);
-        recordDailyStageSkillActivity('vocab', user?.id);
       }
       return next;
     });

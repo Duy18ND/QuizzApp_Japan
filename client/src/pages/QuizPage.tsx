@@ -77,6 +77,9 @@ function buildAutoStartConfig(
         ? rawCount
         : 10;
 
+  const masteryMode = searchParams.get('mastery') === '1';
+  const returnStageId = searchParams.get('stage')?.trim() || undefined;
+
   return {
     level,
     unitId,
@@ -91,6 +94,8 @@ function buildAutoStartConfig(
     shuffleAnswers: true,
     showHanVietHint: true,
     questionType: 'all',
+    masteryMode,
+    returnStageId,
   };
 }
 

@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
 import {
+  AlertTriangle,
   BookOpen,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
   HelpCircle,
   Lightbulb,
+  RotateCcw,
+  Sparkles,
   Volume2,
   XCircle,
 } from 'lucide-react';
-import { Badge, Button } from '../ui';
+import { Badge, Button, Chip } from '../ui';
 import { cn } from '../../lib/cn';
 import type { StageBriefingData } from '../../utils/stageBriefingBuilder';
 import { speakJapanese } from '../../utils/tts';
@@ -26,40 +29,53 @@ export const StageBriefingCard: React.FC<StageBriefingCardProps> = ({
   onMarkUnderstood,
 }) => {
   const [expanded, setExpanded] = useState(!isUnderstood);
-  const [pickedState, setPickedState] = useState<{
+  const [activeTab, setActiveTab] = useState<'tips' | 'vocab_kanji'>('tips');
+  const [answersByStage, setAnswersByStage] = useState<{
     stageId: string;
-    selectedIdx: number | null;
-  }>({ stageId: briefing.stageId, selectedIdx: null });
+    picks: Record<string, number>;
+  }>({ stageId: briefing.stageId, picks: {} });
 
-  const selectedIdx = pickedState.stageId === briefing.stageId ? pickedState.selectedIdx : null;
-  const quickCheck = briefing.quickCheck;
-  const isCheckCorrect =
-    quickCheck !== null && selectedIdx !== null && selectedIdx === quickCheck.correctIndex;
-  const isCheckWrong =
-    quickCheck !== null && selectedIdx !== null && selectedIdx !== quickCheck.correctIndex;
+  const picks = answersByStage.stageId === briefing.stageId ? answersByStage.picks : {};
+  const checks = briefing.quickChecks;
+  const requiredCorrect = Math.min(2, checks.length);
+
+  const answeredCount = checks.filter((c) => picks[c.id] !== undefined).length;
+  const correctCount = checks.filter((c) => picks[c.id] === c.correctIndex).length;
+  const allAnswered = checks.length > 0 && answeredCount === checks.length;
+  const passedChecks = checks.length > 0 && correctCount >= requiredCorrect;
 
   const hasContent =
     briefing.vocabItems.length > 0 ||
     briefing.grammarItems.length > 0 ||
     briefing.kanjiItems.length > 0;
 
-  if (!hasContent && !quickCheck) return null;
+  if (!hasContent && checks.length === 0) return null;
+
+  const handlePickOption = (checkId: string, optionIdx: number) => {
+    const nextPicks = { ...picks, [checkId]: optionIdx };
+    setAnswersByStage({ stageId: briefing.stageId, picks: nextPicks });
+
+    const nextCorrect = checks.filter((c) => nextPicks[c.id] === c.correctIndex).length;
+    if (!isUnderstood && nextCorrect >= requiredCorrect) {
+      onMarkUnderstood();
+    }
+  };
 
   return (
     <div
       className={cn(
         'rounded-xl border p-3.5 transition-colors',
         isUnderstood
-          ? 'border-success-line bg-success-soft/25'
-          : 'border-primary/40 bg-primary-soft/15',
+          ? 'border-success-line bg-success-soft/20'
+          : 'border-primary/45 bg-primary-soft/15',
       )}
     >
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2.5">
           <span
             className={cn(
-              'grid size-7 shrink-0 place-items-center rounded-lg',
+              'grid size-8 shrink-0 place-items-center rounded-lg',
               isUnderstood
                 ? 'bg-success-soft text-success-fg'
                 : 'bg-primary-soft text-primary-fg',
@@ -74,14 +90,16 @@ export const StageBriefingCard: React.FC<StageBriefingCardProps> = ({
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-1.5">
               <p className="text-xs font-bold tracking-wide text-fg uppercase">
-                Khởi động: Đọc &amp; Hiểu nhanh (60 giây)
+                Chặng 2 · Đọc hiểu Tips, Dấu hiệu nhận biết &amp; Chốt hiểu (~7p)
               </p>
               <Badge tone={isUnderstood ? 'success' : 'primary'}>
-                {isUnderstood ? '✓ Đã hiểu bài' : 'Nên đọc trước khi Quiz'}
+                {isUnderstood
+                  ? '✓ Đã nắm Tips & Dấu hiệu'
+                  : `Cần đúng ≥ ${requiredCorrect}/${checks.length} câu`}
               </Badge>
             </div>
             <p className="truncate text-[11px] text-muted">
-              Nắm trước cốt lõi của {briefing.headline} rồi mở khóa Quiz đạt điểm cao.
+              Đọc kỹ Dấu hiệu nhận biết, Bẫy ○/× và So sánh cặp dễ nhầm của {briefing.headline} trước khi làm bài tập.
             </p>
           </div>
         </div>
@@ -99,163 +117,300 @@ export const StageBriefingCard: React.FC<StageBriefingCardProps> = ({
             )
           }
         >
-          {expanded ? 'Thu gọn' : 'Xem tóm tắt'}
+          {expanded ? 'Thu gọn' : 'Mở Tips & Dấu hiệu'}
         </Button>
       </div>
 
-      {/* Collapsible Content */}
+      {/* Collapsible Deep Briefing Body */}
       {expanded && (
-        <div className="mt-3 space-y-3 border-t border-line pt-3">
-          {/* 1. Core Grammar (if present) */}
-          {briefing.grammarItems.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-[11px] font-semibold tracking-wide text-primary-fg uppercase">
-                Ngữ pháp cốt lõi hôm nay
-              </p>
-              <div className="grid gap-2">
-                {briefing.grammarItems.map((g) => (
+        <div className="mt-3 space-y-3.5 border-t border-line pt-3">
+          {/* Sub-tabs inside Briefing */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Chip
+              selected={activeTab === 'tips'}
+              onClick={() => setActiveTab('tips')}
+            >
+              📌 Tips, Dấu hiệu &amp; Bẫy ○/× ({briefing.grammarItems.length})
+            </Chip>
+            <Chip
+              selected={activeTab === 'vocab_kanji'}
+              onClick={() => setActiveTab('vocab_kanji')}
+            >
+              📖 Từ vựng ({briefing.vocabItems.length}) &amp; Kanji ({briefing.kanjiItems.length})
+            </Chip>
+          </div>
+
+          {/* Tab 1: Grammar Tips, Trigger Words, Right vs Wrong & Confusable Pairs */}
+          {activeTab === 'tips' && (
+            <div className="space-y-2.5">
+              {briefing.grammarItems.length > 0 ? (
+                briefing.grammarItems.map((g) => (
                   <div
                     key={g.id}
-                    className="rounded-lg border border-line bg-surface/85 p-2.5 text-xs"
+                    className="space-y-2.5 rounded-xl border border-line bg-surface/90 p-3 text-xs"
                   >
-                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-line pb-2">
                       <span lang="ja" className="text-sm font-bold text-primary-fg">
                         {g.name}
                       </span>
                       <span className="font-semibold text-fg">{g.meaning}</span>
                     </div>
-                    <p className="mt-1 leading-relaxed text-muted">
-                      <strong className="text-fg">Dùng khi nào:</strong> {g.whenToUse}
-                    </p>
+
+                    {/* When to use */}
+                    <div className="space-y-1">
+                      <p className="font-semibold text-fg">1. Dùng khi nào:</p>
+                      <ul className="list-disc space-y-0.5 pl-4 text-muted">
+                        {g.whenToUse.map((line, i) => (
+                          <li key={i}>{line}</li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {/* Trigger Words / Signs */}
+                    {g.triggerWords.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="font-semibold text-fg">
+                          2. Dấu hiệu nhận biết trong đề (Trigger words):
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {g.triggerWords.map((tw) => (
+                            <span
+                              key={tw}
+                              lang="ja"
+                              className="rounded-md border border-primary/35 bg-primary-soft/60 px-2 py-0.5 text-[11px] font-bold text-primary-fg"
+                            >
+                              {tw}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 3-Second Memory Tip */}
                     {g.memoryTip && (
-                      <p className="mt-1 flex items-start gap-1 text-[11px] text-warning-fg">
-                        <Lightbulb className="mt-0.5 size-3 shrink-0" aria-hidden />
-                        <span>{g.memoryTip}</span>
-                      </p>
+                      <div className="flex items-start gap-1.5 rounded-lg border border-warning-line bg-warning-soft/35 p-2 text-warning-fg">
+                        <Lightbulb className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                        <span>
+                          <strong>Mẹo nhớ 3 giây:</strong> {g.memoryTip}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Right vs Wrong Trap */}
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <div className="rounded-lg border border-success-line bg-success-soft/25 p-2">
+                        <p className="font-bold text-success-fg">○ Câu chuẩn tự nhiên</p>
+                        <p lang="ja" className="mt-0.5 font-semibold text-fg">
+                          {g.rightVsWrong.rightSentence}
+                        </p>
+                        <p className="text-[11px] text-muted">{g.rightVsWrong.rightMeaning}</p>
+                      </div>
+                      <div className="rounded-lg border border-danger-line bg-danger-soft/25 p-2">
+                        <p className="flex items-center gap-1 font-bold text-danger-fg">
+                          <AlertTriangle className="size-3" aria-hidden />× Bẫy hay sai
+                        </p>
+                        <p lang="ja" className="mt-0.5 font-semibold text-fg">
+                          {g.rightVsWrong.wrongSentence}
+                        </p>
+                        <p className="text-[11px] text-muted">{g.rightVsWrong.wrongReason}</p>
+                      </div>
+                    </div>
+
+                    {/* Confusable Pairs Comparison */}
+                    {g.confusableItems.length > 1 && (
+                      <div className="space-y-1 rounded-lg border border-line bg-surface-2/60 p-2">
+                        <p className="font-semibold text-fg">
+                          ⚖️ So sánh nhanh: {g.confusableTitle}
+                        </p>
+                        <ul className="space-y-1">
+                          {g.confusableItems.map((c) => (
+                            <li key={c.pattern} className="text-[11px] leading-relaxed text-muted">
+                              <strong lang="ja" className="text-primary-fg">
+                                {c.pattern}
+                              </strong>{' '}
+                              ({c.meaning}): {c.nuance}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     )}
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* 2. Core Vocabulary (with 1-click TTS) */}
-          {briefing.vocabItems.length > 0 && (
-            <div className="space-y-1.5">
-              <p className="text-[11px] font-semibold tracking-wide text-primary-fg uppercase">
-                Từ vựng trọng tâm (bấm loa để nghe trước)
-              </p>
-              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                {briefing.vocabItems.map((v) => (
-                  <div
-                    key={v.id}
-                    className="flex items-center justify-between gap-2 rounded-lg border border-line bg-surface/85 px-2.5 py-1.5"
-                  >
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-baseline gap-1.5">
-                        <span lang="ja" className="text-sm font-bold text-fg">
-                          {v.japanese}
-                        </span>
-                        {v.japanese !== v.hiragana && (
-                          <span lang="ja" className="text-xs text-primary-fg">
-                            ({v.hiragana})
-                          </span>
-                        )}
-                      </div>
-                      <p className="truncate text-xs text-muted">{v.meaning}</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => speakJapanese(v.japanese || v.hiragana)}
-                      aria-label={`Nghe từ ${v.japanese}`}
-                      title="Nghe phát âm"
-                      className="grid size-7 shrink-0 place-items-center rounded-full border border-line bg-surface-2 text-muted transition-colors hover:border-primary/50 hover:text-primary-fg"
-                    >
-                      <Volume2 className="size-3.5" aria-hidden />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* 3. Core Kanji */}
-          {briefing.kanjiItems.length > 0 && (
-            <div className="space-y-1.5">
-              <p className="text-[11px] font-semibold tracking-wide text-primary-fg uppercase">
-                Chữ Hán nhóm bài này ({briefing.kanjiItems.length} chữ)
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {briefing.kanjiItems.map((k) => (
-                  <div
-                    key={k.id}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface/85 px-2.5 py-1 text-xs"
-                  >
-                    <span lang="ja" className="text-base font-bold text-fg">
-                      {k.kanji}
-                    </span>
-                    <span className="text-[11px] font-semibold text-primary-fg uppercase">
-                      {k.hanViet || 'Kanji'}
-                    </span>
-                    <span className="text-muted">· {k.meaning}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* 4. Quick 10-Second Comprehension Check */}
-          {!isUnderstood && (
-            <div className="space-y-2 rounded-xl border border-line-strong bg-surface p-3">
-              {quickCheck ? (
-                <>
-                  <p className="flex items-start gap-1.5 text-xs font-semibold text-fg">
-                    <HelpCircle className="mt-0.5 size-3.5 shrink-0 text-primary-fg" aria-hidden />
-                    <span>Chốt hiểu nhanh (1 câu): {quickCheck.prompt}</span>
-                  </p>
-                  <div className="grid gap-1.5 sm:grid-cols-3">
-                    {quickCheck.options.map((opt, idx) => {
-                      const pickedThis = selectedIdx === idx;
-                      const isRight = pickedThis && idx === quickCheck.correctIndex;
-                      const isWrong = pickedThis && idx !== quickCheck.correctIndex;
-                      return (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => {
-                            setPickedState({ stageId: briefing.stageId, selectedIdx: idx });
-                            if (idx === quickCheck.correctIndex) {
-                              onMarkUnderstood();
-                            }
-                          }}
-                          className={cn(
-                            'rounded-lg border px-2.5 py-2 text-left text-xs font-medium transition-all',
-                            isRight
-                              ? 'border-success-line bg-success-soft text-success-fg'
-                              : isWrong
-                                ? 'border-danger-line bg-danger-soft text-danger-fg'
-                                : 'border-line bg-surface-2 text-fg hover:border-primary/50 hover:bg-primary-soft/20',
-                          )}
-                        >
-                          {opt}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {isCheckWrong && (
-                    <p className="flex items-center gap-1.5 text-xs text-danger-fg">
-                      <XCircle className="size-3.5 shrink-0" aria-hidden />
-                      Chưa chính xác — hãy liếc nhanh tóm tắt phía trên rồi chọn lại nhé!
-                    </p>
-                  )}
-                  {isCheckCorrect && (
-                    <p className="flex items-center gap-1.5 text-xs font-medium text-success-fg">
-                      <CheckCircle2 className="size-3.5 shrink-0" aria-hidden />
-                      Chuẩn xác! {quickCheck.explanation}
-                    </p>
-                  )}
-                </>
+                ))
               ) : (
+                <p className="rounded-lg border border-line bg-surface/80 p-3 text-xs text-muted">
+                  Màn này tập trung ôn từ vựng &amp; chữ Hán cốt lõi. Chuyển sang tab{' '}
+                  <strong>Từ vựng &amp; Kanji</strong> để nghe đọc trước khi làm kiểm tra bên dưới.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Tab 2: Core Vocab (8 words with TTS) + 5 Kanji */}
+          {activeTab === 'vocab_kanji' && (
+            <div className="space-y-3">
+              {briefing.vocabItems.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-semibold tracking-wide text-primary-fg uppercase">
+                    Từ vựng trọng tâm bài này (bấm loa nghe &amp; nhẩm theo)
+                  </p>
+                  <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                    {briefing.vocabItems.map((v) => (
+                      <div
+                        key={v.id}
+                        className="flex items-center justify-between gap-2 rounded-lg border border-line bg-surface/85 px-2.5 py-1.5"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-baseline gap-1.5">
+                            <span lang="ja" className="text-sm font-bold text-fg">
+                              {v.japanese}
+                            </span>
+                            {v.japanese !== v.hiragana && (
+                              <span lang="ja" className="text-xs text-primary-fg">
+                                ({v.hiragana})
+                              </span>
+                            )}
+                          </div>
+                          <p className="truncate text-xs text-muted">{v.meaning}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => speakJapanese(v.japanese || v.hiragana)}
+                          aria-label={`Nghe từ ${v.japanese}`}
+                          title="Nghe phát âm"
+                          className="grid size-7 shrink-0 cursor-pointer place-items-center rounded-full border border-line bg-surface-2 text-muted transition-colors hover:border-primary/50 hover:text-primary-fg"
+                        >
+                          <Volume2 className="size-3.5" aria-hidden />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {briefing.kanjiItems.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-semibold tracking-wide text-primary-fg uppercase">
+                    5 Chữ Hán nhóm bài này (Hán Việt · Âm đọc · Nghĩa)
+                  </p>
+                  <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                    {briefing.kanjiItems.map((k) => (
+                      <div
+                        key={k.id}
+                        className="flex items-center gap-2.5 rounded-lg border border-line bg-surface/85 px-2.5 py-1.5 text-xs"
+                      >
+                        <span
+                          lang="ja"
+                          className="grid size-8 shrink-0 place-items-center rounded-md bg-primary-soft text-lg font-bold text-primary-fg"
+                        >
+                          {k.kanji}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-fg">
+                            <span className="text-primary-fg uppercase">
+                              {k.hanViet || 'Kanji'}
+                            </span>{' '}
+                            · {k.meaning}
+                          </p>
+                          {(k.onReading || k.kunReading) && (
+                            <p lang="ja" className="truncate text-[11px] text-muted">
+                              {[k.onReading, k.kunReading].filter(Boolean).join(' · ')}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 3-Question Comprehension & Trigger Check Gate */}
+          <div className="space-y-2.5 rounded-xl border border-line-strong bg-surface p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="flex items-center gap-1.5 text-xs font-bold text-fg">
+                <HelpCircle className="size-3.5 text-primary-fg" aria-hidden />
+                Kiểm tra hiểu bản chất &amp; dấu hiệu ({checks.length} câu — đạt ≥ {requiredCorrect}/
+                {checks.length} để mở Chặng 3)
+              </p>
+              <div className="flex items-center gap-1.5">
+                <Badge tone={isUnderstood || passedChecks ? 'success' : 'neutral'} className="tabular">
+                  Đúng {correctCount}/{checks.length}
+                </Badge>
+                {allAnswered && !passedChecks && !isUnderstood && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    leftIcon={<RotateCcw className="size-3" aria-hidden />}
+                    onClick={() => setAnswersByStage({ stageId: briefing.stageId, picks: {} })}
+                  >
+                    Làm lại
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {checks.length > 0 ? (
+              <div className="space-y-2.5">
+                {checks.map((qc, qIdx) => {
+                  const chosen = picks[qc.id];
+                  const hasPicked = chosen !== undefined;
+                  const isRight = hasPicked && chosen === qc.correctIndex;
+                  const isWrong = hasPicked && chosen !== qc.correctIndex;
+
+                  return (
+                    <div
+                      key={qc.id}
+                      className="space-y-1.5 rounded-lg border border-line bg-surface-2/60 p-2.5"
+                    >
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Badge tone="neutral">Câu {qIdx + 1}</Badge>
+                        <Badge tone="sakura">{qc.category}</Badge>
+                      </div>
+                      <p className="text-xs font-semibold leading-relaxed text-fg">{qc.prompt}</p>
+                      <div className="grid gap-1.5 sm:grid-cols-3">
+                        {qc.options.map((opt, idx) => {
+                          const pickedThis = chosen === idx;
+                          const rightOpt = pickedThis && idx === qc.correctIndex;
+                          const wrongOpt = pickedThis && idx !== qc.correctIndex;
+                          return (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => handlePickOption(qc.id, idx)}
+                              className={cn(
+                                'cursor-pointer rounded-lg border px-2.5 py-1.5 text-left text-xs font-medium transition-all',
+                                rightOpt
+                                  ? 'border-success-line bg-success-soft text-success-fg'
+                                  : wrongOpt
+                                    ? 'border-danger-line bg-danger-soft text-danger-fg'
+                                    : 'border-line bg-surface text-fg hover:border-primary/50 hover:bg-primary-soft/20',
+                              )}
+                            >
+                              {opt}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {isWrong && (
+                        <p className="flex items-center gap-1 text-[11px] text-danger-fg">
+                          <XCircle className="size-3.5 shrink-0" aria-hidden />
+                          Chưa đúng — hãy xem lại phần Tips &amp; Dấu hiệu ở trên rồi chọn lại nhé!
+                        </p>
+                      )}
+                      {isRight && (
+                        <p className="flex items-center gap-1 text-[11px] font-medium text-success-fg">
+                          <CheckCircle2 className="size-3.5 shrink-0" aria-hidden />
+                          Chính xác! {qc.explanation}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              !isUnderstood && (
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-xs text-muted">
                     Đọc xong tóm tắt mục tiêu bài học bên trên?
@@ -264,15 +419,15 @@ export const StageBriefingCard: React.FC<StageBriefingCardProps> = ({
                     type="button"
                     variant="primary"
                     size="sm"
-                    leftIcon={<CheckCircle2 className="size-3.5" aria-hidden />}
+                    leftIcon={<Sparkles className="size-3.5" aria-hidden />}
                     onClick={onMarkUnderstood}
                   >
                     Tôi đã đọc &amp; hiểu bài
                   </Button>
                 </div>
-              )}
-            </div>
-          )}
+              )
+            )}
+          </div>
         </div>
       )}
     </div>

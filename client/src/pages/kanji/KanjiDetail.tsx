@@ -9,7 +9,7 @@ import {
   loadSavedKanjiIds,
   toggleSavedKanjiId,
 } from '../../services/kanjiBookmarkService';
-import { recordDailyStageSkillActivity } from '../../services/stageRoadmapService';
+import { recordDailyKanjiInteraction } from '../../services/stageRoadmapService';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { markKanjiLearned } from '../../store/slices/kanjiSlice';
 import {
@@ -47,7 +47,7 @@ export const KanjiDetail: React.FC = () => {
 
   useEffect(() => {
     if (kanji) {
-      recordDailyStageSkillActivity('kanji', user?.id);
+      recordDailyKanjiInteraction(kanji.id, user?.id);
     }
   }, [kanji, user?.id]);
 
