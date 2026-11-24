@@ -535,5 +535,190 @@ create policy "user_push_subscriptions_owner_all"
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
+-- =============================================================================
+-- 10. VERIFIED COMMUNITY REVIEWS & LIVE PUBLIC STATS
+--     - Experience-first: requires >= 1 completed quiz/practice attempt in DB
+--     - Immutable 1-time review per authenticated account (no user edit/delete)
+--     - Server-side trigger verifies & attaches real `verified_attempts`
+--     - Public read + Admin moderation (feature / hide / delete spam)
+-- =============================================================================
+
+create table if not exists public.app_reviews (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null unique references auth.users(id) on delete cascade,
+  author_name text not null,
+  study_level text not null default 'N5',
+  rating smallint not null check (rating between 1 and 5),
+  comment text not null check (char_length(trim(comment)) between 15 and 500),
+  favorite_features text[] not null default '{}',
+  verified_attempts integer not null default 0,
+  helpful_count integer not null default 0,
+  is_featured boolean not null default false,
+  is_hidden boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_app_reviews_public_sort
+  on public.app_reviews (is_hidden, is_featured desc, helpful_count desc, created_at desc);
+
+create table if not exists public.app_review_votes (
+  review_id uuid not null references public.app_reviews(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (review_id, user_id)
+);
+
+-- Automatically verify real learning experience (>= 1 completed attempt) & attach real count
+create or replace function public.sync_app_review_verified_stats()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_attempts integer := 0;
+begin
+  select count(*)::integer into v_attempts
+  from public.quiz_attempts
+  where user_id = new.user_id;
+
+  if tg_op = 'INSERT' and coalesce(v_attempts, 0) < 1 and not public.is_admin_or_super() then
+    raise exception 'EXPERIENCE_REQUIRED: Bạn cần hoàn thành ít nhất 1 bài luyện tập trước khi gửi đánh giá.';
+  end if;
+
+  if tg_op = 'INSERT' then
+    new.verified_attempts := coalesce(v_attempts, 0);
+  end if;
+  new.updated_at := now();
+
+  -- Prevent non-admin users from altering moderation flags
+  if tg_op = 'UPDATE' and not public.is_admin_or_super() then
+    new.is_featured := old.is_featured;
+    new.is_hidden := old.is_hidden;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_app_reviews_verified_stats on public.app_reviews;
+create trigger trg_app_reviews_verified_stats
+  before insert or update
+  on public.app_reviews
+  for each row execute function public.sync_app_review_verified_stats();
+
+-- Keep helpful_count synchronized with public.app_review_votes
+create or replace function public.sync_app_review_helpful_count()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_review_id uuid;
+begin
+  v_review_id := coalesce(new.review_id, old.review_id);
+  update public.app_reviews
+  set helpful_count = (
+    select count(*)::integer
+    from public.app_review_votes
+    where review_id = v_review_id
+  )
+  where id = v_review_id;
+  return null;
+end;
+$$;
+
+drop trigger if exists trg_app_review_votes_count on public.app_review_votes;
+create trigger trg_app_review_votes_count
+  after insert or delete
+  on public.app_review_votes
+  for each row execute function public.sync_app_review_helpful_count();
+
+alter table public.app_reviews enable row level security;
+alter table public.app_review_votes enable row level security;
+
+-- Public can read non-hidden reviews; owners & admins can also view their own / hidden reviews
+drop policy if exists "app_reviews_select_public" on public.app_reviews;
+create policy "app_reviews_select_public"
+  on public.app_reviews
+  for select
+  to anon, authenticated
+  using (is_hidden = false or auth.uid() = user_id or public.is_admin_or_super());
+
+-- Authenticated users may INSERT exactly once (enforced by UNIQUE(user_id)) after completing >= 1 attempt
+-- No owner UPDATE or DELETE policies: reviews are immutable 1-time records for maximum authenticity
+drop policy if exists "app_reviews_insert_owner" on public.app_reviews;
+create policy "app_reviews_insert_owner"
+  on public.app_reviews
+  for insert
+  to authenticated
+  with check (auth.uid() = user_id and is_featured = false and is_hidden = false);
+
+drop policy if exists "app_reviews_update_owner" on public.app_reviews;
+drop policy if exists "app_reviews_delete_owner" on public.app_reviews;
+
+drop policy if exists "app_reviews_admin_all" on public.app_reviews;
+create policy "app_reviews_admin_all"
+  on public.app_reviews
+  for all
+  to authenticated
+  using (public.is_admin_or_super())
+  with check (public.is_admin_or_super());
+
+drop policy if exists "app_review_votes_select_public" on public.app_review_votes;
+create policy "app_review_votes_select_public"
+  on public.app_review_votes
+  for select
+  to anon, authenticated
+  using (true);
+
+drop policy if exists "app_review_votes_owner_insert" on public.app_review_votes;
+create policy "app_review_votes_owner_insert"
+  on public.app_review_votes
+  for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+drop policy if exists "app_review_votes_owner_delete" on public.app_review_votes;
+create policy "app_review_votes_owner_delete"
+  on public.app_review_votes
+  for delete
+  to authenticated
+  using (auth.uid() = user_id);
+
+-- Public aggregate community stats RPC (exposes only anonymous totals, zero PII)
+create or replace function public.get_public_community_stats()
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_users integer := 0;
+  v_attempts integer := 0;
+  v_reviews integer := 0;
+  v_avg numeric := 0;
+begin
+  select count(*)::integer into v_users from public.profiles;
+  select count(*)::integer into v_attempts from public.quiz_attempts;
+  select count(*)::integer, coalesce(round(avg(rating)::numeric, 2), 0)
+    into v_reviews, v_avg
+  from public.app_reviews
+  where is_hidden = false;
+
+  return jsonb_build_object(
+    'totalUsers', coalesce(v_users, 0),
+    'totalAttempts', coalesce(v_attempts, 0),
+    'totalReviews', coalesce(v_reviews, 0),
+    'avgRating', coalesce(v_avg, 0)
+  );
+end;
+$$;
+
+grant execute on function public.get_public_community_stats() to anon, authenticated;
+
+
 
 

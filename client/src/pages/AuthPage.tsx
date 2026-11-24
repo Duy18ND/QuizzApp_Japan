@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from 'react';
 import { LogIn, UserPlus } from 'lucide-react';
+import { useState, type FormEvent } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { GoogleSignInButton } from '../components/auth/LoginRequiredState';
 import {
@@ -260,16 +260,6 @@ export function AuthPage({ initialMode = 'login' }: AuthPageProps) {
               label="Tiếp tục với Google"
               onErrorMessage={(msg) => setFormError(msg)}
             />
-
-            <Button
-              type="button"
-              variant="ghost"
-              fullWidth
-              className="h-auto min-h-10 py-2 whitespace-normal"
-              onClick={() => navigate('/')}
-            >
-              Xem thử với chế độ Khách (không lưu tiến độ)
-            </Button>
 
             <p className="pt-1 text-center text-[11px] leading-relaxed text-muted">
               Bằng việc đăng nhập hoặc đăng ký, bạn đồng ý với{' '}

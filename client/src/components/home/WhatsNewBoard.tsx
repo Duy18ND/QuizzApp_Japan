@@ -18,6 +18,150 @@ import { cn } from '../../lib/cn';
 import { Badge, Button, Card, Modal } from '../ui';
 import { buttonStyles } from '../ui/styles';
 
+export const WhatsNewNavButton: React.FC = () => {
+  const [unread, setUnread] = useState<boolean>(() => isLatestReleaseUnread());
+  const [modalOpen, setModalOpen] = useState(false);
+
+  const latest = WHATS_NEW_RELEASES[0];
+  if (!latest) return null;
+
+  const handleOpen = () => {
+    setModalOpen(true);
+    if (unread) {
+      markLatestReleaseSeen();
+      setUnread(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={handleOpen}
+        aria-label={`Có gì mới ${CURRENT_RELEASE_VERSION}`}
+        title={`Có gì mới · ${CURRENT_RELEASE_VERSION}: ${latest.title}`}
+        className={buttonStyles({
+          variant: 'secondary',
+          size: 'sm',
+          className: cn(
+            'relative h-8 gap-1.5 px-2 sm:px-2.5',
+            unread && 'border-sakura/60',
+          ),
+        })}
+      >
+        <Sparkles className="size-3.5 shrink-0 text-sakura sm:size-4" aria-hidden />
+        <span className="hidden text-xs font-semibold sm:inline">{CURRENT_RELEASE_VERSION}</span>
+        {unread && (
+          <span
+            aria-label="Có bản cập nhật mới chưa đọc"
+            className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-sakura ring-2 ring-surface"
+          />
+        )}
+      </button>
+
+      <Modal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        size="lg"
+        title="Nhật ký Cập nhật & Tính năng mới (What's New)"
+        description="Theo dõi toàn bộ các tính năng, giáo trình và nâng cấp mới nhất trên Nihongo 問."
+        footer={
+          <Button
+            type="button"
+            variant="primary"
+            onClick={() => {
+              markLatestReleaseSeen();
+              setUnread(false);
+              setModalOpen(false);
+            }}
+          >
+            Đã xem ({CURRENT_RELEASE_VERSION})
+          </Button>
+        }
+      >
+        <div className="max-h-[68vh] space-y-5 overflow-y-auto pr-1">
+          {WHATS_NEW_RELEASES.map((rel, idx) => (
+            <div
+              key={rel.version}
+              className={cn(
+                'space-y-3 rounded-xl border p-3.5',
+                idx === 0
+                  ? 'border-sakura/50 bg-sakura-soft/25'
+                  : 'border-line bg-surface-2/45',
+              )}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge tone={idx === 0 ? 'sakura' : 'primary'}>
+                    {rel.version}
+                  </Badge>
+                  <Badge tone="neutral">{rel.badge}</Badge>
+                </div>
+                <span className="text-xs font-medium text-muted">
+                  Ngày cập nhật: {rel.date}
+                </span>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-bold text-fg sm:text-base">
+                  {rel.title}
+                </h3>
+                <p className="mt-1 text-xs text-muted">{rel.summary}</p>
+              </div>
+
+              <ul className="space-y-2">
+                {rel.highlights.map((item) => (
+                  <li
+                    key={item.id}
+                    className="flex flex-col gap-2 rounded-lg border border-line bg-surface/80 p-2.5 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <span
+                        lang="ja"
+                        aria-hidden
+                        className="grid size-8 shrink-0 place-items-center rounded-md bg-primary-soft text-xs font-bold text-primary-fg"
+                      >
+                        {item.glyph}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <Badge tone={item.tone}>{item.tag}</Badge>
+                          <span className="text-xs font-bold text-fg">
+                            {item.title}
+                          </span>
+                        </div>
+                        <p className="mt-0.5 text-xs text-muted">
+                          {item.description}
+                        </p>
+                      </div>
+                    </div>
+                    <Link
+                      to={item.to}
+                      onClick={() => {
+                        markLatestReleaseSeen();
+                        setUnread(false);
+                        setModalOpen(false);
+                      }}
+                      className={buttonStyles({
+                        variant: 'secondary',
+                        size: 'sm',
+                        className: 'shrink-0 self-end sm:self-center',
+                      })}
+                    >
+                      <span>{item.ctaLabel}</span>
+                      <ArrowRight className="size-3.5" aria-hidden />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </Modal>
+    </>
+  );
+};
+
 export const WhatsNewBoard: React.FC = () => {
   const [unread, setUnread] = useState<boolean>(() => isLatestReleaseUnread());
   const [expanded, setExpanded] = useState<boolean>(() => isLatestReleaseUnread());
