@@ -4,7 +4,12 @@ import {
   getLocalDateKey,
 } from './notificationService';
 import type { DailyMinutesTarget, RoadmapStage } from './stageRoadmapService';
-import { markOAuthLoginPending, supabase } from './supabaseClient';
+import {
+  clearSavedOAuthProviderToken,
+  getSavedOAuthProviderToken,
+  markOAuthLoginPending,
+  supabase,
+} from './supabaseClient';
 
 const GOOGLE_CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
 const GCAL_SYNC_PENDING_KEY = 'nihongo_gcal_sync_pending_v1';
@@ -163,7 +168,7 @@ export async function syncRoadmapStagesToGoogleCalendar(options: {
   }
 
   const { data: sessionData } = await supabase.auth.getSession();
-  const providerToken = sessionData.session?.provider_token;
+  const providerToken = sessionData.session?.provider_token || getSavedOAuthProviderToken();
 
   if (!providerToken) {
     return {
@@ -196,6 +201,7 @@ export async function syncRoadmapStagesToGoogleCalendar(options: {
   const existingCheck = await fetchExistingRoadmapEventMap(providerToken);
   if (!existingCheck.ok) {
     if (existingCheck.status === 401) {
+      clearSavedOAuthProviderToken();
       return {
         ok: false,
         needsReauth: true,

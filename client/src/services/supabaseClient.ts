@@ -12,7 +12,8 @@ const rawAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
 
 export const AUTH_STORAGE_KEY = 'nihonmaster_sb_auth_v1';
 export const OAUTH_PENDING_LOGIN_KEY = 'nihonmaster_oauth_login_pending_v1';
-const MAX_AUTH_PAYLOAD_BYTES = 32_768;
+export const OAUTH_PROVIDER_TOKEN_KEY = 'nihonmaster_oauth_provider_token_v1';
+const MAX_AUTH_PAYLOAD_BYTES = 524_288;
 const UNSAFE_JSON_PATTERN = /"(__proto__|constructor|prototype)"\s*:/;
 
 const isValidHttpUrl = (value: string): boolean => {
@@ -75,6 +76,44 @@ export interface PendingImplicitOAuthTokens {
 let pendingImplicitOAuthTokens: PendingImplicitOAuthTokens | null = null;
 let pendingOAuthCallbackError: string | null = null;
 
+export function saveOAuthProviderToken(token: string | null | undefined): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (token && token.trim()) {
+      window.sessionStorage?.setItem(OAUTH_PROVIDER_TOKEN_KEY, token.trim());
+    }
+  } catch {
+    // Ignore storage access errors
+  }
+}
+
+export function getSavedOAuthProviderToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const val = window.sessionStorage?.getItem(OAUTH_PROVIDER_TOKEN_KEY);
+    return val && val.trim() ? val.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+export function clearSavedOAuthProviderToken(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage?.removeItem(OAUTH_PROVIDER_TOKEN_KEY);
+  } catch {
+    // Ignore storage access errors
+  }
+}
+
+export function isEmbeddedInAppBrowser(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  return /\b(Zalo|FBAN|FBAV|FBIOS|FB_IAB|Instagram|Line|TikTok|BytedanceWebview|MicroMessenger|wv)\b/i.test(
+    ua,
+  );
+}
+
 export function markOAuthLoginPending(): void {
   if (typeof window === 'undefined') return;
   try {
@@ -130,11 +169,13 @@ export function interceptOAuthCallbackForHashRouter(): void {
       const hashError = hashParams.get('error_description') || hashParams.get('error');
       const accessToken = hashParams.get('access_token');
       const refreshToken = hashParams.get('refresh_token');
+      const providerToken = hashParams.get('provider_token');
 
       if (hashError) {
         pendingOAuthCallbackError = hashError;
       } else if (accessToken && refreshToken) {
         markOAuthLoginPending();
+        saveOAuthProviderToken(providerToken);
         pendingImplicitOAuthTokens = {
           access_token: accessToken,
           refresh_token: refreshToken,
@@ -188,7 +229,8 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
       auth: {
         storageKey: AUTH_STORAGE_KEY,
         storage: secureAuthStorage,
-        flowType: 'pkce',
+        // Implicit flow avoids PKCE code_verifier loss across mobile Safari <-> iOS Standalone PWA redirects
+        flowType: 'implicit',
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: true,
