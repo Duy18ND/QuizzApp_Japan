@@ -12,8 +12,10 @@ import {
 } from 'lucide-react';
 import { KanjiCanvas } from '../../components/kanji/KanjiCanvas';
 import type { KanjiCanvasRef } from '../../components/kanji/KanjiCanvas';
+import { useAuth } from '../../context/auth-context';
 import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
 import { getLiveKanjis } from '../../services/curriculumStore';
+import { recordDailyKanjiInteraction } from '../../services/stageRoadmapService';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { markTutorialSeen, updateKanjiProgress } from '../../store/slices/kanjiSlice';
 import {
@@ -48,6 +50,7 @@ const MODES: {
 
 export const KanjiPractice: React.FC = () => {
   const { kanjiId } = useParams();
+  const { user } = useAuth();
   const dispatch = useAppDispatch();
   const cmsSnapshot = useCurriculumSnapshot();
   const kanjiList = React.useMemo(() => getLiveKanjis(cmsSnapshot), [cmsSnapshot]);
@@ -108,6 +111,7 @@ export const KanjiPractice: React.FC = () => {
   const handleComplete = () => {
     setFeedback({ text: 'Hoàn thành xuất sắc!', type: 'success' });
     dispatch(updateKanjiProgress({ kanjiId: kanji.id, correct: true }));
+    recordDailyKanjiInteraction(kanji.id, user?.id);
   };
 
   return (

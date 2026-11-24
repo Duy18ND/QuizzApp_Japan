@@ -5,12 +5,16 @@ import { AppLayout } from './components/layout/AppLayout';
 import { EmptyState, LoadingState, PageContainer, buttonStyles } from './components/ui';
 import { ToastProvider } from './components/ui/Toast';
 import { useAuth } from './context/auth-context';
+import { hasGoogleCalendarSyncPending } from './services/googleCalendarSyncService';
 import { consumeOAuthLoginPending } from './services/supabaseClient';
 import './index.css';
 
 const HomePage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m.HomePage })));
 const StageRoadmapPage = lazy(() =>
   import('./pages/StageRoadmapPage').then((m) => ({ default: m.StageRoadmapPage })),
+);
+const StageStudySessionPage = lazy(() =>
+  import('./pages/StageStudySessionPage').then((m) => ({ default: m.StageStudySessionPage })),
 );
 const AuthPage = lazy(() => import('./pages/AuthPage').then((m) => ({ default: m.AuthPage })));
 const ProfilePage = lazy(() => import('./pages/ProfilePage').then((m) => ({ default: m.ProfilePage })));
@@ -102,6 +106,12 @@ function AdminPostLoginRedirector() {
   useEffect(() => {
     if (status !== 'authenticated' || !user) return;
     if (!consumeOAuthLoginPending()) return;
+    if (hasGoogleCalendarSyncPending()) {
+      if (pathname !== '/roadmap') {
+        navigate('/roadmap', { replace: true });
+      }
+      return;
+    }
     if ((user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') && pathname !== '/admin') {
       navigate('/admin', { replace: true });
     }
@@ -121,6 +131,7 @@ function App() {
             <Route index element={<HomePage />} />
             <Route path="roadmap" element={<StageRoadmapPage />} />
             <Route path="roadmap/stages" element={<StageRoadmapPage />} />
+            <Route path="roadmap/stage/:stageId/:mode" element={<StageStudySessionPage />} />
           
             <Route path="vocabulary">
               <Route index element={<VocabularyLevelsPage />} />

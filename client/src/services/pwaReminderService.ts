@@ -290,3 +290,69 @@ export async function dispatchStudyReminderNotification(payload: {
     return false;
   }
 }
+
+/**
+ * Schedules a delayed notification (default 15s) inside the Service Worker via `event.waitUntil`
+ * so the user can lock their phone screen immediately and verify lock-screen delivery.
+ */
+export async function scheduleDelayedLockscreenTestNotification(
+  payload: {
+    title: string;
+    body: string;
+    url?: string;
+  },
+  delaySeconds = 15,
+): Promise<{
+  ok: boolean;
+  mode: 'service-worker' | 'window' | 'denied' | 'unsupported';
+}> {
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    return { ok: false, mode: 'unsupported' };
+  }
+  let perm = Notification.permission;
+  if (perm !== 'granted') {
+    perm = await Notification.requestPermission();
+  }
+  if (perm !== 'granted') {
+    return { ok: false, mode: 'denied' };
+  }
+
+  const targetUrl =
+    payload.url || `${window.location.origin}${window.location.pathname}#/roadmap`;
+  const delayMs = Math.max(3, Math.min(45, delaySeconds)) * 1000;
+
+  if ('serviceWorker' in navigator) {
+    try {
+      let reg = await navigator.serviceWorker.getRegistration();
+      if (!reg) {
+        reg = await navigator.serviceWorker.register('./sw.js');
+      }
+      const readyReg = await navigator.serviceWorker.ready;
+      const worker = readyReg.active || reg.active;
+      if (worker) {
+        worker.postMessage({
+          type: 'SCHEDULE_TEST_NOTIFICATION',
+          delayMs,
+          title: payload.title,
+          body: payload.body,
+          url: targetUrl,
+          tag: `nihongo-lockscreen-test-${Date.now()}`,
+        });
+        return { ok: true, mode: 'service-worker' };
+      }
+    } catch {
+      // Fallback to window timer below
+    }
+  }
+
+  window.setTimeout(() => {
+    void dispatchStudyReminderNotification({
+      title: payload.title,
+      body: payload.body,
+      url: targetUrl,
+      tag: `nihongo-lockscreen-test-${Date.now()}`,
+    });
+  }, delayMs);
+
+  return { ok: true, mode: 'window' };
+}

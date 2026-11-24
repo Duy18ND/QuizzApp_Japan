@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ArrowLeft, RotateCcw } from 'lucide-react';
 import { quizConfig } from '../../config/quizConfig';
 import { useAuth } from '../../context/auth-context';
 import { clearAttemptMistakeGroup } from '../../services/attemptMistakeService';
@@ -23,12 +24,13 @@ import { Explanation } from '../Explanation';
 import { Hint } from '../Hint';
 import { QuizNavigation } from '../QuizNavigation';
 import { QuizResult } from '../QuizResult';
-import { Button, ErrorState, Kbd, LoadingState, PageContainer, useToast } from '../ui';
+import { Badge, Button, ErrorState, Kbd, LoadingState, Notice, PageContainer, buttonStyles, useToast } from '../ui';
 import { useUserProgress } from '../../hooks/useUserProgress';
 import { generateQuizSession } from '../../utils/quizGenerator';
 
 export type MergedQuestion = Question & {
   answerData: QuestionAnswer;
+  isRetryCopy?: boolean;
 };
 
 const LABELS = ['A', 'B', 'C', 'D', 'E', 'F'];
@@ -96,6 +98,8 @@ export const QuizPlay: React.FC<Props> = ({ config, retryAttemptId, onExit }) =>
   }, [config, user?.id]);
 
   const [quizQuestions, setQuizQuestions] = useState<MergedQuestion[]>([]);
+  const [initialQuestionCount, setInitialQuestionCount] = useState<number>(0);
+  const [masteredQuestionIds, setMasteredQuestionIds] = useState<string[]>([]);
   const [state, setState] = useState<QuizState>({
     currentIndex: 0,
     userAnswers: {},
@@ -126,6 +130,8 @@ export const QuizPlay: React.FC<Props> = ({ config, retryAttemptId, onExit }) =>
         }
 
         setQuizQuestions(data as MergedQuestion[]);
+        setInitialQuestionCount(data.length);
+        setMasteredQuestionIds([]);
         setState({
           currentIndex: 0,
           userAnswers: {},
@@ -205,6 +211,21 @@ export const QuizPlay: React.FC<Props> = ({ config, retryAttemptId, onExit }) =>
             wordId: typeof currentQ.wordId === 'number' ? currentQ.wordId : undefined,
           }),
         );
+
+        // In 100% Mastery mode (from Roadmap), append a fresh copy of this wrong question to the back of the queue!
+        if (config.masteryMode) {
+          setQuizQuestions((prev) => [
+            ...prev,
+            {
+              ...currentQ,
+              isRetryCopy: true,
+            },
+          ]);
+        }
+      } else if (config.masteryMode) {
+        setMasteredQuestionIds((prev) =>
+          prev.includes(currentQ.id) ? prev : [...prev, currentQ.id],
+        );
       }
 
       setState((prev: QuizState) => {
@@ -254,6 +275,10 @@ export const QuizPlay: React.FC<Props> = ({ config, retryAttemptId, onExit }) =>
   const handleRetry = () => {
     sessionStartRef.current = Date.now();
     recordedSessionRef.current = false;
+    if (config.masteryMode && initialQuestionCount > 0) {
+      setQuizQuestions((prev) => prev.slice(0, initialQuestionCount));
+      setMasteredQuestionIds([]);
+    }
     setState({
       currentIndex: 0,
       userAnswers: {},
@@ -323,8 +348,8 @@ export const QuizPlay: React.FC<Props> = ({ config, retryAttemptId, onExit }) =>
       {
         quizType: 'vocabulary',
         level: config.level,
-        score: state.score.correct,
-        totalQuestions: quizQuestions.length,
+        score: config.masteryMode ? initialQuestionCount : state.score.correct,
+        totalQuestions: config.masteryMode ? initialQuestionCount : quizQuestions.length,
         durationSeconds,
         mistakesJson: mistakes,
       },
@@ -342,6 +367,7 @@ export const QuizPlay: React.FC<Props> = ({ config, retryAttemptId, onExit }) =>
     state.score.correct,
     state.userAnswers,
     quizQuestions,
+    initialQuestionCount,
     config.isCustom,
     config.level,
     config.unitId,
@@ -435,12 +461,42 @@ export const QuizPlay: React.FC<Props> = ({ config, retryAttemptId, onExit }) =>
 
   if (state.isFinished) {
     return (
-      <QuizResult
-        score={state.score}
-        total={quizQuestions.length}
-        onRetry={handleRetry}
-        onNewQuiz={onExit}
-      />
+      <div className="space-y-4">
+        {config.masteryMode && (
+          <PageContainer size="md" className="pb-0">
+            <Notice tone="success">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="font-bold">
+                    🎉 Đã chinh phục 100% ({initialQuestionCount}/{initialQuestionCount} câu) bài luyện Lộ trình!
+                  </p>
+                  <p className="mt-0.5 text-xs opacity-90">
+                    Toàn bộ câu làm sai đã được ôn lại và trả lời đúng 100%. Nhiệm vụ Quiz của Màn đã tự động tích xanh!
+                  </p>
+                </div>
+                {config.returnStageId && (
+                  <Link
+                    to={`/roadmap?stage=${encodeURIComponent(config.returnStageId)}`}
+                    className={buttonStyles({ variant: 'primary', size: 'sm' })}
+                  >
+                    Quay lại Lộ trình →
+                  </Link>
+                )}
+              </div>
+            </Notice>
+          </PageContainer>
+        )}
+        <QuizResult
+          score={
+            config.masteryMode
+              ? { correct: initialQuestionCount, wrong: 0 }
+              : state.score
+          }
+          total={config.masteryMode ? initialQuestionCount : quizQuestions.length}
+          onRetry={handleRetry}
+          onNewQuiz={onExit}
+        />
+      </div>
     );
   }
 
@@ -487,16 +543,39 @@ export const QuizPlay: React.FC<Props> = ({ config, retryAttemptId, onExit }) =>
 
   return (
     <PageContainer size="md" className="flex flex-1 flex-col">
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onExit}
-          leftIcon={<ArrowLeft className="size-4" aria-hidden />}
-          className="-ml-2"
-        >
-          Cài đặt lại
-        </Button>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          {config.returnStageId ? (
+            <Link
+              to={`/roadmap?stage=${encodeURIComponent(config.returnStageId)}`}
+              className={buttonStyles({ variant: 'ghost', size: 'sm', className: '-ml-2' })}
+            >
+              <ArrowLeft className="size-4" aria-hidden />
+              <span>Quay lại Lộ trình</span>
+            </Link>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onExit}
+              leftIcon={<ArrowLeft className="size-4" aria-hidden />}
+              className="-ml-2"
+            >
+              Cài đặt lại
+            </Button>
+          )}
+          {config.masteryMode && (
+            <Badge tone="primary" className="tabular">
+              Chế độ 100%: {masteredQuestionIds.length}/{initialQuestionCount} câu
+            </Badge>
+          )}
+          {currentQ.isRetryCopy && (
+            <Badge tone="warning">
+              <RotateCcw className="size-3" aria-hidden />
+              Làm lại câu vừa sai
+            </Badge>
+          )}
+        </div>
 
         <p className="hidden items-center gap-1.5 text-xs text-muted md:flex">
           Phím tắt: <Kbd>1–4</Kbd> / <Kbd>A–D</Kbd> chọn đáp án
@@ -542,7 +621,17 @@ export const QuizPlay: React.FC<Props> = ({ config, retryAttemptId, onExit }) =>
       </div>
 
       {isAnswered && quizConfig.showExplanation && (
-        <div className="mt-4 mb-4">
+        <div className="mt-4 mb-4 space-y-2.5">
+          {config.masteryMode && !isCorrect && (
+            <Notice tone="warning">
+              <p className="font-bold">
+                × Câu sai sẽ tự động quay lại cuối bài để làm lại!
+              </p>
+              <p className="mt-0.5 text-xs opacity-90">
+                Bạn cần trả lời đúng 100% toàn bộ câu hỏi mới được hoàn thành bài học này.
+              </p>
+            </Notice>
+          )}
           <Explanation
             isCorrect={isCorrect}
             correctAnswerText={correctAnswerText}

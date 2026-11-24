@@ -18,7 +18,7 @@ import { useAuth } from '../../context/auth-context';
 import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
 import { cn } from '../../lib/cn';
 import { getLiveAllVocabulary, getLiveGrammarBooks } from '../../services/curriculumStore';
-import { recordDailyStageSkillActivity } from '../../services/stageRoadmapService';
+import { recordDailyGrammarInteraction } from '../../services/stageRoadmapService';
 import { buildGrammarDeepInsight } from '../../utils/grammarEngine/grammarInsightEngine';
 import { generateSmartQuestionSet } from '../../utils/grammarEngine/questionGenerator';
 import { speakJapanese } from '../../utils/tts';
@@ -83,7 +83,7 @@ export const GrammarLesson: React.FC = () => {
   const confirmGrammarUnderstood = () => {
     if (!grammarId) return;
     setMarkedUnderstoodIds((prev) => (prev.includes(grammarId) ? prev : [...prev, grammarId]));
-    recordDailyStageSkillActivity('grammar', user?.id);
+    recordDailyGrammarInteraction(grammarId, user?.id);
   };
 
   const liveVocab = useMemo(

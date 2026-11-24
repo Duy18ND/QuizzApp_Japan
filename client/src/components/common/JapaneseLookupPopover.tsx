@@ -30,7 +30,253 @@ export type { LookupTarget };
 interface SelectionTriggerState {
   text: string;
   rubyMap: Record<string, string>;
+  sentenceText?: string;
+  sentenceRubyMap?: Record<string, string>;
   rect: DOMRect;
+  source: 'selection' | 'hover' | 'tap';
+}
+
+const JAPANESE_RUN_RE = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\u3400-\u4DBF々ヶー]+/g;
+const PURE_JP_PUNCT_RE = /^[\s。、．，,.!?！？「」『』（）()【】・〜~ー\-—…0-9０-９a-zA-Z]+$/;
+
+type CaretPositionLegacy = {
+  caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
+  caretRangeFromPoint?: (x: number, y: number) => Range | null;
+};
+
+let cachedJaSegmenter: Intl.Segmenter | null | undefined;
+function getJapaneseWordSegmenter(): Intl.Segmenter | null {
+  if (cachedJaSegmenter !== undefined) return cachedJaSegmenter;
+  try {
+    if (typeof Intl !== 'undefined' && typeof Intl.Segmenter === 'function') {
+      cachedJaSegmenter = new Intl.Segmenter('ja', { granularity: 'word' });
+    } else {
+      cachedJaSegmenter = null;
+    }
+  } catch {
+    cachedJaSegmenter = null;
+  }
+  return cachedJaSegmenter;
+}
+
+function extractElementTextAndRuby(el: Element): {
+  text: string;
+  rubyMap: Record<string, string>;
+} {
+  const rubyMap: Record<string, string> = {};
+  let text = '';
+  const walk = (node: Node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      text += node.textContent ?? '';
+      return;
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    const elem = node as Element;
+    const tag = elem.tagName;
+    if (tag === 'RT' || tag === 'RP' || tag === 'SCRIPT' || tag === 'STYLE') return;
+    if (tag === 'RUBY') {
+      let base = '';
+      let rt = '';
+      elem.childNodes.forEach((child) => {
+        if (child.nodeType === Node.TEXT_NODE) {
+          base += child.textContent ?? '';
+        } else if (child.nodeType === Node.ELEMENT_NODE) {
+          const cTag = (child as Element).tagName;
+          if (cTag === 'RT') rt += child.textContent ?? '';
+          else if (cTag !== 'RP') base += child.textContent ?? '';
+        }
+      });
+      const cleanBase = base.trim();
+      const cleanRt = rt.trim();
+      if (cleanBase && cleanRt) rubyMap[cleanBase] = cleanRt;
+      text += base;
+      return;
+    }
+    elem.childNodes.forEach(walk);
+  };
+  walk(el);
+  return { text: text.replace(/\s+/g, ' ').trim(), rubyMap };
+}
+
+function getCaretPoint(x: number, y: number): { node: Node; offset: number } | null {
+  const doc = document as unknown as CaretPositionLegacy;
+  if (typeof doc.caretPositionFromPoint === 'function') {
+    const pos = doc.caretPositionFromPoint(x, y);
+    if (pos?.offsetNode) return { node: pos.offsetNode, offset: pos.offset };
+  }
+  if (typeof doc.caretRangeFromPoint === 'function') {
+    const range = doc.caretRangeFromPoint(x, y);
+    if (range?.startContainer) return { node: range.startContainer, offset: range.startOffset };
+  }
+  return null;
+}
+
+function extractJapaneseTriggerAtPoint(
+  clientX: number,
+  clientY: number,
+  root: HTMLElement,
+  source: 'hover' | 'tap',
+): SelectionTriggerState | null {
+  const elAtPoint = document.elementFromPoint(clientX, clientY) as HTMLElement | null;
+  if (!elAtPoint || !root.contains(elAtPoint)) return null;
+
+  // Never trigger on lookup UI, already-interactive reading tokens, inputs, or decorative aria-hidden glyphs
+  if (
+    elAtPoint.closest(
+      '[data-lookup-ui], [data-lookup-interactive], [aria-hidden="true"], input, textarea, select, [contenteditable="true"], svg',
+    )
+  ) {
+    return null;
+  }
+
+  // On tap/click, never hijack clickable controls (buttons, links, tabs, labels)
+  if (
+    source === 'tap' &&
+    elAtPoint.closest('button, a, label, [role="button"], [role="tab"], [role="option"]')
+  ) {
+    return null;
+  }
+
+  // Skip furigana <rt> annotations directly; handle parent <ruby> cleanly
+  const rubyEl = elAtPoint.closest('ruby');
+  if (rubyEl && root.contains(rubyEl)) {
+    const rubyRect = rubyEl.getBoundingClientRect();
+    if (
+      clientX < rubyRect.left - 8 ||
+      clientX > rubyRect.right + 8 ||
+      clientY < rubyRect.top - 8 ||
+      clientY > rubyRect.bottom + 8
+    ) {
+      return null;
+    }
+    const { text: baseText, rubyMap } = extractElementTextAndRuby(rubyEl);
+    if (!baseText || !containsJapanese(baseText) || PURE_JP_PUNCT_RE.test(baseText)) return null;
+
+    const sentenceBlock = rubyEl.closest('p, li, td, h1, h2, h3, h4, dd, blockquote');
+    let sentenceText: string | undefined;
+    let sentenceRubyMap: Record<string, string> | undefined;
+    if (sentenceBlock && root.contains(sentenceBlock)) {
+      const extracted = extractElementTextAndRuby(sentenceBlock);
+      if (extracted.text.length > baseText.length && extracted.text.length <= 260) {
+        sentenceText = extracted.text;
+        sentenceRubyMap = extracted.rubyMap;
+      }
+    }
+
+    return {
+      text: baseText,
+      rubyMap,
+      sentenceText,
+      sentenceRubyMap,
+      rect: rubyRect,
+      source,
+    };
+  }
+
+  const caret = getCaretPoint(clientX, clientY);
+  if (!caret || caret.node.nodeType !== Node.TEXT_NODE) return null;
+  const textNode = caret.node as Text;
+  const parentEl = textNode.parentElement;
+  if (!parentEl || !root.contains(parentEl)) return null;
+  if (parentEl.tagName === 'RT' || parentEl.tagName === 'RP') return null;
+  if (
+    parentEl.closest(
+      '[data-lookup-ui], [data-lookup-interactive], [aria-hidden="true"], input, textarea, select',
+    )
+  ) {
+    return null;
+  }
+
+  const fullText = textNode.data;
+  if (!fullText || !containsJapanese(fullText)) return null;
+
+  // Locate exact character index under pointer (check both offset and offset - 1)
+  const candidates = [caret.offset, caret.offset - 1].filter(
+    (idx) => idx >= 0 && idx < fullText.length,
+  );
+  let charIdx = -1;
+  for (const idx of candidates) {
+    const ch = fullText[idx];
+    if (!containsJapanese(ch)) continue;
+    const charRange = document.createRange();
+    charRange.setStart(textNode, idx);
+    charRange.setEnd(textNode, idx + 1);
+    const r = charRange.getBoundingClientRect();
+    if (
+      r.width > 0 &&
+      r.height > 0 &&
+      clientX >= r.left - 10 &&
+      clientX <= r.right + 10 &&
+      clientY >= r.top - 10 &&
+      clientY <= r.bottom + 10
+    ) {
+      charIdx = idx;
+      break;
+    }
+  }
+  if (charIdx < 0) return null;
+
+  // Segment into a natural Japanese word around charIdx
+  let segStart = charIdx;
+  let segEnd = charIdx + 1;
+  const segmenter = getJapaneseWordSegmenter();
+  if (segmenter) {
+    for (const seg of segmenter.segment(fullText)) {
+      const start = seg.index;
+      const end = seg.index + seg.segment.length;
+      if (charIdx >= start && charIdx < end) {
+        segStart = start;
+        segEnd = end;
+        break;
+      }
+    }
+  } else {
+    JAPANESE_RUN_RE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = JAPANESE_RUN_RE.exec(fullText)) !== null) {
+      if (charIdx >= m.index && charIdx < m.index + m[0].length) {
+        segStart = m.index;
+        segEnd = m.index + m[0].length;
+        break;
+      }
+    }
+  }
+
+  const wordText = fullText.slice(segStart, segEnd).trim();
+  if (!wordText || !containsJapanese(wordText) || PURE_JP_PUNCT_RE.test(wordText)) {
+    return null;
+  }
+
+  const wordRange = document.createRange();
+  wordRange.setStart(textNode, segStart);
+  wordRange.setEnd(textNode, segEnd);
+  const wordRect = wordRange.getBoundingClientRect();
+  if (!wordRect || (wordRect.width === 0 && wordRect.height === 0)) return null;
+
+  // Extract surrounding sentence context for optional "Cả câu" tab in the popover
+  const sentenceBlock = parentEl.closest('p, li, td, h1, h2, h3, h4, dd, blockquote, button');
+  let sentenceText: string | undefined;
+  let sentenceRubyMap: Record<string, string> | undefined;
+  if (sentenceBlock && root.contains(sentenceBlock)) {
+    const extracted = extractElementTextAndRuby(sentenceBlock);
+    if (
+      extracted.text.length > wordText.length &&
+      extracted.text.length <= 260 &&
+      containsJapanese(extracted.text)
+    ) {
+      sentenceText = extracted.text;
+      sentenceRubyMap = extracted.rubyMap;
+    }
+  }
+
+  return {
+    text: wordText,
+    rubyMap: {},
+    sentenceText,
+    sentenceRubyMap,
+    rect: wordRect,
+    source,
+  };
 }
 
 const SOURCE_LABELS: Record<TranslationResult['source'], string> = {
@@ -434,15 +680,23 @@ export const JapaneseLookupProvider: React.FC<JapaneseLookupProviderProps> = ({
     target: LookupTarget;
   } | null>(null);
   const hoverTimerRef = useRef<number | null>(null);
+  const hoverTriggerTimerRef = useRef<number | null>(null);
+  const hoverHideTimerRef = useRef<number | null>(null);
+  const pointerOverTriggerRef = useRef(false);
   const routeKeyRef = useRef(routeKey);
-
-  useEffect(() => {
-    routeKeyRef.current = routeKey;
-  }, [routeKey]);
 
   const selectionTrigger =
     selectionState?.routeKey === routeKey ? selectionState.trigger : null;
   const activeTarget = activeState?.routeKey === routeKey ? activeState.target : null;
+
+  const selectionTriggerRef = useRef<SelectionTriggerState | null>(selectionTrigger);
+  const activeTargetRef = useRef<LookupTarget | null>(activeTarget);
+
+  useEffect(() => {
+    routeKeyRef.current = routeKey;
+    selectionTriggerRef.current = selectionTrigger;
+    activeTargetRef.current = activeTarget;
+  }, [routeKey, selectionTrigger, activeTarget]);
 
   const clearHoverTimer = useCallback(() => {
     if (hoverTimerRef.current !== null) {
@@ -451,24 +705,40 @@ export const JapaneseLookupProvider: React.FC<JapaneseLookupProviderProps> = ({
     }
   }, []);
 
+  const clearTriggerTimers = useCallback(() => {
+    if (hoverTriggerTimerRef.current !== null) {
+      window.clearTimeout(hoverTriggerTimerRef.current);
+      hoverTriggerTimerRef.current = null;
+    }
+    if (hoverHideTimerRef.current !== null) {
+      window.clearTimeout(hoverHideTimerRef.current);
+      hoverHideTimerRef.current = null;
+    }
+  }, []);
+
   const closeLookup = useCallback(() => {
     clearHoverTimer();
+    clearTriggerTimers();
+    pointerOverTriggerRef.current = false;
     setActiveState(null);
     setSelectionState(null);
-  }, [clearHoverTimer]);
+  }, [clearHoverTimer, clearTriggerTimers]);
 
   const openLookup = useCallback(
     (target: LookupTarget) => {
       clearHoverTimer();
+      clearTriggerTimers();
+      pointerOverTriggerRef.current = false;
       setSelectionState(null);
       setActiveState({ routeKey: routeKeyRef.current, target });
     },
-    [clearHoverTimer],
+    [clearHoverTimer, clearTriggerTimers],
   );
 
   const scheduleHoverLookup = useCallback(
     (target: LookupTarget, delayMs = 450) => {
       clearHoverTimer();
+      clearTriggerTimers();
       hoverTimerRef.current = window.setTimeout(() => {
         const selText = window.getSelection()?.toString().trim() ?? '';
         if (selText) return;
@@ -476,14 +746,14 @@ export const JapaneseLookupProvider: React.FC<JapaneseLookupProviderProps> = ({
         setActiveState({ routeKey: routeKeyRef.current, target });
       }, delayMs);
     },
-    [clearHoverTimer],
+    [clearHoverTimer, clearTriggerTimers],
   );
 
   const cancelHoverLookup = useCallback(() => {
     clearHoverTimer();
   }, [clearHoverTimer]);
 
-  // Global Japanese text-selection trigger (mouseup / touchend) inside <main>
+  // Global Japanese text-selection, hover (PC mouse), and tap/click (Mobile/iPad/PC) trigger inside <main>
   useEffect(() => {
     const root = containerRef.current;
     if (!root) return;
@@ -504,7 +774,9 @@ export const JapaneseLookupProvider: React.FC<JapaneseLookupProviderProps> = ({
       window.requestAnimationFrame(() => {
         const selection = window.getSelection();
         if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
-          setSelectionState(null);
+          if (selectionTriggerRef.current?.source === 'selection') {
+            setSelectionState(null);
+          }
           return;
         }
 
@@ -515,24 +787,120 @@ export const JapaneseLookupProvider: React.FC<JapaneseLookupProviderProps> = ({
 
         const { text, rubyMap, rect } = extractCleanSelection(selection);
         if (!text || !rect || text.length > 350 || !containsJapanese(text)) {
-          setSelectionState(null);
+          if (selectionTriggerRef.current?.source === 'selection') {
+            setSelectionState(null);
+          }
           return;
         }
 
+        clearTriggerTimers();
         setSelectionState({
           routeKey: routeKeyRef.current,
-          trigger: { text, rubyMap, rect },
+          trigger: { text, rubyMap, rect, source: 'selection' },
         });
+      });
+    };
+
+    const handlePointerMove = (event: PointerEvent) => {
+      if (event.pointerType !== 'mouse') return;
+      if (activeTargetRef.current) return;
+      if (pointerOverTriggerRef.current) return;
+      const cur = selectionTriggerRef.current;
+      if (cur && cur.source !== 'hover') return;
+      const selText = window.getSelection()?.toString().trim() ?? '';
+      if (selText) return;
+
+      const x = event.clientX;
+      const y = event.clientY;
+
+      // Keep current hover pill alive while pointer stays inside the hovered word or corridor to pill
+      if (cur && cur.source === 'hover') {
+        const r = cur.rect;
+        const inWordOrCorridor =
+          x >= r.left - 18 && x <= r.right + 18 && y >= r.top - 48 && y <= r.bottom + 14;
+        if (!inWordOrCorridor && hoverHideTimerRef.current === null) {
+          hoverHideTimerRef.current = window.setTimeout(() => {
+            hoverHideTimerRef.current = null;
+            if (!pointerOverTriggerRef.current && selectionTriggerRef.current?.source === 'hover') {
+              setSelectionState(null);
+            }
+          }, 420);
+        } else if (inWordOrCorridor && hoverHideTimerRef.current !== null) {
+          window.clearTimeout(hoverHideTimerRef.current);
+          hoverHideTimerRef.current = null;
+        }
+      }
+
+      if (hoverTriggerTimerRef.current !== null) {
+        window.clearTimeout(hoverTriggerTimerRef.current);
+      }
+      hoverTriggerTimerRef.current = window.setTimeout(() => {
+        hoverTriggerTimerRef.current = null;
+        if (activeTargetRef.current || pointerOverTriggerRef.current) return;
+        const activeSel = window.getSelection()?.toString().trim() ?? '';
+        if (activeSel) return;
+
+        const detected = extractJapaneseTriggerAtPoint(x, y, root, 'hover');
+        if (detected) {
+          if (hoverHideTimerRef.current !== null) {
+            window.clearTimeout(hoverHideTimerRef.current);
+            hoverHideTimerRef.current = null;
+          }
+          setSelectionState({
+            routeKey: routeKeyRef.current,
+            trigger: detected,
+          });
+        } else if (selectionTriggerRef.current?.source === 'hover' && !pointerOverTriggerRef.current) {
+          setSelectionState(null);
+        }
+      }, 240);
+    };
+
+    const handleRootLeave = () => {
+      if (hoverTriggerTimerRef.current !== null) {
+        window.clearTimeout(hoverTriggerTimerRef.current);
+        hoverTriggerTimerRef.current = null;
+      }
+      if (selectionTriggerRef.current?.source === 'hover' && !pointerOverTriggerRef.current) {
+        hoverHideTimerRef.current = window.setTimeout(() => {
+          hoverHideTimerRef.current = null;
+          if (!pointerOverTriggerRef.current && selectionTriggerRef.current?.source === 'hover') {
+            setSelectionState(null);
+          }
+        }, 380);
+      }
+    };
+
+    const handleTapOrClick = (event: MouseEvent) => {
+      if (event.defaultPrevented) return;
+      const selText = window.getSelection()?.toString().trim() ?? '';
+      if (selText) return;
+
+      const detected = extractJapaneseTriggerAtPoint(event.clientX, event.clientY, root, 'tap');
+      if (!detected) return;
+
+      clearTriggerTimers();
+      setActiveState(null);
+      setSelectionState({
+        routeKey: routeKeyRef.current,
+        trigger: detected,
       });
     };
 
     root.addEventListener('mouseup', handleSelectionEnd);
     root.addEventListener('touchend', handleSelectionEnd);
+    root.addEventListener('pointermove', handlePointerMove, { passive: true });
+    root.addEventListener('pointerleave', handleRootLeave);
+    root.addEventListener('click', handleTapOrClick);
     return () => {
+      clearTriggerTimers();
       root.removeEventListener('mouseup', handleSelectionEnd);
       root.removeEventListener('touchend', handleSelectionEnd);
+      root.removeEventListener('pointermove', handlePointerMove);
+      root.removeEventListener('pointerleave', handleRootLeave);
+      root.removeEventListener('click', handleTapOrClick);
     };
-  }, [containerRef]);
+  }, [clearTriggerTimers, containerRef]);
 
   // Close trigger/popover on Escape, outside pointerdown, or external scroll
   useEffect(() => {
@@ -557,6 +925,7 @@ export const JapaneseLookupProvider: React.FC<JapaneseLookupProviderProps> = ({
       if (target && typeof target.closest === 'function' && target.closest('[data-lookup-ui="popover"]')) {
         return;
       }
+      clearTriggerTimers();
       setSelectionState(null);
     };
 
@@ -568,7 +937,7 @@ export const JapaneseLookupProvider: React.FC<JapaneseLookupProviderProps> = ({
       document.removeEventListener('pointerdown', handlePointerDown);
       window.removeEventListener('scroll', handleScroll, true);
     };
-  }, [activeTarget, selectionTrigger, closeLookup]);
+  }, [activeTarget, clearTriggerTimers, selectionTrigger, closeLookup]);
 
   const contextValue = useMemo<JapaneseLookupContextValue>(
     () => ({
@@ -597,16 +966,37 @@ export const JapaneseLookupProvider: React.FC<JapaneseLookupProviderProps> = ({
           <button
             type="button"
             data-lookup-ui="trigger"
+            title={`Dịch nhanh "${selectionTrigger.text}"`}
+            onPointerEnter={() => {
+              pointerOverTriggerRef.current = true;
+              if (hoverHideTimerRef.current !== null) {
+                window.clearTimeout(hoverHideTimerRef.current);
+                hoverHideTimerRef.current = null;
+              }
+            }}
+            onPointerLeave={() => {
+              pointerOverTriggerRef.current = false;
+              if (selectionTriggerRef.current?.source === 'hover') {
+                hoverHideTimerRef.current = window.setTimeout(() => {
+                  hoverHideTimerRef.current = null;
+                  if (!pointerOverTriggerRef.current && selectionTriggerRef.current?.source === 'hover') {
+                    setSelectionState(null);
+                  }
+                }, 320);
+              }
+            }}
             onClick={() => {
               openLookup({
                 text: selectionTrigger.text,
                 rubyMap: selectionTrigger.rubyMap,
+                sentenceText: selectionTrigger.sentenceText,
+                sentenceRubyMap: selectionTrigger.sentenceRubyMap,
                 rect: selectionTrigger.rect,
               });
             }}
             style={{ top: triggerPosition.top, left: triggerPosition.left }}
-            className="fixed z-50 flex animate-pop-in items-center gap-1.5 rounded-full border border-line bg-surface px-2.5 py-1 text-xs font-semibold text-primary-fg shadow-pop transition-colors hover:border-primary hover:bg-primary-soft active:scale-95"
-            aria-label="Dịch và giải thích đoạn tiếng Nhật đã chọn"
+            className="fixed z-50 flex animate-pop-in cursor-pointer items-center gap-1.5 rounded-full border border-line bg-surface px-2.5 py-1 text-xs font-semibold text-primary-fg shadow-pop transition-colors hover:border-primary hover:bg-primary-soft active:scale-95"
+            aria-label={`Dịch và giải thích "${selectionTrigger.text}"`}
           >
             <span className="rounded bg-primary-soft px-1 font-bold text-primary-fg">訳</span>
             <span>Dịch</span>

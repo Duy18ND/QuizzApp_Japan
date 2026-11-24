@@ -1,5 +1,6 @@
 import type { MultipleChoiceQuestion } from '../../types/grammar';
 import type { SmartGrammarRule } from '../../types/grammarEngine';
+import { allGrammarSentencesBank } from '../../data/grammar';
 
 export interface GrammarNuanceTag {
   label: string;
@@ -435,15 +436,16 @@ export function buildGrammarDeepInsight(
   const cleanName = rule.name.replace(/^[～〜~]/, '').trim();
   const formula = deriveConnectFormula(rule);
 
+  // Prefer real verified textbook example from allGrammarSentencesBank or rule.usage ("Ví dụ: ...")
+  const bankSentence = allGrammarSentencesBank.find((s) => s.grammarId === rule.id);
+  const usageExampleMatch = rule.usage?.match(/Ví dụ:\s*([^(\n]+?)\s*\(([^)\n]+)\)/i);
   const primaryExampleJa =
-    rule.templates?.[0]?.pattern
-      ?.replace(/\{A\}/g, '毎日練習して')
-      ?.replace(/\{B\}/g, '日本語が上手になった') ??
+    bankSentence?.japanese ||
+    usageExampleMatch?.[1]?.trim() ||
     `この文法「${rule.name}」を使って文を作ります。`;
   const primaryExampleVi =
-    rule.templates?.[0]?.vietnamesePattern
-      ?.replace(/\{A\}/g, 'luyện tập mỗi ngày')
-      ?.replace(/\{B\}/g, 'tiếng Nhật đã giỏi lên') ??
+    bankSentence?.vietnamese ||
+    usageExampleMatch?.[2]?.trim() ||
     `Áp dụng mẫu "${rule.name}" (${rule.meaning}) trong câu thực tế.`;
 
   // 1. When to use (🎯 Dùng khi nào?)

@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowRight,
+  Award,
   Bell,
   BellOff,
+  BookOpen,
   Calendar,
   CalendarPlus,
   Check,
@@ -12,6 +14,7 @@ import {
   Clock,
   Download,
   ExternalLink,
+  FastForward,
   Lock,
   Map as MapIcon,
   Pencil,
@@ -22,16 +25,17 @@ import {
   Sparkles,
   Star,
   Trash2,
+  Trophy,
   Unlock,
 } from 'lucide-react';
-import { StageBriefingCard } from '../components/roadmap/StageBriefingCard';
 import {
   buildStageBriefing,
   getStageTaskPhase,
+  loadPassedBossStages,
   loadSkippedGateStageIds,
   loadUnderstoodStageIds,
-  markStageBriefingUnderstood,
   markStageGateSkipped,
+  persistActiveStageSession,
 } from '../utils/stageBriefingBuilder';
 import {
   Badge,
@@ -79,10 +83,18 @@ import {
   isWebPushSubscribedOnDevice,
   PWA_INSTALL_CHANGE_EVENT,
   requestBrowserNotificationPermission,
+  scheduleDelayedLockscreenTestNotification,
   subscribeAndSyncWebPush,
   triggerOneTapPwaInstall,
   type BrowserNotificationState,
 } from '../services/pwaReminderService';
+import {
+  consumeGoogleCalendarSyncPending,
+  downloadRoadmapIcsFile,
+  requestGoogleCalendarConsent,
+  syncRoadmapStagesToGoogleCalendar,
+  type GoogleCalendarSyncResult,
+} from '../services/googleCalendarSyncService';
 import {
   buildCurriculumTaskCatalog,
   buildOneTapStageGoogleCalendarUrl,
@@ -90,7 +102,9 @@ import {
   completeStageAndUnlockNext,
   computeStartDateToAlignStageWithToday,
   createDefaultCustomConfig,
+  DAILY_KANJI_TARGET,
   DAILY_STAGE_ACTIVITY_SYNC_EVENT,
+  DAILY_VOCAB_TARGET,
   decodeRoadmapShareCode,
   deriveAutoCompletedSkillsToday,
   encodeRoadmapShareCode,
@@ -104,12 +118,14 @@ import {
   isDailyEnforcementPending,
   isProCreatorUnlocked,
   isStageUnlocked,
+  loadDailyStageMetrics,
   loadStageRoadmapState,
   saveStageRoadmapState,
   setProCreatorDemoUnlocked,
   STAGE_ROADMAP_SYNC_EVENT,
   STAGE_SKILL_META,
   type CustomRoadmapConfig,
+  type DailyMinutesTarget,
   type RepeatMinutesOption,
   type RoadmapMode,
   type RoadmapStage,
@@ -156,6 +172,7 @@ function chunkStages(stages: RoadmapStage[], chunkSize = 10): RoadmapStage[][] {
 export const StageRoadmapPage: React.FC = () => {
   const { user, studyLevel, studyTextbookId } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const cmsSnapshot = useCurriculumSnapshot();
   const quizHistory = useQuizHistory();
@@ -165,12 +182,15 @@ export const StageRoadmapPage: React.FC = () => {
   const [viewTab, setViewTab] = useState<RoadmapMode | 'overview'>(() =>
     loadStageRoadmapState(user?.id).activeMode,
   );
+  const [stageLayout, setStageLayout] = useState<'map' | 'days'>('map');
   const [notifPermission, setNotifPermission] = useState<BrowserNotificationState>(() =>
     getBrowserNotificationPermission(),
   );
   const [isStandalone, setIsStandalone] = useState(() => isRunningStandalone());
   const [webPushActive, setWebPushActive] = useState(false);
-  const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
+  const [selectedStageId, setSelectedStageId] = useState<string | null>(
+    () => searchParams.get('stage') || null,
+  );
   const [builderOpen, setBuilderOpen] = useState(() => searchParams.get('create') === '1');
   const [builderIsNew, setBuilderIsNew] = useState(() => searchParams.get('create') === '1');
   const [iosGuideOpen, setIosGuideOpen] = useState(false);
@@ -192,15 +212,21 @@ export const StageRoadmapPage: React.FC = () => {
   );
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [proPaywallOpen, setProPaywallOpen] = useState(false);
+  const [gcalModalOpen, setGcalModalOpen] = useState(false);
+  const [gcalSyncing, setGcalSyncing] = useState(false);
+  const [gcalProgress, setGcalProgress] = useState<{ done: number; total: number } | null>(null);
+  const [gcalResult, setGcalResult] = useState<GoogleCalendarSyncResult | null>(null);
+  const [lockTestCountdown, setLockTestCountdown] = useState<number>(0);
   const [draftConfig, setDraftConfig] = useState<CustomRoadmapConfig>(() =>
     createDefaultCustomConfig(studyLevel ?? 'N3', user?.id, studyTextbookId),
   );
 
   useEffect(() => {
-    if (searchParams.get('create') === '1' || searchParams.get('import')) {
+    if (searchParams.get('create') === '1' || searchParams.get('import') || searchParams.get('stage')) {
       const next = new URLSearchParams(searchParams);
       next.delete('create');
       next.delete('import');
+      next.delete('stage');
       setSearchParams(next, { replace: true });
     }
   }, [searchParams, setSearchParams]);
@@ -324,6 +350,14 @@ export const StageRoadmapPage: React.FC = () => {
   );
   const skippedGateStageIds = useMemo(
     () => (syncVersion >= 0 ? loadSkippedGateStageIds(user?.id) : []),
+    [syncVersion, user?.id],
+  );
+  const passedBossStages = useMemo(
+    () => (syncVersion >= 0 ? loadPassedBossStages(user?.id) : {}),
+    [syncVersion, user?.id],
+  );
+  const dailyMetrics = useMemo(
+    () => (syncVersion >= 0 ? loadDailyStageMetrics(user?.id) : { vocabIds: [], kanjiIds: [], grammarIds: [] }),
     [syncVersion, user?.id],
   );
   const selectedStageBriefing = useMemo(
@@ -812,6 +846,101 @@ export const StageRoadmapPage: React.FC = () => {
     });
   };
 
+  useEffect(() => {
+    if (lockTestCountdown <= 0) return;
+    const timer = window.setInterval(() => {
+      setLockTestCountdown((prev) => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [lockTestCountdown]);
+
+  const handleLockscreenTestNotification = async () => {
+    const res = await scheduleDelayedLockscreenTestNotification(
+      {
+        title: `🇯🇵 Nihongo 問 · Test màn hình khóa thành công (${activeLevel})!`,
+        body: activeStage
+          ? `Thông báo đã gửi khi khóa màn hình! Hôm nay: Màn ${activeStage.stageNumber}.`
+          : 'Thông báo đã gửi thành công ngay cả khi tắt màn hình chờ!',
+      },
+      15,
+    );
+    setNotifPermission(getBrowserNotificationPermission());
+    if (!res.ok) {
+      toast({
+        title:
+          res.mode === 'unsupported'
+            ? 'Trình duyệt này chưa hỗ trợ thông báo (trên iPhone cần Cài App ra Màn hình chính trước).'
+            : 'Bạn cần cho phép quyền Thông báo để test màn hình khóa.',
+        tone: 'warning',
+      });
+      return;
+    }
+    setLockTestCountdown(15);
+    toast({
+      title: '⏳ Đếm ngược 15 giây — Hãy KHÓA MÀN HÌNH điện thoại ngay bây giờ để kiểm tra chuông!',
+      description:
+        res.mode === 'service-worker'
+          ? 'Đang chạy qua Service Worker nền. Đợi 15 giây xem thông báo có sáng màn hình khóa không nhé!'
+          : 'Đang hẹn giờ trên trình duyệt (để kêu ngay cả khi vuốt tắt app, hãy đồng bộ thêm Google Calendar).',
+      tone: 'info',
+    });
+  };
+
+  const runGoogleCalendarSync = async (allowConsentRedirect: boolean) => {
+    setGcalModalOpen(true);
+    setGcalSyncing(true);
+    setGcalResult(null);
+    setGcalProgress({ done: 0, total: Math.min(60, stages.length) });
+
+    const completedSet = new Set(Object.keys(roadmapState.completedStages));
+    const res = await syncRoadmapStagesToGoogleCalendar({
+      stages,
+      completedStageIds: completedSet,
+      level: activeLevel,
+      bookTitle: activeBook.title,
+      reminderTime: effectiveSettings.reminderTime,
+      dailyMinutesTarget: effectiveSettings.dailyMinutesTarget,
+      onProgress: (done, total) => setGcalProgress({ done, total }),
+    });
+
+    setGcalSyncing(false);
+
+    if (res.needsReauth && allowConsentRedirect) {
+      toast({
+        title: 'Đang chuyển sang Google để cấp quyền ghi Lịch (chỉ 1 lần)...',
+        tone: 'info',
+      });
+      const authRes = await requestGoogleCalendarConsent();
+      if (!authRes.ok) {
+        setGcalResult({
+          ...res,
+          errorMessage: authRes.error || res.errorMessage,
+        });
+      }
+      return;
+    }
+
+    setGcalResult(res);
+    if (res.ok) {
+      toast({
+        title: `🎉 Đã đồng bộ ${res.created + res.updated} ngày học chi tiết lên Google Calendar!`,
+        tone: 'success',
+      });
+    } else if (res.errorMessage) {
+      toast({ title: res.errorMessage, tone: 'warning' });
+    }
+  };
+
+  useEffect(() => {
+    if (!user || stages.length === 0) return;
+    if (!consumeGoogleCalendarSyncPending()) return;
+    const timer = window.setTimeout(() => {
+      void runGoogleCalendarSync(false);
+    }, 250);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, stages.length]);
+
   const handleToggleNotificationEnforcement = async () => {
     const needsPermissionOrPush =
       !roadmapState.notificationsEnabled ||
@@ -958,7 +1087,7 @@ export const StageRoadmapPage: React.FC = () => {
             )}
           </span>
         }
-        description="Hoàn thành nhiệm vụ Màn và online tối thiểu 10–15 phút/ngày để mở khóa Màn tiếp theo và tự động tắt nhắc hôm nay."
+        description="Lộ trình chuẩn 20–30 phút/ngày gồm 4 Chặng: Nạp Từ/Kanji → Đọc hiểu Tips & Dấu hiệu → Thực chiến Bài tập → Mini-Test Chốt Màn."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -976,16 +1105,18 @@ export const StageRoadmapPage: React.FC = () => {
             >
               {isStandalone ? 'Đã cài App' : 'Cài App (1 chạm)'}
             </Button>
-            <a
-              href={googleCalendarUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={buttonStyles({ variant: 'secondary', size: 'sm' })}
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              leftIcon={<Calendar className="size-4 text-primary-fg" aria-hidden />}
+              onClick={() => {
+                setGcalResult(null);
+                setGcalModalOpen(true);
+              }}
             >
-              <Calendar className="size-4 text-primary-fg" aria-hidden />
-              <span>Google Calendar</span>
-              <ExternalLink className="size-3.5 text-muted" aria-hidden />
-            </a>
+              Đồng bộ GG Cal
+            </Button>
             <Button
               type="button"
               variant={
@@ -1014,9 +1145,21 @@ export const StageRoadmapPage: React.FC = () => {
               variant="secondary"
               size="sm"
               onClick={() => void handleSendTestNotification()}
-              title="Bấm để gửi thử 1 thông báo nhắc học lên màn hình thiết bị của bạn"
+              title="Gửi thử ngay 1 thông báo lên thiết bị"
             >
-              🔔 Test chuông
+              🔔 Test ngay
+            </Button>
+            <Button
+              type="button"
+              variant={lockTestCountdown > 0 ? 'primary' : 'secondary'}
+              size="sm"
+              disabled={lockTestCountdown > 0}
+              onClick={() => void handleLockscreenTestNotification()}
+              title="Hẹn 15 giây rồi khóa màn hình điện thoại để kiểm tra thông báo màn hình khóa"
+            >
+              {lockTestCountdown > 0
+                ? `🔒 Khóa máy ngay (${lockTestCountdown}s)`
+                : '🔒 Test tắt màn hình (15s)'}
             </Button>
           </div>
         }
@@ -1213,7 +1356,11 @@ export const StageRoadmapPage: React.FC = () => {
                       : roadmapState.fixedDailyMinutesTarget
                   }
                   onChange={(e) => {
-                    const nextTarget = Number(e.target.value) === 15 ? 15 : 10;
+                    const raw = Number(e.target.value);
+                    const nextTarget: DailyMinutesTarget =
+                      raw === 10 || raw === 15 || raw === 20 || raw === 25 || raw === 30
+                        ? raw
+                        : 25;
                     if (viewTab === 'custom' && roadmapState.customConfig) {
                       updateActiveCustomConfig((cfg) => ({ ...cfg, dailyMinutesTarget: nextTarget }));
                     } else {
@@ -1221,8 +1368,11 @@ export const StageRoadmapPage: React.FC = () => {
                     }
                   }}
                 >
-                  <option value={10}>10 phút / ngày (Khuyến nghị)</option>
-                  <option value={15}>15 phút / ngày (Tập trung cao)</option>
+                  <option value={25}>25 phút / ngày (Chuẩn 4 Chặng · Khuyến nghị)</option>
+                  <option value={20}>20 phút / ngày (Gọn · Đủ đọc hiểu & Quiz)</option>
+                  <option value={30}>30 phút / ngày (Chuyên sâu · 5 Kỹ năng)</option>
+                  <option value={15}>15 phút / ngày (Ngày bận rộn)</option>
+                  <option value={10}>10 phút / ngày (Duy trì tối thiểu)</option>
                 </Select>
               </Field>
               <Field label="Giờ bắt đầu nhắc mỗi ngày" htmlFor="active-reminder-time">
@@ -1665,7 +1815,102 @@ export const StageRoadmapPage: React.FC = () => {
           );
         })()
       ) : (
-      <div className="space-y-5">
+      <div className="space-y-4">
+        {/* View Switcher: Game Map vs Clean 2-Column Day Cards (Mokumoku Style) */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs font-bold tracking-wide text-muted uppercase">
+            Các bài học ({stages.length} ngày · {completedCount} đã xong)
+          </p>
+          <div className="inline-flex rounded-xl border border-line bg-surface/85 p-1 backdrop-blur-md">
+            <button
+              type="button"
+              onClick={() => setStageLayout('map')}
+              className={cn(
+                'cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold transition-all',
+                stageLayout === 'map'
+                  ? 'bg-primary text-on-primary shadow-xs'
+                  : 'text-muted hover:text-fg',
+              )}
+            >
+              🗺️ Bản đồ Màn
+            </button>
+            <button
+              type="button"
+              onClick={() => setStageLayout('days')}
+              className={cn(
+                'cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold transition-all',
+                stageLayout === 'days'
+                  ? 'bg-primary text-on-primary shadow-xs'
+                  : 'text-muted hover:text-fg',
+              )}
+            >
+              📅 Danh sách Ngày
+            </button>
+          </div>
+        </div>
+
+        {stageLayout === 'days' ? (
+          <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
+            {stages.map((stage) => {
+              const completion = roadmapState.completedStages[stage.id];
+              const unlocked = isStageUnlocked(stage, stages, roadmapState.completedStages);
+              const isCurrent = activeStage?.id === stage.id && !completion;
+              return (
+                <button
+                  key={stage.id}
+                  type="button"
+                  disabled={!unlocked}
+                  onClick={() => unlocked && setSelectedStageId(stage.id)}
+                  className={cn(
+                    'flex flex-col justify-between gap-3 rounded-2xl border p-4 text-left transition-all',
+                    completion
+                      ? 'cursor-pointer border-success-line bg-success-soft/25 hover:border-success-fg/60'
+                      : isCurrent
+                        ? 'cursor-pointer border-primary bg-surface/95 ring-2 ring-primary/25 hover:border-primary'
+                        : unlocked
+                          ? 'cursor-pointer border-line bg-surface/90 hover:border-primary/50 hover:bg-surface'
+                          : 'cursor-not-allowed border-line bg-surface/55 opacity-60',
+                  )}
+                >
+                  <div className="space-y-1.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Badge tone={completion ? 'success' : isCurrent ? 'sakura' : 'neutral'}>
+                          📅 Ngày {stage.stageNumber}
+                        </Badge>
+                        <Badge tone="primary">{activeLevel}</Badge>
+                        {isCurrent && <Badge tone="sakura">Hôm nay</Badge>}
+                      </div>
+                      <span className="text-[11px] font-medium text-muted tabular">
+                        {formatShortDayMonth(stage.scheduledDate)}
+                      </span>
+                    </div>
+                    <h3 className="text-sm font-bold text-fg sm:text-base">{stage.title}</h3>
+                    <p className="line-clamp-2 text-xs text-muted">{stage.theme}</p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line/70 pt-2.5 text-xs text-muted">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span>📖 {stage.tasks.length} nhiệm vụ + Chốt Màn</span>
+                      <span>⏱ ~{stage.minOnlineMinutes}p</span>
+                    </div>
+                    {completion ? (
+                      <span className="font-bold text-success-fg">✓ Đã xong ({completion.stars}★)</span>
+                    ) : unlocked ? (
+                      <span className="font-semibold text-primary-fg">Mở Task hôm nay →</span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-muted">
+                        <Lock className="size-3" aria-hidden />
+                        Đang khóa
+                      </span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+        <div className="space-y-5">
         {stageChunks.map((chunk, chunkIdx) => {
           const rawChunkNum = chunk[0]?.chunkNumber ?? chunkIdx + 1;
           const chunkNum = rawChunkNum;
@@ -1816,6 +2061,8 @@ export const StageRoadmapPage: React.FC = () => {
             </Card>
           );
         })}
+        </div>
+        )}
       </div>
       )}
 
@@ -1831,7 +2078,7 @@ export const StageRoadmapPage: React.FC = () => {
         }
         description={
           selectedStage
-            ? `Ngày dự kiến: ${formatVietnameseDateWithWeekday(selectedStage.scheduledDate)} · ${selectedStage.theme}`
+            ? `${formatVietnameseDateWithWeekday(selectedStage.scheduledDate)} · ${selectedStage.theme}`
             : undefined
         }
         footer={
@@ -1857,7 +2104,14 @@ export const StageRoadmapPage: React.FC = () => {
                       roadmapState.completedTaskIds.includes(t.id) ||
                       (isActiveSelected && todayAutoSkills.has(t.skill)),
                   );
-                  const canComplete = onlineMet && allTasksChecked;
+                  const bossRecord = passedBossStages[selectedStage.id] ?? null;
+                  const hasMasteryQuiz = Boolean(
+                    selectedStageBriefing && selectedStageBriefing.masteryQuestions.length > 0,
+                  );
+                  const bossSatisfied = !hasMasteryQuiz || Boolean(bossRecord);
+                  const canComplete =
+                    Boolean(bossRecord?.isJumpPass) ||
+                    (onlineMet && allTasksChecked && bossSatisfied);
                   return (
                     <Button
                       type="button"
@@ -1868,9 +2122,11 @@ export const StageRoadmapPage: React.FC = () => {
                     >
                       {canComplete
                         ? `Hoàn thành & Mở khóa Màn ${selectedStage.stageNumber + 1}`
-                        : !onlineMet
-                          ? `Còn thiếu ${formatMmSs(remainingSeconds)} online`
-                          : 'Hoàn thành đủ nhiệm vụ bên trên'}
+                        : !allTasksChecked
+                          ? 'Hoàn thành Chặng 1 → 3 trước'
+                          : !bossSatisfied
+                            ? 'Vượt Chốt Màn Chặng 4 (100%)'
+                            : `Còn thiếu ${formatMmSs(remainingSeconds)} online`}
                     </Button>
                   );
                 })()
@@ -1882,11 +2138,11 @@ export const StageRoadmapPage: React.FC = () => {
         {selectedStage && (
           <div className="space-y-4">
             {/* Condition 1: Daily Online Time Gate */}
-            <div className="rounded-xl border border-line bg-surface-2/60 p-3.5 space-y-2">
-              <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                <span className="flex items-center gap-2 font-semibold text-fg">
+            <div className="rounded-xl border border-line bg-surface-2/60 px-3.5 py-2.5 space-y-1.5">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm">
+                <span className="flex items-center gap-1.5 font-semibold text-fg">
                   <Clock className="size-4 text-primary-fg" aria-hidden />
-                  Điều kiện 1: Online tối thiểu {selectedStage.minOnlineMinutes} phút hôm nay
+                  Online hôm nay ({selectedStage.minOnlineMinutes}p)
                 </span>
                 <Badge tone={onlineMet ? 'success' : 'warning'} className="tabular">
                   {onlineMet
@@ -1903,283 +2159,574 @@ export const StageRoadmapPage: React.FC = () => {
               />
             </div>
 
-            {/* 60-Second Pre-Flight Briefing & Comprehension Check */}
-            {selectedStageBriefing && (
-              <StageBriefingCard
-                key={selectedStage.id}
-                briefing={selectedStageBriefing}
-                isUnderstood={
-                  Boolean(roadmapState.completedStages[selectedStage.id]) ||
-                  understoodStageIds.includes(selectedStage.id)
+            {/* 4-Phase 20–30 Min Daily Study Blueprint Strip */}
+            {(() => {
+              const stageCompleted = Boolean(roadmapState.completedStages[selectedStage.id]);
+              const isTaskDone = (t: StageTask) =>
+                roadmapState.completedTaskIds.includes(t.id) ||
+                (activeStage?.id === selectedStage.id && todayAutoSkills.has(t.skill));
+
+              const studyTasks = selectedStage.tasks.filter(
+                (t) => getStageTaskPhase(t) === 'study',
+              );
+              const practiceTasks = selectedStage.tasks.filter(
+                (t) => getStageTaskPhase(t) === 'practice',
+              );
+              const orderedTasks = [...studyTasks, ...practiceTasks];
+
+              const isBriefingUnderstood =
+                stageCompleted || understoodStageIds.includes(selectedStage.id);
+              const isGateSkipped =
+                stageCompleted || skippedGateStageIds.includes(selectedStage.id);
+              const allStudyTasksDone = studyTasks.every(isTaskDone);
+              const allPracticeTasksDone = practiceTasks.every(isTaskDone);
+              const bossRecord = passedBossStages[selectedStage.id] ?? null;
+
+              const isPracticeUnlocked =
+                stageCompleted ||
+                isGateSkipped ||
+                (isBriefingUnderstood && (studyTasks.length === 0 || allStudyTasksDone));
+
+              const isBossUnlocked =
+                stageCompleted ||
+                Boolean(bossRecord) ||
+                (isPracticeUnlocked && allPracticeTasksDone);
+
+              const firstPendingTask = orderedTasks.find((t) => !isTaskDone(t));
+
+              const renderTaskItem = (
+                task: StageTask,
+                stepNumber: number,
+                locked: boolean,
+                phase: 'study' | 'practice',
+              ) => {
+                const manualDone = roadmapState.completedTaskIds.includes(task.id);
+                const autoDone =
+                  activeStage?.id === selectedStage.id && todayAutoSkills.has(task.skill);
+                const done = manualDone || autoDone;
+                const isNextStep = !done && !locked && firstPendingTask?.id === task.id;
+                const skillMeta = STAGE_SKILL_META[task.skill];
+
+                const isWritingTask = task.to.startsWith('/vocabulary/writing');
+                const isKanaTask =
+                  task.to.includes('/kana') ||
+                  task.title.toLowerCase().includes('hiragana') ||
+                  task.title.toLowerCase().includes('katakana');
+                let sessionModeTarget: 'vocab' | 'kanji' | 'briefing' | 'reading' | 'listening' | null =
+                  null;
+                if (!isWritingTask && !isKanaTask && roadmapState.activeMode !== 'custom') {
+                  if (task.skill === 'vocab' && phase === 'study') sessionModeTarget = 'vocab';
+                  else if (task.skill === 'kanji') sessionModeTarget = 'kanji';
+                  else if (task.skill === 'grammar' && phase === 'study') sessionModeTarget = 'briefing';
+                  else if (task.skill === 'reading') sessionModeTarget = 'reading';
+                  else if (task.skill === 'listening') sessionModeTarget = 'listening';
                 }
-                onMarkUnderstood={() => {
-                  markStageBriefingUnderstood(selectedStage.id, user?.id);
-                  setSyncVersion((v) => v + 1);
-                  toast({
-                    title: 'Đã nắm kiến thức cốt lõi! Bạn có thể bắt đầu học & mở khóa Quiz.',
-                    tone: 'success',
-                  });
-                }}
-              />
-            )}
 
-            {/* Condition 2: Two-Phase Stage Tasks (Phase 1: Read & Understand -> Phase 2: Quiz/Practice) */}
-            <div className="space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs font-semibold tracking-wide text-muted uppercase">
-                  Điều kiện 2: Nhiệm vụ của Màn {selectedStage.stageNumber} (Đọc hiểu trước → Quiz sau)
-                </p>
-                <span className="text-[11px] text-muted">
-                  Pha 1: Đọc &amp; Hiểu → Pha 2: Thực chiến đạt ≥ 70%
-                </span>
-              </div>
+                // Short, crisp task title & 1-line subtitle (keeps custom user titles intact)
+                const compactTitle =
+                  roadmapState.activeMode === 'custom'
+                    ? task.title
+                    : sessionModeTarget === 'vocab'
+                      ? 'Từ vựng (Lật thẻ)'
+                      : sessionModeTarget === 'kanji'
+                        ? '5 chữ Kanji'
+                        : sessionModeTarget === 'briefing'
+                          ? 'Ngữ pháp bài học'
+                          : sessionModeTarget === 'reading'
+                            ? 'Đọc hiểu ngắn'
+                            : sessionModeTarget === 'listening'
+                              ? 'Nghe hiểu & Script'
+                              : isWritingTask
+                                ? 'Luyện gõ từ vựng'
+                                : task.skill === 'quiz'
+                                  ? 'Quiz nhanh 10 câu'
+                                  : task.title.replace(/\s*\([^)]*\)/g, '').trim();
 
-              {(() => {
-                const stageCompleted = Boolean(roadmapState.completedStages[selectedStage.id]);
-                const isTaskDone = (t: StageTask) =>
-                  roadmapState.completedTaskIds.includes(t.id) ||
-                  (activeStage?.id === selectedStage.id && todayAutoSkills.has(t.skill));
+                const compactSub =
+                  roadmapState.activeMode === 'custom'
+                    ? task.subtitle
+                    : sessionModeTarget === 'vocab'
+                      ? 'Lật thẻ nhớ nghĩa → Quiz 100%'
+                      : sessionModeTarget === 'kanji'
+                        ? 'Hán Việt, On–Kun → Quiz 100%'
+                        : sessionModeTarget === 'briefing'
+                          ? 'Đọc từng mẫu → Bài tập 100%'
+                          : sessionModeTarget === 'reading'
+                            ? 'Đọc đoạn văn → Trả lời đúng 100%'
+                            : sessionModeTarget === 'listening'
+                              ? 'Nghe ẩn Script → Mở Script 100%'
+                              : isWritingTask
+                                ? 'Gõ chuẩn trường âm & âm ngắt'
+                                : task.skill === 'quiz'
+                                  ? 'Sai làm lại tới đúng 100%'
+                                  : task.subtitle;
 
-                const studyTasks = selectedStage.tasks.filter(
-                  (t) => getStageTaskPhase(t) === 'study',
-                );
-                const practiceTasks = selectedStage.tasks.filter(
-                  (t) => getStageTaskPhase(t) === 'practice',
-                );
-                const orderedTasks = [...studyTasks, ...practiceTasks];
-
-                const isBriefingUnderstood =
-                  stageCompleted || understoodStageIds.includes(selectedStage.id);
-                const isGateSkipped =
-                  stageCompleted || skippedGateStageIds.includes(selectedStage.id);
-                const allStudyTasksDone = studyTasks.every(isTaskDone);
-
-                const isPracticeUnlocked =
-                  stageCompleted ||
-                  isGateSkipped ||
-                  (studyTasks.length > 0
-                    ? allStudyTasksDone || (isBriefingUnderstood && studyTasks.some(isTaskDone))
-                    : isBriefingUnderstood);
-
-                const firstPendingTask = orderedTasks.find((t) => !isTaskDone(t));
-
-                const renderTaskItem = (
-                  task: StageTask,
-                  stepNumber: number,
-                  locked: boolean,
-                  phase: 'study' | 'practice',
-                ) => {
-                  const manualDone = roadmapState.completedTaskIds.includes(task.id);
-                  const autoDone =
-                    activeStage?.id === selectedStage.id && todayAutoSkills.has(task.skill);
-                  const done = manualDone || autoDone;
-                  const isNextStep = !done && !locked && firstPendingTask?.id === task.id;
-                  const skillMeta = STAGE_SKILL_META[task.skill];
-
-                  return (
-                    <li
-                      key={task.id}
-                      className={cn(
-                        'flex flex-col gap-2.5 rounded-xl border p-3 sm:flex-row sm:items-center sm:justify-between',
-                        done
-                          ? 'border-success-line bg-success-soft/45'
-                          : locked
-                            ? 'border-line bg-surface-2/35 opacity-75'
-                            : isNextStep
-                              ? 'border-primary/60 bg-primary-soft/25 ring-1 ring-primary/20'
-                              : 'border-line bg-surface-2/50',
+                return (
+                  <li
+                    key={task.id}
+                    className={cn(
+                      'flex flex-col gap-2 rounded-xl border px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between',
+                      done
+                        ? 'border-success-line bg-success-soft/45'
+                        : locked
+                          ? 'border-line bg-surface-2/35 opacity-75'
+                          : isNextStep
+                            ? 'border-primary/60 bg-primary-soft/25 ring-1 ring-primary/20'
+                            : 'border-line bg-surface-2/50',
+                    )}
+                  >
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      {locked ? (
+                        <span
+                          title="Hoàn thành Chặng 1–2 để mở khóa"
+                          className="shrink-0 text-muted"
+                        >
+                          <Lock className="size-4" aria-hidden />
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (
+                              phase === 'practice' &&
+                              task.skill === 'quiz' &&
+                              !done &&
+                              !isGateSkipped &&
+                              roadmapState.activeMode !== 'custom'
+                            ) {
+                              toast({
+                                title: 'Hãy hoàn thành Quiz 100% để tự động tích xanh!',
+                                tone: 'info',
+                              });
+                              return;
+                            }
+                            handleToggleTask(task.id);
+                          }}
+                          aria-pressed={done}
+                          aria-label={
+                            done
+                              ? `Bỏ đánh dấu ${compactTitle}`
+                              : `Đánh dấu hoàn thành ${compactTitle}`
+                          }
+                          className={cn(
+                            'shrink-0 cursor-pointer rounded-full transition-colors',
+                            done ? 'text-success-fg' : 'text-muted hover:text-primary-fg',
+                          )}
+                        >
+                          {done ? (
+                            <CheckCircle2 className="size-5" />
+                          ) : (
+                            <Circle className="size-5" />
+                          )}
+                        </button>
                       )}
-                    >
-                      <div className="flex min-w-0 items-start gap-2.5">
-                        {locked ? (
-                          <span
-                            title="Hoàn thành Pha 1 (Đọc & Hiểu) để mở khóa"
-                            className="mt-0.5 shrink-0 text-muted"
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <Badge
+                            tone={
+                              done
+                                ? 'success'
+                                : locked
+                                  ? 'neutral'
+                                  : isNextStep
+                                    ? 'primary'
+                                    : 'neutral'
+                            }
                           >
-                            <Lock className="size-4" aria-hidden />
+                            Bước {stepNumber}
+                          </Badge>
+                          <span
+                            className={cn(
+                              'text-sm font-semibold',
+                              done ? 'text-muted line-through' : 'text-fg',
+                            )}
+                          >
+                            {compactTitle}
                           </span>
-                        ) : (
+                          <Badge tone={skillMeta.tone}>{skillMeta.label}</Badge>
+                          {isNextStep && <Badge tone="sakura">Tiếp theo</Badge>}
+                          <span className="text-xs text-muted">~{task.minutes}p</span>
+                        </div>
+                        <p className="mt-0.5 text-xs text-muted">{compactSub}</p>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1.5 self-end sm:self-center">
+                      {locked ? (
+                        <Button type="button" variant="secondary" size="sm" disabled>
+                          <Lock className="size-3.5" aria-hidden />
+                          Mở sau Chặng 2
+                        </Button>
+                      ) : sessionModeTarget ? (
+                        (() => {
+                          const modeTarget = sessionModeTarget;
+                          const ctaLabel = done
+                            ? 'Ôn lại'
+                            : modeTarget === 'vocab' || modeTarget === 'kanji'
+                              ? 'Lật thẻ'
+                              : modeTarget === 'listening'
+                                ? 'Nghe ngay'
+                                : 'Học ngay';
+                          return (
+                            <Button
+                              type="button"
+                              variant={done ? 'secondary' : isNextStep ? 'primary' : 'soft'}
+                              size="sm"
+                              rightIcon={<ArrowRight className="size-3.5" aria-hidden />}
+                              onClick={() => {
+                                persistActiveStageSession({
+                                  stage: selectedStage,
+                                  level: activeLevel,
+                                  textbookId: activeBook.id,
+                                });
+                                setSelectedStageId(null);
+                                navigate(
+                                  `/roadmap/stage/${encodeURIComponent(selectedStage.id)}/${modeTarget}`,
+                                  {
+                                    state: {
+                                      stage: selectedStage,
+                                      level: activeLevel,
+                                      textbookId: activeBook.id,
+                                    },
+                                  },
+                                );
+                              }}
+                            >
+                              {ctaLabel}
+                            </Button>
+                          );
+                        })()
+                      ) : (
+                        <Link
+                          to={
+                            task.to.startsWith('/vocabulary/quiz')
+                              ? `${task.to}${task.to.includes('?') ? '&' : '?'}mastery=1&stage=${encodeURIComponent(selectedStage.id)}`
+                              : task.to
+                          }
+                          onClick={() => setSelectedStageId(null)}
+                          className={buttonStyles({
+                            variant: done ? 'secondary' : isNextStep ? 'primary' : 'soft',
+                            size: 'sm',
+                          })}
+                        >
+                          {done ? 'Ôn lại' : phase === 'practice' ? 'Làm bài' : 'Học ngay'}
+                          <ArrowRight className="size-3.5" aria-hidden />
+                        </Link>
+                      )}
+                      {roadmapState.activeMode === 'custom' && roadmapState.customConfig && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          aria-label={`Gỡ nhiệm vụ ${task.title}`}
+                          title="Gỡ nhiệm vụ khỏi Màn này"
+                          onClick={() => handleRemoveTaskFromStage(selectedStage, task)}
+                        >
+                          <Trash2 className="size-3.5 text-danger-fg" aria-hidden />
+                        </Button>
+                      )}
+                    </div>
+                  </li>
+                );
+              };
+
+              return (
+                <div className="space-y-4">
+                  {/* Visual 4-Phase 20-30m Stepper Strip */}
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {[
+                      {
+                        label: '1. Nạp Từ/Kanji',
+                        sub: '~7p',
+                        done: studyTasks.length === 0 || allStudyTasksDone,
+                      },
+                      {
+                        label: '2. Tips & Dấu hiệu',
+                        sub: '~7p',
+                        done: isBriefingUnderstood,
+                      },
+                      {
+                        label: '3. Thực chiến',
+                        sub: '~7p',
+                        done: practiceTasks.length === 0 || allPracticeTasksDone,
+                      },
+                      {
+                        label: '4. Chốt Màn 100%',
+                        sub: '~5p',
+                        done: stageCompleted || Boolean(bossRecord),
+                      },
+                    ].map((ph) => (
+                      <div
+                        key={ph.label}
+                        className={cn(
+                          'flex items-center justify-between gap-1 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold',
+                          ph.done
+                            ? 'border-success-line bg-success-soft/35 text-success-fg'
+                            : 'border-line bg-surface-2/60 text-muted',
+                        )}
+                      >
+                        <span className="truncate">{ph.label}</span>
+                        <span className="shrink-0 opacity-80">{ph.done ? '✓' : ph.sub}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* CHẶNG 1: Từ vựng & Kanji */}
+                  {studyTasks.length > 0 && (
+                    <div className="space-y-1.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-xs font-bold text-primary-fg">
+                          📘 Chặng 1 · Từ vựng &amp; Kanji ({studyTasks.filter(isTaskDone).length}/{studyTasks.length})
+                        </span>
+                        <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                          <Badge
+                            tone={dailyMetrics.vocabIds.length >= DAILY_VOCAB_TARGET ? 'success' : 'neutral'}
+                            className="tabular"
+                          >
+                            Từ: {Math.min(dailyMetrics.vocabIds.length, DAILY_VOCAB_TARGET)}/{DAILY_VOCAB_TARGET}
+                          </Badge>
+                          <Badge
+                            tone={dailyMetrics.kanjiIds.length >= DAILY_KANJI_TARGET ? 'success' : 'neutral'}
+                            className="tabular"
+                          >
+                            Kanji: {Math.min(dailyMetrics.kanjiIds.length, DAILY_KANJI_TARGET)}/{DAILY_KANJI_TARGET}
+                          </Badge>
+                        </div>
+                      </div>
+                      <ul className="space-y-1.5">
+                        {studyTasks.map((task, idx) =>
+                          renderTaskItem(task, idx + 1, false, 'study'),
+                        )}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* CHẶNG 2: Tips & Dấu hiệu */}
+                  {selectedStageBriefing && (
+                    <div className="space-y-1.5">
+                      <span className="text-xs font-bold text-primary-fg">
+                        📖 Chặng 2 · Tips &amp; Dấu hiệu ({isBriefingUnderstood ? '1/1' : '0/1'})
+                      </span>
+                      <div
+                        className={cn(
+                          'flex flex-col gap-2 rounded-xl border px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between',
+                          isBriefingUnderstood
+                            ? 'border-success-line bg-success-soft/45'
+                            : 'border-primary/45 bg-primary-soft/20',
+                        )}
+                      >
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          <span
+                            className={cn(
+                              'grid size-7 shrink-0 place-items-center rounded-lg',
+                              isBriefingUnderstood
+                                ? 'bg-success-soft text-success-fg'
+                                : 'bg-primary-soft text-primary-fg',
+                            )}
+                          >
+                            {isBriefingUnderstood ? (
+                              <CheckCircle2 className="size-4" aria-hidden />
+                            ) : (
+                              <BookOpen className="size-4" aria-hidden />
+                            )}
+                          </span>
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span
+                                className={cn(
+                                  'text-sm font-semibold',
+                                  isBriefingUnderstood ? 'text-muted line-through' : 'text-fg',
+                                )}
+                              >
+                                Tips, Dấu hiệu &amp; Bẫy ○/×
+                              </span>
+                              <Badge tone={isBriefingUnderstood ? 'success' : 'primary'}>
+                                {isBriefingUnderstood ? '✓ 100%' : '100%'}
+                              </Badge>
+                            </div>
+                            <p className="mt-0.5 text-xs text-muted">
+                              Đọc từng mẫu → {selectedStageBriefing.quickChecks.length} câu chốt hiểu
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant={isBriefingUnderstood ? 'secondary' : 'primary'}
+                          size="sm"
+                          className="shrink-0 self-end sm:self-center"
+                          rightIcon={<ArrowRight className="size-3.5" aria-hidden />}
+                          onClick={() => {
+                            persistActiveStageSession({
+                              stage: selectedStage,
+                              level: activeLevel,
+                              textbookId: activeBook.id,
+                            });
+                            setSelectedStageId(null);
+                            navigate(`/roadmap/stage/${encodeURIComponent(selectedStage.id)}/briefing`, {
+                              state: {
+                                stage: selectedStage,
+                                level: activeLevel,
+                                textbookId: activeBook.id,
+                              },
+                            });
+                          }}
+                        >
+                          {isBriefingUnderstood ? 'Xem lại' : 'Đọc & Làm'}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* CHẶNG 3: Thực chiến */}
+                  {practiceTasks.length > 0 && (
+                    <div className="space-y-1.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="flex items-center gap-1.5 text-xs font-bold text-fg">
+                          {isPracticeUnlocked ? (
+                            <Unlock className="size-3.5 text-success-fg" aria-hidden />
+                          ) : (
+                            <Lock className="size-3.5 text-warning-fg" aria-hidden />
+                          )}
+                          ⚔️ Chặng 3 · Thực chiến ({practiceTasks.filter(isTaskDone).length}/{practiceTasks.length})
+                        </span>
+                        {!isPracticeUnlocked && (
                           <button
                             type="button"
                             onClick={() => {
-                              if (
-                                phase === 'practice' &&
-                                task.skill === 'quiz' &&
-                                !done &&
-                                !isGateSkipped &&
-                                roadmapState.activeMode !== 'custom'
-                              ) {
-                                toast({
-                                  title: 'Hãy làm Quiz đạt ≥ 70% để hệ thống tự đánh dấu hoàn thành!',
-                                  tone: 'info',
-                                });
-                                return;
-                              }
-                              handleToggleTask(task.id);
+                              markStageGateSkipped(selectedStage.id, user?.id);
+                              setSyncVersion((v) => v + 1);
+                              toast({
+                                title: 'Đã mở khóa Chặng 3!',
+                                tone: 'info',
+                              });
                             }}
-                            aria-pressed={done}
-                            aria-label={
-                              done
-                                ? `Bỏ đánh dấu ${task.title}`
-                                : `Đánh dấu hoàn thành ${task.title}`
-                            }
-                            className={cn(
-                              'mt-0.5 shrink-0 cursor-pointer rounded-full transition-colors',
-                              done ? 'text-success-fg' : 'text-muted hover:text-primary-fg',
-                            )}
+                            className="cursor-pointer text-[11px] font-medium text-primary-fg underline decoration-primary/40 underline-offset-2 hover:opacity-80"
                           >
-                            {done ? (
-                              <CheckCircle2 className="size-5" />
-                            ) : (
-                              <Circle className="size-5" />
-                            )}
+                            Mở nhanh Chặng 3
                           </button>
                         )}
-                        <div className="min-w-0">
+                      </div>
+
+                      <ul className="space-y-1.5">
+                        {practiceTasks.map((task, idx) =>
+                          renderTaskItem(
+                            task,
+                            studyTasks.length + idx + 1,
+                            !isPracticeUnlocked,
+                            'practice',
+                          ),
+                        )}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* CHẶNG 4: Chốt Màn 100% */}
+                  {selectedStageBriefing && selectedStageBriefing.masteryQuestions.length > 0 && (
+                    <div className="space-y-1.5">
+                      <span className="flex items-center gap-1.5 text-xs font-bold text-fg">
+                        {bossRecord ? (
+                          <Trophy className="size-3.5 text-success-fg" aria-hidden />
+                        ) : isBossUnlocked ? (
+                          <Award className="size-3.5 text-sakura" aria-hidden />
+                        ) : (
+                          <Lock className="size-3.5 text-muted" aria-hidden />
+                        )}
+                        🏆 Chặng 4 · Chốt Màn ({selectedStageBriefing.masteryQuestions.length} câu)
+                      </span>
+                      <div
+                        className={cn(
+                          'flex flex-col gap-2 rounded-xl border px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between',
+                          bossRecord
+                            ? 'border-success-line bg-success-soft/45'
+                            : isBossUnlocked
+                              ? 'border-sakura/50 bg-sakura-soft/20'
+                              : 'border-line bg-surface-2/40',
+                        )}
+                      >
+                        <div className="min-w-0 space-y-0.5">
                           <div className="flex flex-wrap items-center gap-1.5">
-                            <Badge
-                              tone={
-                                done
-                                  ? 'success'
-                                  : locked
-                                    ? 'neutral'
-                                    : isNextStep
-                                      ? 'primary'
-                                      : 'neutral'
-                              }
-                            >
-                              Bước {stepNumber}
-                            </Badge>
                             <span
                               className={cn(
                                 'text-sm font-semibold',
-                                done ? 'text-muted line-through' : 'text-fg',
+                                bossRecord ? 'text-muted line-through' : 'text-fg',
                               )}
                             >
-                              {task.title}
+                              Mini-Test tổng hợp
                             </span>
-                            <Badge tone={skillMeta.tone}>{skillMeta.label}</Badge>
-                            {isNextStep && <Badge tone="sakura">Tiếp theo</Badge>}
-                            {autoDone && <Badge tone="success">✓ Tự động</Badge>}
-                            <span className="text-xs text-muted">~{task.minutes}p</span>
-                          </div>
-                          <p className="mt-0.5 text-xs text-muted">{task.subtitle}</p>
-                        </div>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-1.5 self-end sm:self-center">
-                        {locked ? (
-                          <Button type="button" variant="secondary" size="sm" disabled>
-                            <Lock className="size-3.5" aria-hidden />
-                            Đọc hiểu trước
-                          </Button>
-                        ) : (
-                          <Link
-                            to={task.to}
-                            onClick={() => setSelectedStageId(null)}
-                            className={buttonStyles({
-                              variant: done ? 'secondary' : isNextStep ? 'primary' : 'soft',
-                              size: 'sm',
-                            })}
-                          >
-                            {done
-                              ? 'Ôn lại'
-                              : phase === 'practice'
-                                ? 'Bắt đầu Quiz / Luyện'
-                                : isNextStep
-                                  ? `Đọc Bước ${stepNumber}`
-                                  : 'Đọc ngay'}
-                            <ArrowRight className="size-3.5" aria-hidden />
-                          </Link>
-                        )}
-                        {roadmapState.activeMode === 'custom' && roadmapState.customConfig && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            aria-label={`Gỡ nhiệm vụ ${task.title}`}
-                            title="Gỡ nhiệm vụ khỏi Màn này"
-                            onClick={() => handleRemoveTaskFromStage(selectedStage, task)}
-                          >
-                            <Trash2 className="size-3.5 text-danger-fg" aria-hidden />
-                          </Button>
-                        )}
-                      </div>
-                    </li>
-                  );
-                };
-
-                return (
-                  <div className="space-y-3.5">
-                    {studyTasks.length > 0 && (
-                      <div className="space-y-2">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <span className="text-xs font-bold text-primary-fg">
-                            📘 Pha 1 · Đọc &amp; Hiểu kiến thức ({studyTasks.filter(isTaskDone).length}/{studyTasks.length})
-                          </span>
-                          <span className="text-[11px] text-muted">
-                            Nghe từ / lật Flashcard / đọc giải thích để mở Pha 2
-                          </span>
-                        </div>
-                        <ul className="space-y-2">
-                          {studyTasks.map((task, idx) =>
-                            renderTaskItem(task, idx + 1, false, 'study'),
-                          )}
-                        </ul>
-                      </div>
-                    )}
-
-                    {practiceTasks.length > 0 && (
-                      <div className="space-y-2">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <span className="flex items-center gap-1.5 text-xs font-bold text-fg">
-                            {isPracticeUnlocked ? (
-                              <Unlock className="size-3.5 text-success-fg" aria-hidden />
+                            {bossRecord ? (
+                              <Badge tone="success">
+                                ✓ {bossRecord.accuracyPct}%{bossRecord.isJumpPass ? ' · Nhảy cóc' : ''}
+                              </Badge>
                             ) : (
-                              <Lock className="size-3.5 text-warning-fg" aria-hidden />
+                              <Badge tone="sakura">Đúng 100%</Badge>
                             )}
-                            ⚔️ Pha 2 · Thực chiến Quiz / Nghe / Đọc ({practiceTasks.filter(isTaskDone).length}/{practiceTasks.length})
-                          </span>
-                          {!isPracticeUnlocked && (
-                            <button
+                          </div>
+                          <p className="text-xs text-muted">
+                            Từ vựng · Kanji · Ngữ pháp — sai làm lại tới đúng
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1.5 self-end sm:self-center">
+                          {isBossUnlocked || bossRecord ? (
+                            <Button
                               type="button"
+                              variant={bossRecord ? 'secondary' : 'primary'}
+                              size="sm"
+                              rightIcon={<ArrowRight className="size-3.5" aria-hidden />}
                               onClick={() => {
-                                markStageGateSkipped(selectedStage.id, user?.id);
-                                setSyncVersion((v) => v + 1);
-                                toast({
-                                  title: 'Đã mở khóa Pha 2 — chúc bạn làm Quiz thật tốt!',
-                                  tone: 'info',
+                                persistActiveStageSession({
+                                  stage: selectedStage,
+                                  level: activeLevel,
+                                  textbookId: activeBook.id,
                                 });
+                                setSelectedStageId(null);
+                                navigate(
+                                  `/roadmap/stage/${encodeURIComponent(selectedStage.id)}/mastery`,
+                                  {
+                                    state: {
+                                      stage: selectedStage,
+                                      level: activeLevel,
+                                      textbookId: activeBook.id,
+                                    },
+                                  },
+                                );
                               }}
-                              className="cursor-pointer text-[11px] font-medium text-primary-fg underline decoration-primary/40 underline-offset-2 hover:opacity-80"
                             >
-                              Tôi đã biết bài này · Mở Quiz ngay
-                            </button>
+                              {bossRecord ? 'Làm lại' : 'Chốt Màn'}
+                            </Button>
+                          ) : (
+                            <Button
+                              type="button"
+                              variant="soft"
+                              size="sm"
+                              leftIcon={<FastForward className="size-3.5" aria-hidden />}
+                              onClick={() => {
+                                persistActiveStageSession({
+                                  stage: selectedStage,
+                                  level: activeLevel,
+                                  textbookId: activeBook.id,
+                                });
+                                setSelectedStageId(null);
+                                navigate(
+                                  `/roadmap/stage/${encodeURIComponent(selectedStage.id)}/mastery?mode=jump`,
+                                  {
+                                    state: {
+                                      stage: selectedStage,
+                                      level: activeLevel,
+                                      textbookId: activeBook.id,
+                                    },
+                                  },
+                                );
+                              }}
+                            >
+                              Nhảy cóc
+                            </Button>
                           )}
                         </div>
-
-                        {!isPracticeUnlocked && (
-                          <div className="rounded-lg border border-warning-line bg-warning-soft/35 px-3 py-2 text-xs text-warning-fg">
-                            Hoàn thành <strong>Câu chốt hiểu 60 giây</strong> ở trên hoặc đọc xong{' '}
-                            <strong>Pha 1</strong> để mở khóa phần Quiz / Luyện tập này.
-                          </div>
-                        )}
-
-                        <ul className="space-y-2">
-                          {practiceTasks.map((task, idx) =>
-                            renderTaskItem(
-                              task,
-                              studyTasks.length + idx + 1,
-                              !isPracticeUnlocked,
-                              'practice',
-                            ),
-                          )}
-                        </ul>
                       </div>
-                    )}
-                  </div>
-                );
-              })()}
-            </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Admin-Style Stage Editor when in Custom Mode */}
             {roadmapState.activeMode === 'custom' && roadmapState.customConfig && (
@@ -2392,7 +2939,7 @@ export const StageRoadmapPage: React.FC = () => {
         onClose={() => setBuilderOpen(false)}
         size="lg"
         title="Tự tạo lộ trình theo ngày & Màn"
-        description="Tùy chỉnh giáo trình, số ngày học, mốc online 10–15 phút/ngày và kỹ năng muốn luyện — hệ thống tự sinh bản đồ Chặng & Màn."
+        description="Tùy chỉnh giáo trình, số ngày học, mốc online 20–30 phút/ngày và kỹ năng muốn luyện — hệ thống tự sinh bản đồ Chặng & Màn chuẩn 4 Chặng."
         footer={
           <>
             <Button type="button" variant="secondary" onClick={() => setBuilderOpen(false)}>
@@ -2497,15 +3044,21 @@ export const StageRoadmapPage: React.FC = () => {
               <Select
                 id="custom-min-minutes"
                 value={draftConfig.dailyMinutesTarget}
-                onChange={(e) =>
+                onChange={(e) => {
+                  const raw = Number(e.target.value);
+                  const nextTarget: DailyMinutesTarget =
+                    raw === 10 || raw === 15 || raw === 20 || raw === 25 || raw === 30 ? raw : 25;
                   setDraftConfig({
                     ...draftConfig,
-                    dailyMinutesTarget: Number(e.target.value) === 15 ? 15 : 10,
-                  })
-                }
+                    dailyMinutesTarget: nextTarget,
+                  });
+                }}
               >
-                <option value={10}>10 phút / ngày</option>
+                <option value={25}>25 phút / ngày (Chuẩn 4 Chặng)</option>
+                <option value={20}>20 phút / ngày (Gọn)</option>
+                <option value={30}>30 phút / ngày (Chuyên sâu)</option>
                 <option value={15}>15 phút / ngày</option>
+                <option value={10}>10 phút / ngày</option>
               </Select>
             </Field>
             <Field label="Tổng số Màn" htmlFor="custom-total-stages">
@@ -2910,6 +3463,146 @@ export const StageRoadmapPage: React.FC = () => {
               </Button>
             </div>
           </Field>
+        </div>
+      </Modal>
+
+      {/* Google Calendar 1-Tap Full-Roadmap Sync Modal */}
+      <Modal
+        open={gcalModalOpen}
+        onClose={() => !gcalSyncing && setGcalModalOpen(false)}
+        size="md"
+        title="Đồng bộ lịch học lên Google Calendar"
+        description={`Điền chi tiết từng ngày (${activeLevel} · ${activeBook.shortTitle}) kèm chuông báo điện thoại ngay cả khi tắt máy chờ hoặc đóng app.`}
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={gcalSyncing}
+              onClick={() => setGcalModalOpen(false)}
+            >
+              Đóng
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              disabled={gcalSyncing}
+              leftIcon={<Calendar className="size-4" aria-hidden />}
+              onClick={() => void runGoogleCalendarSync(true)}
+            >
+              {gcalSyncing ? 'Đang đồng bộ...' : 'Đồng bộ từng ngày (1 chạm)'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3.5 text-sm">
+          <div className="rounded-xl border border-line bg-surface-2/60 p-3.5 space-y-1.5 text-xs sm:text-sm">
+            <p className="font-semibold text-fg">
+              Lịch sẽ được tự động fill vào Google Calendar của bạn:
+            </p>
+            <ul className="list-disc space-y-1 pl-5 text-muted">
+              <li>
+                Số ngày đồng bộ:{' '}
+                <strong className="text-fg">
+                  {Math.min(
+                    60,
+                    stages.filter(
+                      (s) => !roadmapState.completedStages[s.id] && s.scheduledDate >= todayKey,
+                    ).length,
+                  )}{' '}
+                  ngày học riêng biệt
+                </strong>{' '}
+                (mỗi ngày ghi rõ tên Màn, danh sách bài &amp; link vào học ngay)
+              </li>
+              <li>
+                Giờ học:{' '}
+                <strong className="text-fg">
+                  {effectiveSettings.reminderTime} ({effectiveSettings.dailyMinutesTarget} phút/ngày)
+                </strong>
+              </li>
+              <li>
+                Báo chuông điện thoại:{' '}
+                <strong className="text-fg">Tự động báo trước 10 phút &amp; đúng giờ</strong> (kêu thật kể cả khi khóa màn hình chờ &amp; vuốt tắt app!)
+              </li>
+              <li>
+                Đồng bộ lại nhiều lần sẽ <strong className="text-fg">tự cập nhật</strong>, không tạo lịch trùng.
+              </li>
+            </ul>
+          </div>
+
+          {gcalSyncing && gcalProgress && (
+            <div className="space-y-1.5 rounded-xl border border-primary/35 bg-primary-soft/20 p-3">
+              <div className="flex items-center justify-between text-xs font-semibold text-primary-fg">
+                <span>Đang ghi lịch từng ngày lên Google Calendar...</span>
+                <span className="tabular">
+                  {gcalProgress.done}/{gcalProgress.total}
+                </span>
+              </div>
+              <ProgressBar
+                value={gcalProgress.done}
+                max={Math.max(1, gcalProgress.total)}
+                size="sm"
+                tone="primary"
+                label="Tiến độ đồng bộ Google Calendar"
+              />
+            </div>
+          )}
+
+          {gcalResult && (
+            <Notice tone={gcalResult.ok ? 'success' : 'warning'}>
+              <p className="font-bold">
+                {gcalResult.ok
+                  ? `🎉 Hoàn tất! Đã tạo mới ${gcalResult.created} ngày & cập nhật ${gcalResult.updated} ngày lên Google Calendar.`
+                  : 'Chưa đồng bộ được qua API'}
+              </p>
+              {gcalResult.errorMessage && (
+                <p className="mt-1 text-xs leading-relaxed">{gcalResult.errorMessage}</p>
+              )}
+              {gcalResult.ok && (
+                <p className="mt-1 text-xs">
+                  Hãy mở app Google Calendar trên điện thoại — toàn bộ các ngày học kèm link vào bài đã hiển thị sẵn!
+                </p>
+              )}
+            </Notice>
+          )}
+
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 text-xs">
+            <Button
+              type="button"
+              variant="soft"
+              size="sm"
+              leftIcon={<Download className="size-3.5" aria-hidden />}
+              onClick={() => {
+                const completedSet = new Set(Object.keys(roadmapState.completedStages));
+                const res = downloadRoadmapIcsFile({
+                  stages,
+                  completedStageIds: completedSet,
+                  level: activeLevel,
+                  bookTitle: activeBook.title,
+                  reminderTime: effectiveSettings.reminderTime,
+                  dailyMinutesTarget: effectiveSettings.dailyMinutesTarget,
+                });
+                toast({
+                  title:
+                    res.count > 0
+                      ? `Đã tải ${res.filename} (${res.count} ngày học)! Mở file để thêm vào Lịch điện thoại.`
+                      : 'Bạn đã hoàn thành hết các Màn trong lộ trình này rồi!',
+                  tone: res.count > 0 ? 'success' : 'info',
+                });
+              }}
+            >
+              Tải file lịch chi tiết (.ics)
+            </Button>
+            <a
+              href={googleCalendarUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 font-semibold text-primary-fg hover:underline"
+            >
+              Mở nhanh lịch lặp (URL)
+              <ExternalLink className="size-3.5" aria-hidden />
+            </a>
+          </div>
         </div>
       </Modal>
     </PageContainer>

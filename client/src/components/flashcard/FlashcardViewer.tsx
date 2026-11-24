@@ -7,7 +7,10 @@ import { parseDbUnitNumber } from '../../services/migrationService';
 import { getLiveUnitsForLevel, getLiveVocabForUnit } from '../../services/curriculumStore';
 import type { JLPTLevel } from '../../types/quiz';
 import { useAuth } from '../../context/auth-context';
-import { recordDailyStageSkillActivity } from '../../services/stageRoadmapService';
+import {
+  DAILY_VOCAB_TARGET,
+  recordDailyVocabInteraction,
+} from '../../services/stageRoadmapService';
 import { useAppSettings } from '../../hooks/useAppSettings';
 import { useUserProgress } from '../../hooks/useUserProgress';
 import { speakJapanese, stopJapaneseSpeech } from '../../utils/tts';
@@ -97,10 +100,8 @@ export const FlashcardViewer: React.FC = () => {
   const handleFlip = useCallback(() => {
     if (currentWord) {
       flippedIdsRef.current.add(currentWord.id);
-      const minFlips = Math.min(3, Math.max(1, words.length));
-      if (flippedIdsRef.current.size >= minFlips) {
-        recordDailyStageSkillActivity('vocab', user?.id);
-      }
+      const minFlips = Math.min(DAILY_VOCAB_TARGET, Math.max(3, Math.ceil(words.length * 0.5)));
+      recordDailyVocabInteraction(currentWord.id, user?.id, minFlips);
     }
     setCardState((prev) => {
       if (prev.deckKey !== deckKey) return { deckKey, index: 0, flipped: true };
