@@ -2409,7 +2409,7 @@ export const StageRoadmapPage: React.FC = () => {
                         ) : (
                           <Lock className="size-3.5 text-muted" aria-hidden />
                         )}
-                        🏆 Chặng 4 · Chốt Màn ({selectedStageBriefing.masteryQuestions.length} câu)
+                        🏆 Chặng 4 · Chốt Màn (chọn {Math.min(10, selectedStageBriefing.masteryQuestions.length)}–{Math.min(20, selectedStageBriefing.masteryQuestions.length)} câu)
                       </span>
                       <div
                         className={cn(

@@ -99,7 +99,7 @@ export interface StageBriefingData {
   readingPassages: JLPTReadingPassage[];
   /** Targeted Listening dialogues for Active Listening mode (hide -> reveal script) */
   listeningItems: JLPTListeningItem[];
-  /** 8-question Mastery Mini-Test for Phase 4 (100% retry-until-correct) */
+  /** Mastery question pool for Phase 4 (up to 20; pick 10/15/20 with pickMasteryQuestions) */
   masteryQuestions: StageMasteryQuestion[];
 }
 
@@ -538,18 +538,21 @@ export function buildStageBriefing(
     });
   }
 
-  // 5. Build 8-Question Mastery Mini-Test for Phase 4 (3 Vocab + 2 Kanji + 3 Grammar/Triggers)
+  // 5. Build the Mastery question pool for Phase 4 (up to 10 Vocab + 4 Kanji + 6 Grammar);
+  //    the learner then picks 10 / 15 / 20 of them (see pickMasteryQuestions)
   const masteryQuestions: StageMasteryQuestion[] = [];
   const allVocabMeanings = unitWords.map((w) => w.meaning.trim()).filter(Boolean);
   const allVocabHiragana = unitWords.map((w) => w.hiragana.trim()).filter(Boolean);
 
-  // 3 Vocab Mastery Questions
-  const vocabPool = unitWords.slice(0, 12);
-  for (let i = 0; i < Math.min(3, vocabPool.length); i += 1) {
-    const w = vocabPool[(seed + i * 3) % vocabPool.length];
+  // Up to 10 Vocab Mastery Questions (distinct words; every 3rd asks the reading)
+  const vocabPool = unitWords.slice(0, 16);
+  const vocabCount = Math.min(10, vocabPool.length);
+  const vocabStep = vocabPool.length % 3 === 0 ? 1 : 3;
+  for (let i = 0; i < vocabCount; i += 1) {
+    const w = vocabPool[(seed + i * vocabStep) % vocabPool.length];
     const kanjiStr = w.kanji?.trim() ?? '';
     const jp = kanjiStr || w.hiragana.trim();
-    const askReading = i === 1 && Boolean(kanjiStr) && kanjiStr !== w.hiragana.trim();
+    const askReading = i % 3 === 1 && Boolean(kanjiStr) && kanjiStr !== w.hiragana.trim();
 
     if (askReading) {
       const distractors = uniqueStrings(allVocabHiragana, w.hiragana.trim(), 3, [
@@ -586,9 +589,9 @@ export function buildStageBriefing(
     }
   }
 
-  // 2 Kanji Mastery Questions
-  for (let i = 0; i < Math.min(2, kanjiItems.length); i += 1) {
-    const k = kanjiItems[(seed + i * 2) % kanjiItems.length];
+  // Up to 4 Kanji Mastery Questions (distinct characters)
+  for (let i = 0; i < Math.min(4, kanjiItems.length); i += 1) {
+    const k = kanjiItems[(seed + i) % kanjiItems.length];
     const fmt = (x: BriefingKanjiItem) =>
       x.hanViet ? `${x.hanViet.toUpperCase()} (${x.meaning})` : x.meaning;
     const correctLabel = fmt(k);
@@ -615,12 +618,22 @@ export function buildStageBriefing(
     });
   }
 
-  // 3 Grammar & Trigger-Word Mastery Questions
-  const grammarRulesForTest = chapterRules.slice(0, 3);
-  for (let i = 0; i < grammarRulesForTest.length; i += 1) {
-    const rule = grammarRulesForTest[i];
+  // Up to 6 Grammar & Trigger-Word Mastery Questions: one scenario per rule,
+  // then a second scenario of the same rules when the chapter has few rules
+  const grammarRulesForTest = chapterRules.slice(0, 6);
+  const grammarSlots: Array<{ ruleIdx: number; scenarioIdx: number }> = grammarRulesForTest.map(
+    (_, ruleIdx) => ({ ruleIdx, scenarioIdx: 0 }),
+  );
+  for (let ruleIdx = 0; grammarSlots.length < 6 && ruleIdx < grammarRulesForTest.length; ruleIdx += 1) {
+    grammarSlots.push({ ruleIdx, scenarioIdx: 1 });
+  }
+  for (let slotIdx = 0; slotIdx < grammarSlots.length; slotIdx += 1) {
+    const { ruleIdx, scenarioIdx } = grammarSlots[slotIdx];
+    const i = slotIdx;
+    const rule = grammarRulesForTest[ruleIdx];
     const insight = buildGrammarDeepInsight(rule, chapterRules, allLevelGrammar);
-    const sc = insight.scenarioQuestions[0];
+    const sc = insight.scenarioQuestions[scenarioIdx];
+    if (scenarioIdx > 0 && !(sc && sc.options.length >= 4)) continue;
     if (sc && sc.options.length >= 4) {
       const cIdx = sc.options.indexOf(sc.correctAnswer);
       masteryQuestions.push({
@@ -755,6 +768,40 @@ export function buildStageBriefing(
     kanjiQuizQuestions,
     readingPassages,
     listeningItems,
-    masteryQuestions: masteryQuestions.slice(0, 8),
+    // Same prompt can come from two generators (e.g. a 2nd grammar scenario): keep the first
+    masteryQuestions: masteryQuestions.filter(
+      (q, idx) => masteryQuestions.findIndex((other) => other.prompt === q.prompt) === idx,
+    ),
   };
+}
+
+export const MASTERY_LENGTH_OPTIONS = [10, 15, 20] as const;
+
+/**
+ * Picks `count` questions from the Mastery pool, interleaving categories
+ * (Từ vựng → Chữ Hán → Ngữ pháp → …) so every test stays mixed.
+ */
+export function pickMasteryQuestions(
+  pool: StageMasteryQuestion[],
+  count: number,
+): StageMasteryQuestion[] {
+  const buckets = new Map<string, StageMasteryQuestion[]>();
+  for (const q of pool) {
+    const list = buckets.get(q.category) ?? [];
+    list.push(q);
+    buckets.set(q.category, list);
+  }
+  const lists = Array.from(buckets.values());
+  const picked: StageMasteryQuestion[] = [];
+  for (let round = 0; picked.length < count; round += 1) {
+    let addedThisRound = false;
+    for (const list of lists) {
+      if (round < list.length && picked.length < count) {
+        picked.push(list[round]);
+        addedThisRound = true;
+      }
+    }
+    if (!addedThisRound) break;
+  }
+  return picked;
 }
