@@ -249,6 +249,28 @@ export async function syncWebPushScheduleToCloud(
   }
 }
 
+const APP_OPEN_REPORT_THROTTLE_MS = 60_000;
+let lastAppOpenReportMs = 0;
+
+/**
+ * Tells the reminder server that the user has the app open, so time slots set to
+ * "nhắc lại đến khi mở app" stop re-notifying (checked by the send-study-reminders cron).
+ */
+export async function reportAppOpenedForReminders(userId: string | null | undefined): Promise<void> {
+  if (!supabase || !isSupabaseAccountUuid(userId)) return;
+  const nowMs = Date.now();
+  if (nowMs - lastAppOpenReportMs < APP_OPEN_REPORT_THROTTLE_MS) return;
+  lastAppOpenReportMs = nowMs;
+  try {
+    await supabase
+      .from('user_push_subscriptions')
+      .update({ last_app_open_at: new Date(nowMs).toISOString() })
+      .eq('user_id', userId);
+  } catch {
+    // Offline: the next visibility change reports again
+  }
+}
+
 export async function dispatchStudyReminderNotification(payload: {
   title: string;
   body: string;

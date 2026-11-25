@@ -34,8 +34,10 @@ interface PushRow {
   last_completed_date: string | null;
   active_stage_label: string | null;
   last_notified_at: string | null;
-  /** "<dateKey>|<slotId>|<HH:MM>" of the custom slots already pushed today */
-  sent_slot_keys: string[] | null;
+  /** Last push time (epoch ms) of each custom slot today, keyed "<dateKey>|<slotId>|<HH:MM>" */
+  slot_last_sent: Record<string, number> | null;
+  /** Last time the user had the app open on this device (reported by the client every minute) */
+  last_app_open_at: string | null;
 }
 
 /** One entry of user_reminders.time_slots (see StudyTimeSlot in the client). */
@@ -46,6 +48,8 @@ interface StudySlot {
   label?: string;
   daysOfWeek?: number[];
   date?: string;
+  /** Re-notify every N minutes until the app is opened; 0/undefined = notify once */
+  repeatMinutes?: number;
 }
 
 interface ReminderRow {
@@ -56,8 +60,12 @@ interface ReminderRow {
 
 type LocalParts = ReturnType<typeof getLocalParts>;
 
-/** A slot still fires if the cron run happens up to this many minutes late. */
+/** The first notification of a slot still goes out if the cron run is up to this late. */
 const SLOT_CATCH_UP_MINUTES = 30;
+/** "Nhắc lại đến khi mở app" gives up this long after the slot time. */
+const SLOT_REPEAT_MAX_MINUTES = 180;
+/** Having the app open this recently counts as "already studying": no first notification. */
+const APP_ACTIVE_WINDOW_MS = 150_000;
 const ALL_WEEKDAYS = [1, 2, 3, 4, 5, 6, 0];
 
 function parseHourMinute(value: unknown): number | null {
@@ -70,44 +78,90 @@ function parseHourMinute(value: unknown): number | null {
   return hour * 60 + minute;
 }
 
-function getDueSlots(rawSlots: unknown, local: LocalParts, completedToday: boolean): StudySlot[] {
+function sanitizeRepeatMinutes(value: unknown): number {
+  const n = Number(value);
+  return n === 1 || n === 5 || n === 10 || n === 15 ? n : 0;
+}
+
+/** Valid slots scheduled for today whose time has already come. */
+function getStartedSlotsToday(rawSlots: unknown, local: LocalParts, completedToday: boolean): StudySlot[] {
   if (!Array.isArray(rawSlots)) return [];
   return (rawSlots as StudySlot[]).filter((slot) => {
     if (!slot || typeof slot !== 'object') return false;
     const slotMinutes = parseHourMinute(slot.time);
-    if (slotMinutes === null) return false;
+    if (slotMinutes === null || slotMinutes > local.totalMinutes) return false;
 
     if (slot.scheduleType === 'once') {
       // One-off appointment: fires on its date even if today's Stage is already done.
-      if (slot.date !== local.dateKey) return false;
-    } else {
-      if (completedToday) return false;
-      const days =
-        Array.isArray(slot.daysOfWeek) && slot.daysOfWeek.length > 0 ? slot.daysOfWeek : ALL_WEEKDAYS;
-      if (!days.includes(local.weekday)) return false;
+      return slot.date === local.dateKey;
     }
-
-    const minutesLate = local.totalMinutes - slotMinutes;
-    return minutesLate >= 0 && minutesLate < SLOT_CATCH_UP_MINUTES;
+    if (completedToday) return false;
+    const days =
+      Array.isArray(slot.daysOfWeek) && slot.daysOfWeek.length > 0 ? slot.daysOfWeek : ALL_WEEKDAYS;
+    return days.includes(local.weekday);
   });
+}
+
+function hasValidSlots(rawSlots: unknown): boolean {
+  return Array.isArray(rawSlots) && rawSlots.some((slot) => parseHourMinute(slot?.time) !== null);
 }
 
 function slotKey(dateKey: string, slot: StudySlot): string {
   return `${dateKey}|${slot.id ?? ''}|${slot.time ?? ''}`;
 }
 
-function keepTodaySlotKeys(raw: unknown, dateKey: string): string[] {
-  if (!Array.isArray(raw)) return [];
-  return raw.filter((key): key is string => typeof key === 'string' && key.startsWith(`${dateKey}|`));
+function keepTodaySends(raw: unknown, dateKey: string): Record<string, number> {
+  const result: Record<string, number> = {};
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return result;
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (key.startsWith(`${dateKey}|`) && typeof value === 'number' && Number.isFinite(value)) {
+      result[key] = value;
+    }
+  }
+  return result;
 }
 
-function isMainReminderDue(row: PushRow, local: LocalParts, now: Date): boolean {
+type SlotDecision = 'first' | 'repeat' | 'skip-active' | 'none';
+
+function decideSlot(
+  slot: StudySlot,
+  local: LocalParts,
+  nowMs: number,
+  lastSentMs: number | undefined,
+  lastAppOpenMs: number,
+): SlotDecision {
+  const minutesLate = local.totalMinutes - (parseHourMinute(slot.time) ?? 0);
+  // Cron runs on the minute: the slot started at the beginning of the current local minute minus minutesLate.
+  const slotStartMs = Math.floor(nowMs / 60_000) * 60_000 - minutesLate * 60_000;
+
+  if (lastSentMs === undefined) {
+    if (minutesLate >= SLOT_CATCH_UP_MINUTES) return 'none';
+    return nowMs - lastAppOpenMs < APP_ACTIVE_WINDOW_MS ? 'skip-active' : 'first';
+  }
+
+  const repeatMinutes = sanitizeRepeatMinutes(slot.repeatMinutes);
+  if (repeatMinutes === 0 || minutesLate >= SLOT_REPEAT_MAX_MINUTES) return 'none';
+  if (lastAppOpenMs >= slotStartMs) return 'none'; // opened the app since the slot started: stop
+  return nowMs - lastSentMs >= repeatMinutes * 60_000 - 20_000 ? 'repeat' : 'none';
+}
+
+function isMainReminderDue(
+  row: PushRow,
+  local: LocalParts,
+  now: Date,
+  lastAppOpenMs: number,
+): boolean {
   const allowedDays =
     Array.isArray(row.study_weekdays) && row.study_weekdays.length > 0 ? row.study_weekdays : ALL_WEEKDAYS;
   if (!allowedDays.includes(local.weekday)) return false;
 
   const reminderMinutes = parseHourMinute(row.reminder_time) ?? 20 * 60;
   if (local.totalMinutes < reminderMinutes) return false;
+
+  // Opening the app after today's reminder time stops the repeats until tomorrow.
+  const reminderStartMs =
+    Math.floor(now.getTime() / 60_000) * 60_000 - (local.totalMinutes - reminderMinutes) * 60_000;
+  if (lastAppOpenMs >= reminderStartMs) return false;
 
   const repeatMs = Math.max(5, Number(row.repeat_interval_minutes) || 10) * 60_000;
   const lastNotifiedMs = row.last_notified_at ? Date.parse(row.last_notified_at) : 0;
@@ -415,29 +469,59 @@ async function handleRequest(req: Request): Promise<Response> {
   let prunedCount = 0;
   let skippedCount = 0;
 
+  // Opening the app on any device of the user counts (phone, laptop…).
+  const lastAppOpenByUser = new Map<string, number>();
+  for (const row of subs) {
+    const openedMs = row.last_app_open_at ? Date.parse(row.last_app_open_at) : 0;
+    if (Number.isFinite(openedMs) && openedMs > (lastAppOpenByUser.get(row.user_id) ?? 0)) {
+      lastAppOpenByUser.set(row.user_id, openedMs);
+    }
+  }
+
   for (const row of subs) {
     const local = getLocalParts(now, row.timezone || 'Asia/Ho_Chi_Minh');
     const completedToday = row.last_completed_date === local.dateKey;
     const reminders = remindersByUser.get(row.user_id);
+    const slotsActive = !!reminders && reminders.enabled !== false;
+    const lastAppOpenMs = lastAppOpenByUser.get(row.user_id) ?? 0;
+    const nowMs = now.getTime();
 
     let notifiedThisRun = false;
     let subscriptionGone = false;
 
-    // A) Each custom time slot fires once on its day (recurring weekdays or one-off date).
-    const previousKeys = keepTodaySlotKeys(row.sent_slot_keys, local.dateKey);
-    const sentKeys = [...previousKeys];
-    const dueSlots =
-      reminders && reminders.enabled !== false
-        ? getDueSlots(reminders.time_slots, local, completedToday).filter(
-            (slot) => !sentKeys.includes(slotKey(local.dateKey, slot)),
-          )
-        : [];
+    // A) Custom time slots: first push at the slot time, then (if enabled) every N minutes
+    //    until the user opens the app.
+    const previousSends = keepTodaySends(row.slot_last_sent, local.dateKey);
+    const sends = { ...previousSends };
+    let sendsChanged =
+      Object.keys(previousSends).length !==
+      Object.keys((row.slot_last_sent as Record<string, number> | null) ?? {}).length;
 
-    for (const slot of dueSlots) {
-      const label = typeof slot.label === 'string' ? slot.label.trim() : '';
+    const startedSlots = slotsActive
+      ? getStartedSlotsToday(reminders?.time_slots, local, completedToday)
+      : [];
+
+    for (const slot of startedSlots) {
+      const key = slotKey(local.dateKey, slot);
+      const decision = decideSlot(slot, local, nowMs, sends[key], lastAppOpenMs);
+      if (decision === 'none') continue;
+      if (decision === 'skip-active') {
+        // Already in the app: count it as delivered so no repeat starts.
+        sends[key] = nowMs;
+        sendsChanged = true;
+        continue;
+      }
+
+      const label = typeof slot.label === 'string' && slot.label.trim() ? slot.label.trim() : '';
+      const repeatMinutes = sanitizeRepeatMinutes(slot.repeatMinutes);
       const result = await sendPush(webpush, row, {
-        title: `Nihongo 問 · Đến giờ học ${slot.time}!`,
-        body: label || 'Mở app để vào bài học hôm nay nhé.',
+        title:
+          decision === 'repeat'
+            ? `Nihongo 問 · Bạn chưa vào học (${slot.time})`
+            : `Nihongo 問 · Đến giờ học ${slot.time}!`,
+        body:
+          (label || 'Mở app để vào bài học hôm nay nhé.') +
+          (repeatMinutes > 0 ? ` Mình sẽ nhắc lại mỗi ${repeatMinutes} phút đến khi bạn mở app.` : ''),
         url: `${baseUrl}/#/roadmap`,
         tag: `nihongo-slot-${local.dateKey}-${slot.id ?? slot.time}`,
       });
@@ -446,19 +530,28 @@ async function handleRequest(req: Request): Promise<Response> {
         break;
       }
       if (result === 'sent') {
-        sentKeys.push(slotKey(local.dateKey, slot));
+        sends[key] = nowMs;
+        sendsChanged = true;
         notifiedThisRun = true;
         slotSentCount += 1;
       }
     }
 
-    // B) Main daily reminder: from reminder_time, repeat until today's Stage is done.
-    if (!subscriptionGone && !notifiedThisRun && !completedToday && isMainReminderDue(row, local, now)) {
+    // B) Users without their own time slots keep the roadmap reminder: from reminder_time,
+    //    repeat until the app is opened (or today's Stage is done).
+    const hasOwnSlots = slotsActive && hasValidSlots(reminders?.time_slots);
+    if (
+      !subscriptionGone &&
+      !hasOwnSlots &&
+      !notifiedThisRun &&
+      !completedToday &&
+      isMainReminderDue(row, local, now, lastAppOpenMs)
+    ) {
       const stageLabel = row.active_stage_label || 'Màn hôm nay';
       const targetMins = row.daily_minutes_target || 10;
       const result = await sendPush(webpush, row, {
         title: `Nihongo 問 · ${stageLabel} đang chờ bạn!`,
-        body: `Online tối thiểu ${targetMins} phút và hoàn thành ${stageLabel} để mở khóa Màn kế tiếp & tắt nhắc hôm nay.`,
+        body: `Học ít nhất ${targetMins} phút và hoàn thành ${stageLabel} để mở Màn tiếp theo.`,
         url: `${baseUrl}/#/roadmap`,
         tag: `nihongo-stage-${local.dateKey}`,
       });
@@ -476,11 +569,8 @@ async function handleRequest(req: Request): Promise<Response> {
       continue;
     }
 
-    const keysChanged =
-      sentKeys.length !== previousKeys.length ||
-      (Array.isArray(row.sent_slot_keys) ? row.sent_slot_keys.length : 0) !== previousKeys.length;
-    if (notifiedThisRun || keysChanged) {
-      const patch: Record<string, unknown> = { sent_slot_keys: sentKeys };
+    if (notifiedThisRun || sendsChanged) {
+      const patch: Record<string, unknown> = { slot_last_sent: sends };
       if (notifiedThisRun) patch.last_notified_at = now.toISOString();
       await supabase.from('user_push_subscriptions').update(patch).eq('id', row.id);
     }

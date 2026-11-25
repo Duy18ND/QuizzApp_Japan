@@ -518,14 +518,18 @@ create table if not exists public.user_push_subscriptions (
   last_completed_date text,
   active_stage_label text,
   last_notified_at timestamptz,
-  -- "<YYYY-MM-DD>|<slotId>|<HH:MM>" of custom time slots (user_reminders.time_slots) already pushed today
-  sent_slot_keys jsonb not null default '[]'::jsonb,
+  -- { "<YYYY-MM-DD>|<slotId>|<HH:MM>": <last push epoch ms> } for custom time slots (user_reminders.time_slots)
+  slot_last_sent jsonb not null default '{}'::jsonb,
+  -- last time the user had the app open (client heartbeat); stops "nhắc lại đến khi mở app"
+  last_app_open_at timestamptz,
   updated_at timestamptz not null default now(),
   constraint uq_user_push_subscriptions_owner_endpoint unique (user_id, endpoint)
 );
 
 alter table public.user_push_subscriptions
-  add column if not exists sent_slot_keys jsonb not null default '[]'::jsonb;
+  add column if not exists slot_last_sent jsonb not null default '{}'::jsonb;
+alter table public.user_push_subscriptions
+  add column if not exists last_app_open_at timestamptz;
 
 create index if not exists idx_user_push_subs_active
   on public.user_push_subscriptions (notifications_enabled, last_completed_date);

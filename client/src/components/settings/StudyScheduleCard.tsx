@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlarmClock,
-  Calendar,
+  BellRing,
   CheckCircle2,
   Clock,
   Flame,
@@ -32,19 +32,26 @@ import {
   ONLINE_TIME_SYNC_EVENT,
   recordStudyCompletion,
   saveStudySchedule,
+  SLOT_REPEAT_OPTIONS,
   STUDY_SCHEDULE_SYNC_EVENT,
   syncStudyScheduleFromCloud,
   upsertScheduleSlot,
   type JLPTExamLevelGoal,
   type OnlineTimeSyncDetail,
   type ScheduleType,
+  type SlotRepeatMinutes,
   type StudyScheduleConfig,
   type StudyTimeSlot,
 } from '../../services/notificationService';
 import {
+  getBrowserNotificationPermission,
+  isIosDevice,
+  isRunningStandalone,
   isWebPushConfigured,
+  requestBrowserNotificationPermission,
   subscribeAndSyncWebPush,
   syncWebPushScheduleToCloud,
+  type BrowserNotificationState,
 } from '../../services/pwaReminderService';
 import {
   loadStageRoadmapState,
@@ -56,6 +63,7 @@ import {
   Button,
   Card,
   Field,
+  IconButton,
   Input,
   Modal,
   Notice,
@@ -67,6 +75,8 @@ import {
 } from '../ui';
 
 const ALL_SEVEN_DAYS = [1, 2, 3, 4, 5, 6, 0];
+const DEFAULT_LABEL = 'Ôn từ vựng & Kanji';
+const DEFAULT_REPEAT_MINUTES: SlotRepeatMinutes = 5;
 
 function computeDaysUntilExam(targetDate: string, todayKey: string): number | null {
   if (!targetDate || !/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) return null;
@@ -87,17 +97,22 @@ export const StudyScheduleCard: React.FC<{ embedded?: boolean }> = ({ embedded =
   const [totalOnlineSeconds, setTotalOnlineSeconds] = useState(() =>
     getTotalOnlineSeconds(loadOnlineTimeMap()),
   );
+  const [notifPermission, setNotifPermission] = useState<BrowserNotificationState>(() =>
+    getBrowserNotificationPermission(),
+  );
 
-  // Add / Edit Schedule Form State
+  // Add / Edit form
   const [editingSlotId, setEditingSlotId] = useState<string | null>(null);
   const [formType, setFormType] = useState<ScheduleType>('recurring');
   const [formTime, setFormTime] = useState('20:00');
-  const [formLabel, setFormLabel] = useState('Ôn từ vựng & Kanji');
+  const [formLabel, setFormLabel] = useState(DEFAULT_LABEL);
   const [formWeekdays, setFormWeekdays] = useState<number[]>(() => [...ALL_SEVEN_DAYS]);
   const [formDate, setFormDate] = useState(() => getLocalDateKey());
+  const [formRepeat, setFormRepeat] = useState(true);
+  const [formRepeatMinutes, setFormRepeatMinutes] =
+    useState<SlotRepeatMinutes>(DEFAULT_REPEAT_MINUTES);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Calculate streak as a continuous daily online streak synced with web visit time & completed study dates
   const streakStats = useMemo(
     () =>
       calculateStudyStreakStats(
@@ -112,6 +127,7 @@ export const StudyScheduleCard: React.FC<{ embedded?: boolean }> = ({ embedded =
   );
   const examDaysLeft = computeDaysUntilExam(schedule.targetExamDate, todayKey);
   const onlineRemainingSeconds = Math.max(0, ONLINE_STREAK_THRESHOLD_SECONDS - todayOnlineSeconds);
+  const needsHomeScreenInstall = isIosDevice() && !isRunningStandalone();
 
   useEffect(() => {
     if (!user?.id) return;
@@ -120,15 +136,11 @@ export const StudyScheduleCard: React.FC<{ embedded?: boolean }> = ({ embedded =
     });
   }, [user?.id]);
 
-  // Listen to session/storage/sync/online-time events and automatically handle midnight date rollover
+  // Session / sync / online-time events + midnight rollover
   useEffect(() => {
     const onSync = (event: Event) => {
       const custom = event as CustomEvent<StudyScheduleConfig>;
-      if (custom.detail) {
-        setSchedule(custom.detail);
-      } else {
-        setSchedule(loadStudySchedule());
-      }
+      setSchedule(custom.detail ?? loadStudySchedule());
     };
     const onOnlineSync = (event: Event) => {
       const custom = event as CustomEvent<OnlineTimeSyncDetail>;
@@ -199,35 +211,59 @@ export const StudyScheduleCard: React.FC<{ embedded?: boolean }> = ({ embedded =
     );
   };
 
+  /**
+   * Registers this device for push reminders. With `askPermission`, asks for the
+   * notification permission first (must run from a click on iPhone).
+   */
+  const syncPushForSchedule = async (updated: StudyScheduleConfig, askPermission: boolean) => {
+    if (!user?.id || !isWebPushConfigured()) return;
+    const rmState = loadStageRoadmapState(user.id);
+    const pushPayload = {
+      userId: user.id,
+      notificationsEnabled: updated.enabled,
+      reminderTime: updated.primaryTime || rmState.fixedReminderTime || '20:00',
+      repeatIntervalMinutes:
+        updated.continuousRepeatMinutes || rmState.fixedRepeatIntervalMinutes || 10,
+      studyWeekdays:
+        updated.streakDaysOfWeek.length > 0 ? updated.streakDaysOfWeek : ALL_SEVEN_DAYS,
+      dailyMinutesTarget: rmState.fixedDailyMinutesTarget || 15,
+      lastCompletedDate: updated.completedDates.includes(todayKey) ? todayKey : null,
+    };
+
+    let permission = getBrowserNotificationPermission();
+    if (updated.enabled && askPermission && permission === 'default') {
+      permission = await requestBrowserNotificationPermission();
+      setNotifPermission(permission);
+    }
+
+    if (updated.enabled && permission === 'granted') {
+      void subscribeAndSyncWebPush(pushPayload);
+    } else {
+      void syncWebPushScheduleToCloud(pushPayload);
+    }
+  };
+
   const applyUpdate = async (patch: Partial<StudyScheduleConfig>, toastMsg?: string) => {
     const updated = await saveStudySchedule(patch, user?.id);
     setSchedule(updated);
     syncToStageRoadmap(updated);
-    if (user?.id && isWebPushConfigured()) {
-      const rmState = loadStageRoadmapState(user.id);
-      const pushPayload = {
-        userId: user.id,
-        notificationsEnabled: updated.enabled,
-        reminderTime: updated.primaryTime || rmState.fixedReminderTime || '20:00',
-        repeatIntervalMinutes:
-          updated.continuousRepeatMinutes || rmState.fixedRepeatIntervalMinutes || 10,
-        studyWeekdays:
-          updated.streakDaysOfWeek.length > 0 ? updated.streakDaysOfWeek : ALL_SEVEN_DAYS,
-        dailyMinutesTarget: rmState.fixedDailyMinutesTarget || 15,
-        lastCompletedDate: updated.completedDates.includes(todayKey) ? todayKey : null,
-      };
-      if (
-        updated.enabled &&
-        typeof Notification !== 'undefined' &&
-        Notification.permission === 'granted'
-      ) {
-        void subscribeAndSyncWebPush(pushPayload);
-      } else {
-        void syncWebPushScheduleToCloud(pushPayload);
-      }
-    }
+    await syncPushForSchedule(updated, patch.enabled === true);
     if (toastMsg) {
       toast({ title: toastMsg, tone: 'success' });
+    }
+  };
+
+  const handleAllowNotifications = async () => {
+    const permission = await requestBrowserNotificationPermission();
+    setNotifPermission(permission);
+    if (permission === 'granted') {
+      await syncPushForSchedule(schedule, false);
+      toast({ title: 'Đã bật thông báo trên máy này', tone: 'success' });
+    } else {
+      toast({
+        title: 'Thông báo đang bị chặn. Hãy mở cài đặt trình duyệt / điện thoại để cho phép.',
+        tone: 'warning',
+      });
     }
   };
 
@@ -235,9 +271,11 @@ export const StudyScheduleCard: React.FC<{ embedded?: boolean }> = ({ embedded =
     setEditingSlotId(null);
     setFormType('recurring');
     setFormTime('20:00');
-    setFormLabel('Ôn từ vựng & Kanji');
+    setFormLabel(DEFAULT_LABEL);
     setFormWeekdays([...ALL_SEVEN_DAYS]);
     setFormDate(getLocalDateKey());
+    setFormRepeat(true);
+    setFormRepeatMinutes(DEFAULT_REPEAT_MINUTES);
     setFormError(null);
   };
 
@@ -253,6 +291,8 @@ export const StudyScheduleCard: React.FC<{ embedded?: boolean }> = ({ embedded =
     } else {
       setFormDate(slot.date || todayKey);
     }
+    setFormRepeat(slot.repeatMinutes > 0);
+    setFormRepeatMinutes(slot.repeatMinutes > 0 ? slot.repeatMinutes : DEFAULT_REPEAT_MINUTES);
     setFormError(null);
   };
 
@@ -267,7 +307,7 @@ export const StudyScheduleCard: React.FC<{ embedded?: boolean }> = ({ embedded =
     setFormError(null);
 
     if (formType === 'recurring' && formWeekdays.length === 0) {
-      setFormError('Vui lòng chọn ít nhất 1 thứ trong tuần (T2 – CN) trước khi lưu.');
+      setFormError('Hãy chọn ít nhất 1 ngày trong tuần.');
       return;
     }
 
@@ -279,33 +319,29 @@ export const StudyScheduleCard: React.FC<{ embedded?: boolean }> = ({ embedded =
         label: formLabel,
         daysOfWeek: formType === 'recurring' ? formWeekdays : [],
         date: formType === 'once' ? formDate : '',
+        repeatMinutes: formRepeat ? formRepeatMinutes : 0,
       },
       user?.id,
     );
 
     if (!res.ok) {
-      setFormError(res.error ?? 'Không thể lưu lịch nhắc.');
+      setFormError(res.error ?? 'Không lưu được lịch nhắc, hãy thử lại.');
       return;
     }
 
     setSchedule(res.schedule);
     syncToStageRoadmap(res.schedule);
-    if (editingSlotId) {
-      toast({
-        title: `Đã cập nhật lịch ${res.slot?.time ?? formTime}`,
-        tone: 'success',
-      });
-      resetForm();
-    } else {
-      toast({
-        title:
-          formType === 'recurring'
-            ? `Đã thêm lịch lặp hàng tuần (${formTime} — ${formatSlotWeekdays(formWeekdays)})`
-            : `Đã thêm lịch 1 lần (${formTime} — Ngày ${formatVietnameseDateWithWeekday(formDate)})`,
-        tone: 'success',
-      });
-      setFormLabel('Ôn từ vựng & Kanji');
-    }
+    await syncPushForSchedule(res.schedule, true);
+
+    toast({
+      title: editingSlotId
+        ? `Đã cập nhật lịch ${res.slot?.time ?? formTime}`
+        : formType === 'recurring'
+          ? `Đã thêm lịch ${formTime} · ${formatSlotWeekdays(formWeekdays)}`
+          : `Đã thêm lịch ${formTime} · ${formatVietnameseDateWithWeekday(formDate)}`,
+      tone: 'success',
+    });
+    resetForm();
   };
 
   const handleRemoveSlot = async (slotId: string, slotTime: string) => {
@@ -320,15 +356,12 @@ export const StudyScheduleCard: React.FC<{ embedded?: boolean }> = ({ embedded =
   const handleCompleteStudyToday = async () => {
     const updated = await recordStudyCompletion(todayKey, user?.id);
     setSchedule(updated);
-    toast({
-      title: 'Đã hoàn thành mục tiêu học hôm nay! Chuỗi Streak đã được cập nhật.',
-      tone: 'success',
-    });
+    toast({ title: 'Đã ghi nhận hôm nay bạn đã học. Giữ chuỗi tốt lắm!', tone: 'success' });
   };
 
   const content = (
-    <div className="space-y-4 sm:space-y-5">
-      {/* Compact Header & Master Toggle */}
+    <div className="space-y-5">
+      {/* Header + master switch */}
       <div
         className={
           embedded
@@ -338,125 +371,125 @@ export const StudyScheduleCard: React.FC<{ embedded?: boolean }> = ({ embedded =
       >
         {!embedded && (
           <div className="min-w-0 space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2">
               <AlarmClock className="size-5 shrink-0 text-primary-fg" aria-hidden />
-              <h2 className="text-base font-semibold text-fg sm:text-lg">
-                Lịch nhắc học &amp; Mục tiêu JLPT
-              </h2>
+              <h2 className="text-base font-semibold text-fg sm:text-lg">Lịch nhắc học</h2>
             </div>
-            <p className="text-xs text-muted sm:text-sm">
-              Thêm, sửa, xóa khung giờ học — mỗi khung giờ đều có thông báo đẩy về điện thoại kể cả khi đã thoát app. Chuỗi online được tính tự động theo thời gian bạn học trên web.
+            <p className="text-sm text-muted">
+              Đặt giờ học, app sẽ gửi thông báo về điện thoại kể cả khi bạn đã thoát app.
             </p>
           </div>
         )}
-
         <div className="shrink-0">
           <Switch
             checked={schedule.enabled}
             onChange={(checked) =>
               void applyUpdate(
                 { enabled: checked },
-                checked ? 'Đã bật lịch nhắc giờ học' : 'Đã tạm tắt lịch nhắc giờ học',
+                checked ? 'Đã bật nhắc học' : 'Đã tắt nhắc học',
               )
             }
-            label="Bật lịch nhắc giờ học"
+            label="Bật nhắc học"
           />
         </div>
       </div>
 
-      {/* 1. Lịch nhắc giờ học (Study Reminders — Khi nào gửi thông báo) */}
-      <section className="space-y-4 border-t border-line pt-4">
-        <div>
-          <h3 className="text-sm font-semibold text-fg sm:text-base">
-            1. Lịch nhắc giờ học (Study Reminders — Khi nào gửi thông báo)
-          </h3>
-          <p className="text-xs text-muted sm:text-sm">
-            Đặt khung giờ học để nhận thông báo đẩy trên điện thoại/máy tính, kể cả khi đã thoát app. Lịch{' '}
-            <strong>Repeats Weekly</strong> lặp hàng tuần; lịch <strong>One-Time</strong> nhắc 1 lần rồi tự xóa hết ngày.
-          </p>
-        </div>
-
-        {/* Active Schedule Items List */}
-        {schedule.timeSlots.length === 0 ? (
-          <div className="rounded-xl border border-line bg-surface-2 px-4 py-4 text-center text-xs text-muted sm:text-sm">
-            Chưa có lịch nhắc nào. Hãy chọn loại lịch ở khung bên dưới để thêm mới!
+      {/* Device readiness */}
+      {schedule.enabled && needsHomeScreenInstall && (
+        <Notice tone="info">
+          Trên iPhone, hãy bấm <strong>Chia sẻ → Thêm vào MH chính</strong> rồi mở app từ biểu tượng đó
+          để nhận thông báo.
+        </Notice>
+      )}
+      {schedule.enabled && !needsHomeScreenInstall && notifPermission !== 'granted' && (
+        <Notice tone="warning">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span>
+              {notifPermission === 'denied'
+                ? 'Thông báo đang bị chặn trên máy này. Hãy cho phép trong cài đặt trình duyệt / điện thoại.'
+                : notifPermission === 'unsupported'
+                  ? 'Trình duyệt này không hỗ trợ thông báo.'
+                  : 'Máy này chưa cho phép thông báo.'}
+            </span>
+            {notifPermission === 'default' && (
+              <Button
+                size="sm"
+                variant="primary"
+                leftIcon={<BellRing className="size-4" aria-hidden />}
+                onClick={() => void handleAllowNotifications()}
+              >
+                Cho phép
+              </Button>
+            )}
           </div>
+        </Notice>
+      )}
+
+      {/* Time slots */}
+      <section className="space-y-3">
+        <h3 className="text-sm font-semibold text-fg">Các giờ nhắc</h3>
+
+        {schedule.timeSlots.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-line bg-surface-2 px-4 py-4 text-center text-sm text-muted">
+            Chưa có giờ nhắc nào. Thêm giờ học đầu tiên ở bên dưới nhé.
+          </p>
         ) : (
-          <div className="grid gap-2.5" data-testid="schedule-slots-list">
-            {schedule.timeSlots.map((slot, idx) => {
+          <ul className="grid gap-2" data-testid="schedule-slots-list">
+            {schedule.timeSlots.map((slot) => {
               const isRecurring = slot.scheduleType === 'recurring';
               const isBeingEdited = editingSlotId === slot.id;
               return (
-                <div
+                <li
                   key={slot.id}
                   data-testid={`schedule-slot-item-${slot.id}`}
-                  className="flex flex-col justify-between gap-2.5 rounded-xl border border-line bg-surface px-3 py-3 sm:flex-row sm:items-center sm:px-4"
+                  className={`flex items-center gap-3 rounded-xl border bg-surface px-3 py-2.5 ${
+                    isBeingEdited ? 'border-primary' : 'border-line'
+                  }`}
                 >
-                  <div className="min-w-0 space-y-1.5">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge tone={idx === 0 ? 'primary' : 'neutral'}>
-                        <span className="font-mono tabular-nums">{slot.time}</span>
-                      </Badge>
-                      <span className="font-semibold text-fg">{slot.label}</span>
-                      <Badge tone={isRecurring ? 'primary' : 'warning'}>
-                        {isRecurring ? 'Lặp hàng tuần (Repeats Weekly)' : 'Một lần (One-Time)'}
-                      </Badge>
-                      {isBeingEdited && <Badge tone="sakura">Đang chỉnh sửa</Badge>}
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
-                      {isRecurring ? (
-                        <span className="inline-flex items-center gap-1.5 font-medium text-fg">
-                          🗓️ Thứ áp dụng:{' '}
-                          <strong className="text-primary-fg">
-                            {formatSlotWeekdays(slot.daysOfWeek)}
-                          </strong>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 font-medium text-fg">
-                          📅 Ngày hẹn:{' '}
-                          <strong className="text-warning-fg">
-                            {formatVietnameseDateWithWeekday(slot.date)}
-                          </strong>{' '}
-                          <span className="text-muted">(Tự xóa khi hết ngày)</span>
+                  <span className="font-mono text-lg font-bold text-fg tabular-nums">{slot.time}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-fg">{slot.label}</p>
+                    <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted">
+                      <span>
+                        {isRecurring
+                          ? formatSlotWeekdays(slot.daysOfWeek)
+                          : `Một lần · ${formatVietnameseDateWithWeekday(slot.date)}`}
+                      </span>
+                      {slot.repeatMinutes > 0 && (
+                        <span className="inline-flex items-center gap-1 text-primary-fg">
+                          <Repeat className="size-3" aria-hidden />
+                          Nhắc lại mỗi {slot.repeatMinutes} phút
                         </span>
                       )}
-                    </div>
+                    </p>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-1 min-[375px]:gap-1.5 sm:flex sm:shrink-0 sm:items-center sm:gap-2">
-                    <Button
-                      variant="secondary"
+                  <div className="flex shrink-0 items-center gap-1">
+                    <IconButton
                       size="sm"
                       aria-label={`Sửa lịch ${slot.time}`}
-                      className="justify-center gap-1 px-1.5 text-[11px] min-[375px]:gap-1.5 min-[375px]:px-2 min-[375px]:text-xs sm:px-3 sm:text-sm"
-                      leftIcon={<Pencil className="size-3 shrink-0 min-[375px]:size-3.5" aria-hidden />}
                       onClick={() => handleStartEditSlot(slot)}
                     >
-                      Sửa
-                    </Button>
-                    <Button
-                      variant="ghost"
+                      <Pencil className="size-4" aria-hidden />
+                    </IconButton>
+                    <IconButton
                       size="sm"
-                      aria-label={`Xóa khung giờ ${slot.time}`}
-                      className="justify-center gap-1 px-1.5 text-[11px] min-[375px]:gap-1.5 min-[375px]:px-2 min-[375px]:text-xs sm:px-3 sm:text-sm"
+                      aria-label={`Xóa lịch ${slot.time}`}
                       onClick={() => void handleRemoveSlot(slot.id, slot.time)}
                     >
-                      <Trash2 className="size-3 shrink-0 text-danger-fg min-[375px]:size-3.5" aria-hidden />
-                      <span className="text-danger-fg">Xóa</span>
-                    </Button>
+                      <Trash2 className="size-4 text-danger-fg" aria-hidden />
+                    </IconButton>
                   </div>
-                </div>
+                </li>
               );
             })}
-          </div>
+          </ul>
         )}
 
-        {/* Add / Edit Schedule Form */}
-        <div className="space-y-3 rounded-xl border border-line bg-surface-2 p-3 sm:p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
+        {/* Add / Edit form */}
+        <div className="space-y-4 rounded-xl border border-line bg-surface-2 p-3 sm:p-4">
+          <div className="flex items-center justify-between gap-2">
             <span className="text-sm font-semibold text-fg">
-              {editingSlotId ? 'Chỉnh sửa lịch nhắc học' : 'Thêm lịch nhắc học mới'}
+              {editingSlotId ? 'Sửa giờ nhắc' : 'Thêm giờ nhắc'}
             </span>
             {editingSlotId && (
               <Button
@@ -465,85 +498,68 @@ export const StudyScheduleCard: React.FC<{ embedded?: boolean }> = ({ embedded =
                 leftIcon={<X className="size-3.5" aria-hidden />}
                 onClick={resetForm}
               >
-                Hủy sửa
+                Hủy
               </Button>
             )}
           </div>
 
-          <div className="space-y-1.5">
-            <span className="text-xs font-medium text-muted">Chọn loại lịch nhắc:</span>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <Button
-                type="button"
-                variant={formType === 'recurring' ? 'primary' : 'secondary'}
-                size="sm"
-                className="h-auto min-h-9 justify-center py-2 whitespace-normal sm:whitespace-nowrap"
-                leftIcon={<Repeat className="size-4 shrink-0" aria-hidden />}
-                onClick={() => {
-                  setFormType('recurring');
-                  setFormError(null);
-                  if (formWeekdays.length === 0) {
-                    setFormWeekdays([...ALL_SEVEN_DAYS]);
-                  }
-                }}
-              >
-                Lặp hàng tuần (Recurring Schedule)
-              </Button>
-              <Button
-                type="button"
-                variant={formType === 'once' ? 'primary' : 'secondary'}
-                size="sm"
-                className="h-auto min-h-9 justify-center py-2 whitespace-normal sm:whitespace-nowrap"
-                leftIcon={<Calendar className="size-4 shrink-0" aria-hidden />}
-                onClick={() => {
-                  setFormType('once');
-                  setFormError(null);
-                  if (!formDate || formDate < todayKey) {
-                    setFormDate(todayKey);
-                  }
-                }}
-              >
-                Một lần theo ngày (One-Time Schedule)
-              </Button>
-            </div>
+          <div className="grid grid-cols-2 gap-2" role="group" aria-label="Kiểu lịch">
+            <Button
+              type="button"
+              size="sm"
+              variant={formType === 'recurring' ? 'primary' : 'secondary'}
+              aria-pressed={formType === 'recurring'}
+              onClick={() => {
+                setFormType('recurring');
+                setFormError(null);
+                if (formWeekdays.length === 0) setFormWeekdays([...ALL_SEVEN_DAYS]);
+              }}
+            >
+              Hằng tuần
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={formType === 'once' ? 'primary' : 'secondary'}
+              aria-pressed={formType === 'once'}
+              onClick={() => {
+                setFormType('once');
+                setFormError(null);
+                if (!formDate || formDate < todayKey) setFormDate(todayKey);
+              }}
+            >
+              Một lần
+            </Button>
           </div>
 
           {formError && <Notice tone="danger">{formError}</Notice>}
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-12">
-            <div className={formType === 'once' ? 'sm:col-span-1 lg:col-span-3' : 'sm:col-span-1 lg:col-span-4'}>
-              <Field label="Giờ nhắc" htmlFor="new-slot-time">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-[8rem_1fr]">
+            <Field label="Giờ" htmlFor="new-slot-time">
+              <Input
+                id="new-slot-time"
+                type="time"
+                value={formTime}
+                onChange={(e) => setFormTime(e.target.value)}
+                className="tabular-nums"
+              />
+            </Field>
+            {formType === 'once' ? (
+              <Field label="Ngày" htmlFor="new-slot-date">
                 <Input
-                  id="new-slot-time"
-                  type="time"
-                  value={formTime}
-                  onChange={(e) => setFormTime(e.target.value)}
+                  id="new-slot-date"
+                  type="date"
+                  min={todayKey}
+                  value={formDate}
+                  onChange={(e) => setFormDate(e.target.value)}
                   className="tabular-nums"
                 />
               </Field>
-            </div>
-
-            {formType === 'once' && (
-              <div className="sm:col-span-1 lg:col-span-4">
-                <Field
-                  label="Ngày nhắc cụ thể"
-                  htmlFor="new-slot-date"
-                  hint="Tự xóa sau khi hết ngày này"
-                >
-                  <Input
-                    id="new-slot-date"
-                    type="date"
-                    min={todayKey}
-                    value={formDate}
-                    onChange={(e) => setFormDate(e.target.value)}
-                    className="tabular-nums"
-                  />
-                </Field>
-              </div>
+            ) : (
+              <div className="hidden sm:block" />
             )}
-
-            <div className={formType === 'once' ? 'sm:col-span-2 lg:col-span-5' : 'sm:col-span-1 lg:col-span-8'}>
-              <Field label="Nội dung học tập" htmlFor="new-slot-label">
+            <div className="col-span-2">
+              <Field label="Nội dung" htmlFor="new-slot-label">
                 <Input
                   id="new-slot-label"
                   type="text"
@@ -555,111 +571,83 @@ export const StudyScheduleCard: React.FC<{ embedded?: boolean }> = ({ embedded =
             </div>
           </div>
 
-          {formType === 'recurring' ? (
-            <div className="space-y-2 border-t border-line pt-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-xs font-medium text-fg">
-                  Chọn các thứ lặp lại trong tuần:
-                </span>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => {
-                      setFormError(null);
-                      setFormWeekdays([...ALL_SEVEN_DAYS]);
-                    }}
-                  >
-                    Cả tuần (T2–CN)
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => {
-                      setFormError(null);
-                      setFormWeekdays([1, 3, 5]);
-                    }}
-                  >
-                    T2, T4, T6
-                  </Button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-4 gap-1.5 sm:flex sm:flex-wrap sm:items-center sm:gap-2" role="group" aria-label="Chọn các thứ trong tuần">
+          {formType === 'recurring' && (
+            <div className="space-y-2">
+              <span className="text-xs font-medium text-muted">Lặp vào các ngày</span>
+              <div className="grid grid-cols-7 gap-1" role="group" aria-label="Chọn ngày trong tuần">
                 {ALL_DAYS_ORDERED.map((item) => {
                   const selected = formWeekdays.includes(item.day);
                   return (
                     <Button
                       key={item.day}
                       type="button"
-                      variant={selected ? 'primary' : 'secondary'}
                       size="sm"
+                      variant={selected ? 'primary' : 'secondary'}
                       aria-pressed={selected}
-                      aria-label={`Chọn ${item.fullLabel} (${item.enShort})`}
+                      aria-label={item.fullLabel}
                       onClick={() => handleToggleFormWeekday(item.day)}
-                      className="justify-center px-2 sm:min-w-14 sm:px-3"
+                      className="px-0"
                     >
-                      <span>{item.shortLabel}</span>
-                      <span className="hidden text-[11px] opacity-85 sm:inline">({item.enShort})</span>
+                      {item.shortLabel}
                     </Button>
                   );
                 })}
               </div>
             </div>
-          ) : (
-            <div className="border-t border-line pt-2.5 text-xs text-muted">
-              Lịch <strong>Một lần (One-Time)</strong> chỉ nhắc 1 lần vào ngày{' '}
-              <strong className="text-fg">{formatVietnameseDateWithWeekday(formDate)}</strong> lúc{' '}
-              <strong className="text-fg">{formTime}</strong> và tự xóa khi qua ngày kế tiếp.
-            </div>
           )}
 
-          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line pt-3">
-            {editingSlotId && (
-              <Button type="button" variant="secondary" size="sm" onClick={resetForm}>
-                Hủy
-              </Button>
+          {/* Re-notify until the app is opened */}
+          <div className="space-y-2 rounded-lg border border-line bg-surface p-3">
+            <Switch
+              checked={formRepeat}
+              onChange={setFormRepeat}
+              label="Nhắc lại nếu chưa mở app"
+              description="Thông báo lặp lại đến khi bạn mở app (tối đa 3 giờ)."
+            />
+            {formRepeat && (
+              <div className="grid grid-cols-4 gap-1.5" role="group" aria-label="Nhắc lại sau">
+                {SLOT_REPEAT_OPTIONS.map((minutes) => (
+                  <Button
+                    key={minutes}
+                    type="button"
+                    size="sm"
+                    variant={formRepeatMinutes === minutes ? 'primary' : 'secondary'}
+                    aria-pressed={formRepeatMinutes === minutes}
+                    onClick={() => setFormRepeatMinutes(minutes)}
+                  >
+                    {minutes} phút
+                  </Button>
+                ))}
+              </div>
             )}
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
-              className="w-full sm:w-auto"
-              leftIcon={
-                editingSlotId ? (
-                  <CheckCircle2 className="size-4 shrink-0" aria-hidden />
-                ) : (
-                  <Plus className="size-4 shrink-0" aria-hidden />
-                )
-              }
-              onClick={() => void handleSaveScheduleSlot()}
-            >
-              {editingSlotId ? 'Lưu thay đổi' : 'Thêm giờ'}
-            </Button>
           </div>
+
+          <Button
+            type="button"
+            variant="primary"
+            fullWidth
+            leftIcon={
+              editingSlotId ? (
+                <CheckCircle2 className="size-4" aria-hidden />
+              ) : (
+                <Plus className="size-4" aria-hidden />
+              )
+            }
+            onClick={() => void handleSaveScheduleSlot()}
+          >
+            {editingSlotId ? 'Lưu thay đổi' : 'Thêm giờ nhắc'}
+          </Button>
         </div>
       </section>
 
-      {/* 2. Merged Section 2 + 3: Study Goal & Streak (Auto Web Online Time + Exam Target) */}
-      <section className="space-y-4 border-t border-line pt-4">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h3 className="text-sm font-semibold text-fg sm:text-base">
-              2. Study Goal &amp; Streak (Mục tiêu &amp; Chuỗi ngày học thực tế)
-            </h3>
-            <p className="text-xs text-muted sm:text-sm">
-              Chuỗi online tự động tính theo <strong>thời gian bạn vào học trên web</strong> (đủ 1 phút/ngày hoặc hoàn thành Quiz). Đặt mục tiêu cấp độ JLPT và thêm lịch nhắc ngày thi bên dưới.
-            </p>
-          </div>
-
+      {/* Streak & JLPT goal */}
+      <section className="space-y-3 border-t border-line pt-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold text-fg">Chuỗi ngày học &amp; mục tiêu JLPT</h3>
           {user && (
-            <Badge tone={streakStats.completedToday ? 'success' : 'sakura'} className="self-start">
+            <Badge tone={streakStats.completedToday ? 'success' : 'sakura'}>
               <Flame className="size-3.5 shrink-0" aria-hidden />
-              {streakStats.completedToday
-                ? `Đã tính chuỗi hôm nay · Streak ${streakStats.currentStreak} ngày`
-                : `Streak: ${streakStats.currentStreak} ngày · Online: ${formatOnlineDurationVi(todayOnlineSeconds)}`}
+              Chuỗi {streakStats.currentStreak} ngày
             </Badge>
           )}
         </div>
@@ -667,34 +655,26 @@ export const StudyScheduleCard: React.FC<{ embedded?: boolean }> = ({ embedded =
         {!user ? (
           <LoginRequiredState
             compact
-            title="Đăng nhập để tính chuỗi online & mục tiêu kỳ thi"
-            description="Chuỗi học tính theo thời gian vào web, ngày thi JLPT và lịch nhắc cá nhân chỉ lưu và hiển thị sau khi bạn đăng nhập (Google hoặc tự tạo tài khoản)."
+            title="Đăng nhập để lưu lịch và chuỗi ngày học"
+            description="Lịch nhắc, chuỗi ngày học và ngày thi JLPT được lưu theo tài khoản của bạn."
           />
         ) : (
-        <>
-        {/* Unified Stats + Live Web Online Timer Grid */}
-        <div className="grid grid-cols-1 gap-3 rounded-xl border border-line bg-surface-2 p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-4">
-          <Stat
-            label="Chuỗi hiện tại (Online Streak)"
-            value={`${streakStats.currentStreak} ngày`}
-            hint="Tính liên tục mỗi ngày vào học web"
-          />
-          <Stat
-            label="Kỷ lục dài nhất (Longest)"
-            value={`${streakStats.longestStreak} ngày`}
-            hint="Chuỗi ngày liên tiếp cao nhất"
-          />
-          <Stat
-            label="Tổng ngày đã học"
-            value={`${streakStats.totalCompletedDays} ngày`}
-            hint={`Tổng tích lũy: ${formatOnlineDurationVi(totalOnlineSeconds)}`}
-          />
-          <div className="flex flex-col justify-between gap-2 border-t border-line pt-2.5 sm:border-t-0 sm:pt-0 lg:border-l lg:border-line lg:pl-3">
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between gap-2 text-xs text-muted">
-                <span className="inline-flex items-center gap-1 font-medium text-fg">
-                  <Clock className="size-3.5 text-primary-fg" aria-hidden />
-                  Online hôm nay
+          <>
+            <div className="grid grid-cols-3 gap-3 rounded-xl border border-line bg-surface-2 p-3 sm:p-4">
+              <Stat label="Chuỗi hiện tại" value={`${streakStats.currentStreak} ngày`} />
+              <Stat label="Kỷ lục" value={`${streakStats.longestStreak} ngày`} />
+              <Stat
+                label="Đã học"
+                value={`${streakStats.totalCompletedDays} ngày`}
+                hint={formatOnlineDurationVi(totalOnlineSeconds)}
+              />
+            </div>
+
+            <div className="space-y-2 rounded-xl border border-line bg-surface-2 p-3 sm:p-4">
+              <div className="flex items-center justify-between gap-2 text-sm">
+                <span className="inline-flex items-center gap-1.5 font-medium text-fg">
+                  <Clock className="size-4 text-primary-fg" aria-hidden />
+                  Hôm nay
                 </span>
                 <span className="font-mono font-semibold text-fg tabular-nums">
                   {formatOnlineDurationVi(todayOnlineSeconds)}
@@ -704,112 +684,79 @@ export const StudyScheduleCard: React.FC<{ embedded?: boolean }> = ({ embedded =
                 value={Math.min(todayOnlineSeconds, ONLINE_STREAK_THRESHOLD_SECONDS)}
                 max={ONLINE_STREAK_THRESHOLD_SECONDS}
                 tone={streakStats.completedToday ? 'success' : 'primary'}
-                label="Tiến độ online giữ chuỗi hôm nay"
+                label="Tiến độ giữ chuỗi hôm nay"
                 size="sm"
               />
-              <p className="text-[11px] text-muted">
-                {streakStats.completedToday
-                  ? '✓ Đã đủ điều kiện & cộng chuỗi hôm nay.'
-                  : `Còn ${onlineRemainingSeconds} giây online để tự cộng chuỗi.`}
-              </p>
-            </div>
-            <Button
-              variant={streakStats.completedToday ? 'soft' : 'primary'}
-              size="sm"
-              fullWidth
-              leftIcon={<CheckCircle2 className="size-4 shrink-0" aria-hidden />}
-              onClick={() => void handleCompleteStudyToday()}
-            >
-              {streakStats.completedToday ? 'Đã hoàn thành hôm nay ✓' : 'Xác nhận học hôm nay'}
-            </Button>
-          </div>
-        </div>
-
-        {/* JLPT Target Exam countdown */}
-        <div className="space-y-3 rounded-xl border border-line bg-surface-2 p-3 sm:p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h4 className="text-xs font-semibold text-fg sm:text-sm">
-                Mục tiêu kỳ thi JLPT
-              </h4>
-              <p className="text-xs text-muted">
-                Chọn cấp độ + ngày thi dự kiến để đếm ngược số ngày còn lại.
-              </p>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs text-muted">
+                  {streakStats.completedToday
+                    ? '✓ Hôm nay đã được tính vào chuỗi.'
+                    : `Học thêm ${onlineRemainingSeconds} giây để giữ chuỗi.`}
+                </p>
+                {!streakStats.completedToday && (
+                  <Button
+                    variant="soft"
+                    size="sm"
+                    leftIcon={<CheckCircle2 className="size-4" aria-hidden />}
+                    onClick={() => void handleCompleteStudyToday()}
+                  >
+                    Tôi đã học hôm nay
+                  </Button>
+                )}
+              </div>
             </div>
 
-            {examDaysLeft !== null ? (
-              <Badge tone={examDaysLeft > 0 ? 'primary' : examDaysLeft === 0 ? 'sakura' : 'warning'}>
-                <Trophy className="size-3.5 shrink-0" aria-hidden />
-                {examDaysLeft > 0
-                  ? `JLPT ${schedule.targetExamLevel} — Còn ${examDaysLeft} ngày`
-                  : examDaysLeft === 0
-                    ? `JLPT ${schedule.targetExamLevel} — Hôm nay thi!`
-                    : `JLPT ${schedule.targetExamLevel} — Đã qua ${Math.abs(examDaysLeft)} ngày`}
-              </Badge>
-            ) : (
-              <Badge tone="neutral">Chưa đặt ngày thi</Badge>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-12 lg:items-end">
-            <div className="sm:col-span-1 lg:col-span-4">
-              <Field label="Cấp độ mục tiêu" htmlFor="target-exam-level">
-                <Select
-                  id="target-exam-level"
-                  wrapperClassName="w-full"
-                  className="w-full"
-                  value={schedule.targetExamLevel}
-                  onChange={(e) =>
-                    void applyUpdate({
-                      targetExamLevel: e.target.value as JLPTExamLevelGoal,
-                    })
-                  }
-                >
-                  {JLPT_EXAM_LEVELS.map((lvl) => (
-                    <option key={lvl} value={lvl}>
-                      JLPT {lvl}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
+            <div className="space-y-3 rounded-xl border border-line bg-surface-2 p-3 sm:p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-sm font-medium text-fg">Kỳ thi JLPT</span>
+                {examDaysLeft !== null && (
+                  <Badge
+                    tone={examDaysLeft > 0 ? 'primary' : examDaysLeft === 0 ? 'sakura' : 'warning'}
+                  >
+                    <Trophy className="size-3.5 shrink-0" aria-hidden />
+                    {examDaysLeft > 0
+                      ? `Còn ${examDaysLeft} ngày`
+                      : examDaysLeft === 0
+                        ? 'Hôm nay thi!'
+                        : `Đã qua ${Math.abs(examDaysLeft)} ngày`}
+                  </Badge>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Cấp độ" htmlFor="target-exam-level">
+                  <Select
+                    id="target-exam-level"
+                    wrapperClassName="w-full"
+                    className="w-full"
+                    value={schedule.targetExamLevel}
+                    onChange={(e) =>
+                      void applyUpdate({ targetExamLevel: e.target.value as JLPTExamLevelGoal })
+                    }
+                  >
+                    {JLPT_EXAM_LEVELS.map((lvl) => (
+                      <option key={lvl} value={lvl}>
+                        JLPT {lvl}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label="Ngày thi" htmlFor="target-exam-date">
+                  <Input
+                    id="target-exam-date"
+                    type="date"
+                    value={schedule.targetExamDate}
+                    onChange={(e) =>
+                      void applyUpdate(
+                        { targetExamDate: e.target.value },
+                        e.target.value ? 'Đã lưu ngày thi' : 'Đã xóa ngày thi',
+                      )
+                    }
+                    className="w-full tabular-nums"
+                  />
+                </Field>
+              </div>
             </div>
-
-            <div className="sm:col-span-1 lg:col-span-5">
-              <Field label="Ngày thi dự kiến" htmlFor="target-exam-date">
-                <Input
-                  id="target-exam-date"
-                  type="date"
-                  value={schedule.targetExamDate}
-                  onChange={(e) =>
-                    void applyUpdate(
-                      { targetExamDate: e.target.value },
-                      e.target.value ? 'Đã lưu ngày thi mục tiêu' : 'Đã xóa ngày thi mục tiêu',
-                    )
-                  }
-                  className="w-full tabular-nums"
-                />
-              </Field>
-            </div>
-
-            <div className="sm:col-span-2 lg:col-span-3">
-              {schedule.targetExamDate && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full justify-center lg:w-auto"
-                  onClick={() =>
-                    void applyUpdate({ targetExamDate: '' }, 'Đã xóa ngày thi JLPT mục tiêu')
-                  }
-                >
-                  <X className="size-3.5 shrink-0" aria-hidden />
-                  <span>Xóa ngày thi</span>
-                </Button>
-              )}
-            </div>
-          </div>
-
-        </div>
-        </>
+          </>
         )}
       </section>
     </div>
@@ -833,10 +780,10 @@ export const StudyScheduleModal: React.FC<StudyScheduleModalProps> = ({ open, on
       title={
         <span className="inline-flex items-center gap-2">
           <AlarmClock className="size-5 shrink-0 text-primary-fg" aria-hidden />
-          <span>Lịch nhắc học &amp; Mục tiêu JLPT</span>
+          <span>Lịch nhắc học</span>
         </span>
       }
-      description="Thêm, sửa, xóa khung giờ nhắc học (thông báo đẩy) và theo dõi chuỗi học online tự động trên web."
+      description="Đặt giờ học, app sẽ gửi thông báo về điện thoại kể cả khi bạn đã thoát app."
     >
       <StudyScheduleCard embedded />
     </Modal>
