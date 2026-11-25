@@ -16,6 +16,7 @@ import {
   FastForward,
   Lock,
   Map as MapIcon,
+  MoreHorizontal,
   Pencil,
   Plus,
   Settings2,
@@ -41,6 +42,7 @@ import {
   Button,
   Card,
   Chip,
+  Dropdown,
   Field,
   Input,
   Modal,
@@ -53,6 +55,7 @@ import {
   useToast,
 } from '../components/ui';
 import { buttonStyles } from '../components/ui/styles';
+import { StudyScheduleModal } from '../components/settings/StudyScheduleCard';
 import { useAuth } from '../context/auth-context';
 import {
   buildVocabToolQuery,
@@ -193,6 +196,8 @@ export const StageRoadmapPage: React.FC = () => {
   const [chunkTitleDraft, setChunkTitleDraft] = useState<{ chunkNum: number; value: string } | null>(
     null,
   );
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(() =>
     Boolean(searchParams.get('import')),
   );
@@ -902,24 +907,24 @@ export const StageRoadmapPage: React.FC = () => {
       {!user && (
         <Notice tone="info" className="flex flex-wrap items-center justify-between gap-2">
           <span>
-            Bạn đang xem Bản đồ Màn học ở chế độ khách. Đăng nhập để lưu tiến độ mở khóa Màn &amp; đồng bộ trên mọi thiết bị.
+            Bạn đang xem ở chế độ khách — đăng nhập để lưu tiến độ.
           </span>
           <Link
             to="/login"
             className={buttonStyles({ variant: 'primary', size: 'sm' })}
           >
-            Đăng nhập ngay
+            Đăng nhập
           </Link>
         </Notice>
       )}
       <PageHeader
         breadcrumbs={[
           { label: 'Trang chủ', to: '/' },
-          { label: 'Lộ trình học tập' },
+          { label: 'Lộ trình học' },
         ]}
         title={
           <span className="flex flex-wrap items-center gap-2.5">
-            <span>Lộ trình &amp; Bản đồ Màn học</span>
+            <span>Lộ trình học</span>
             <Badge tone="primary">
               JLPT {activeLevel} · {activeBook.shortTitle}
             </Badge>
@@ -928,24 +933,9 @@ export const StageRoadmapPage: React.FC = () => {
             )}
           </span>
         }
-        description="Lộ trình chuẩn 20–30 phút/ngày gồm 4 Chặng: Nạp Từ/Kanji → Đọc hiểu Tips & Dấu hiệu → Thực chiến Bài tập → Mini-Test Chốt Màn."
+        description="Mỗi ngày 1 Màn, khoảng 20–30 phút: Từ vựng & Kanji → Mẹo đọc hiểu → Luyện tập → Kiểm tra."
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              leftIcon={
-                isStandalone ? (
-                  <CheckCircle2 className="size-4 text-success-fg" aria-hidden />
-                ) : (
-                  <Smartphone className="size-4 text-primary-fg" aria-hidden />
-                )
-              }
-              onClick={() => void handleOneTapInstallPwa()}
-            >
-              {isStandalone ? 'Đã cài App' : 'Cài App (1 chạm)'}
-            </Button>
             <Button
               type="button"
               variant={
@@ -966,12 +956,164 @@ export const StageRoadmapPage: React.FC = () => {
               {!roadmapState.notificationsEnabled
                 ? 'Bật nhắc học'
                 : notifPermission !== 'granted'
-                  ? 'Cấp quyền chuông'
-                  : `Đang nhắc mỗi ${effectiveSettings.repeatIntervalMinutes}p`}
+                  ? 'Cho phép thông báo'
+                  : 'Đang nhắc học'}
             </Button>
           </div>
         }
       />
+
+      {/* Today's Gate & Enforcement Status Card */}
+      <Card
+        padding="md"
+        className={cn(
+          'space-y-3.5',
+          enforcement.isCompletedToday
+            ? 'border-success-line bg-success-soft/35'
+            : 'border-primary/40 bg-glass-soft',
+        )}
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone={enforcement.isCompletedToday ? 'success' : 'primary'}>
+                {enforcement.isCompletedToday
+                  ? '✓ Xong mục tiêu hôm nay'
+                  : 'Hôm nay'}
+              </Badge>
+            </div>
+            <h2 className="text-base font-bold text-fg">
+              {activeStage
+                ? `Màn ${activeStage.stageNumber}: ${activeStage.title}`
+                : 'Bạn đã chinh phục toàn bộ bản đồ lộ trình!'}
+            </h2>
+            <p className="text-xs text-muted sm:text-sm">
+              {enforcement.isCompletedToday
+                ? 'Hôm nay đã được ghi nhận, nhắc học trong ngày đã tắt.'
+                : onlineMet
+                  ? 'Đã đủ thời gian học! Mở Màn và bấm Hoàn thành để mở Màn tiếp theo.'
+                  : `Học thêm ${formatMmSs(remainingSeconds)} để mở Màn tiếp theo.`}
+            </p>
+          </div>
+
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            {activeStage && (
+              <Button
+                type="button"
+                variant="primary"
+                size="lg"
+                className="w-full sm:w-auto"
+                rightIcon={<ArrowRight className="size-4" aria-hidden />}
+                onClick={() => setSelectedStageId(activeStage.id)}
+              >
+                Học Màn {activeStage.stageNumber}
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-xs text-muted">
+              <span>Học hôm nay (mục tiêu {effectiveSettings.dailyMinutesTarget} phút)</span>
+              <span className="tabular font-semibold text-fg">
+                {Math.min(100, Math.round((todayOnlineSeconds / targetSeconds) * 100))}%
+              </span>
+            </div>
+            <ProgressBar
+              value={Math.min(todayOnlineSeconds, targetSeconds)}
+              max={targetSeconds}
+              tone={onlineMet ? 'success' : 'primary'}
+              size="sm"
+              label="Thời gian online tối thiểu hôm nay"
+            />
+          </div>
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
+              <span>
+                Lộ trình ·{' '}
+                <strong className="text-fg">
+                  {roadmapForecast.isCompleted
+                    ? 'Đã hoàn thành!'
+                    : `dự kiến xong ${roadmapForecast.estimatedCompletionLabel}`}
+                </strong>
+              </span>
+              <span className="tabular font-semibold text-fg">
+                {completedCount}/{stages.length} màn
+              </span>
+            </div>
+            <ProgressBar
+              value={completedCount}
+              max={stages.length}
+              tone={completedCount === stages.length ? 'success' : 'primary'}
+              size="sm"
+              label="Tiến độ các màn học"
+            />
+          </div>
+        </div>
+
+        {/* N5 Starting Point Switcher: Learn Kana First (5 Stages) vs Skip Straight to Lesson 1 */}
+        {activeLevel === 'N5' && viewTab !== 'overview' && (
+          <div className="flex flex-col gap-2 rounded-xl border border-line bg-surface/65 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-0.5">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Badge tone="sakura">Bắt đầu N5</Badge>
+                <span className="text-xs font-bold text-fg">
+                  {(
+                    roadmapState.activeMode === 'custom' && roadmapState.customConfig
+                      ? Boolean(roadmapState.customConfig.includeKanaStarter)
+                      : Boolean(roadmapState.fixedIncludeKanaStarter)
+                  )
+                    ? 'Đang học bảng chữ cái Hiragana & Katakana trước (5 màn)'
+                    : 'Bắt đầu thẳng từ Bài 1'}
+                </span>
+              </div>
+              <p className="text-xs text-muted">
+                Mới bắt đầu? Nên học bảng chữ cái trước.
+              </p>
+            </div>
+            <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+              <Chip
+                selected={
+                  !(roadmapState.activeMode === 'custom' && roadmapState.customConfig
+                    ? Boolean(roadmapState.customConfig.includeKanaStarter)
+                    : Boolean(roadmapState.fixedIncludeKanaStarter))
+                }
+                onClick={() => {
+                  if (roadmapState.activeMode === 'custom' && roadmapState.customConfig) {
+                    updateActiveCustomConfig((cfg) => ({ ...cfg, includeKanaStarter: false }));
+                  } else {
+                    updateState({ ...roadmapState, fixedIncludeKanaStarter: false });
+                  }
+                  toast({ title: 'Đã chuyển sang: Bỏ qua Kana → Vào thẳng Bài 1 N5', tone: 'info' });
+                }}
+              >
+                Đã thuộc Kana (Vào Bài 1)
+              </Chip>
+              <Chip
+                selected={
+                  roadmapState.activeMode === 'custom' && roadmapState.customConfig
+                    ? Boolean(roadmapState.customConfig.includeKanaStarter)
+                    : Boolean(roadmapState.fixedIncludeKanaStarter)
+                }
+                onClick={() => {
+                  if (roadmapState.activeMode === 'custom' && roadmapState.customConfig) {
+                    updateActiveCustomConfig((cfg) => ({ ...cfg, includeKanaStarter: true }));
+                  } else {
+                    updateState({ ...roadmapState, fixedIncludeKanaStarter: true });
+                  }
+                  toast({
+                    title: 'Đã thêm Chặng 0: 5 Màn Bảng chữ cái Hiragana & Katakana lên đầu lộ trình!',
+                    tone: 'success',
+                  });
+                }}
+              >
+                + Học Bảng chữ cái trước (5 màn)
+              </Chip>
+            </div>
+          </div>
+        )}
+      </Card>
 
       {/* Mode Switcher + Inline Quick Settings */}
       <Card padding="md" className="space-y-4">
@@ -984,8 +1126,8 @@ export const StageRoadmapPage: React.FC = () => {
               onChange={handleModeChange}
               className="max-w-full shrink-0"
               items={[
-                { value: 'fixed', label: 'Lộ trình cố định' },
-                { value: 'custom', label: 'Lộ trình tự tạo' },
+                { value: 'fixed', label: 'Cố định' },
+                { value: 'custom', label: 'Tự tạo' },
                 { value: 'overview', label: 'Tổng quan' },
               ]}
             />
@@ -993,83 +1135,103 @@ export const StageRoadmapPage: React.FC = () => {
           <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
-              variant="primary"
+              variant="secondary"
               size="sm"
               leftIcon={<Plus className="size-4" aria-hidden />}
               onClick={() => handleOpenBuilder(true)}
             >
               Tạo lộ trình mới
             </Button>
-            <Link
-              to="/studio"
-              className={buttonStyles({ variant: 'soft', size: 'sm' })}
-            >
-              <Sparkles className="size-4" aria-hidden />
-              <span>Studio Tự tạo bài</span>
-            </Link>
-            <Link
-              to="/studio?tab=canvas"
-              className={buttonStyles({ variant: 'secondary', size: 'sm' })}
-            >
-              <MapIcon className="size-4 text-primary-fg" aria-hidden />
-              <span>Vẽ bản đồ tự do</span>
-            </Link>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              leftIcon={<Download className="size-4" aria-hidden />}
-              onClick={() => setImportModalOpen(true)}
-            >
-              Nhập mã lộ trình
-            </Button>
-            {roadmapState.customConfig && viewTab === 'custom' && (
-              <>
-                <Button
-                  type="button"
-                  variant="soft"
-                  size="sm"
-                  leftIcon={
-                    proUnlocked ? (
-                      <Share className="size-4" aria-hidden />
-                    ) : (
-                      <Lock className="size-3.5" aria-hidden />
-                    )
-                  }
-                  onClick={handleClickShareRoadmap}
-                >
-                  Chia sẻ lộ trình {!proUnlocked && '[PRO]'}
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  leftIcon={<Settings2 className="size-4" aria-hidden />}
-                  onClick={() => handleOpenBuilder(false)}
-                >
-                  Cấu hình
-                </Button>
-              </>
-            )}
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              leftIcon={<CalendarPlus className="size-4" aria-hidden />}
-              onClick={handleShiftScheduleOneDay}
-            >
-              Dời lịch +1 ngày
-            </Button>
-            {activeStage && activeStage.scheduledDate !== todayKey && (
+            {viewTab !== 'overview' && (
               <Button
                 type="button"
-                variant="soft"
+                variant="secondary"
                 size="sm"
-                onClick={handleSyncScheduleToToday}
+                leftIcon={<Settings2 className="size-4" aria-hidden />}
+                onClick={() => setSettingsModalOpen(true)}
               >
-                Đồng bộ về Hôm nay
+                Cài đặt lộ trình
               </Button>
             )}
+            <Dropdown
+              variant="ghost"
+              size="sm"
+              align="end"
+              aria-label="Thêm tùy chọn lộ trình"
+              label={<MoreHorizontal className="size-5" aria-hidden />}
+              items={[
+                ...(activeStage && activeStage.scheduledDate !== todayKey
+                  ? [
+                      {
+                        id: 'sync-today',
+                        label: 'Đưa Màn hiện tại về hôm nay',
+                        icon: <Calendar className="size-4" aria-hidden />,
+                        onSelect: handleSyncScheduleToToday,
+                      },
+                    ]
+                  : []),
+                {
+                  id: 'shift',
+                  label: 'Dời lịch thêm 1 ngày',
+                  icon: <CalendarPlus className="size-4" aria-hidden />,
+                  onSelect: handleShiftScheduleOneDay,
+                },
+                ...(roadmapState.customConfig && viewTab === 'custom'
+                  ? [
+                      {
+                        id: 'builder',
+                        label: 'Sửa lộ trình tự tạo',
+                        icon: <Pencil className="size-4" aria-hidden />,
+                        onSelect: () => handleOpenBuilder(false),
+                      },
+                      {
+                        id: 'share',
+                        label: proUnlocked ? 'Chia sẻ lộ trình' : 'Chia sẻ lộ trình (PRO)',
+                        icon: proUnlocked ? (
+                          <Share className="size-4" aria-hidden />
+                        ) : (
+                          <Lock className="size-4" aria-hidden />
+                        ),
+                        onSelect: handleClickShareRoadmap,
+                      },
+                    ]
+                  : []),
+                {
+                  id: 'import',
+                  label: 'Nhập mã lộ trình',
+                  icon: <Download className="size-4" aria-hidden />,
+                  onSelect: () => setImportModalOpen(true),
+                },
+                {
+                  id: 'studio',
+                  label: 'Studio tự tạo bài',
+                  icon: <Sparkles className="size-4" aria-hidden />,
+                  onSelect: () => navigate('/studio'),
+                },
+                {
+                  id: 'canvas',
+                  label: 'Vẽ bản đồ tự do',
+                  icon: <MapIcon className="size-4" aria-hidden />,
+                  onSelect: () => navigate('/studio?tab=canvas'),
+                },
+                {
+                  id: 'level',
+                  label: 'Đổi trình độ / sách',
+                  icon: <BookOpen className="size-4" aria-hidden />,
+                  onSelect: requestOpenLevelModal,
+                },
+                ...(!isStandalone
+                  ? [
+                      {
+                        id: 'install',
+                        label: 'Cài app ra màn hình chính',
+                        icon: <Smartphone className="size-4" aria-hidden />,
+                        onSelect: () => void handleOneTapInstallPwa(),
+                      },
+                    ]
+                  : []),
+              ]}
+            />
           </div>
         </div>
 
@@ -1132,313 +1294,6 @@ export const StageRoadmapPage: React.FC = () => {
           </div>
         )}
 
-        {/* Unified Schedule, Reminder & Study Weekdays Bar (works in BOTH Fixed & Custom modes) */}
-        {viewTab !== 'overview' && (
-          <div className="space-y-3 border-t border-line pt-3.5">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Field label="Ngày bắt đầu lộ trình" htmlFor="active-start-date">
-                <Input
-                  id="active-start-date"
-                  type="date"
-                  value={
-                    viewTab === 'custom' && roadmapState.customConfig
-                      ? roadmapState.customConfig.startDate
-                      : roadmapState.fixedStartDate
-                  }
-                  onChange={(e) => {
-                    const nextDate = e.target.value || todayKey;
-                    if (viewTab === 'custom' && roadmapState.customConfig) {
-                      updateActiveCustomConfig((cfg) => ({ ...cfg, startDate: nextDate }));
-                    } else {
-                      updateState({ ...roadmapState, fixedStartDate: nextDate });
-                    }
-                  }}
-                />
-              </Field>
-              <Field label="Thời gian online tối thiểu/ngày" htmlFor="active-min-minutes">
-                <Select
-                  id="active-min-minutes"
-                  value={
-                    viewTab === 'custom' && roadmapState.customConfig
-                      ? roadmapState.customConfig.dailyMinutesTarget
-                      : roadmapState.fixedDailyMinutesTarget
-                  }
-                  onChange={(e) => {
-                    const raw = Number(e.target.value);
-                    const nextTarget: DailyMinutesTarget =
-                      raw === 10 || raw === 15 || raw === 20 || raw === 25 || raw === 30
-                        ? raw
-                        : 25;
-                    if (viewTab === 'custom' && roadmapState.customConfig) {
-                      updateActiveCustomConfig((cfg) => ({ ...cfg, dailyMinutesTarget: nextTarget }));
-                    } else {
-                      updateState({ ...roadmapState, fixedDailyMinutesTarget: nextTarget });
-                    }
-                  }}
-                >
-                  <option value={25}>25 phút / ngày (Chuẩn 4 Chặng · Khuyến nghị)</option>
-                  <option value={20}>20 phút / ngày (Gọn · Đủ đọc hiểu & Quiz)</option>
-                  <option value={30}>30 phút / ngày (Chuyên sâu · 5 Kỹ năng)</option>
-                  <option value={15}>15 phút / ngày (Ngày bận rộn)</option>
-                  <option value={10}>10 phút / ngày (Duy trì tối thiểu)</option>
-                </Select>
-              </Field>
-              <Field label="Giờ bắt đầu nhắc mỗi ngày" htmlFor="active-reminder-time">
-                <Input
-                  id="active-reminder-time"
-                  type="time"
-                  value={
-                    viewTab === 'custom' && roadmapState.customConfig
-                      ? roadmapState.customConfig.reminderTime
-                      : roadmapState.fixedReminderTime
-                  }
-                  onChange={(e) => {
-                    const nextTime = e.target.value || '20:00';
-                    if (viewTab === 'custom' && roadmapState.customConfig) {
-                      updateActiveCustomConfig((cfg) => ({ ...cfg, reminderTime: nextTime }));
-                    } else {
-                      updateState({ ...roadmapState, fixedReminderTime: nextTime });
-                    }
-                  }}
-                />
-              </Field>
-              <Field label="Nhắc lặp lại nếu chưa xong" htmlFor="active-repeat-interval">
-                <Select
-                  id="active-repeat-interval"
-                  value={
-                    viewTab === 'custom' && roadmapState.customConfig
-                      ? roadmapState.customConfig.repeatIntervalMinutes
-                      : roadmapState.fixedRepeatIntervalMinutes
-                  }
-                  onChange={(e) => {
-                    const nextRepeat = Number(e.target.value) as RepeatMinutesOption;
-                    if (viewTab === 'custom' && roadmapState.customConfig) {
-                      updateActiveCustomConfig((cfg) => ({
-                        ...cfg,
-                        repeatIntervalMinutes: nextRepeat,
-                      }));
-                    } else {
-                      updateState({ ...roadmapState, fixedRepeatIntervalMinutes: nextRepeat });
-                    }
-                  }}
-                >
-                  {REPEAT_OPTIONS.map((m) => (
-                    <option key={m} value={m}>
-                      Mỗi {m} phút
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-surface/55 px-3 py-2">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-xs font-semibold text-fg">Các ngày học trong tuần:</span>
-                {ALL_DAYS_ORDERED.map((d) => {
-                  const activeDays = effectiveSettings.studyWeekdays;
-                  const isDaySelected = activeDays.includes(d.day);
-                  return (
-                    <Chip
-                      key={d.day}
-                      selected={isDaySelected}
-                      onClick={() => {
-                        const nextDays = isDaySelected
-                          ? activeDays.filter((x) => x !== d.day)
-                          : [...activeDays, d.day];
-                        if (nextDays.length === 0) {
-                          toast({
-                            title: 'Cần chọn ít nhất 1 ngày học trong tuần.',
-                            tone: 'warning',
-                          });
-                          return;
-                        }
-                        if (viewTab === 'custom' && roadmapState.customConfig) {
-                          updateActiveCustomConfig((cfg) => ({ ...cfg, studyWeekdays: nextDays }));
-                        } else {
-                          updateState({ ...roadmapState, fixedStudyWeekdays: nextDays });
-                        }
-                      }}
-                    >
-                      {d.shortLabel}
-                    </Chip>
-                  );
-                })}
-              </div>
-              <span className="text-xs text-muted tabular">
-                {effectiveSettings.studyWeekdays.length} buổi/tuần · Dự kiến về đích:{' '}
-                <strong className="text-fg">{roadmapForecast.estimatedCompletionLabel}</strong>
-              </span>
-            </div>
-          </div>
-        )}
-      </Card>
-
-      {/* Today's Gate & Enforcement Status Card */}
-      <Card
-        padding="md"
-        className={cn(
-          'space-y-3.5',
-          enforcement.isCompletedToday
-            ? 'border-success-line bg-success-soft/35'
-            : 'border-primary/40 bg-glass-soft',
-        )}
-      >
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge tone={enforcement.isCompletedToday ? 'success' : 'primary'}>
-                {enforcement.isCompletedToday
-                  ? '✓ Đã hoàn thành mục tiêu hôm nay — Đã tắt nhắc'
-                  : `Màn hiện tại: Màn ${activeStage?.stageNumber ?? 1}`}
-              </Badge>
-              <Badge tone="neutral">
-                <Clock className="size-3" aria-hidden />
-                <span className="tabular">
-                  Online hôm nay: {formatMmSs(todayOnlineSeconds)} / {effectiveSettings.dailyMinutesTarget}:00
-                </span>
-              </Badge>
-              {notifPermission !== 'granted' && roadmapState.notificationsEnabled && (
-                <Badge tone="warning">Cấp quyền thông báo để nhận chuông</Badge>
-              )}
-            </div>
-            <h2 className="text-base font-bold text-fg">
-              {activeStage
-                ? `Màn ${activeStage.stageNumber}: ${activeStage.title}`
-                : 'Bạn đã chinh phục toàn bộ bản đồ lộ trình!'}
-            </h2>
-            <p className="text-xs text-muted sm:text-sm">
-              {enforcement.isCompletedToday
-                ? 'Chuỗi học hôm nay đã được ghi nhận và toàn bộ nhắc nhở trong ngày đã tự động tắt.'
-                : onlineMet
-                  ? 'Bạn đã online đủ thời gian tối thiểu! Hãy mở Màn hiện tại và bấm Hoàn thành để mở khóa Màn kế tiếp.'
-                  : `Còn thiếu ${formatMmSs(remainingSeconds)} online trên web để đủ điều kiện mở khóa Màn kế tiếp và tắt nhắc ngày hôm nay.`}
-            </p>
-          </div>
-
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
-            {activeStage && (
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
-                rightIcon={<ArrowRight className="size-4" aria-hidden />}
-                onClick={() => setSelectedStageId(activeStage.id)}
-              >
-                Mở Màn {activeStage.stageNumber}
-              </Button>
-            )}
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={requestOpenLevelModal}
-            >
-              Đổi trình độ / sách
-            </Button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="space-y-1">
-            <div className="flex items-center justify-between text-xs text-muted">
-              <span>Thời gian online hôm nay (tối thiểu {effectiveSettings.dailyMinutesTarget} phút)</span>
-              <span className="tabular font-semibold text-fg">
-                {Math.min(100, Math.round((todayOnlineSeconds / targetSeconds) * 100))}%
-              </span>
-            </div>
-            <ProgressBar
-              value={Math.min(todayOnlineSeconds, targetSeconds)}
-              max={targetSeconds}
-              tone={onlineMet ? 'success' : 'primary'}
-              size="sm"
-              label="Thời gian online tối thiểu hôm nay"
-            />
-          </div>
-          <div className="space-y-1">
-            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
-              <span>
-                Tiến độ toàn lộ trình ·{' '}
-                <strong className="text-fg">
-                  {roadmapForecast.isCompleted
-                    ? 'Đã hoàn thành!'
-                    : `Dự kiến xong: ${roadmapForecast.estimatedCompletionLabel} (~${roadmapForecast.estimatedWeeks} tuần)`}
-                </strong>
-              </span>
-              <span className="tabular font-semibold text-fg">
-                {completedCount}/{stages.length} màn
-              </span>
-            </div>
-            <ProgressBar
-              value={completedCount}
-              max={stages.length}
-              tone={completedCount === stages.length ? 'success' : 'primary'}
-              size="sm"
-              label="Tiến độ các màn học"
-            />
-          </div>
-        </div>
-
-        {/* N5 Starting Point Switcher: Learn Kana First (5 Stages) vs Skip Straight to Lesson 1 */}
-        {activeLevel === 'N5' && viewTab !== 'overview' && (
-          <div className="flex flex-col gap-2 rounded-xl border border-line bg-surface/65 p-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-0.5">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <Badge tone="sakura">Điểm xuất phát N5</Badge>
-                <span className="text-xs font-bold text-fg">
-                  {(
-                    roadmapState.activeMode === 'custom' && roadmapState.customConfig
-                      ? Boolean(roadmapState.customConfig.includeKanaStarter)
-                      : Boolean(roadmapState.fixedIncludeKanaStarter)
-                  )
-                    ? 'Đang bật Chặng 0: Học Bảng chữ cái Hiragana & Katakana (5 màn khởi động)'
-                    : 'Đang bỏ qua Bảng chữ cái · Vào thẳng Bài 1 giáo trình N5'}
-                </span>
-              </div>
-              <p className="text-xs text-muted">
-                Người mới từ con số 0 nên bật 5 màn Hiragana &amp; Katakana trước; nếu đã thuộc mặt chữ Kana có thể bỏ qua để học ngay Bài 1.
-              </p>
-            </div>
-            <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-              <Chip
-                selected={
-                  !(roadmapState.activeMode === 'custom' && roadmapState.customConfig
-                    ? Boolean(roadmapState.customConfig.includeKanaStarter)
-                    : Boolean(roadmapState.fixedIncludeKanaStarter))
-                }
-                onClick={() => {
-                  if (roadmapState.activeMode === 'custom' && roadmapState.customConfig) {
-                    updateActiveCustomConfig((cfg) => ({ ...cfg, includeKanaStarter: false }));
-                  } else {
-                    updateState({ ...roadmapState, fixedIncludeKanaStarter: false });
-                  }
-                  toast({ title: 'Đã chuyển sang: Bỏ qua Kana → Vào thẳng Bài 1 N5', tone: 'info' });
-                }}
-              >
-                Đã thuộc Kana (Vào Bài 1)
-              </Chip>
-              <Chip
-                selected={
-                  roadmapState.activeMode === 'custom' && roadmapState.customConfig
-                    ? Boolean(roadmapState.customConfig.includeKanaStarter)
-                    : Boolean(roadmapState.fixedIncludeKanaStarter)
-                }
-                onClick={() => {
-                  if (roadmapState.activeMode === 'custom' && roadmapState.customConfig) {
-                    updateActiveCustomConfig((cfg) => ({ ...cfg, includeKanaStarter: true }));
-                  } else {
-                    updateState({ ...roadmapState, fixedIncludeKanaStarter: true });
-                  }
-                  toast({
-                    title: 'Đã thêm Chặng 0: 5 Màn Bảng chữ cái Hiragana & Katakana lên đầu lộ trình!',
-                    tone: 'success',
-                  });
-                }}
-              >
-                + Học Bảng chữ cái trước (5 màn)
-              </Chip>
-            </div>
-          </div>
-        )}
       </Card>
 
       {/* 7-Stage Visual Study Timeline Strip */}
@@ -1873,6 +1728,122 @@ export const StageRoadmapPage: React.FC = () => {
         )}
       </div>
       )}
+
+      {/* Roadmap settings (start date, daily minutes, study days) */}
+      <Modal
+        open={settingsModalOpen}
+        onClose={() => setSettingsModalOpen(false)}
+        size="md"
+        title="Cài đặt lộ trình"
+        description="Thay đổi được lưu ngay."
+      >
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field label="Ngày bắt đầu lộ trình" htmlFor="active-start-date">
+                <Input
+                  id="active-start-date"
+                  type="date"
+                  value={
+                    viewTab === 'custom' && roadmapState.customConfig
+                      ? roadmapState.customConfig.startDate
+                      : roadmapState.fixedStartDate
+                  }
+                  onChange={(e) => {
+                    const nextDate = e.target.value || todayKey;
+                    if (viewTab === 'custom' && roadmapState.customConfig) {
+                      updateActiveCustomConfig((cfg) => ({ ...cfg, startDate: nextDate }));
+                    } else {
+                      updateState({ ...roadmapState, fixedStartDate: nextDate });
+                    }
+                  }}
+                />
+              </Field>
+              <Field label="Thời gian online tối thiểu/ngày" htmlFor="active-min-minutes">
+                <Select
+                  id="active-min-minutes"
+                  value={
+                    viewTab === 'custom' && roadmapState.customConfig
+                      ? roadmapState.customConfig.dailyMinutesTarget
+                      : roadmapState.fixedDailyMinutesTarget
+                  }
+                  onChange={(e) => {
+                    const raw = Number(e.target.value);
+                    const nextTarget: DailyMinutesTarget =
+                      raw === 10 || raw === 15 || raw === 20 || raw === 25 || raw === 30
+                        ? raw
+                        : 25;
+                    if (viewTab === 'custom' && roadmapState.customConfig) {
+                      updateActiveCustomConfig((cfg) => ({ ...cfg, dailyMinutesTarget: nextTarget }));
+                    } else {
+                      updateState({ ...roadmapState, fixedDailyMinutesTarget: nextTarget });
+                    }
+                  }}
+                >
+                  <option value={25}>25 phút / ngày (Chuẩn 4 Chặng · Khuyến nghị)</option>
+                  <option value={20}>20 phút / ngày (Gọn · Đủ đọc hiểu & Quiz)</option>
+                  <option value={30}>30 phút / ngày (Chuyên sâu · 5 Kỹ năng)</option>
+                  <option value={15}>15 phút / ngày (Ngày bận rộn)</option>
+                  <option value={10}>10 phút / ngày (Duy trì tối thiểu)</option>
+                </Select>
+              </Field>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-surface/55 px-3 py-2">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-xs font-semibold text-fg">Các ngày học trong tuần:</span>
+                {ALL_DAYS_ORDERED.map((d) => {
+                  const activeDays = effectiveSettings.studyWeekdays;
+                  const isDaySelected = activeDays.includes(d.day);
+                  return (
+                    <Chip
+                      key={d.day}
+                      selected={isDaySelected}
+                      onClick={() => {
+                        const nextDays = isDaySelected
+                          ? activeDays.filter((x) => x !== d.day)
+                          : [...activeDays, d.day];
+                        if (nextDays.length === 0) {
+                          toast({
+                            title: 'Cần chọn ít nhất 1 ngày học trong tuần.',
+                            tone: 'warning',
+                          });
+                          return;
+                        }
+                        if (viewTab === 'custom' && roadmapState.customConfig) {
+                          updateActiveCustomConfig((cfg) => ({ ...cfg, studyWeekdays: nextDays }));
+                        } else {
+                          updateState({ ...roadmapState, fixedStudyWeekdays: nextDays });
+                        }
+                      }}
+                    >
+                      {d.shortLabel}
+                    </Chip>
+                  );
+                })}
+              </div>
+              <span className="text-xs text-muted tabular">
+                {effectiveSettings.studyWeekdays.length} buổi/tuần · Dự kiến về đích:{' '}
+                <strong className="text-fg">{roadmapForecast.estimatedCompletionLabel}</strong>
+              </span>
+            </div>
+          </div>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-surface-2 px-3 py-2.5 text-sm">
+          <span className="text-muted">Giờ nhắc học đặt trong Lịch nhắc học.</span>
+          <Button
+            type="button"
+            variant="soft"
+            size="sm"
+            leftIcon={<Bell className="size-4" aria-hidden />}
+            onClick={() => {
+              setSettingsModalOpen(false);
+              setScheduleModalOpen(true);
+            }}
+          >
+            Lịch nhắc học
+          </Button>
+        </div>
+      </Modal>
+      <StudyScheduleModal open={scheduleModalOpen} onClose={() => setScheduleModalOpen(false)} />
 
       {/* Stage Detail & Unlock Modal */}
       <Modal
