@@ -23,7 +23,6 @@ import { clearMistakes, hydrateMistakes } from '../store/slices/mistakeSlice';
 import type { UserProgress } from '../types/quiz';
 import { isSpeechSupported, speakJapanese } from '../utils/tts';
 import { LoginRequiredState } from '../components/auth/LoginRequiredState';
-import { NotificationTestAndCalendarCard } from '../components/settings/NotificationTestAndCalendarCard';
 import { StudyScheduleCard } from '../components/settings/StudyScheduleCard';
 import { useAuth } from '../context/auth-context';
 import { commitUserProgress, loadUserProgress } from '../hooks/useUserProgress';
@@ -215,7 +214,7 @@ export const SettingsPage: React.FC = () => {
       <PageHeader
         breadcrumbs={[{ label: 'Trang chủ', to: '/' }, { label: 'Cài đặt' }]}
         title="Cài đặt & Quản lý dữ liệu"
-        description="Tùy chỉnh trình độ tiếng Nhật, lịch nhắc học qua Google Calendar, giao diện, giọng đọc và sao lưu tiến độ cá nhân."
+        description="Tùy chỉnh trình độ tiếng Nhật, lịch nhắc học (thông báo đẩy), giao diện, giọng đọc và sao lưu tiến độ cá nhân."
       />
 
       {/* 0. JLPT Study Level Selector (Logged-in users only) */}
@@ -340,10 +339,7 @@ export const SettingsPage: React.FC = () => {
         )}
       </Card>
 
-      {/* 1. ICS Export, PWA Install & 5-Mode Notification Tests */}
-      <NotificationTestAndCalendarCard />
-
-      {/* 2. Study Schedule & Google Calendar */}
+      {/* 1. Study Schedule (push reminders for every time slot) */}
       <StudyScheduleCard />
 
       {/* 2. Theme */}
