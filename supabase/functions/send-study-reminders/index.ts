@@ -6,6 +6,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
 
+// Provided by the Supabase Edge Runtime: keeps a background task alive after the response.
+declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void } | undefined;
+
 const WEEKDAY_MAP: Record<string, number> = {
   Sun: 0,
   Mon: 1,
@@ -127,10 +130,6 @@ Deno.serve(async (req) => {
         ? body.stageLabel.trim()
         : 'Màn hôm nay';
 
-    if (delaySeconds > 0) {
-      await new Promise((resolve) => setTimeout(resolve, delaySeconds * 1000));
-    }
-
     const { data: userSubs, error: subsErr } = await supabase
       .from('user_push_subscriptions')
       .select('*')
@@ -150,9 +149,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    let sentCount = 0;
-    let prunedCount = 0;
-    let failedCount = 0;
     const nowTag = Date.now();
     const title =
       delaySeconds > 0
@@ -163,32 +159,79 @@ Deno.serve(async (req) => {
         ? `Thông báo đẩy từ Server Cloud vẫn hoạt động dù bạn đã thoát màn hình chính & xóa app khỏi đa nhiệm (${stageLabel}).`
         : `Đường truyền Server Push → điện thoại hoạt động bình thường (${stageLabel}).`;
 
-    for (const row of userSubs as PushRow[]) {
-      try {
-        await webpush.sendNotification(
-          {
-            endpoint: row.endpoint,
-            keys: { p256dh: row.p256dh, auth: row.auth },
-          },
-          JSON.stringify({
-            title,
-            body: notifBody,
-            url: `${appBaseUrl.replace(/\/$/, '')}/#/settings`,
-            tag: `nihongo-self-test-${nowTag}`,
-          }),
-        );
-        sentCount += 1;
-      } catch (pushErr: unknown) {
-        failedCount += 1;
-        const statusCode =
-          typeof pushErr === 'object' && pushErr !== null && 'statusCode' in pushErr
-            ? Number((pushErr as { statusCode?: number }).statusCode)
-            : 0;
-        if (statusCode === 404 || statusCode === 410) {
-          await supabase.from('user_push_subscriptions').delete().eq('id', row.id);
-          prunedCount += 1;
+    const sendToAllSubs = async () => {
+      let sentCount = 0;
+      let prunedCount = 0;
+      let failedCount = 0;
+      for (const row of userSubs as PushRow[]) {
+        try {
+          await webpush.sendNotification(
+            {
+              endpoint: row.endpoint,
+              keys: { p256dh: row.p256dh, auth: row.auth },
+            },
+            JSON.stringify({
+              title,
+              body: notifBody,
+              url: `${appBaseUrl.replace(/\/$/, '')}/#/settings`,
+              tag: `nihongo-self-test-${nowTag}`,
+            }),
+          );
+          sentCount += 1;
+        } catch (pushErr: unknown) {
+          failedCount += 1;
+          const statusCode =
+            typeof pushErr === 'object' && pushErr !== null && 'statusCode' in pushErr
+              ? Number((pushErr as { statusCode?: number }).statusCode)
+              : 0;
+          if (statusCode === 404 || statusCode === 410) {
+            await supabase.from('user_push_subscriptions').delete().eq('id', row.id);
+            prunedCount += 1;
+          } else {
+            console.error('self-test push failed', statusCode, pushErr);
+          }
         }
       }
+      return { sentCount, prunedCount, failedCount };
+    };
+
+    // With a delay, answer the client right away and send in the background.
+    // Otherwise iOS closing the app (swipe from Recent Apps) drops the HTTP
+    // connection and the runtime may cancel a request that is still sleeping.
+    if (delaySeconds > 0 && typeof EdgeRuntime !== 'undefined') {
+      EdgeRuntime.waitUntil(
+        (async () => {
+          await new Promise((resolve) => setTimeout(resolve, delaySeconds * 1000));
+          const result = await sendToAllSubs();
+          console.log('self-test delayed push result', result);
+        })(),
+      );
+      return jsonResponse({
+        ok: true,
+        mode: 'self-test',
+        scheduled: true,
+        delaySeconds,
+        subscriptionCount: userSubs.length,
+      });
+    }
+
+    if (delaySeconds > 0) {
+      await new Promise((resolve) => setTimeout(resolve, delaySeconds * 1000));
+    }
+    const { sentCount, prunedCount, failedCount } = await sendToAllSubs();
+
+    if (sentCount === 0) {
+      return jsonResponse(
+        {
+          ok: false,
+          reason: 'push-failed',
+          error:
+            'Gửi Push thất bại tới mọi thiết bị (kiểm tra VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY trên Supabase có khớp VITE_VAPID_PUBLIC_KEY không).',
+          prunedCount,
+          failedCount,
+        },
+        502,
+      );
     }
 
     return jsonResponse({

@@ -411,7 +411,7 @@ export const NotificationTestAndCalendarCard: React.FC = () => {
         tone: 'success',
         title:
           delaySeconds > 0
-            ? `Hoàn tất Server Push sau ${delaySeconds}s!`
+            ? `Server đã hẹn giờ ${delaySeconds}s — hãy xóa app khỏi đa nhiệm và chờ chuông!`
             : 'Server Web Push tức thì thành công!',
         detail: res.message,
       });
