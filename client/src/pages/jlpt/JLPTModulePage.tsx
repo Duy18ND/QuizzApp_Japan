@@ -49,6 +49,11 @@ import { recordQuizAttempt } from '../../services/quizHistoryService';
 import { useAppDispatch } from '../../store/hooks';
 import { addMistake } from '../../store/slices/mistakeSlice';
 import { shuffleArray } from '../../utils/shuffle';
+import {
+  getListeningSituation,
+  getReadingSituation,
+  SITUATION_TAGS,
+} from '../../data/jlpt/situationPackUtils';
 
 const LEVEL_OPTIONS: Array<{ value: JLPTLevelFilter; label: string }> = [
   { value: 'ALL', label: 'Tất cả' },
@@ -238,6 +243,20 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
     return questionLimit > 0 ? pool.slice(0, questionLimit) : pool;
   }, [activeLesson, cmsSnapshot, levelFilter, meta.id, questionLimit, sessionSeed, sliceForDailyLesson]);
 
+  const [situationFilter, setSituationFilter] = useState<string>('all');
+
+  // Situations available for the current module & level (only the situation packs carry one)
+  const availableSituations = useMemo(() => {
+    let tags: Array<string | null> = [];
+    if (meta.id === 'reading-short' || meta.id === 'reading-medium' || meta.id === 'reading-long') {
+      tags = getLiveJlptReadingPassages(cmsSnapshot, meta.id, levelFilter).map(getReadingSituation);
+    } else if (meta.id === 'listening') {
+      tags = getLiveJlptListeningItems(cmsSnapshot, levelFilter).map(getListeningSituation);
+    }
+    return SITUATION_TAGS.filter((tag) => tags.includes(tag));
+  }, [cmsSnapshot, levelFilter, meta.id]);
+  const activeSituation = availableSituations.some((t) => t === situationFilter) ? situationFilter : 'all';
+
   const readingPassages = useMemo(() => {
     if (
       meta.id !== 'reading-short' &&
@@ -246,23 +265,27 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
     ) {
       return [];
     }
-    const raw = getLiveJlptReadingPassages(cmsSnapshot, meta.id, levelFilter);
+    const all = getLiveJlptReadingPassages(cmsSnapshot, meta.id, levelFilter);
+    const raw =
+      activeSituation === 'all' ? all : all.filter((p) => getReadingSituation(p) === activeSituation);
     if (activeLesson > 0 && raw.length > 0) {
       return [raw[(activeLesson - 1) % raw.length]];
     }
     return raw;
-  }, [activeLesson, cmsSnapshot, levelFilter, meta.id]);
+  }, [activeLesson, activeSituation, cmsSnapshot, levelFilter, meta.id]);
 
   const listeningItems = useMemo(() => {
     if (meta.id !== 'listening') return [];
-    const raw = getLiveJlptListeningItems(cmsSnapshot, levelFilter);
+    const all = getLiveJlptListeningItems(cmsSnapshot, levelFilter);
+    const raw =
+      activeSituation === 'all' ? all : all.filter((i) => getListeningSituation(i) === activeSituation);
     if (activeLesson > 0 && sessionSeed === 0) {
       return sliceForDailyLesson(raw, activeLesson, questionLimit);
     }
     void sessionSeed;
     const pool = shuffleArray(raw);
     return questionLimit > 0 ? pool.slice(0, questionLimit) : pool;
-  }, [activeLesson, cmsSnapshot, levelFilter, meta.id, questionLimit, sessionSeed, sliceForDailyLesson]);
+  }, [activeLesson, activeSituation, cmsSnapshot, levelFilter, meta.id, questionLimit, sessionSeed, sliceForDailyLesson]);
 
   const isMcqMode = meta.id === 'kanji' || meta.id === 'vocab' || meta.id === 'grammar';
   const isStarMode = meta.id === 'star';
@@ -430,9 +453,23 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
         </div>
       </Card>
 
+      {availableSituations.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-1.5">
+          <span className="mr-1 text-xs font-semibold tracking-wide text-muted uppercase">Tình huống:</span>
+          <Chip selected={activeSituation === 'all'} onClick={() => setSituationFilter('all')}>
+            Tất cả
+          </Chip>
+          {availableSituations.map((tag) => (
+            <Chip key={tag} selected={activeSituation === tag} onClick={() => setSituationFilter(tag)}>
+              {tag}
+            </Chip>
+          ))}
+        </div>
+      )}
+
       {isReadingMode && (
         <JlptReadingView
-          key={`${meta.id}-${levelFilter}`}
+          key={`${meta.id}-${levelFilter}-${activeSituation}`}
           passages={readingPassages}
           moduleMeta={meta}
           retryAttemptId={retryAttemptId}

@@ -31,6 +31,9 @@ import { N4_ALL_TEXTBOOK_UNITS } from '../n4/allTextbooksN4';
 import { buildMultiUnitVocab } from '../n5/extraTextbooksN5';
 import type { KanjiItem } from '../../types/kanji';
 import type { GrammarMistake, MultipleChoiceQuestion, StarQuestion } from '../../types/grammar';
+import { SITUATION_LISTENING_N3, SITUATION_READING_N3 } from './situationPackN3';
+import { SITUATION_LISTENING_N4, SITUATION_READING_N4 } from './situationPackN4';
+import { SITUATION_LISTENING_N5, SITUATION_READING_N5 } from './situationPackN5';
 
 export type JLPTLevelFilter = 'ALL' | 'N5' | 'N4' | 'N3';
 export type JLPTExamLevel = 'N5' | 'N4' | 'N3';
@@ -2117,12 +2120,18 @@ const ALL_READING_PASSAGES: JLPTReadingPassage[] = [
   ...CURATED_READING_PASSAGES,
   ...PACK_READING_PASSAGES,
   ...EXTRA_READING_PASSAGES_N5_N4_N3,
+  ...SITUATION_READING_N5,
+  ...SITUATION_READING_N4,
+  ...SITUATION_READING_N3,
 ];
 const ALL_LISTENING_ITEMS: JLPTListeningItem[] = [
   ...MINNA_N5_LISTENING_ITEMS,
   ...CURATED_LISTENING_ITEMS,
   ...PACK_LISTENING_ITEMS,
   ...EXTRA_LISTENING_ITEMS_N5_N4_N3,
+  ...SITUATION_LISTENING_N5,
+  ...SITUATION_LISTENING_N4,
+  ...SITUATION_LISTENING_N3,
 ];
 
 function filterByLevel<T extends { level: JLPTExamLevel }>(items: T[], level: JLPTLevelFilter): T[] {
