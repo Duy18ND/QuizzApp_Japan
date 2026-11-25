@@ -3,12 +3,9 @@ import { Link } from 'react-router-dom';
 import {
   AlarmClock,
   ArrowRight,
-  Clock,
   Compass,
   Flame,
-  GraduationCap,
   LogIn,
-  Plus,
 } from 'lucide-react';
 import { CommunityReviewsSection } from '../components/home/CommunityReviewsSection';
 import { StudyScheduleModal } from '../components/settings/StudyScheduleCard';
@@ -17,11 +14,9 @@ import {
   Button,
   Card,
   CardLink,
-  Chip,
   PageContainer,
   ProgressBar,
   QuizHistoryCard,
-  Stat,
   useToast,
 } from '../components/ui';
 import { buttonStyles } from '../components/ui/styles';
@@ -47,10 +42,8 @@ import {
   getLiveKanjis,
 } from '../services/curriculumStore';
 import { useQuizHistory } from '../services/quizHistoryService';
-import { cn } from '../lib/cn';
 import {
   calculateStudyStreakStats,
-  formatOnlineDurationVi,
   getLocalDateKey,
   getTodayOnlineSeconds,
   loadStudySchedule,
@@ -70,7 +63,6 @@ import {
   STAGE_ROADMAP_SYNC_EVENT,
 } from '../services/stageRoadmapService';
 import {
-  getStudyLevelMeta,
   requestOpenLevelModal,
   STUDY_LEVEL_OPTIONS,
   type StudyLevel,
@@ -95,86 +87,33 @@ interface Area {
   quickActionsCols?: 2 | 3;
 }
 
-function FeatureNavCard({ area, compact = false }: { area: Area; compact?: boolean }) {
-  const actionColsClass =
-    area.quickActionsCols === 3 ? 'grid-cols-3' : 'grid-cols-2';
+interface SkillTileProps {
+  to: string;
+  glyph: string;
+  title: string;
+  meta: string;
+  progress?: { value: number; max: number };
+}
+
+/** One whole-card link per skill, with optional progress. */
+function SkillTile({ to, glyph, title, meta, progress }: SkillTileProps) {
   return (
-    <div
-      className={cn(
-        'animate-fade-up group relative flex h-full flex-col justify-between gap-3 overflow-hidden rounded-xl border shadow-card transition-[border-color,background-color,transform] duration-150 ease-out-soft hover:-translate-y-0.5',
-        compact ? 'p-3.5' : 'p-4',
-        area.featured
-          ? 'border-sakura/50 bg-glass-soft hover:border-sakura hover:bg-glass-hover'
-          : area.spanFull
-            ? 'border-primary/45 bg-glass-soft hover:border-primary hover:bg-glass-hover'
-            : 'border-line bg-glass hover:border-primary hover:bg-glass-hover',
-      )}
-    >
-      <span
-        aria-hidden
-        className="seigaiha-mask pointer-events-none absolute -right-2 -bottom-2 h-8 w-20 bg-wave opacity-0 transition-opacity duration-150 group-hover:opacity-30"
-      />
-      <Link to={area.to} className="relative flex items-start gap-3">
+    <CardLink to={to} padding="sm" className="flex h-full flex-col gap-2">
+      <span className="flex items-center gap-2.5">
         <span
           lang="ja"
           aria-hidden
-          className={cn(
-            'relative flex size-10 shrink-0 items-center justify-center rounded-lg text-base font-bold transition-colors duration-150',
-            area.featured
-              ? 'bg-sakura text-on-primary ring-2 ring-sakura/30 group-hover:bg-primary'
-              : area.spanFull
-                ? 'bg-primary text-on-primary ring-2 ring-primary/25'
-                : 'bg-primary-soft text-primary-fg ring-1 ring-primary/20 group-hover:bg-primary group-hover:text-on-primary group-hover:ring-sakura/45',
-          )}
+          className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary-soft text-base font-bold text-primary-fg"
         >
-          {area.glyph}
+          {glyph}
         </span>
-        <span className="relative min-w-0 flex-1">
-          <span className="flex items-center justify-between gap-2">
-            <span className="truncate text-sm font-bold text-fg md:text-base">{area.title}</span>
-            {area.badgeText && (
-              <span
-                className={cn(
-                  'shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap',
-                  area.featured
-                    ? 'border-sakura/35 bg-glass-soft text-sakura'
-                    : 'border-primary/35 bg-primary-soft text-primary-fg',
-                )}
-              >
-                {area.badgeText}
-              </span>
-            )}
-          </span>
-          <span className="mt-1 line-clamp-2 min-h-[2.4rem] block text-xs leading-relaxed text-muted">
-            {area.description}
-          </span>
-        </span>
-      </Link>
-
-      {area.quickActions && area.quickActions.length > 0 && (
-        <div
-          className={cn(
-            'relative grid gap-1.5 border-t border-line/70 pt-2.5',
-            actionColsClass,
-          )}
-        >
-          {area.quickActions.map((act) => (
-            <Link
-              key={act.to + act.label}
-              to={act.to}
-              className={cn(
-                'inline-flex h-8 items-center justify-center truncate rounded-lg border px-2 text-center text-xs font-semibold transition-colors',
-                act.primary
-                  ? 'border-primary/45 bg-primary-soft text-primary-fg hover:bg-primary hover:text-on-primary'
-                  : 'border-line bg-surface-2/75 text-fg hover:border-primary/50 hover:text-primary-fg',
-              )}
-            >
-              <span className="truncate">{act.label}</span>
-            </Link>
-          ))}
-        </div>
+        <span className="min-w-0 font-semibold text-fg">{title}</span>
+      </span>
+      <span className="line-clamp-2 text-xs text-muted">{meta}</span>
+      {progress && progress.max > 0 && (
+        <ProgressBar value={progress.value} max={progress.max} size="sm" label={`Tiến độ ${title}`} />
       )}
-    </div>
+    </CardLink>
   );
 }
 
@@ -262,7 +201,6 @@ export const HomePage: React.FC = () => {
 
   const activeLevel: StudyLevel | null =
     studyLevel ?? (syncVersion >= 0 ? getPreferredVocabLevel(user?.id) : null);
-  const activeLevelMeta = getStudyLevelMeta(activeLevel);
   const activeTextbook = useMemo(
     () =>
       activeLevel && syncVersion >= 0
@@ -586,220 +524,155 @@ export const HomePage: React.FC = () => {
     });
   };
 
+  const vocabArea = coreBookAreas[0];
+  const grammarArea = coreBookAreas[1];
+  const kanjiArea = coreBookAreas[2];
+  const readingArea = skillBookAreas[0];
+  const listeningArea = skillBookAreas[1];
+  const [gamesArea, studioArea, fullTestArea, pdfArea] = practiceAndStudioAreas;
+
+  const skillTiles: SkillTileProps[] = [
+    {
+      to: vocabArea.to,
+      glyph: '語',
+      title: 'Từ vựng',
+      meta:
+        activeTextbook && activeTextbookStats.unitCount > 0
+          ? `${activeTextbook.shortTitle} · ${activeTextbookStats.unitCount} bài`
+          : 'Học theo giáo trình, Flashcard, Quiz',
+    },
+    {
+      to: grammarArea.to,
+      glyph: '文',
+      title: 'Ngữ pháp',
+      meta:
+        levelScopedStats.grammarDone > 0
+          ? `${levelScopedStats.grammarDone}/${levelScopedStats.grammarMax} mẫu đã luyện`
+          : 'Làm bài luyện để tính tiến độ',
+      progress: { value: levelScopedStats.grammarDone, max: levelScopedStats.grammarMax },
+    },
+    {
+      to: kanjiArea.to,
+      glyph: '漢',
+      title: 'Kanji',
+      meta:
+        levelScopedStats.kanjiDone > 0
+          ? `${levelScopedStats.kanjiDone}/${levelScopedStats.kanjiMax} chữ đã thuộc`
+          : 'Viết đúng 3 lần để thuộc 1 chữ',
+      progress: { value: levelScopedStats.kanjiDone, max: levelScopedStats.kanjiMax },
+    },
+    { to: readingArea.to, glyph: '読', title: 'Đọc hiểu', meta: 'Đoản văn · Trung văn · Trường văn' },
+    { to: listeningArea.to, glyph: '聴', title: 'Nghe hiểu', meta: 'Hội thoại Mondai 1–4' },
+    { to: gamesArea.to, glyph: '剣', title: 'Mini-game', meta: '6 trò chơi ôn từ vựng' },
+  ];
+
+  const toolLinks = [
+    { label: 'Flashcard', to: vocabArea.quickActions?.[1]?.to ?? '/flashcard' },
+    { label: 'Quiz từ vựng', to: vocabArea.quickActions?.[2]?.to ?? '/vocabulary/quiz' },
+    { label: 'Luyện gõ', to: vocabArea.quickActions?.[3]?.to ?? '/vocabulary/writing' },
+    { label: 'Quiz tình huống', to: grammarArea.quickActions?.[1]?.to ?? '/grammar' },
+    { label: 'Thi thử JLPT', to: fullTestArea.to },
+    { label: 'Tự tạo bài', to: studioArea.to },
+    { label: 'Xuất PDF', to: pdfArea.to },
+  ];
+
+  const activeStage = stageMapSummary?.activeStage ?? null;
+
   return (
-    <PageContainer className="space-y-6">
-      {/* Welcome & Streak Top Strip */}
-      <section
-        aria-label="Giới thiệu"
-        className="flex flex-col gap-3 rounded-xl border border-line bg-glass px-3.5 py-3 shadow-card sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-4 md:px-5"
-      >
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              lang="ja"
-              className="rounded-md bg-primary-soft px-2 py-0.5 text-xs font-semibold tracking-widest text-primary-fg"
-            >
-              日本語道場
-            </span>
-            <h1 className="text-lg font-bold tracking-tight text-fg sm:text-xl md:text-2xl">
-              Học tiếng Nhật mỗi ngày
-            </h1>
-          </div>
-          <p className="mt-1 text-xs text-muted sm:text-sm">
+    <PageContainer className="space-y-5">
+      {/* Greeting */}
+      <section aria-label="Lời chào" className="flex flex-wrap items-end justify-between gap-2">
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold tracking-tight text-fg sm:text-2xl">
+            {user ? `Chào ${user.displayName || 'bạn'}!` : 'Học tiếng Nhật mỗi ngày'}
+          </h1>
+          <p className="text-sm text-muted">
             {user
-              ? `Xin chào ${user.displayName}! Học theo Màn mỗi ngày hoặc mở tự do như cuốn sách.`
-              : 'Đăng nhập bằng Google hoặc Email để mở Bản đồ Màn học, tạo lộ trình riêng và đồng bộ tiến độ.'}
+              ? 'Hôm nay học tiếp nhé — mỗi ngày một chút.'
+              : 'Chơi thử thoải mái. Đăng nhập để lưu tiến độ và lộ trình.'}
           </p>
         </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          {user ? (
-            <>
-              <Badge tone={streakStats.completedToday ? 'success' : 'sakura'}>
-                <Flame className="size-3.5 shrink-0" aria-hidden />
-                <span className="tabular-nums">
-                  {streakStats.currentStreak} ngày · {formatOnlineDurationVi(todayOnlineSeconds)}
-                </span>
-              </Badge>
-              {schedule.enabled && (
-                <Badge tone="primary">
-                  <span className="font-mono tabular-nums">{schedule.primaryTime}</span>
-                </Badge>
-              )}
-            </>
-          ) : (
-            <Link
-              to="/login"
-              className={buttonStyles({ variant: 'primary', size: 'sm', className: 'w-full sm:w-auto' })}
-            >
-              <LogIn className="size-4 shrink-0" aria-hidden />
-              Đăng nhập lưu tiến độ
-            </Link>
-          )}
-          <Button
-            variant="secondary"
-            size="sm"
-            className="w-full sm:w-auto"
-            leftIcon={<AlarmClock className="size-4 shrink-0 text-primary-fg" aria-hidden />}
-            onClick={() => setScheduleModalOpen(true)}
-          >
-            Lịch nhắc &amp; Mục tiêu
-          </Button>
-        </div>
+        {user ? (
+          <Badge tone={streakStats.completedToday ? 'success' : 'sakura'}>
+            <Flame className="size-3.5 shrink-0" aria-hidden />
+            <span className="tabular-nums">Chuỗi {streakStats.currentStreak} ngày</span>
+          </Badge>
+        ) : (
+          <Link to="/login" className={buttonStyles({ variant: 'primary', size: 'sm', className: 'md:hidden' })}>
+            <LogIn className="size-4 shrink-0" aria-hidden />
+            Đăng nhập
+          </Link>
+        )}
       </section>
       <StudyScheduleModal open={scheduleModalOpen} onClose={() => setScheduleModalOpen(false)} />
 
-      {/* =================================================================== */}
-      {/* TẦNG 1: LỘ TRÌNH & MỤC TIÊU HÔM NAY (Chế độ Kỷ luật — 1 điểm vào)   */}
-      {/* =================================================================== */}
-      <Card as="section" aria-label="Tầng 1: Lộ trình và Mục tiêu hôm nay" padding="md">
-        <div className="mb-3.5 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span
-              lang="ja"
-              aria-hidden
-              className="grid size-7 place-items-center rounded-md bg-primary text-xs font-bold text-on-primary"
-            >
-              道
-            </span>
-            <h2 className="text-xs font-semibold tracking-wide text-muted uppercase">
-              Lộ trình &amp; Mục tiêu hôm nay
-            </h2>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {stageMapSummary && (
-              <Badge tone={stageMapSummary.completedToday ? 'success' : 'primary'}>
-                <Clock className="size-3" aria-hidden />
-                <span className="tabular">
-                  {stageMapSummary.completedToday
-                    ? '✓ Đã xong mục tiêu hôm nay'
-                    : `Online hôm nay: ${formatMmSs(todayOnlineSeconds)} / ${stageMapSummary.dailyTargetMinutes}:00`}
-                </span>
-              </Badge>
-            )}
-            {!user && (
-              <Badge tone="neutral">Chế độ khách · chưa lưu tiến độ</Badge>
-            )}
-          </div>
-        </div>
+      {/* Today */}
+      <Card as="section" aria-labelledby="today-heading" padding="md" className="space-y-4">
+        <h2 id="today-heading" className="text-xs font-semibold tracking-wide text-muted uppercase">
+          Hôm nay
+        </h2>
 
-        <div className="mb-4">
-          {!activeLevel ? (
-            <div className="rounded-xl border border-primary/45 bg-primary-soft/50 p-4">
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div className="flex items-start gap-3">
-                  <span
-                    aria-hidden
-                    className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-on-primary"
-                  >
-                    <Compass className="size-5" />
-                  </span>
-                  <div className="min-w-0">
-                    <h3 className="text-sm font-semibold text-fg sm:text-base">
-                      Chọn trình độ &amp; giáo trình để mở Bản đồ Màn học
-                    </h3>
-                    <p className="mt-0.5 text-xs text-muted sm:text-sm">
-                      Chọn 1 lần để tự động đồng bộ toàn bộ sách, Quiz, Flashcard và lộ trình học theo ngày.
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  type="button"
-                  variant="primary"
-                  size="sm"
-                  className="shrink-0"
-                  leftIcon={<GraduationCap className="size-4" aria-hidden />}
-                  onClick={requestOpenLevelModal}
-                >
-                  Chọn trình độ
-                </Button>
-              </div>
-              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line/70 pt-3">
-                <span className="text-xs font-medium text-muted">Chọn nhanh:</span>
-                {STUDY_LEVEL_OPTIONS.map((opt) => (
-                  <Chip
-                    key={opt.level}
-                    selected={false}
-                    onClick={() => void handleQuickSelectLevel(opt.level)}
-                  >
-                    JLPT {opt.level}
-                  </Chip>
-                ))}
+        {!activeLevel ? (
+          <div className="space-y-3">
+            <div className="flex items-start gap-3">
+              <span
+                aria-hidden
+                className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary text-on-primary"
+              >
+                <Compass className="size-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="font-semibold text-fg">Bạn đang học trình độ nào?</p>
+                <p className="text-sm text-muted">
+                  Chọn 1 lần để app gợi ý bài học và lộ trình mỗi ngày.
+                </p>
               </div>
             </div>
-          ) : (
-            <div
-              id="study-roadmap-slot"
-              data-study-level={activeLevel}
-              className="space-y-3 rounded-xl border border-line bg-surface-2/60 p-3.5 sm:p-4"
-            >
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div className="flex items-start gap-3">
-                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-sm font-bold text-on-primary">
-                    {activeLevel}
-                  </span>
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-sm font-semibold text-fg sm:text-base">
-                        {stageMapSummary?.planLabel ?? `Lộ trình học tập JLPT ${activeLevel}`}
-                        {activeLevelMeta && !stageMapSummary?.isCustom
-                          ? ` · ${activeLevelMeta.title}`
-                          : ''}
-                      </h3>
-                      {activeTextbook && (
-                        <Badge tone="neutral">{activeTextbook.shortTitle}</Badge>
-                      )}
-                      {stageMapSummary?.isCustom && (
-                        <Badge tone="primary">Tự tạo</Badge>
-                      )}
-                    </div>
-                    <p className="mt-0.5 text-xs text-muted sm:text-sm">
-                      {stageMapSummary?.activeStage
-                        ? `Màn hiện tại: Màn ${stageMapSummary.activeStage.stageNumber} — ${stageMapSummary.activeStage.title}`
-                        : `Bạn đã hoàn thành toàn bộ bản đồ lộ trình JLPT ${activeLevel}!`}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex shrink-0 flex-wrap items-center gap-2">
-                  <Link
-                    to="/roadmap"
-                    className={buttonStyles({ variant: 'primary', size: 'sm' })}
-                  >
-                    {stageMapSummary?.activeStage
-                      ? `Mở Màn ${stageMapSummary.activeStage.stageNumber}`
-                      : 'Xem Bản đồ Màn'}
-                    <ArrowRight className="size-4" aria-hidden />
-                  </Link>
-                  <Link
-                    to="/roadmap?create=1"
-                    className={buttonStyles({ variant: 'soft', size: 'sm' })}
-                  >
-                    <Plus className="size-4" aria-hidden />
-                    Tự tạo lộ trình
-                  </Link>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={requestOpenLevelModal}
-                  >
-                    Đổi trình độ / sách
-                  </Button>
+            <div className="grid grid-cols-5 gap-2">
+              {STUDY_LEVEL_OPTIONS.map((opt) => (
+                <Button
+                  key={opt.level}
+                  variant="secondary"
+                  onClick={() => void handleQuickSelectLevel(opt.level)}
+                >
+                  {opt.level}
+                </Button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div id="study-roadmap-slot" data-study-level={activeLevel} className="space-y-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-start gap-3">
+                <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary text-sm font-bold text-on-primary">
+                  {activeLevel}
+                </span>
+                <div className="min-w-0">
+                  <p className="font-semibold text-fg">
+                    {activeStage
+                      ? `Màn ${activeStage.stageNumber}: ${activeStage.title}`
+                      : `Bạn đã hoàn thành lộ trình ${activeLevel}!`}
+                  </p>
+                  <p className="text-sm text-muted">
+                    {stageMapSummary?.planLabel ?? `Lộ trình JLPT ${activeLevel}`}
+                    {activeTextbook ? ` · ${activeTextbook.shortTitle}` : ''}
+                  </p>
                 </div>
               </div>
+              <Link
+                to="/roadmap"
+                className={buttonStyles({ variant: 'primary', size: 'lg', className: 'w-full sm:w-auto' })}
+              >
+                {activeStage ? `Học tiếp Màn ${activeStage.stageNumber}` : 'Xem bản đồ Màn'}
+                <ArrowRight className="size-4" aria-hidden />
+              </Link>
+            </div>
 
-              {stageMapSummary && (
+            {stageMapSummary && (
+              <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1">
-                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
-                    <span>
-                      Tiến độ Bản đồ Màn ({activeLevel}) ·{' '}
-                      <strong className="text-fg">
-                        {stageMapSummary.forecast.isCompleted
-                          ? 'Đã về đích!'
-                          : `Dự kiến xong: ${stageMapSummary.forecast.estimatedCompletionLabel} (~${stageMapSummary.forecast.estimatedWeeks} tuần)`}
-                      </strong>
-                    </span>
+                  <div className="flex items-center justify-between gap-2 text-xs text-muted">
+                    <span>Lộ trình</span>
                     <span className="font-medium text-fg tabular-nums">
                       {stageMapSummary.doneCount}/{stageMapSummary.totalCount} màn
                     </span>
@@ -807,161 +680,119 @@ export const HomePage: React.FC = () => {
                   <ProgressBar
                     value={stageMapSummary.doneCount}
                     max={stageMapSummary.totalCount}
-                    label={`Tiến độ Bản đồ Màn JLPT ${activeLevel}`}
+                    label="Tiến độ lộ trình"
                     size="sm"
                   />
+                  <p className="text-xs text-muted">
+                    {stageMapSummary.forecast.isCompleted
+                      ? 'Đã về đích!'
+                      : `Dự kiến xong ${stageMapSummary.forecast.estimatedCompletionLabel}`}
+                  </p>
                 </div>
-              )}
-            </div>
-          )}
-        </div>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-2 text-xs text-muted">
+                    <span>Học hôm nay</span>
+                    <span className="font-medium text-fg tabular-nums">
+                      {stageMapSummary.completedToday
+                        ? '✓ Đủ mục tiêu'
+                        : `${formatMmSs(todayOnlineSeconds)} / ${stageMapSummary.dailyTargetMinutes}:00`}
+                    </span>
+                  </div>
+                  <ProgressBar
+                    value={Math.min(todayOnlineSeconds, stageMapSummary.dailyTargetMinutes * 60)}
+                    max={stageMapSummary.dailyTargetMinutes * 60}
+                    tone={stageMapSummary.completedToday ? 'success' : 'primary'}
+                    label="Thời gian học hôm nay"
+                    size="sm"
+                  />
+                  <p className="text-xs text-muted">
+                    Mục tiêu {stageMapSummary.dailyTargetMinutes} phút mỗi ngày
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-          <div className="flex flex-col gap-1.5">
-            <Stat
-              label={activeLevel ? `Kanji ${activeLevel} đã thuộc` : 'Kanji đã thuộc'}
-              value={`${levelScopedStats.kanjiDone}/${levelScopedStats.kanjiMax}`}
-            />
-            <ProgressBar
-              value={levelScopedStats.kanjiDone}
-              max={levelScopedStats.kanjiMax}
-              label="Kanji đã thuộc"
-              size="sm"
-            />
-            <Link to="/kanji" className="text-xs text-muted hover:text-primary-fg hover:underline">
-              Viết đúng 3 lần để thuộc 1 chữ → Luyện Kanji
-            </Link>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Stat
-              label={activeLevel ? `Ngữ pháp ${activeLevel} đã luyện` : 'Ngữ pháp đã luyện'}
-              value={`${levelScopedStats.grammarDone}/${levelScopedStats.grammarMax}`}
-            />
-            <ProgressBar
-              value={levelScopedStats.grammarDone}
-              max={levelScopedStats.grammarMax}
-              label="Ngữ pháp đã luyện"
-              size="sm"
-            />
-            <Link to="/grammar" className="text-xs text-muted hover:text-primary-fg hover:underline">
-              Làm bài luyện của mẫu câu → Ngữ pháp
-            </Link>
-          </div>
-          <Stat
-            label="Bài sai cần ôn"
-            value={attemptMistakeGroups.length}
-            hint={
-              attemptMistakeGroups.length > 0
-                ? `${totalMistakeCount} câu sai cần ôn`
-                : 'Chưa có bài sai nào'
-            }
-          />
-          <div className="flex items-end">
-            <CardLink
-              to="/grammar/mistakes"
-              padding="sm"
-              className="flex w-full items-center justify-between gap-2 border-sakura/40 bg-sakura-soft text-sm font-semibold text-fg hover:border-sakura hover:bg-glass-hover"
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-line pt-3 text-sm">
+          {activeLevel && (
+            <button
+              type="button"
+              onClick={requestOpenLevelModal}
+              className="font-medium text-primary-fg hover:underline"
             >
-              <span className="flex items-center gap-2">
-                <span aria-hidden className="size-2 rounded-full bg-sakura" />
-                Ôn tập lỗi sai
-                {attemptMistakeGroups.length > 0 && (
-                  <Badge tone="danger" className="tabular">
-                    {attemptMistakeGroups.length}
-                  </Badge>
-                )}
-              </span>
-              <ArrowRight className="size-4 shrink-0 text-sakura" aria-hidden />
-            </CardLink>
-          </div>
+              Đổi trình độ / sách
+            </button>
+          )}
+          {user && (
+            <Link to="/roadmap?create=1" className="font-medium text-primary-fg hover:underline">
+              Tự tạo lộ trình
+            </Link>
+          )}
+          <button
+            type="button"
+            onClick={() => setScheduleModalOpen(true)}
+            className="inline-flex items-center gap-1 font-medium text-primary-fg hover:underline"
+          >
+            <AlarmClock className="size-4" aria-hidden />
+            Lịch nhắc học
+          </button>
+          {!user && (
+            <span className="text-xs text-muted">Chế độ khách · chưa lưu tiến độ</span>
+          )}
         </div>
       </Card>
 
-      {/* =================================================================== */}
-      {/* KHU VỰC 2: HỌC NHƯ CUỐN SÁCH — TRỌN BỘ 5 KỸ NĂNG                     */}
-      {/* (Từ vựng · Ngữ pháp · Chữ Hán · Đọc hiểu · Nghe hiểu)               */}
-      {/* =================================================================== */}
-      <section aria-labelledby="section-textbook-mode" className="space-y-3">
-        <div className="flex w-full flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-glass px-4 py-2.5 shadow-card">
-          <div>
-            <h2
-              id="section-textbook-mode"
-              className="flex items-center gap-2 text-base font-bold text-fg md:text-lg"
+      {/* Needs review — only when there is something to review */}
+      {attemptMistakeGroups.length > 0 && (
+        <CardLink
+          to="/grammar/mistakes"
+          padding="sm"
+          className="flex items-center justify-between gap-3 border-warning-line bg-warning-soft"
+        >
+          <span className="flex items-center gap-3">
+            <span className="tabular grid size-10 shrink-0 place-items-center rounded-xl bg-surface text-base font-bold text-warning-fg">
+              {totalMistakeCount}
+            </span>
+            <span>
+              <span className="block font-semibold text-fg">Câu sai cần ôn</span>
+              <span className="block text-xs text-muted">
+                Từ {attemptMistakeGroups.length} bài đã làm — ôn ngay để nhớ lâu
+              </span>
+            </span>
+          </span>
+          <ArrowRight className="size-5 shrink-0 text-warning-fg" aria-hidden />
+        </CardLink>
+      )}
+
+      {/* Skills */}
+      <section aria-labelledby="skills-heading" className="space-y-3">
+        <h2 id="skills-heading" className="text-base font-bold text-fg">
+          Học theo kỹ năng
+        </h2>
+        <ul className="grid grid-cols-2 gap-2.5 md:grid-cols-3 lg:gap-3">
+          {skillTiles.map((tile) => (
+            <li key={tile.title} className="h-full">
+              <SkillTile {...tile} />
+            </li>
+          ))}
+        </ul>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="mr-1 text-xs font-medium text-muted">Công cụ khác:</span>
+          {toolLinks.map((tool) => (
+            <Link
+              key={tool.label}
+              to={tool.to}
+              className="rounded-full border border-line bg-glass px-3 py-1 text-xs font-medium text-fg transition-colors hover:border-primary hover:text-primary-fg"
             >
-              <span aria-hidden className="h-4 w-1 rounded-full bg-wave" />
-              Học như Cuốn sách (Trọn bộ 5 Kỹ năng)
-            </h2>
-            <p className="mt-0.5 text-xs text-muted">
-              Mở tự do từng bài Từ vựng, Ngữ pháp, Chữ Hán, Đọc hiểu và Nghe hiểu theo đúng giáo trình đang chọn.
-            </p>
-          </div>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={requestOpenLevelModal}
-          >
-            {activeLevel && activeTextbook
-              ? `Đang học: ${activeLevel} · ${activeTextbook.shortTitle}`
-              : 'Chọn giáo trình'}
-          </Button>
+              {tool.label}
+            </Link>
+          ))}
         </div>
-
-        {/* Hàng trên: 3 gốc kiến thức (Từ vựng · Ngữ pháp · Chữ Hán) */}
-        <ul className="grid grid-cols-1 gap-3 md:grid-cols-3 lg:gap-4">
-          {coreBookAreas.map((area) => (
-            <li key={area.to} className="h-full">
-              <FeatureNavCard area={area} />
-            </li>
-          ))}
-        </ul>
-
-        {/* Hàng dưới: 2 kỹ năng vận dụng (Sách Đọc hiểu · Sách Nghe hiểu) */}
-        <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:gap-4">
-          {skillBookAreas.map((area) => (
-            <li key={area.to} className="h-full">
-              <FeatureNavCard area={area} />
-            </li>
-          ))}
-        </ul>
       </section>
 
-      {/* =================================================================== */}
-      {/* KHU VỰC 3: THỰC CHIẾN & CÔNG CỤ MỞ RỘNG (1 hàng 4 ô thẳng tắp)       */}
-      {/* =================================================================== */}
-      <section aria-labelledby="section-quick-and-review" className="space-y-3">
-        <div className="flex w-full flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-glass px-4 py-2.5 shadow-card">
-          <div>
-            <h2
-              id="section-quick-and-review"
-              className="flex items-center gap-2 text-base font-bold text-fg md:text-lg"
-            >
-              <span aria-hidden className="h-4 w-1 rounded-full bg-wave" />
-              Thực chiến &amp; Công cụ mở rộng
-            </h2>
-            <p className="mt-0.5 text-xs text-muted">
-              Phòng 6 Mini-game Dojo, Studio tự tạo bài &amp; vẽ bản đồ, Bộ đề thi JLPT thật và Xuất PDF.
-            </p>
-          </div>
-        </div>
+      {user && <QuizHistoryCard limit={3} showProfileLink />}
 
-        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4">
-          {practiceAndStudioAreas.map((area) => (
-            <li key={area.to} className="h-full">
-              <FeatureNavCard area={area} compact />
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      {/* =================================================================== */}
-      {/* LỊCH SỬ LÀM BÀI GẦN ĐÂY (Thu gọn 3 lượt gần nhất để trang chủ gọn)  */}
-      {/* =================================================================== */}
-      <QuizHistoryCard limit={3} showProfileLink />
-
-      {/* =================================================================== */}
-      {/* ĐÁNH GIÁ THẬT TỪ CỘNG ĐỒNG HỌC VIÊN (1 tài khoản / 1 đánh giá)      */}
-      {/* =================================================================== */}
       <CommunityReviewsSection />
     </PageContainer>
   );
