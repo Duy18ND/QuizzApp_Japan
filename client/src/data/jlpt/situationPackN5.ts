@@ -291,6 +291,14 @@ export const SITUATION_LISTENING_N5: JLPTListeningItem[] = [
     translation:
       'Nhân viên: Xin mời quý khách.\nNữ: À, chiếc áo trắng này bao nhiêu tiền?\nNhân viên: 2000 yên ạ. Chiếc màu xanh là 1500 yên.\nNữ: Vậy cho tôi chiếc rẻ hơn.',
     explanation: '「安いほう」= chiếc rẻ hơn → áo xanh 1500 yên.',
+    followUps: [
+      {
+        prompt: '{白|しろ}いシャツはいくらですか。',
+        options: ['２０００円', '１５００円', '５００円', '３５００円'],
+        correct: 0,
+        explanation: '「白いシャツは…２０００円です」. 1500 yên là áo xanh.',
+      },
+    ],
   }),
   situationListening({
     id: 'sit-n5-l03',
@@ -365,6 +373,14 @@ export const SITUATION_LISTENING_N5: JLPTListeningItem[] = [
     translation:
       'Nữ: Anh cửa hàng trưởng, về ca làm thêm ngày mai ạ...\nNam: Ừ, có chuyện gì?\nNữ: Em có bài kiểm tra ở trường nên em đến từ 3 giờ chiều có được không ạ?\nNam: Được. Vậy em làm từ 3 giờ đến 8 giờ nhé.',
     explanation: 'Cửa hàng trưởng chốt: 「三時から八時までお願いします」→ 3 giờ đến 8 giờ.',
+    followUps: [
+      {
+        prompt: '{女|おんな}の{人|ひと}はどうして{三時|さんじ}から{来|き}ますか。',
+        options: ['店が忙しいから', '病院へ行くから', '学校のテストがあるから', '電車が遅れるから'],
+        correct: 2,
+        explanation: '「学校のテストがありますから、午後三時から来てもいいですか」.',
+      },
+    ],
   }),
   situationListening({
     id: 'sit-n5-l07',
@@ -402,6 +418,14 @@ export const SITUATION_LISTENING_N5: JLPTListeningItem[] = [
     translation:
       'Nữ: Tôi muốn gửi kiện hàng này về Việt Nam.\nNam: Đường hàng không khoảng một tuần, đường biển khoảng một tháng.\nNữ: Hàng không đắt nhưng nhanh thì tốt hơn. Cho tôi gửi đường hàng không.',
     explanation: 'Chị chọn 飛行機 (hàng không) → khoảng một tuần.',
+    followUps: [
+      {
+        prompt: '{女|おんな}の{人|ひと}はどうして{飛行機|ひこうき}にしましたか。',
+        options: ['安いから', '早いから', '荷物が重いから', '船がないから'],
+        correct: 1,
+        explanation: '「高いですが、早いほうがいいです」→ chọn vì nhanh, dù đắt.',
+      },
+    ],
   }),
   situationListening({
     id: 'sit-n5-l09',
@@ -420,6 +444,14 @@ export const SITUATION_LISTENING_N5: JLPTListeningItem[] = [
     translation:
       'Nam: Cho tôi nhận phòng.\nNữ: Vâng. Phòng của quý khách là 712 ở tầng 7. Bữa sáng ở nhà hàng tầng 2, từ 7 giờ đến 9 giờ.\nNam: Tôi hiểu rồi. Cảm ơn.',
     explanation: '「朝ご飯は二階のレストランで」→ ăn sáng ở nhà hàng tầng 2. Tầng 7 là phòng ngủ.',
+    followUps: [
+      {
+        prompt: '{男|おとこ}の{人|ひと}の{部屋|へや}は{何階|なんかい}ですか。',
+        options: ['二階', '一階', '九階', '七階'],
+        correct: 3,
+        explanation: '「お部屋は七階の７１２です」. Tầng 2 là nhà hàng.',
+      },
+    ],
   }),
   situationListening({
     id: 'sit-n5-l10',
@@ -438,5 +470,78 @@ export const SITUATION_LISTENING_N5: JLPTListeningItem[] = [
     translation:
       'Nữ: Cuối tuần anh làm gì?\nNam: Thứ Bảy tôi chơi tennis với bạn. Chủ nhật tôi xem phim ở nhà.\nNữ: Hay quá. Tôi thì Chủ nhật đi bể bơi.',
     explanation: 'Câu hỏi về NAM vào CHỦ NHẬT → xem phim ở nhà. Đi bể bơi là của người nữ.',
+    followUps: [
+      {
+        prompt: '{男|おとこ}の{人|ひと}は{土曜日|どようび}に{何|なに}をしますか。',
+        options: ['友だちとテニスをします', '家で映画を見ます', 'プールへ行きます', '買い物をします'],
+        correct: 0,
+        explanation: '「土曜日は友だちとテニスをします」.',
+      },
+    ],
   }),
-];
+  situationListening({
+    id: 'sit-n5-lm01',
+    level: 'N5',
+    mondai: 'Mondai 4 · Phản hồi nhanh',
+    situationTag: 'Nhà hàng',
+    situation: 'Nhân viên hỏi khách đã chọn món chưa.',
+    questionPrompt: '{何|なん}と{答|こた}えますか。',
+    lines: [['店員', 'ご{注文|ちゅうもん}はお{決|き}まりですか。']],
+    options: ['はい、カレーをお願いします。', 'はい、ごちそうさまでした。', 'いいえ、どういたしまして。', 'はい、いただきます。'],
+    correct: 0,
+    translation: 'Nhân viên: Quý khách đã chọn món chưa ạ?',
+    explanation: 'Trả lời gọi món: 「〜をお願いします」. 「ごちそうさまでした」 nói sau khi ăn xong.',
+  }),
+  situationListening({
+    id: 'sit-n5-lm02',
+    level: 'N5',
+    mondai: 'Mondai 4 · Phản hồi nhanh',
+    situationTag: 'Trường học',
+    situation: 'Bạn cùng lớp rủ đi học ở thư viện.',
+    questionPrompt: '{何|なん}と{答|こた}えますか。',
+    lines: [['男', 'あした、{一緒|いっしょ}に{図書館|としょかん}で{勉強|べんきょう}しませんか。']],
+    options: ['ええ、勉強しました。', 'ええ、いいですね。', 'いいえ、図書館です。', 'どうぞ、お元気で。'],
+    correct: 1,
+    translation: 'Nam: Ngày mai cùng học ở thư viện không?',
+    explanation: 'Lời rủ 「〜しませんか」 → đồng ý bằng 「ええ、いいですね」.',
+  }),
+  situationListening({
+    id: 'sit-n5-lm03',
+    level: 'N5',
+    mondai: 'Mondai 4 · Phản hồi nhanh',
+    situationTag: 'Mua sắm',
+    situation: 'Khách nói đôi giày hơi chật.',
+    questionPrompt: '{何|なん}と{答|こた}えますか。',
+    lines: [['女', 'すみません、この{靴|くつ}、{少|すこ}し{小|ちい}さいです。']],
+    options: ['はい、小さいです。', 'どうも、ごちそうさま。', 'いいえ、高くないです。', 'では、大きいのを持ってきますね。'],
+    correct: 3,
+    translation: 'Nữ: Xin lỗi, đôi giày này hơi nhỏ.',
+    explanation: 'Nhân viên nên đề nghị mang cỡ lớn hơn.',
+  }),
+  situationListening({
+    id: 'sit-n5-lm04',
+    level: 'N5',
+    mondai: 'Mondai 4 · Phản hồi nhanh',
+    situationTag: 'Ga tàu & Giao thông',
+    situation: 'Một người hỏi tàu có dừng ở ga Tokyo không.',
+    questionPrompt: '{何|なん}と{答|こた}えますか。',
+    lines: [['女', 'すみません、この{電車|でんしゃ}は{東京駅|とうきょうえき}に{止|と}まりますか。']],
+    options: ['はい、東京です。', 'いいえ、乗りません。', 'はい、止まりますよ。', 'どういたしまして。'],
+    correct: 2,
+    translation: 'Nữ: Xin lỗi, tàu này có dừng ở ga Tokyo không?',
+    explanation: 'Câu hỏi 「止まりますか」 → trả lời 「はい、止まりますよ」.',
+  }),
+  situationListening({
+    id: 'sit-n5-lm05',
+    level: 'N5',
+    mondai: 'Mondai 4 · Phản hồi nhanh',
+    situationTag: 'Nhà ở & Hàng xóm',
+    situation: 'Hàng xóm tặng quà du lịch.',
+    questionPrompt: '{何|なん}と{答|こた}えますか。',
+    lines: [['男', 'これ、{旅行|りょこう}のお{土産|みやげ}です。どうぞ。']],
+    options: ['いってきます。', 'おやすみなさい。', 'わあ、ありがとうございます。', 'はじめまして。'],
+    correct: 2,
+    translation: 'Nam: Đây là quà du lịch. Mời chị.',
+    explanation: 'Nhận quà → cảm ơn.',
+  }),
+].flat();

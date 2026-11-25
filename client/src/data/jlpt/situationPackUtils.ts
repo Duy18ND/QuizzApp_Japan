@@ -78,25 +78,36 @@ export interface SituationListeningSpec {
   correct: number;
   translation: string;
   explanation: string;
+  /** More questions on the same dialogue: each becomes its own item ("Câu 2/2", …) sharing the audio */
+  followUps?: Array<{ prompt: string; options: Four; correct: number; explanation: string }>;
 }
 
-export function situationListening(spec: SituationListeningSpec): JLPTListeningItem {
-  return {
-    id: spec.id,
+/** One dialogue → one item per question (main question first, then the follow-ups). */
+export function situationListening(spec: SituationListeningSpec): JLPTListeningItem[] {
+  const dialogue = spec.lines.map(([speaker, text]) => ({
+    speaker,
+    segments: ruby(text),
+    plainText: plainText(text),
+  }));
+  const questions = [
+    { prompt: spec.questionPrompt, options: spec.options, correct: spec.correct, explanation: spec.explanation },
+    ...(spec.followUps ?? []),
+  ];
+  return questions.map((q, idx) => ({
+    id: idx === 0 ? spec.id : `${spec.id}-q${idx + 1}`,
     level: spec.level,
-    mondaiLabel: `${spec.mondai} (${spec.situationTag})`,
+    mondaiLabel:
+      questions.length > 1
+        ? `${spec.mondai} · Câu ${idx + 1}/${questions.length} (${spec.situationTag})`
+        : `${spec.mondai} (${spec.situationTag})`,
     situation: spec.situation,
-    questionPrompt: plainText(spec.questionPrompt),
-    dialogue: spec.lines.map(([speaker, text]) => ({
-      speaker,
-      segments: ruby(text),
-      plainText: plainText(text),
-    })),
-    options: spec.options.map(plainText) as Four,
-    correctIndex: spec.correct,
+    questionPrompt: plainText(q.prompt),
+    dialogue,
+    options: q.options.map(plainText) as Four,
+    correctIndex: q.correct,
     translation: spec.translation,
-    explanation: spec.explanation,
-  };
+    explanation: q.explanation,
+  }));
 }
 
 /** Everyday situations used to group the situation packs (filter chips on the JLPT pages). */

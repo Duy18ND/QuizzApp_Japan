@@ -319,6 +319,14 @@ export const SITUATION_LISTENING_N4: JLPTListeningItem[] = [
     translation:
       'Nam: Tủ lạnh này rẻ nhỉ. Không mua à?\nNữ: Ừ, giá thì được nhưng hơi to quá. Em nghĩ không vừa nhà bếp.\nNam: Vậy à. Thế mình tìm cái nhỏ hơn chút nhé.',
     explanation: '「値段はいいんだけど、ちょっと大きすぎる」→ lý do là quá to. Bẫy: giá rẻ (không phải đắt).',
+    followUps: [
+      {
+        prompt: '{二人|ふたり}はこれからどうしますか。',
+        options: ['この冷蔵庫を買う', '台所を広くする', 'もう少し小さい冷蔵庫を探す', '別の店へ行く'],
+        correct: 2,
+        explanation: '「もう少し小さいのを探そう」→ tìm cái nhỏ hơn.',
+      },
+    ],
   }),
   situationListening({
     id: 'sit-n4-l03',
@@ -338,6 +346,14 @@ export const SITUATION_LISTENING_N4: JLPTListeningItem[] = [
     translation:
       'Nữ: Alo, tôi là Hayashi, đã đặt bàn 4 người lúc 7 giờ tối nay.\nNam: Vâng, chị Hayashi.\nNữ: Xin lỗi, có thêm một người thành 5 người, có được không ạ? Và anh đổi giờ sang 7 rưỡi giúp tôi được không?\nNam: Vâng, 5 người, 7 giờ rưỡi. Tôi đã rõ.',
     explanation: 'Cả số người (4 → 5) và giờ (7 → 7 rưỡi) đều đổi → 5 người lúc 7 rưỡi.',
+    followUps: [
+      {
+        prompt: '{予約|よやく}した{人|ひと}の{名前|なまえ}は{何|なん}ですか。',
+        options: ['林さん', '山本さん', '小林さん', '森さん'],
+        correct: 0,
+        explanation: '「今晩七時に四人で予約した林ですが」.',
+      },
+    ],
   }),
   situationListening({
     id: 'sit-n4-l04',
@@ -394,6 +410,14 @@ export const SITUATION_LISTENING_N4: JLPTListeningItem[] = [
     translation:
       'Nam: Chị Yamamoto, tài liệu họp ngày mai chị photo chưa?\nNữ: Rồi ạ, tôi photo 10 bản.\nNam: Cảm ơn. Thật ra người tham dự tăng thêm 3 người, chị photo thêm 3 bản được không? Đặt phòng họp thì tôi sẽ làm.\nNữ: Tôi hiểu rồi.',
     explanation: 'Việc của người nữ: photo thêm 3 bản. Đặt phòng họp là việc người nam tự làm.',
+    followUps: [
+      {
+        prompt: '{会議|かいぎ}の{参加者|さんかしゃ}は{何人|なんにん}{増|ふ}えましたか。',
+        options: ['一人', '二人', '十人', '三人'],
+        correct: 3,
+        explanation: '「参加者が三人増えたから、あと三部」.',
+      },
+    ],
   }),
   situationListening({
     id: 'sit-n4-l07',
@@ -413,6 +437,14 @@ export const SITUATION_LISTENING_N4: JLPTListeningItem[] = [
     translation:
       'Nữ: Xin lỗi, tôi ở phòng bên cạnh...\nNam: À, chào buổi tối.\nNữ: Dùng máy giặt lúc khuya tiếng vang sang lắm, nên từ 10 giờ anh đừng dùng nữa được không?\nNam: Xin lỗi, tôi không để ý. Từ giờ tôi sẽ chú ý.',
     explanation: '「十時からは使わないでいただけますか」→ nhờ không dùng máy giặt từ 10 giờ tối.',
+    followUps: [
+      {
+        prompt: '{男|おとこ}の{人|ひと}はこれからどうしますか。',
+        options: ['洗濯機を買い替える', '夜は洗濯機を使わないように気をつける', '引っ越しをする', '管理人に相談する'],
+        correct: 1,
+        explanation: '「これから気をつけます」→ chú ý không dùng máy giặt buổi khuya.',
+      },
+    ],
   }),
   situationListening({
     id: 'sit-n4-l08',
@@ -451,6 +483,14 @@ export const SITUATION_LISTENING_N4: JLPTListeningItem[] = [
     translation:
       'Nữ: Nghỉ hè cậu có đi đâu không?\nNam: Lúc đầu tớ định đi Hokkaido, nhưng vé máy bay đắt quá. Cuối cùng tớ chọn Nagano, đi tàu được.\nNữ: Ồ, Nagano cũng hay đấy. Cậu leo núi à?\nNam: Ừ, tớ định thế.',
     explanation: 'Từ khóa 「最初は…」(lúc đầu) rồi 「結局」(cuối cùng) → chốt là Nagano.',
+    followUps: [
+      {
+        prompt: '{男|おとこ}の{人|ひと}はどうして{北海道|ほっかいどう}に{行|い}きませんか。',
+        options: ['寒いから', '時間がないから', '飛行機が高いから', '山がないから'],
+        correct: 2,
+        explanation: '「飛行機が高くて」→ vé máy bay đắt.',
+      },
+    ],
   }),
   situationListening({
     id: 'sit-n4-l10',
@@ -470,4 +510,69 @@ export const SITUATION_LISTENING_N4: JLPTListeningItem[] = [
       'Nam: Bữa tiệc thứ Bảy, cậu đến được không?\nNữ: Tớ muốn đi lắm, nhưng hôm đó là đám cưới của em gái tớ.\nNam: Vậy à, thế thì đành chịu.',
     explanation: '「その日は妹の結婚式なんだ」→ vì có đám cưới của em gái.',
   }),
-];
+  situationListening({
+    id: 'sit-n4-lm01',
+    level: 'N4',
+    mondai: 'Mondai 4 · Phản hồi nhanh',
+    situationTag: 'Làm thêm & Công ty',
+    situation: 'Đồng nghiệp nhờ photo tài liệu.',
+    questionPrompt: '{何|なん}と{答|こた}えますか。',
+    lines: [['男', 'すみません、この{書類|しょるい}、コピーしてもらえませんか。']],
+    options: ['ええ、何枚ですか。', 'はい、コピーしてもらいました。', 'いいえ、もらえません。', 'コピーはいかがですか。'],
+    correct: 0,
+    translation: 'Nam: Xin lỗi, photo giúp tôi tài liệu này được không?',
+    explanation: 'Nhận lời nhờ và hỏi thêm số bản: 「ええ、何枚ですか」.',
+  }),
+  situationListening({
+    id: 'sit-n4-lm02',
+    level: 'N4',
+    mondai: 'Mondai 4 · Phản hồi nhanh',
+    situationTag: 'Nhà ở & Hàng xóm',
+    situation: 'Khách xin phép ra về.',
+    questionPrompt: '{何|なん}と{答|こた}えますか。',
+    lines: [['女', 'もう{遅|おそ}いので、そろそろ{失礼|しつれい}します。']],
+    options: ['どうぞ、上がってください。', 'そうですか。またいらしてください。', 'いただきます。', 'お先にどうぞ。'],
+    correct: 1,
+    translation: 'Nữ: Muộn rồi, tôi xin phép về.',
+    explanation: 'Chủ nhà tiễn khách: 「またいらしてください」(lần sau lại đến nhé).',
+  }),
+  situationListening({
+    id: 'sit-n4-lm03',
+    level: 'N4',
+    mondai: 'Mondai 4 · Phản hồi nhanh',
+    situationTag: 'Bệnh viện',
+    situation: 'Đồng nghiệp thấy sắc mặt không tốt.',
+    questionPrompt: '{何|なん}と{答|こた}えますか。',
+    lines: [['男', '{顔色|かおいろ}が{悪|わる}いですね。{大丈夫|だいじょうぶ}ですか。']],
+    options: ['ええ、色がいいですね。', 'はい、顔を洗いました。', 'ちょっと熱があるみたいなんです。', 'どういたしまして。'],
+    correct: 2,
+    translation: 'Nam: Sắc mặt chị không tốt. Chị ổn chứ?',
+    explanation: 'Giải thích tình trạng: 「ちょっと熱があるみたいなんです」.',
+  }),
+  situationListening({
+    id: 'sit-n4-lm04',
+    level: 'N4',
+    mondai: 'Mondai 4 · Phản hồi nhanh',
+    situationTag: 'Du lịch & Khách sạn',
+    situation: 'Khách du lịch nhờ chụp ảnh.',
+    questionPrompt: '{何|なん}と{答|こた}えますか。',
+    lines: [['女', '{写真|しゃしん}を{撮|と}っていただけませんか。']],
+    options: ['はい、撮っていただきました。', '写真はきれいでしたね。', 'いいえ、撮りません。', 'いいですよ。どのボタンを押せばいいですか。'],
+    correct: 3,
+    translation: 'Nữ: Anh chụp giúp tôi tấm ảnh được không?',
+    explanation: 'Nhận lời và hỏi cách chụp. Bẫy: 「撮っていただきました」 sai vai.',
+  }),
+  situationListening({
+    id: 'sit-n4-lm05',
+    level: 'N4',
+    mondai: 'Mondai 4 · Phản hồi nhanh',
+    situationTag: 'Sự kiện & Sở thích',
+    situation: 'Bạn hỏi có định đi tiệc không.',
+    questionPrompt: '{何|なん}と{答|こた}えますか。',
+    lines: [['男', '{来週|らいしゅう}のパーティー、{参加|さんか}するつもり？']],
+    options: ['うん、行くつもりだよ。', 'うん、参加したよ。', 'パーティーは楽しかったね。', 'つもりじゃないよ。'],
+    correct: 0,
+    translation: 'Nam: Tiệc tuần sau cậu định tham gia không?',
+    explanation: 'Hỏi dự định tương lai → 「行くつもりだよ」. 「参加したよ」 là quá khứ.',
+  }),
+].flat();

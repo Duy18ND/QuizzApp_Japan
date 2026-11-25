@@ -325,6 +325,14 @@ export const SITUATION_LISTENING_N3: JLPTListeningItem[] = [
     translation:
       'Nam: Xin lỗi, em muốn đổi đăng ký môn học.\nNữ: Đổi môn à. Trước tiên em điền vào tờ đơn này, rồi xin chữ ký của giáo viên phụ trách.\nNam: Có chữ ký rồi thì nộp ở đây phải không ạ?\nNữ: Đúng. Nhưng hạn chót là thứ Sáu tuần này nên em nhanh lên nhé.',
     explanation: 'Thứ tự: 「まず」điền đơn → xin chữ ký → nộp. Việc đầu tiên là điền đơn.',
+    followUps: [
+      {
+        prompt: '{書類|しょるい}の{締|し}め{切|き}りはいつですか。',
+        options: ['今週の金曜日', '来週の月曜日', '今日中', '来週の金曜日'],
+        correct: 0,
+        explanation: '「締め切りは今週の金曜日ですから」.',
+      },
+    ],
   }),
   situationListening({
     id: 'sit-n3-l02',
@@ -381,6 +389,14 @@ export const SITUATION_LISTENING_N3: JLPTListeningItem[] = [
     translation:
       'Nữ: Ơ, hôm nay anh không đi tàu à?\nNam: Ừ, dạo này tôi đi xe buýt. Dù mất lâu hơn tàu tận 20 phút.\nNữ: Sao vậy?\nNam: Tàu buổi sáng đông quá, đứng suốt mệt lắm. Đi buýt thì được ngồi đọc sách.',
     explanation: 'Bẫy: xe buýt CHẬM hơn 20 phút. Lý do thật: 「バスなら座って本が読める」.',
+    followUps: [
+      {
+        prompt: 'バスは{電車|でんしゃ}よりどのぐらい{長|なが}くかかりますか。',
+        options: ['十分', '三十分', '二十分', '一時間'],
+        correct: 2,
+        explanation: '「電車より二十分も長くかかる」.',
+      },
+    ],
   }),
   situationListening({
     id: 'sit-n3-l05',
@@ -437,6 +453,14 @@ export const SITUATION_LISTENING_N3: JLPTListeningItem[] = [
     translation:
       'Nam: Nghe nói cậu chuyển nhà à? Phòng bây giờ gần ga tiện lắm mà.\nNữ: Ừ, tiện thật, nhưng từ năm sau tiền nhà sẽ tăng. Thêm nữa, ngoài cửa sổ mọc lên tòa nhà lớn nên không còn nắng chiếu vào.\nNam: Thế thì khó chịu nhỉ.\nNữ: Ừ. Nếu chỉ tiền nhà thì còn chịu được, nhưng phòng tối là điều tớ ghét nhất.',
     explanation: '「家賃だけならまだ我慢できた…部屋が暗いのがいちばん嫌」→ lý do chính là phòng tối.',
+    followUps: [
+      {
+        prompt: '{今|いま}の{部屋|へや}のいいところは{何|なん}ですか。',
+        options: ['家賃が安いこと', '駅から近いこと', '日がよく当たること', '部屋が広いこと'],
+        correct: 1,
+        explanation: '「今の部屋、駅から近くて便利なのに」.',
+      },
+    ],
   }),
   situationListening({
     id: 'sit-n3-l08',
@@ -456,6 +480,14 @@ export const SITUATION_LISTENING_N3: JLPTListeningItem[] = [
     translation:
       'Nam: Tôi muốn chuyển tiền ra nước ngoài.\nNữ: Vâng. Chuyển tiền quốc tế xin làm thủ tục ở quầy chuyên dụng đằng kia. Trước đó, xin lấy số thứ tự ở đây và chờ.\nNam: Có cần giấy tờ gì không ạ?\nNữ: Xin chuẩn bị thẻ cư trú và giấy tờ có số tài khoản người nhận.',
     explanation: '「その前に、番号札を取ってお待ちください」→ việc đầu tiên là lấy số thứ tự.',
+    followUps: [
+      {
+        prompt: '{送金|そうきん}のために{必要|ひつよう}なものはどれですか。',
+        options: ['パスポートと印鑑', '在留カードと印鑑', '番号札と通帳', '在留カードと送り先の口座番号がわかるもの'],
+        correct: 3,
+        explanation: '「在留カードと、送り先の口座番号がわかるものをご用意ください」.',
+      },
+    ],
   }),
   situationListening({
     id: 'sit-n3-l09',
@@ -474,6 +506,14 @@ export const SITUATION_LISTENING_N3: JLPTListeningItem[] = [
     translation:
       'Nữ: Tôi muốn đi suối nước nóng, anh có gợi ý nào không?\nNam: Nếu vậy, chị thấy "Suối nước nóng Midori" trên núi thế nào? Hơi xa ga một chút nhưng có xe đưa đón miễn phí, và hơn hết là cảnh nhìn từ phòng tuyệt đẹp.\nNữ: Ồ, hay quá.',
     explanation: '「何より」(hơn hết) đánh dấu ý quan trọng nhất → cảnh nhìn từ phòng. Bẫy: xa ga chứ không gần ga.',
+    followUps: [
+      {
+        prompt: '{駅|えき}からみどり{温泉|おんせん}までどうやって{行|い}きますか。',
+        options: ['無料の送迎バスで行く', '歩いて行く', 'タクシーで行く', '電車で行く'],
+        correct: 0,
+        explanation: '「駅からは少し遠いんですが、無料の送迎バスがあります」.',
+      },
+    ],
   }),
   situationListening({
     id: 'sit-n3-l10',
@@ -492,4 +532,69 @@ export const SITUATION_LISTENING_N3: JLPTListeningItem[] = [
       'Nữ: Dạo này anh không đi phòng tập à?\nNam: Ừ. Một phần cũng vì công việc bận, nhưng chủ yếu là gần nhà mới mở câu lạc bộ tennis. Tôi nghĩ chơi cùng bạn bè thì sẽ duy trì được lâu hơn nên chuyển sang đó.',
     explanation: '「〜せいもあるけど、それより…」→ lý do chính đứng sau 「それより」: chuyển sang chơi tennis với bạn.',
   }),
-];
+  situationListening({
+    id: 'sit-n3-lm01',
+    level: 'N3',
+    mondai: 'Mondai 5 · Phản hồi nhanh',
+    situationTag: 'Làm thêm & Công ty',
+    situation: 'Cấp trên nhờ hoàn thành tài liệu trong ngày.',
+    questionPrompt: '{何|なん}と{答|こた}えますか。',
+    lines: [['女', '{会議|かいぎ}の{資料|しりょう}、{今日中|きょうじゅう}に{仕上|しあ}げてもらえると{助|たす}かるんだけど。']],
+    options: ['わかりました。急いでやります。', '助けてくれてありがとう。', '今日は会議でしたね。', '資料はもう読みました。'],
+    correct: 0,
+    translation: 'Nữ: Nếu cậu hoàn thành tài liệu họp trong hôm nay thì tốt quá.',
+    explanation: '「〜てもらえると助かる」 là lời nhờ khéo → nhận lời.',
+  }),
+  situationListening({
+    id: 'sit-n3-lm02',
+    level: 'N3',
+    mondai: 'Mondai 5 · Phản hồi nhanh',
+    situationTag: 'Trường học',
+    situation: 'Sinh viên xin lùi hạn nộp báo cáo.',
+    questionPrompt: '{何|なん}と{答|こた}えますか。',
+    lines: [['男', 'レポートの{締|し}め{切|き}り、{一日|いちにち}{延|の}ばしてもらうわけにはいきませんか。']],
+    options: ['締め切りは昨日でした。', '延ばしてくれてありがとう。', 'じゃあ、明日までなら待ちますよ。', 'レポートを書くわけです。'],
+    correct: 2,
+    translation: 'Nam: Có thể cho em lùi hạn báo cáo một ngày được không ạ?',
+    explanation: '「〜わけにはいきませんか」 = xin phép khéo → giáo viên đồng ý chờ đến mai.',
+  }),
+  situationListening({
+    id: 'sit-n3-lm03',
+    level: 'N3',
+    mondai: 'Mondai 5 · Phản hồi nhanh',
+    situationTag: 'Nhà ở & Hàng xóm',
+    situation: 'Hàng xóm xin lỗi vì con làm vỡ kính.',
+    questionPrompt: '{何|なん}と{答|こた}えますか。',
+    lines: [['女', 'うちの{子|こ}が{窓|まど}ガラスを{割|わ}ってしまって、{本当|ほんとう}に{申|もう}し{訳|わけ}ありません。']],
+    options: ['どういたしまして。', 'いえいえ、けががなくてよかったです。', '申し訳ありません。', 'ガラスがきれいですね。'],
+    correct: 1,
+    translation: 'Nữ: Con nhà tôi làm vỡ kính cửa sổ, thật sự xin lỗi anh.',
+    explanation: 'Đáp lời xin lỗi lịch sự: 「けががなくてよかったです」.',
+  }),
+  situationListening({
+    id: 'sit-n3-lm04',
+    level: 'N3',
+    mondai: 'Mondai 5 · Phản hồi nhanh',
+    situationTag: 'Mua sắm',
+    situation: 'Khách nhờ gói quà.',
+    questionPrompt: '{何|なん}と{答|こた}えますか。',
+    lines: [['男', 'こちら、{包|つつ}んでいただけますか。プレゼントなので。']],
+    options: ['はい、プレゼントをいただきました。', '包むのはたいへんですね。', 'どうぞ、召し上がってください。', 'かしこまりました。リボンもおつけしましょうか。'],
+    correct: 3,
+    translation: 'Nam: Gói giúp tôi cái này được không? Để làm quà.',
+    explanation: 'Nhân viên nhận lời bằng kính ngữ 「かしこまりました」.',
+  }),
+  situationListening({
+    id: 'sit-n3-lm05',
+    level: 'N3',
+    mondai: 'Mondai 5 · Phản hồi nhanh',
+    situationTag: 'Bệnh viện',
+    situation: 'Bạn báo tin một người quen nhập viện.',
+    questionPrompt: '{何|なん}と{答|こた}えますか。',
+    lines: [['女', '{田中|たなか}さん、{入院|にゅういん}したんだって。']],
+    options: ['え、本当？お見舞いに行かなきゃ。', '入院おめでとう。', 'じゃあ、退院したんだね。', '病院は近いね。'],
+    correct: 0,
+    translation: 'Nữ: Nghe nói anh Tanaka nhập viện rồi.',
+    explanation: 'Phản ứng tự nhiên: ngạc nhiên và định đi thăm (お見舞い).',
+  }),
+].flat();
