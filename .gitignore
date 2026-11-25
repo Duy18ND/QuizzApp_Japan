@@ -30,3 +30,6 @@ dist-ssr
 client/.env
 client/.env.*
 !client/.env.example
+
+# Supabase CLI local temp files
+supabase/.temp/
