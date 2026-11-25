@@ -1,17 +1,20 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Book, ChevronDown, ChevronRight, ChevronUp, FileText, LayoutList } from 'lucide-react';
+import { Book, Check, ChevronDown, ChevronRight, ChevronUp, FileText, RotateCcw } from 'lucide-react';
 import type { JLPTLevel } from '../../types/grammar';
 import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
 import { getLiveGrammarBooks } from '../../services/curriculumStore';
 import { useAuth } from '../../context/auth-context';
 import { getPreferredVocabLevel, resolveActiveVocabTextbook } from '../../data/vocabTextbooks';
+import { cn } from '../../lib/cn';
+import { useAppSelector } from '../../store/hooks';
 import {
   Badge,
   Button,
   Card,
   Chip,
   EmptyState,
+  ProgressBar,
   PageContainer,
   PageHeader,
   buttonStyles,
@@ -26,6 +29,12 @@ export const GrammarDashboard: React.FC = () => {
 
   const selectedLevel =
     selectedLevelOverride ?? studyLevel ?? getPreferredVocabLevel(user?.id) ?? 'All';
+
+  const grammarRecords = useAppSelector((state) => state.grammarProgress.records);
+  const isPracticed = (grammarId: string) => {
+    const record = grammarRecords[grammarId];
+    return Boolean(record && Object.values(record).some((score) => (score ?? 0) > 0));
+  };
 
   const cmsSnapshot = useCurriculumSnapshot();
   const grammarBooks = getLiveGrammarBooks(cmsSnapshot);
@@ -61,7 +70,7 @@ export const GrammarDashboard: React.FC = () => {
     <PageContainer>
       <PageHeader
         title="Ngữ pháp"
-        description="Hệ thống học ngữ pháp theo giáo trình chuẩn."
+        description="Mở bài để xem lý thuyết & mẹo nhớ, bấm Quiz để luyện tập."
         actions={
           <>
             <Link
@@ -73,9 +82,10 @@ export const GrammarDashboard: React.FC = () => {
             </Link>
             <Link
               to="/grammar/mistakes"
-              className={buttonStyles({ variant: 'danger', size: 'md' })}
+              className={buttonStyles({ variant: 'secondary', size: 'md' })}
             >
-              Ôn tập lỗi sai
+              <RotateCcw className="size-4" aria-hidden />
+              Ôn lỗi sai
             </Link>
           </>
         }
@@ -117,6 +127,11 @@ export const GrammarDashboard: React.FC = () => {
           {filteredBooks.map((book, bookIdx) => {
             const expanded = isExpanded(book.id, bookIdx);
             const isActiveBook = activeTextbookId === book.id;
+            const bookTotal = book.chapters.reduce((sum, c) => sum + c.grammars.length, 0);
+            const bookPracticed = book.chapters.reduce(
+              (sum, c) => sum + c.grammars.filter((g) => isPracticed(g.id)).length,
+              0,
+            );
             return (
               <Card key={book.id} padding="none" className="overflow-hidden">
                 <button
@@ -130,12 +145,13 @@ export const GrammarDashboard: React.FC = () => {
                       <Book className="size-5" aria-hidden />
                     </span>
                     <div className="min-w-0">
-                      <h2 className="truncate text-lg font-bold text-fg">{book.title}</h2>
+                      <h2 className="line-clamp-2 text-base font-bold text-fg md:text-lg">{book.title}</h2>
                       <div className="mt-1 flex flex-wrap items-center gap-2">
                         <Badge tone="primary">{book.level}</Badge>
                         {isActiveBook && <Badge tone="sakura">Giáo trình đang chọn</Badge>}
                         <span className="tabular text-xs text-muted">
-                          {book.chapters.length} bài học
+                          {book.chapters.length} bài ·{' '}
+                          {bookPracticed}/{bookTotal} mẫu đã luyện
                         </span>
                       </div>
                     </div>
@@ -146,49 +162,64 @@ export const GrammarDashboard: React.FC = () => {
                 </button>
 
                 {expanded && (
-                  <div className="divide-y divide-line border-t border-line">
-                    {book.chapters.map((chapter) => (
-                      <div
-                        key={chapter.id}
-                        className="flex flex-col justify-between gap-4 px-5 py-4 transition-colors hover:bg-surface-2 sm:flex-row sm:items-center md:px-6"
-                      >
-                        <div className="flex min-w-0 items-start gap-3.5">
-                          <span className="tabular mt-0.5 grid size-8 shrink-0 place-items-center rounded-full bg-surface-2 text-sm font-bold text-muted">
-                            {chapter.chapterNumber}
-                          </span>
-                          <div className="min-w-0">
-                            <h3 className="text-base font-semibold text-fg">{chapter.title}</h3>
-                            <p className="mt-1 flex items-center gap-1.5 text-sm text-muted">
-                              <LayoutList className="size-4 shrink-0" aria-hidden />
-                              <span className="tabular">{chapter.grammars.length} ngữ pháp</span>
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
-                          <Link
-                            to={`/grammar/${book.id}/${chapter.id}/practice?mode=scenario&count=12`}
-                            className={buttonStyles({
-                              variant: 'primary',
-                              size: 'sm',
-                            })}
-                          >
-                            🎯 Quiz Tình huống
-                          </Link>
-                          <Link
-                            to={`/grammar/${book.id}/${chapter.id}`}
-                            className={buttonStyles({
-                              variant: 'soft',
-                              size: 'sm',
-                            })}
-                          >
-                            Lý thuyết &amp; Mẹo nhớ
-                            <ChevronRight className="size-4" aria-hidden />
-                          </Link>
-                        </div>
+                  <>
+                    {bookTotal > 0 && (
+                      <div className="border-t border-line px-4 pt-3 md:px-6">
+                        <ProgressBar
+                          value={bookPracticed}
+                          max={bookTotal}
+                          size="sm"
+                          label={`Tiến độ ${book.title}`}
+                        />
                       </div>
-                    ))}
-                  </div>
+                    )}
+                    <ul className="divide-y divide-line">
+                      {book.chapters.map((chapter) => {
+                        const total = chapter.grammars.length;
+                        const done = chapter.grammars.filter((g) => isPracticed(g.id)).length;
+                        const complete = total > 0 && done === total;
+                        return (
+                          <li
+                            key={chapter.id}
+                            className="flex items-center gap-2 px-4 py-2.5 transition-colors hover:bg-surface-2 md:px-6"
+                          >
+                            <Link
+                              to={`/grammar/${book.id}/${chapter.id}`}
+                              className="flex min-w-0 flex-1 items-center gap-3 py-0.5"
+                            >
+                              <span
+                                className={cn(
+                                  'tabular grid size-8 shrink-0 place-items-center rounded-full text-sm font-bold',
+                                  complete ? 'bg-success-soft text-success-fg' : 'bg-surface-2 text-muted',
+                                )}
+                              >
+                                {complete ? (
+                                  <Check className="size-4" aria-label="Đã luyện hết" />
+                                ) : (
+                                  chapter.chapterNumber
+                                )}
+                              </span>
+                              <span className="min-w-0">
+                                <span className="block text-sm font-semibold text-fg md:text-base">
+                                  {chapter.title}
+                                </span>
+                                <span className="tabular block text-xs text-muted">
+                                  {done > 0 ? `${done}/${total} mẫu đã luyện` : `${total} mẫu ngữ pháp`}
+                                </span>
+                              </span>
+                              <ChevronRight className="ml-auto size-4 shrink-0 text-subtle" aria-hidden />
+                            </Link>
+                            <Link
+                              to={`/grammar/${book.id}/${chapter.id}/practice?mode=scenario&count=12`}
+                              className={buttonStyles({ variant: 'soft', size: 'sm', className: 'shrink-0' })}
+                            >
+                              Quiz
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </>
                 )}
               </Card>
             );
