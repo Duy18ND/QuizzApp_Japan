@@ -203,7 +203,7 @@ export async function submitOneTimeCommunityReview(params: {
   favoriteFeatures: string[];
 }): Promise<{ ok: boolean; review?: AppReviewRecord; error?: string }> {
   if (!supabase) {
-    return { ok: false, error: 'Chưa cấu hình kết nối Supabase.' };
+    return { ok: false, error: 'Hiện chưa gửi được đánh giá, bạn thử lại sau nhé.' };
   }
 
   const cleanComment = params.comment.trim().replace(/\s+/g, ' ');
@@ -237,7 +237,7 @@ export async function submitOneTimeCommunityReview(params: {
     if (isMissingTableError(error)) {
       return {
         ok: false,
-        error: 'Bảng public.app_reviews chưa được tạo trên Supabase. Admin cần chạy SQL mục 10 trong supabase/schema.sql.',
+        error: 'Mục đánh giá đang được bảo trì, bạn thử lại sau nhé.',
       };
     }
     const errMsg = error?.message || '';

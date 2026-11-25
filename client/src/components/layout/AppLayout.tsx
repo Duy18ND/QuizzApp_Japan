@@ -22,6 +22,7 @@ import {
 import {
   getBrowserNotificationPermission,
   isWebPushConfigured,
+  reportAppOpenedForReminders,
   subscribeAndSyncWebPush,
 } from '../../services/pwaReminderService';
 import {
@@ -108,6 +109,25 @@ export const AppLayout: React.FC = () => {
       dailyMinutesTarget: effective.dailyMinutesTarget,
       lastCompletedDate: enforcement.isCompletedToday ? todayKey : null,
     });
+  }, [status, user?.id]);
+
+  // Opening the app (or coming back to it) stops "nhắc lại đến khi mở app" reminders on the server
+  useEffect(() => {
+    if (status !== 'authenticated' || !user?.id) return;
+    const userId = user.id;
+    const report = () => {
+      if (document.visibilityState === 'visible') void reportAppOpenedForReminders(userId);
+    };
+    report();
+    // Heartbeat while the app stays open, so a slot that starts during a study session doesn't re-notify
+    const heartbeat = window.setInterval(report, 60_000);
+    document.addEventListener('visibilitychange', report);
+    window.addEventListener('focus', report);
+    return () => {
+      window.clearInterval(heartbeat);
+      document.removeEventListener('visibilitychange', report);
+      window.removeEventListener('focus', report);
+    };
   }, [status, user?.id]);
 
   // Listen to explicit open-modal triggers from HomePage / SettingsPage / ProfilePage

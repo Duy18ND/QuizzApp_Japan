@@ -20,6 +20,9 @@ export const DEFAULT_TIMEZONE = 'Asia/Ho_Chi_Minh';
 
 export type RepeatIntervalMinutes = 0 | 5 | 10 | 15;
 export type ScheduleType = 'recurring' | 'once';
+/** Re-notify every N minutes until the user opens the app (0 = notify once). */
+export type SlotRepeatMinutes = 0 | 1 | 5 | 10 | 15;
+export const SLOT_REPEAT_OPTIONS: SlotRepeatMinutes[] = [1, 5, 10, 15];
 export type StreakGoalMode = 'every_day' | 'custom_weekly';
 export type JLPTExamLevelGoal = 'N5' | 'N4' | 'N3' | 'N2' | 'N1';
 
@@ -30,6 +33,8 @@ export interface StudyTimeSlot {
   label: string; // Nội dung học tập
   daysOfWeek: number[]; // For 'recurring': 0 (CN) .. 6 (T7)
   date: string; // For 'once': "YYYY-MM-DD"
+  /** Re-notify every N minutes until the app is opened (0 = only once). Sent by the server cron. */
+  repeatMinutes: SlotRepeatMinutes;
   /** Legacy compatibility flag (true when scheduleType === 'recurring') */
   isDaily?: boolean;
 }
@@ -292,6 +297,11 @@ function buildCanonicalSlotKey(slot: {
  * and removes expired one-time schedules (`scheduleType === 'once' && date < currentDateKey`).
  * Recurring schedules are NEVER auto-deleted.
  */
+export function sanitizeSlotRepeatMinutes(raw: unknown): SlotRepeatMinutes {
+  const value = Number(raw);
+  return value === 1 || value === 5 || value === 10 || value === 15 ? value : 0;
+}
+
 export function sanitizeTimeSlots(
   raw: unknown,
   currentDateKey = getLocalDateKey(),
@@ -328,6 +338,7 @@ export function sanitizeTimeSlots(
         label: 'Ôn từ vựng & Kanji',
         daysOfWeek: days,
         date: '',
+        repeatMinutes: 0,
         isDaily: true,
       });
       continue;
@@ -351,6 +362,7 @@ export function sanitizeTimeSlots(
       typeof obj.label === 'string' && obj.label.trim()
         ? obj.label.trim().slice(0, 80)
         : 'Ôn từ vựng & Kanji';
+    const repeatMinutes = sanitizeSlotRepeatMinutes(obj.repeatMinutes);
 
     if (scheduleType === 'once') {
       const date = sanitizeDate(obj.date, '');
@@ -379,6 +391,7 @@ export function sanitizeTimeSlots(
         label,
         daysOfWeek: [],
         date,
+        repeatMinutes,
         isDaily: false,
       });
     } else {
@@ -404,6 +417,7 @@ export function sanitizeTimeSlots(
         label,
         daysOfWeek,
         date: '',
+        repeatMinutes,
         isDaily: true,
       });
     }
@@ -1066,6 +1080,7 @@ export interface UpsertScheduleSlotInput {
   label: string;
   daysOfWeek?: number[];
   date?: string;
+  repeatMinutes?: number;
 }
 
 export async function upsertScheduleSlot(
@@ -1084,6 +1099,7 @@ export async function upsertScheduleSlot(
   }
 
   const label = input.label.trim() ? input.label.trim().slice(0, 80) : 'Ôn từ vựng & Kanji';
+  const repeatMinutes = sanitizeSlotRepeatMinutes(input.repeatMinutes);
 
   let nextSlot: StudyTimeSlot;
   if (input.scheduleType === 'recurring') {
@@ -1117,6 +1133,7 @@ export async function upsertScheduleSlot(
       label,
       daysOfWeek: orderedDays,
       date: '',
+      repeatMinutes,
       isDaily: true,
     };
   } else {
@@ -1147,6 +1164,7 @@ export async function upsertScheduleSlot(
       label,
       daysOfWeek: [],
       date,
+      repeatMinutes,
       isDaily: false,
     };
   }

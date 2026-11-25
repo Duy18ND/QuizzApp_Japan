@@ -811,12 +811,12 @@ export const StageRoadmapPage: React.FC = () => {
 
       toast({
         title: pushSynced
-          ? `Đã bật Web Push chạy nền mỗi ${effectiveSettings.repeatIntervalMinutes}p (vuốt tắt app vẫn nhắc!)`
+          ? `Đã bật nhắc học mỗi ${effectiveSettings.repeatIntervalMinutes} phút — kể cả khi bạn đã thoát app`
           : perm === 'granted'
-            ? `Đã bật thông báo lặp mỗi ${effectiveSettings.repeatIntervalMinutes} phút cho tới khi xong Màn`
+            ? `Đã bật nhắc học mỗi ${effectiveSettings.repeatIntervalMinutes} phút cho tới khi xong Màn`
             : perm === 'denied'
-              ? 'Trình duyệt đang chặn thông báo — hãy bật lại trong cài đặt trang web để nhận chuông.'
-              : 'Đã bật thanh nhắc học trên web.',
+              ? 'Thông báo đang bị chặn — hãy cho phép trong cài đặt trình duyệt / điện thoại.'
+              : 'Đã bật nhắc học.',
         tone: perm === 'denied' ? 'warning' : 'success',
       });
     } else {
@@ -924,7 +924,7 @@ export const StageRoadmapPage: React.FC = () => {
               JLPT {activeLevel} · {activeBook.shortTitle}
             </Badge>
             {webPushActive && roadmapState.notificationsEnabled && (
-              <Badge tone="success">Web Push nền ✓</Badge>
+              <Badge tone="success">Đang nhắc ✓</Badge>
             )}
           </span>
         }

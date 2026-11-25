@@ -7,34 +7,6 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
 });
 
-// Delayed lock-screen test notification handler (keeps SW alive via waitUntil even after phone screen locks)
-self.addEventListener('message', (event) => {
-  const data = event.data;
-  if (!data || data.type !== 'SCHEDULE_TEST_NOTIFICATION') return;
-  const delayMs = Math.min(60_000, Math.max(1000, Number(data.delayMs) || 15_000));
-  const title = data.title || '🇯🇵 Nihongo 問 · Test màn hình khóa thành công!';
-  const body =
-    data.body ||
-    'Thông báo đã kêu ngay cả khi khóa màn hình chờ. Bấm để quay lại Lộ trình học hôm nay!';
-  const targetUrl = data.url || './#/roadmap';
-  const tag = data.tag || `nihongo-lockscreen-test-${Date.now()}`;
-
-  event.waitUntil(
-    new Promise((resolve) => setTimeout(resolve, delayMs)).then(() =>
-      self.registration.showNotification(title, {
-        body,
-        icon: './icons/icon-192.png',
-        badge: './icons/icon-192.png',
-        tag,
-        renotify: true,
-        requireInteraction: true,
-        vibrate: [220, 100, 220, 100, 220],
-        data: { url: targetUrl },
-      }),
-    ),
-  );
-});
-
 // Background Web Push handler — wakes up on iOS 16.4+ PWA & Android even when swiped closed
 self.addEventListener('push', (event) => {
   let payload = {
