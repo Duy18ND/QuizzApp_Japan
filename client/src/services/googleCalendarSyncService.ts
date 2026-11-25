@@ -1,7 +1,9 @@
 import {
+  ALL_DAYS_ORDERED,
   DEFAULT_TIMEZONE,
   addDaysToDateKey,
   getLocalDateKey,
+  type StudyScheduleConfig,
 } from './notificationService';
 import type { DailyMinutesTarget, RoadmapStage } from './stageRoadmapService';
 import {
@@ -383,6 +385,19 @@ function formatIcsLocalStamp(dateKey: string, hh: number, mm: number): string {
   return `${ymd}T${hStr}${mStr}00`;
 }
 
+function triggerIcsFileDownload(icsContent: string, filename: string): void {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return;
+  const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+  const blobUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = blobUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
+}
+
 /**
  * Generates and downloads an RFC 5545 `.ics` calendar file containing every remaining
  * daily stage (with stage tasks, deep link, and 10m + 0m VALARM notifications).
@@ -477,18 +492,111 @@ export function downloadRoadmapIcsFile(options: {
   lines.push('END:VCALENDAR');
   const icsContent = `${lines.join('\r\n')}\r\n`;
   const filename = `nihongo-lotrinh-${options.level.toLowerCase()}.ics`;
+  triggerIcsFileDownload(icsContent, filename);
+  return { count: targetStages.length, filename };
+}
 
-  if (typeof window !== 'undefined' && typeof document !== 'undefined') {
-    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
-    const blobUrl = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = blobUrl;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
+/**
+ * Exports the user's configured Study Schedule time slots (or default daily reminder)
+ * as an `.ics` file for Apple Calendar / Google Calendar when not exporting a specific Roadmap.
+ */
+export function downloadStudyScheduleIcsFile(
+  schedule: StudyScheduleConfig,
+  levelLabel = 'JLPT',
+): { count: number; filename: string } {
+  const todayKey = getLocalDateKey();
+  const baseOrigin =
+    typeof window !== 'undefined' && window.location
+      ? `${window.location.origin}${window.location.pathname}`
+      : 'https://duy18nd.github.io/QuizzApp_Japan/';
+
+  const slots =
+    schedule.timeSlots.length > 0
+      ? schedule.timeSlots
+      : [
+          {
+            id: 'default-primary-slot',
+            scheduleType: 'recurring' as const,
+            time: schedule.primaryTime || '20:00',
+            label: `Học tiếng Nhật ${levelLabel}`,
+            daysOfWeek:
+              schedule.streakDaysOfWeek.length > 0
+                ? schedule.streakDaysOfWeek
+                : [1, 2, 3, 4, 5, 6, 0],
+            date: todayKey,
+          },
+        ];
+
+  const now = new Date();
+  const dtStamp = `${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, '0')}${String(now.getUTCDate()).padStart(2, '0')}T${String(now.getUTCHours()).padStart(2, '0')}${String(now.getUTCMinutes()).padStart(2, '0')}${String(now.getUTCSeconds()).padStart(2, '0')}Z`;
+
+  const lines: string[] = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Nihongo Toi//Study Schedule//VI',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    `X-WR-CALNAME:Nihongo Nhắc Học (${levelLabel})`,
+    `X-WR-TIMEZONE:${DEFAULT_TIMEZONE}`,
+  ];
+
+  for (const slot of slots) {
+    const [rawH, rawM] = (slot.time || '20:00').split(':').map(Number);
+    const hh = Number.isFinite(rawH) && rawH >= 0 && rawH <= 23 ? rawH : 20;
+    const mm = Number.isFinite(rawM) && rawM >= 0 && rawM <= 59 ? rawM : 0;
+    const startTotal = hh * 60 + mm;
+    const endTotal = startTotal + 25;
+    const endH = Math.floor((endTotal % 1440) / 60);
+    const endM = endTotal % 60;
+    const startDateKey = slot.scheduleType === 'once' && slot.date ? slot.date : todayKey;
+    const endDateKey = endTotal >= 1440 ? addDaysToDateKey(startDateKey, 1) : startDateKey;
+    const summary = `🇯🇵 ${slot.label || 'Nhắc học tiếng Nhật'}`;
+    const targetUrl = `${baseOrigin}#/roadmap`;
+    const desc = [
+      `Lịch nhắc học Nihongo 問 (${levelLabel})`,
+      `Vào học ngay: ${targetUrl}`,
+    ].join('\n');
+
+    lines.push(
+      'BEGIN:VEVENT',
+      foldIcsLine(`UID:slot-${slot.id}@nihongo-toi.local`),
+      `DTSTAMP:${dtStamp}`,
+      `DTSTART;TZID=${DEFAULT_TIMEZONE}:${formatIcsLocalStamp(startDateKey, hh, mm)}`,
+      `DTEND;TZID=${DEFAULT_TIMEZONE}:${formatIcsLocalStamp(endDateKey, endH, endM)}`,
+    );
+
+    if (slot.scheduleType === 'recurring') {
+      const icsDays = ALL_DAYS_ORDERED.filter((d) =>
+        (slot.daysOfWeek.length > 0 ? slot.daysOfWeek : [1, 2, 3, 4, 5, 6, 0]).includes(d.day),
+      ).map((d) => d.icsDay);
+      if (icsDays.length > 0 && icsDays.length < 7) {
+        lines.push(`RRULE:FREQ=WEEKLY;BYDAY=${icsDays.join(',')}`);
+      } else {
+        lines.push('RRULE:FREQ=DAILY');
+      }
+    }
+
+    lines.push(
+      foldIcsLine(`SUMMARY:${escapeIcsText(summary)}`),
+      foldIcsLine(`DESCRIPTION:${escapeIcsText(desc)}`),
+      foldIcsLine(`URL:${targetUrl}`),
+      'BEGIN:VALARM',
+      'ACTION:DISPLAY',
+      'TRIGGER:-PT10M',
+      foldIcsLine(`DESCRIPTION:${escapeIcsText(`Còn 10 phút tới giờ học ${summary}`)}`),
+      'END:VALARM',
+      'BEGIN:VALARM',
+      'ACTION:DISPLAY',
+      'TRIGGER:PT0M',
+      foldIcsLine(`DESCRIPTION:${escapeIcsText(`Đến giờ học ngay: ${summary}`)}`),
+      'END:VALARM',
+      'END:VEVENT',
+    );
   }
 
-  return { count: targetStages.length, filename };
+  lines.push('END:VCALENDAR');
+  const icsContent = `${lines.join('\r\n')}\r\n`;
+  const filename = `nihongo-lich-nhac-hoc.ics`;
+  triggerIcsFileDownload(icsContent, filename);
+  return { count: slots.length, filename };
 }

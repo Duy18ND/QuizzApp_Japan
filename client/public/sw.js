@@ -68,7 +68,8 @@ self.addEventListener('push', (event) => {
       badge: './icons/icon-192.png',
       tag: payload.tag,
       renotify: true,
-      vibrate: [180, 90, 180],
+      requireInteraction: true,
+      vibrate: [220, 100, 220, 100, 220],
       data: { url: payload.url },
     }),
   );

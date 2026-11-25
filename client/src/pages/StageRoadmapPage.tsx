@@ -1119,6 +1119,32 @@ export const StageRoadmapPage: React.FC = () => {
             </Button>
             <Button
               type="button"
+              variant="secondary"
+              size="sm"
+              leftIcon={<Download className="size-4 text-primary-fg" aria-hidden />}
+              onClick={() => {
+                const completedSet = new Set(Object.keys(roadmapState.completedStages));
+                const res = downloadRoadmapIcsFile({
+                  stages,
+                  completedStageIds: completedSet,
+                  level: activeLevel,
+                  bookTitle: activeBook.title,
+                  reminderTime: effectiveSettings.reminderTime,
+                  dailyMinutesTarget: effectiveSettings.dailyMinutesTarget,
+                });
+                toast({
+                  title:
+                    res.count > 0
+                      ? `Đã tải ${res.filename} (${res.count} ngày học)! Mở file để thêm vào Lịch điện thoại.`
+                      : 'Bạn đã hoàn thành hết các Màn trong lộ trình này rồi!',
+                  tone: res.count > 0 ? 'success' : 'info',
+                });
+              }}
+            >
+              Tải lịch .ics
+            </Button>
+            <Button
+              type="button"
               variant={
                 roadmapState.notificationsEnabled && notifPermission === 'granted'
                   ? 'soft'
@@ -1161,6 +1187,13 @@ export const StageRoadmapPage: React.FC = () => {
                 ? `🔒 Khóa máy ngay (${lockTestCountdown}s)`
                 : '🔒 Test tắt màn hình (15s)'}
             </Button>
+            <Link
+              to="/settings"
+              className={buttonStyles({ variant: 'soft', size: 'sm' })}
+              title="Mở Cài đặt để tải lịch .ics & test đủ 5 chế độ (bao gồm xóa app khỏi đa nhiệm)"
+            >
+              <span>5 kiểu Test &amp; .ics →</span>
+            </Link>
           </div>
         }
       />

@@ -14,7 +14,21 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/auth-context';
 import { cn } from '../../lib/cn';
-import { startWebOnlineTimeTracker } from '../../services/notificationService';
+import {
+  getLocalDateKey,
+  getTodayOnlineSeconds,
+  startWebOnlineTimeTracker,
+} from '../../services/notificationService';
+import {
+  getBrowserNotificationPermission,
+  isWebPushConfigured,
+  subscribeAndSyncWebPush,
+} from '../../services/pwaReminderService';
+import {
+  getEffectiveReminderSettings,
+  isDailyEnforcementPending,
+  loadStageRoadmapState,
+} from '../../services/stageRoadmapService';
 import {
   hasDismissedLevelModal,
   markLevelModalDismissed,
@@ -72,6 +86,29 @@ export const AppLayout: React.FC = () => {
       stopOnlineTracker();
     };
   }, []);
+
+  // Automatically keep this device's Web Push subscription synced to Supabase whenever logged in & granted
+  useEffect(() => {
+    if (status !== 'authenticated' || !user?.id || !isWebPushConfigured()) return;
+    if (getBrowserNotificationPermission() !== 'granted') return;
+
+    const rmState = loadStageRoadmapState(user.id);
+    const effective = getEffectiveReminderSettings(rmState);
+    const todayKey = getLocalDateKey();
+    const enforcement = isDailyEnforcementPending(
+      rmState,
+      getTodayOnlineSeconds(todayKey, user.id),
+    );
+    void subscribeAndSyncWebPush({
+      userId: user.id,
+      notificationsEnabled: rmState.notificationsEnabled,
+      reminderTime: effective.reminderTime,
+      repeatIntervalMinutes: effective.repeatIntervalMinutes,
+      studyWeekdays: effective.studyWeekdays,
+      dailyMinutesTarget: effective.dailyMinutesTarget,
+      lastCompletedDate: enforcement.isCompletedToday ? todayKey : null,
+    });
+  }, [status, user?.id]);
 
   // Listen to explicit open-modal triggers from HomePage / SettingsPage / ProfilePage
   useEffect(() => {

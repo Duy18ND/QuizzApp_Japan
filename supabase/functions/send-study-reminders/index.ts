@@ -57,34 +57,158 @@ function getLocalParts(now: Date, timeZone: string) {
   };
 }
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, apikey, content-type, x-cron-secret',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+
+function jsonResponse(payload: Record<string, unknown>, status = 200): Response {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: {
+      ...CORS_HEADERS,
+      'Content-Type': 'application/json',
+    },
+  });
+}
+
 Deno.serve(async (req) => {
-  const cronSecret = Deno.env.get('CRON_SECRET');
-  if (cronSecret) {
-    const provided = req.headers.get('x-cron-secret');
-    if (provided !== cronSecret) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { status: 200, headers: CORS_HEADERS });
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+  const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
   const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY') ?? '';
   const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY') ?? '';
   const vapidSubject = Deno.env.get('VAPID_SUBJECT') ?? 'mailto:admin@nihongo-app.local';
   const appBaseUrl = Deno.env.get('APP_BASE_URL') ?? 'https://duy18nd.github.io/QuizzApp_Japan';
 
   if (!supabaseUrl || !serviceKey || !vapidPublicKey || !vapidPrivateKey) {
-    return new Response(
-      JSON.stringify({ error: 'Missing SUPABASE or VAPID environment secrets' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } },
-    );
+    return jsonResponse({ error: 'Missing SUPABASE or VAPID environment secrets' }, 500);
+  }
+
+  let body: Record<string, unknown> = {};
+  try {
+    const rawText = await req.text();
+    if (rawText.trim()) {
+      const parsed = JSON.parse(rawText);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        body = parsed as Record<string, unknown>;
+      }
+    }
+  } catch {
+    body = {};
   }
 
   webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
   const supabase = createClient(supabaseUrl, serviceKey);
+
+  // Mode 1: Authenticated user self-test push (supports server-side delay so user can exit & swipe app away)
+  if (body.mode === 'self-test') {
+    const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || '';
+    const jwt = authHeader.replace(/^Bearer\s+/i, '').trim();
+    if (!jwt) {
+      return jsonResponse({ ok: false, reason: 'unauthorized', error: 'Missing Bearer token' }, 401);
+    }
+
+    const verifyClient = createClient(supabaseUrl, anonKey || serviceKey);
+    const { data: userData, error: userError } = await verifyClient.auth.getUser(jwt);
+    if (userError || !userData?.user) {
+      return jsonResponse({ ok: false, reason: 'unauthorized', error: 'Invalid session token' }, 401);
+    }
+
+    const delaySeconds = Math.max(0, Math.min(25, Math.round(Number(body.delaySeconds) || 0)));
+    const stageLabel =
+      typeof body.stageLabel === 'string' && body.stageLabel.trim()
+        ? body.stageLabel.trim()
+        : 'Màn hôm nay';
+
+    if (delaySeconds > 0) {
+      await new Promise((resolve) => setTimeout(resolve, delaySeconds * 1000));
+    }
+
+    const { data: userSubs, error: subsErr } = await supabase
+      .from('user_push_subscriptions')
+      .select('*')
+      .eq('user_id', userData.user.id);
+
+    if (subsErr) {
+      return jsonResponse({ ok: false, reason: 'db-error', error: subsErr.message }, 500);
+    }
+    if (!userSubs || userSubs.length === 0) {
+      return jsonResponse(
+        {
+          ok: false,
+          reason: 'no-subscription',
+          error: 'Thiết bị chưa đăng ký Web Push với máy chủ.',
+        },
+        404,
+      );
+    }
+
+    let sentCount = 0;
+    let prunedCount = 0;
+    let failedCount = 0;
+    const nowTag = Date.now();
+    const title =
+      delaySeconds > 0
+        ? `Nihongo 問 · Nảy chuông sau ${delaySeconds}s (App đã đóng)!`
+        : 'Nihongo 問 · Test Server Web Push thành công!';
+    const notifBody =
+      delaySeconds > 0
+        ? `Thông báo đẩy từ Server Cloud vẫn hoạt động dù bạn đã thoát màn hình chính & xóa app khỏi đa nhiệm (${stageLabel}).`
+        : `Đường truyền Server Push → điện thoại hoạt động bình thường (${stageLabel}).`;
+
+    for (const row of userSubs as PushRow[]) {
+      try {
+        await webpush.sendNotification(
+          {
+            endpoint: row.endpoint,
+            keys: { p256dh: row.p256dh, auth: row.auth },
+          },
+          JSON.stringify({
+            title,
+            body: notifBody,
+            url: `${appBaseUrl.replace(/\/$/, '')}/#/settings`,
+            tag: `nihongo-self-test-${nowTag}`,
+          }),
+        );
+        sentCount += 1;
+      } catch (pushErr: unknown) {
+        failedCount += 1;
+        const statusCode =
+          typeof pushErr === 'object' && pushErr !== null && 'statusCode' in pushErr
+            ? Number((pushErr as { statusCode?: number }).statusCode)
+            : 0;
+        if (statusCode === 404 || statusCode === 410) {
+          await supabase.from('user_push_subscriptions').delete().eq('id', row.id);
+          prunedCount += 1;
+        }
+      }
+    }
+
+    return jsonResponse({
+      ok: sentCount > 0,
+      mode: 'self-test',
+      delaySeconds,
+      sentCount,
+      prunedCount,
+      failedCount,
+    });
+  }
+
+  // Mode 2: Cron reminder sweep (x-cron-secret required when CRON_SECRET is configured)
+  const cronSecret = Deno.env.get('CRON_SECRET');
+  if (cronSecret) {
+    const provided = req.headers.get('x-cron-secret');
+    if (provided !== cronSecret) {
+      return jsonResponse({ error: 'Unauthorized' }, 401);
+    }
+  }
 
   const { data: rows, error } = await supabase
     .from('user_push_subscriptions')
@@ -92,10 +216,7 @@ Deno.serve(async (req) => {
     .eq('notifications_enabled', true);
 
   if (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return jsonResponse({ error: error.message }, 500);
   }
 
   const now = new Date();
@@ -171,8 +292,5 @@ Deno.serve(async (req) => {
     }
   }
 
-  return new Response(
-    JSON.stringify({ ok: true, sentCount, prunedCount, skippedCount }),
-    { status: 200, headers: { 'Content-Type': 'application/json' } },
-  );
+  return jsonResponse({ ok: true, sentCount, prunedCount, skippedCount });
 });
