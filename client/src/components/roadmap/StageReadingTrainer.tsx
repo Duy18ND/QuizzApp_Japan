@@ -15,6 +15,7 @@ import { Badge, Button, Card, Kbd, Notice, ProgressBar, Switch } from '../ui';
 import { FuriganaText } from '../jlpt/FuriganaText';
 import type { JLPTReadingPassage } from '../../data/jlpt/jlptDataset';
 import { cn } from '../../lib/cn';
+import { markJlptItemDone } from '../../services/jlptProgressService';
 import { recordQuizAttempt } from '../../services/quizHistoryService';
 import { recordDailyStageSkillActivity } from '../../services/stageRoadmapService';
 import type { StudyLevel } from '../../services/userLevelService';
@@ -117,6 +118,9 @@ export const StageReadingTrainer: React.FC<StageReadingTrainerProps> = ({
         ? Math.max(5, Math.round((Date.now() - sessionStartRef.current) / 1000))
         : 60;
     recordDailyStageSkillActivity('reading', userId);
+    for (const p of passages) {
+      markJlptItemDone(userId, 'reading', p.id);
+    }
     void recordQuizAttempt(
       {
         quizType: 'jlpt-reading-short',
@@ -129,7 +133,7 @@ export const StageReadingTrainer: React.FC<StageReadingTrainerProps> = ({
       userId,
     );
     setStep('done');
-  }, [flatQuestions.length, level, userId]);
+  }, [flatQuestions.length, level, passages, userId]);
 
   const handleUnderstoodPassage = () => {
     if (!currentPassage) return;

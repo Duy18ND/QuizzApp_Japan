@@ -34,6 +34,7 @@ import {
 import { StageFlipcardTrainer } from '../components/roadmap/StageFlipcardTrainer';
 import { StageListeningTrainer } from '../components/roadmap/StageListeningTrainer';
 import { StageReadingTrainer } from '../components/roadmap/StageReadingTrainer';
+import { MasteryLengthPicker } from '../components/roadmap/MasteryLengthPicker';
 import { useAuth } from '../context/auth-context';
 import { useCurriculumSnapshot } from '../hooks/useCurriculumData';
 import { cn } from '../lib/cn';
@@ -51,6 +52,7 @@ import {
   markStageBriefingUnderstood,
   readStoredStageSession,
   saveStageBossPassed,
+  pickMasteryQuestions,
   type StageBriefingData,
   type StoredStageSessionPayload,
 } from '../utils/stageBriefingBuilder';
@@ -108,6 +110,8 @@ export const StageStudySessionPage: React.FC = () => {
 
   const sessionMode = normalizeSessionMode(mode);
   const isJumpMode = searchParams.get('mode') === 'jump';
+  /** Chosen length of the "Chốt Màn" test (null = still choosing) */
+  const [masteryCount, setMasteryCount] = useState<number | null>(null);
 
   const resolvedSession = useMemo<StoredStageSessionPayload | null>(() => {
     const navState = location.state as StoredStageSessionPayload | null;
@@ -139,6 +143,7 @@ export const StageStudySessionPage: React.FC = () => {
       roadmapState.activeMode === 'custom' && roadmapState.customConfig
         ? generateStageMap({
             mode: 'custom',
+            customRoadmapId: roadmapState.customConfig.id,
             level: roadmapState.customConfig.level,
             textbookId: roadmapState.customConfig.textbookId,
             userId: user?.id,
@@ -160,7 +165,11 @@ export const StageStudySessionPage: React.FC = () => {
             snapshot: cmsSnapshot,
             startDate: roadmapState.fixedStartDate,
             dailyMinutesTarget: roadmapState.fixedDailyMinutesTarget,
-            totalStages: getRecommendedFixedStageCount(level, book.id),
+            totalStages: getRecommendedFixedStageCount(
+              level,
+              book.id,
+              roadmapState.fixedDailyMinutesTarget,
+            ),
             studyWeekdays: roadmapState.fixedStudyWeekdays,
             includeKanaStarter: roadmapState.fixedIncludeKanaStarter,
           });
@@ -197,6 +206,19 @@ export const StageStudySessionPage: React.FC = () => {
   }
 
   const returnToRoadmapUrl = `/roadmap?stage=${encodeURIComponent(resolvedSession.stage.id)}`;
+  // Levels / books without data (e.g. N1 vocab) would otherwise render an empty trainer
+  const sessionHasContent =
+    sessionMode === 'vocab'
+      ? briefing.vocabItems.length > 0 && briefing.vocabQuizQuestions.length > 0
+      : sessionMode === 'kanji'
+        ? briefing.kanjiItems.length > 0 && briefing.kanjiQuizQuestions.length > 0
+        : sessionMode === 'reading'
+          ? briefing.readingPassages.length > 0
+          : sessionMode === 'listening'
+            ? briefing.listeningItems.length > 0
+            : sessionMode === 'mastery'
+              ? briefing.masteryQuestions.length > 0
+              : briefing.grammarItems.length > 0 || briefing.quickChecks.length > 0;
   const modeLabelMap: Record<StageSessionMode, string> = {
     briefing: 'Ngữ pháp · Tips & Dấu hiệu (100%)',
     vocab: 'Lật thẻ Từ vựng → Quiz 100%',
@@ -228,7 +250,21 @@ export const StageStudySessionPage: React.FC = () => {
       </div>
 
       {/* Mode Switcher */}
-      {sessionMode === 'vocab' || sessionMode === 'kanji' ? (
+      {!sessionHasContent ? (
+        <EmptyState
+          title={`Màn này chưa có dữ liệu ${MODE_CONTENT_LABEL[sessionMode]} cho ${resolvedSession.level}`}
+          description={
+            resolvedSession.level === 'N2' || resolvedSession.level === 'N1'
+              ? 'Nội dung N2 / N1 đang được cập nhật. Bạn có thể học các phần khác của Màn hoặc chọn trình độ N3–N5.'
+              : 'Phần này của Màn chưa có câu hỏi. Hãy học các phần khác của Màn.'
+          }
+          action={
+            <Link to={returnToRoadmapUrl} className={buttonStyles({ variant: 'primary' })}>
+              Quay lại Lộ trình
+            </Link>
+          }
+        />
+      ) : sessionMode === 'vocab' || sessionMode === 'kanji' ? (
         <StageFlipcardTrainer
           key={`${resolvedSession.stage.id}-${sessionMode}`}
           kind={sessionMode}
@@ -260,11 +296,22 @@ export const StageStudySessionPage: React.FC = () => {
           items={briefing.listeningItems}
           onFinishAndReturn={() => navigate(returnToRoadmapUrl)}
         />
+      ) : sessionMode === 'mastery' && masteryCount === null ? (
+        <MasteryLengthPicker
+          stageNumber={resolvedSession.stage.stageNumber}
+          poolSize={briefing.masteryQuestions.length}
+          isJumpMode={isJumpMode}
+          onStart={setMasteryCount}
+        />
       ) : (
         <StageBriefingAndMasteryRunner
-          key={`${resolvedSession.stage.id}-${sessionMode}-${isJumpMode ? 'jump' : 'std'}`}
+          key={`${resolvedSession.stage.id}-${sessionMode}-${isJumpMode ? 'jump' : 'std'}-${masteryCount ?? 0}`}
           resolvedSession={resolvedSession}
-          briefing={briefing}
+          briefing={
+            sessionMode === 'mastery' && masteryCount !== null
+              ? { ...briefing, masteryQuestions: pickMasteryQuestions(briefing.masteryQuestions, masteryCount) }
+              : briefing
+          }
           sessionMode={sessionMode}
           isJumpMode={isJumpMode}
           userId={user?.id}
@@ -273,6 +320,15 @@ export const StageStudySessionPage: React.FC = () => {
       )}
     </PageContainer>
   );
+};
+
+const MODE_CONTENT_LABEL: Record<StageSessionMode, string> = {
+  briefing: 'ngữ pháp',
+  vocab: 'từ vựng',
+  kanji: 'chữ Hán',
+  reading: 'đọc hiểu',
+  listening: 'nghe hiểu',
+  mastery: 'bài kiểm tra',
 };
 
 interface StageBriefingAndMasteryRunnerProps {

@@ -1,8 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 
+export type TtsGenderPref = 'auto' | 'female' | 'male';
+
 export interface AppSettings {
   ttsRate: number;
   ttsAutoPlay: boolean;
+  /** Optional specific OS SpeechSynthesisVoice.voiceURI (empty = auto) */
+  ttsVoiceUri: string;
+  /** Preferred voice gender when ttsVoiceUri is empty */
+  ttsGenderPref: TtsGenderPref;
 }
 
 export const SETTINGS_STORAGE_KEY = 'nihonmaster_settings';
@@ -11,6 +17,8 @@ const SETTINGS_SYNC_EVENT = 'nihonmaster:settings-sync';
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   ttsRate: 1.0,
   ttsAutoPlay: true,
+  ttsVoiceUri: '',
+  ttsGenderPref: 'auto',
 };
 
 export function sanitizeAppSettings(raw: unknown): AppSettings {
@@ -21,7 +29,10 @@ export function sanitizeAppSettings(raw: unknown): AppSettings {
   const rawRate = typeof obj.ttsRate === 'number' && Number.isFinite(obj.ttsRate) ? obj.ttsRate : 1.0;
   const ttsRate = Math.max(0.6, Math.min(1.5, Number(rawRate.toFixed(2))));
   const ttsAutoPlay = typeof obj.ttsAutoPlay === 'boolean' ? obj.ttsAutoPlay : true;
-  return { ttsRate, ttsAutoPlay };
+  const ttsVoiceUri = typeof obj.ttsVoiceUri === 'string' ? obj.ttsVoiceUri.trim() : '';
+  const ttsGenderPref: TtsGenderPref =
+    obj.ttsGenderPref === 'female' || obj.ttsGenderPref === 'male' ? obj.ttsGenderPref : 'auto';
+  return { ttsRate, ttsAutoPlay, ttsVoiceUri, ttsGenderPref };
 }
 
 export function loadAppSettings(): AppSettings {

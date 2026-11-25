@@ -4,7 +4,7 @@ import { useAuth } from '../../context/auth-context';
 import { cn } from '../../lib/cn';
 import { clearAttemptMistakeGroup } from '../../services/attemptMistakeService';
 import { recordQuizAttempt } from '../../services/quizHistoryService';
-import { Badge, Button, Card, Chip, EmptyState, Switch } from '../ui';
+import { Badge, Button, Card, EmptyState, Select, Switch } from '../ui';
 import type { JLPTModuleMeta, JLPTReadingPassage } from '../../data/jlpt/jlptDataset';
 import {
   buildPassageInteractiveParagraphs,
@@ -13,6 +13,7 @@ import {
 import { useJapaneseLookup } from '../common/japanese-lookup-context';
 import { FuriganaText } from './FuriganaText';
 import { McqQuestionBlock } from './McqQuestionBlock';
+import { markJlptItemDone, useJlptDone } from '../../services/jlptProgressService';
 
 export interface JlptMistakePayload {
   grammarId: string;
@@ -49,6 +50,7 @@ export const JlptReadingView: React.FC<JlptReadingViewProps> = ({
 }) => {
   const isControlled = controlledAnswers !== undefined && onControlledAnswer !== undefined;
   const { user } = useAuth();
+  const doneIds = useJlptDone(user?.id);
   const [activePassageIdx, setActivePassageIdx] = useState(0);
   const [showFurigana, setShowFurigana] = useState(true);
   const [hoverTranslate, setHoverTranslate] = useState(true);
@@ -128,6 +130,7 @@ export const JlptReadingView: React.FC<JlptReadingViewProps> = ({
     const allAnswered = passage.questions.every((item) => nextAnswers[item.id] !== undefined);
     if (allAnswered && !recordedPassagesRef.current.has(passage.id)) {
       recordedPassagesRef.current.add(passage.id);
+      markJlptItemDone(user?.id, 'reading', passage.id);
       const durationSeconds =
         passageStartRef.current > 0
           ? Math.max(1, Math.round((Date.now() - passageStartRef.current) / 1000))
@@ -189,35 +192,52 @@ export const JlptReadingView: React.FC<JlptReadingViewProps> = ({
   return (
     <div className="space-y-4">
       {passages.length > 1 && (
-        <Card padding="sm" className="space-y-2 border-line bg-surface-2/60">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-xs font-bold tracking-wide text-primary-fg uppercase">
-              📖 Mục lục sách đọc hiểu ({passages.length} bài)
-            </span>
-            <span className="text-xs text-muted">
-              Bấm chọn từng bài để đọc như sách giáo trình
-            </span>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
+        <Card padding="sm" className="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            aria-label="Bài trước"
+            disabled={safeIdx === 0}
+            onClick={() => {
+              setActivePassageIdx(Math.max(0, safeIdx - 1));
+              setShowSupport(false);
+            }}
+          >
+            ←
+          </Button>
+          <Select
+            aria-label="Chọn bài đọc"
+            value={String(safeIdx)}
+            wrapperClassName="min-w-0 flex-1"
+            className="w-full"
+            onChange={(e) => {
+              setActivePassageIdx(Number(e.target.value));
+              setShowSupport(false);
+            }}
+          >
             {passages.map((p, idx) => {
-              const allPassageAnswered = p.questions.every((q) => answers[q.id] !== undefined);
+              const done =
+                p.questions.every((q) => answers[q.id] !== undefined) ||
+                (!isControlled && doneIds.reading.includes(p.id));
               return (
-                <Chip
-                  key={p.id}
-                  selected={idx === activePassageIdx}
-                  onClick={() => {
-                    setActivePassageIdx(idx);
-                    setShowSupport(false);
-                  }}
-                >
-                  <span>
-                    {allPassageAnswered ? '✓ ' : ''}Bài {idx + 1}: {p.title}
-                  </span>
-                  <span className="text-xs opacity-75">({p.level})</span>
-                </Chip>
+                <option key={p.id} value={idx}>
+                  {done ? '✓ ' : ''}Bài {idx + 1}/{passages.length}: {p.title} ({p.questions.length} câu)
+                </option>
               );
             })}
-          </div>
+          </Select>
+          <Button
+            variant="secondary"
+            size="sm"
+            aria-label="Bài sau"
+            disabled={safeIdx >= passages.length - 1}
+            onClick={() => {
+              setActivePassageIdx(Math.min(passages.length - 1, safeIdx + 1));
+              setShowSupport(false);
+            }}
+          >
+            →
+          </Button>
         </Card>
       )}
 
@@ -233,6 +253,9 @@ export const JlptReadingView: React.FC<JlptReadingViewProps> = ({
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge tone="primary">{passage.level}</Badge>
                   <Badge tone="neutral">{passage.genre}</Badge>
+                  {!isControlled && doneIds.reading.includes(passage.id) && (
+                    <Badge tone="success">✓ Đã làm</Badge>
+                  )}
                 </div>
                 <h2 className="text-lg font-bold text-fg">{passage.title}</h2>
                 <p className="text-xs text-muted">

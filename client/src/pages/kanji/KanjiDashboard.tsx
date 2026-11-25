@@ -42,9 +42,11 @@ export const KanjiDashboard: React.FC = () => {
     validUrlLevel ??
     studyLevel ??
     getPreferredVocabLevel(user?.id) ??
-    'All';
+    'N5';
+  const [statusFilter, setStatusFilter] = useState<'all' | 'todo' | 'done'>('all');
 
-  const learnedCount = kanjiList.filter((k) => progress[k.id]?.learned).length;
+  const levelPool = kanjiList.filter((k) => selectedLevel === 'All' || k.jlptLevel === selectedLevel);
+  const learnedCount = levelPool.filter((k) => progress[k.id]?.learned).length;
 
   const baseLevelKanji = kanjiList.filter((k) => {
     const q = searchTerm.trim().toLowerCase();
@@ -57,8 +59,11 @@ export const KanjiDashboard: React.FC = () => {
       k.onReadings.some((r) => r.includes(searchTerm.trim()));
 
     const matchesLevel = selectedLevel === 'All' || k.jlptLevel === selectedLevel;
+    const learned = Boolean(progress[k.id]?.learned);
+    const matchesStatus =
+      statusFilter === 'all' || (statusFilter === 'done' ? learned : !learned);
 
-    return matchesSearch && matchesLevel;
+    return matchesSearch && matchesLevel && matchesStatus;
   });
 
   const filteredKanji = useMemo(() => {
@@ -85,20 +90,20 @@ export const KanjiDashboard: React.FC = () => {
     <PageContainer>
       <PageHeader
         title="Học Kanji"
-        description="Luyện tập thứ tự nét, ghi nhớ âm đọc và từ vựng liên quan."
+        description="Chạm 1 chữ để xem âm đọc & từ ghép. Viết đúng 3 lần để thuộc."
         actions={
           <div className="flex min-w-44 flex-col gap-1.5 rounded-xl border border-line bg-glass px-4 py-2.5 shadow-card">
             <div className="flex items-center justify-between gap-3 text-xs font-medium text-muted">
-              <span>Đã thuộc</span>
+              <span>Đã thuộc {selectedLevel === 'All' ? '' : selectedLevel}</span>
               <span className="tabular font-semibold text-fg">
-                {learnedCount} / {kanjiList.length}
+                {learnedCount} / {levelPool.length}
               </span>
             </div>
             <ProgressBar
               value={learnedCount}
-              max={kanjiList.length}
+              max={Math.max(1, levelPool.length)}
               size="sm"
-              tone={learnedCount === kanjiList.length && kanjiList.length > 0 ? 'success' : 'primary'}
+              tone={learnedCount === levelPool.length && levelPool.length > 0 ? 'success' : 'primary'}
               label="Tiến độ Kanji đã thuộc"
             />
           </div>
@@ -147,15 +152,15 @@ export const KanjiDashboard: React.FC = () => {
       )}
 
       {/* Search & Level Filter */}
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-5 space-y-3">
         <SearchInput
           value={searchTerm}
           onChange={setSearchTerm}
-          placeholder="Tìm chữ Kanji, Hán Việt, nghĩa, hoặc cách đọc..."
-          className="sm:max-w-sm sm:flex-1"
+          placeholder="Tìm chữ Kanji, Hán Việt, nghĩa, cách đọc..."
+          className="sm:max-w-md"
         />
 
-        <div className="hide-scrollbar flex gap-1.5 overflow-x-auto pb-0.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           {LEVELS.map((level) => (
             <Chip
               key={level}
@@ -163,7 +168,24 @@ export const KanjiDashboard: React.FC = () => {
               onClick={() => setSelectedLevelOverride(level)}
               className="shrink-0"
             >
-              {level === 'All' ? 'Tất cả' : level}
+              {level === 'All' ? 'Mọi cấp' : level}
+            </Chip>
+          ))}
+          <span aria-hidden className="basis-full sm:mx-1 sm:h-5 sm:w-px sm:basis-auto sm:bg-line" />
+          {(
+            [
+              ['all', 'Tất cả'],
+              ['todo', 'Chưa thuộc'],
+              ['done', 'Đã thuộc'],
+            ] as const
+          ).map(([value, label]) => (
+            <Chip
+              key={value}
+              selected={statusFilter === value}
+              onClick={() => setStatusFilter(value)}
+              className="shrink-0"
+            >
+              {label}
             </Chip>
           ))}
         </div>
@@ -216,7 +238,7 @@ export const KanjiDashboard: React.FC = () => {
                     {kanji.hanViet || kanji.meanings[0] || '...'}
                   </span>
 
-                  {kanji.jlptLevel && (
+                  {kanji.jlptLevel && selectedLevel === 'All' && (
                     <Badge tone="neutral" className="mt-1.5 px-1.5 py-0 text-[10px]">
                       {kanji.jlptLevel}
                     </Badge>
@@ -231,12 +253,13 @@ export const KanjiDashboard: React.FC = () => {
           title="Không tìm thấy chữ Kanji nào phù hợp"
           description="Hãy thử từ khóa khác hoặc đặt lại bộ lọc cấp độ."
           action={
-            (searchTerm || selectedLevel !== 'All') && (
+            (searchTerm || selectedLevel !== 'All' || statusFilter !== 'all') && (
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={() => {
                   setSearchTerm('');
+                  setStatusFilter('all');
                   setSelectedLevelOverride('All');
                 }}
               >

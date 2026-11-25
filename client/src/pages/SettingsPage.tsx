@@ -6,9 +6,7 @@ import {
   Moon,
   RotateCcw,
   Sun,
-  Trash2,
   Upload,
-  Volume2,
 } from 'lucide-react';
 import { useAppSettings, type AppSettings } from '../hooks/useAppSettings';
 import { useTheme } from '../hooks/useTheme';
@@ -21,13 +19,13 @@ import {
 import { hydrateKanjiState, resetAllKanjiProgress } from '../store/slices/kanjiSlice';
 import { clearMistakes, hydrateMistakes } from '../store/slices/mistakeSlice';
 import type { UserProgress } from '../types/quiz';
-import { isSpeechSupported, speakJapanese } from '../utils/tts';
 import { LoginRequiredState } from '../components/auth/LoginRequiredState';
 import { StudyScheduleCard } from '../components/settings/StudyScheduleCard';
 import { useAuth } from '../context/auth-context';
 import { commitUserProgress, loadUserProgress } from '../hooks/useUserProgress';
 import { cn } from '../lib/cn';
 import { loadStudySchedule } from '../services/notificationService';
+import { clearJlptProgressCache } from '../services/jlptProgressService';
 import {
   clearAllCloudAccountData,
   pushRestoredProgressToCloud,
@@ -49,16 +47,8 @@ import {
   Notice,
   PageContainer,
   PageHeader,
-  Switch,
   useToast,
 } from '../components/ui';
-
-const TTS_SPEEDS = [
-  { value: 0.75, label: '0.75x Chậm' },
-  { value: 0.9, label: '0.9x Vừa' },
-  { value: 1.0, label: '1.0x Chuẩn' },
-  { value: 1.2, label: '1.2x Nhanh' },
-];
 
 interface ProgressBackupPayload {
   version: number;
@@ -199,6 +189,7 @@ export const SettingsPage: React.FC = () => {
     dispatch(resetAllKanjiProgress());
     dispatch(resetAllGrammarProgress());
     dispatch(clearMistakes());
+    clearJlptProgressCache();
     if (user?.id) {
       void clearAllCloudAccountData(user.id);
     }
@@ -207,14 +198,12 @@ export const SettingsPage: React.FC = () => {
     toast({ title: 'Đã đặt lại tiến độ học tập', tone: 'info' });
   };
 
-  const speechAvailable = isSpeechSupported();
-
   return (
     <PageContainer size="lg" className="max-w-5xl space-y-4 sm:space-y-6">
       <PageHeader
         breadcrumbs={[{ label: 'Trang chủ', to: '/' }, { label: 'Cài đặt' }]}
         title="Cài đặt & Quản lý dữ liệu"
-        description="Tùy chỉnh trình độ tiếng Nhật, lịch nhắc học (thông báo đẩy), giao diện, giọng đọc và sao lưu tiến độ cá nhân."
+        description="Tùy chỉnh trình độ tiếng Nhật, lịch nhắc học, chuỗi ngày học, giao diện và sao lưu tiến độ cá nhân."
       />
 
       {/* 0. JLPT Study Level Selector (Logged-in users only) */}
@@ -360,54 +349,7 @@ export const SettingsPage: React.FC = () => {
         </div>
       </Card>
 
-      {/* 3. TTS Voice Settings */}
-      <Card padding="lg" className="space-y-5">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 className="text-base font-semibold text-fg">Phát âm tiếng Nhật (TTS)</h2>
-            <p className="text-sm text-muted">Áp dụng cho Flashcard, Bảng từ, Luyện viết và Ôn tập.</p>
-          </div>
-          <Button
-            variant="soft"
-            size="sm"
-            disabled={!speechAvailable}
-            leftIcon={<Volume2 className="size-4" aria-hidden />}
-            onClick={() => speakJapanese('こんにちは、日本語の勉強を始めましょう。', settings.ttsRate)}
-          >
-            Nghe thử
-          </Button>
-        </div>
-
-        {!speechAvailable && (
-          <Notice tone="warning">
-            Trình duyệt hiện tại không hỗ trợ phát âm tiếng Nhật tự động.
-          </Notice>
-        )}
-
-        <Switch
-          checked={settings.ttsAutoPlay}
-          onChange={(checked) => updateSettings({ ttsAutoPlay: checked })}
-          label="Tự động phát âm khi chuyển thẻ Flashcard / Luyện viết"
-          description="Tắt nếu bạn muốn tự bấm nút loa trước khi xem gợi ý."
-        />
-
-        <div className="space-y-2 border-t border-line pt-4">
-          <p className="text-sm font-medium text-fg">Tốc độ đọc</p>
-          <div className="flex flex-wrap gap-2">
-            {TTS_SPEEDS.map((opt) => (
-              <Chip
-                key={opt.value}
-                selected={Math.abs(settings.ttsRate - opt.value) < 0.05}
-                onClick={() => updateSettings({ ttsRate: opt.value })}
-              >
-                {opt.label}
-              </Chip>
-            ))}
-          </div>
-        </div>
-      </Card>
-
-      {/* 4. Backup Export / Restore */}
+      {/* 3. Backup Export / Restore */}
       <Card padding="lg" className="space-y-4">
         <div>
           <h2 className="text-base font-semibold text-fg">Sao lưu &amp; Khôi phục tiến độ (.json)</h2>
@@ -457,30 +399,6 @@ export const SettingsPage: React.FC = () => {
           </Notice>
         )}
         </>
-        )}
-      </Card>
-
-      {/* 5. Reset Progress Danger Zone */}
-      <Card padding="lg" className="border-danger-line space-y-4">
-        <div>
-          <h2 className="text-base font-semibold text-danger-fg">Đặt lại tiến độ học tập</h2>
-          <p className="text-sm text-muted">
-            Xóa toàn bộ tiến độ Kanji đã thuộc, điểm Ngữ pháp, từ vựng đã lưu (★) và danh sách lỗi sai.
-          </p>
-        </div>
-
-        {!user ? (
-          <Notice tone="info">
-            Chế độ Khách hiện không lưu tiến độ nên không có dữ liệu cá nhân cần đặt lại.
-          </Notice>
-        ) : (
-          <Button
-            variant="danger"
-            leftIcon={<Trash2 className="size-4" aria-hidden />}
-            onClick={() => setIsResetModalOpen(true)}
-          >
-            Xóa toàn bộ tiến độ
-          </Button>
         )}
       </Card>
 

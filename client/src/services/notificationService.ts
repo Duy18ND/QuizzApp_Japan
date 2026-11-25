@@ -660,6 +660,44 @@ export function calculateStudyStreakStats(
   };
 }
 
+const STUDY_SCHEDULE_PERSIST_PREFIX = 'nihonmaster_study_schedule_v2:';
+
+function readPersistedStudySchedule(uid: string): Record<string, unknown> | null {
+  if (typeof window === 'undefined' || !uid) return null;
+  try {
+    const raw = window.localStorage?.getItem(`${STUDY_SCHEDULE_PERSIST_PREFIX}${uid}`);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    return parsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function writePersistedStudySchedule(uid: string, schedule: StudyScheduleConfig): void {
+  if (typeof window === 'undefined' || !uid) return;
+  try {
+    window.localStorage?.setItem(
+      `${STUDY_SCHEDULE_PERSIST_PREFIX}${uid}`,
+      JSON.stringify(schedule),
+    );
+  } catch {
+    // Ignore storage quota errors
+  }
+}
+
+function deriveQualifiedDatesFromOnlineTime(uid: string): string[] {
+  const map = loadOnlineTimeMap(uid);
+  const dates: string[] = [];
+  for (const [dateKey, secs] of Object.entries(map)) {
+    if (VALID_DATE_REGEX.test(dateKey) && secs >= ONLINE_STREAK_THRESHOLD_SECONDS) {
+      dates.push(dateKey);
+    }
+  }
+  return dates;
+}
+
 export function loadStudySchedule(
   currentDateKey = getLocalDateKey(),
   explicitUserId?: string | null,
@@ -668,13 +706,54 @@ export function loadStudySchedule(
   if (!uid) {
     return sanitizeStudySchedule(null, currentDateKey);
   }
-  const parsed = getInMemoryStudySchedule(uid);
-  if (!parsed) return sanitizeStudySchedule(null, currentDateKey);
-  const rawSlotCount = Array.isArray(parsed.timeSlots) ? parsed.timeSlots.length : 0;
-  const clean = sanitizeStudySchedule(parsed, currentDateKey);
-  if (rawSlotCount > clean.timeSlots.length) {
+  const inRam = getInMemoryStudySchedule(uid);
+  const persisted = readPersistedStudySchedule(uid);
+
+  let baseRaw: Record<string, unknown> | null = inRam ?? persisted;
+  if (inRam && persisted) {
+    const ramTs = typeof inRam.updatedAt === 'string' ? Date.parse(inRam.updatedAt) || 0 : 0;
+    const diskTs =
+      typeof persisted.updatedAt === 'string' ? Date.parse(persisted.updatedAt) || 0 : 0;
+    const newer = ramTs >= diskTs ? inRam : persisted;
+    const older = ramTs >= diskTs ? persisted : inRam;
+    baseRaw = {
+      ...older,
+      ...newer,
+      completedDates: sanitizeCompletedDates([
+        ...(Array.isArray(older.completedDates) ? older.completedDates : []),
+        ...(Array.isArray(newer.completedDates) ? newer.completedDates : []),
+      ]),
+      targetExamDate:
+        typeof newer.targetExamDate === 'string' && VALID_DATE_REGEX.test(newer.targetExamDate)
+          ? newer.targetExamDate
+          : typeof older.targetExamDate === 'string' && VALID_DATE_REGEX.test(older.targetExamDate)
+            ? older.targetExamDate
+            : '',
+    };
+  }
+
+  const onlineQualifiedDates = deriveQualifiedDatesFromOnlineTime(uid);
+  const rawCompleted =
+    baseRaw && Array.isArray(baseRaw.completedDates) ? baseRaw.completedDates : [];
+  const mergedCompleted = sanitizeCompletedDates([...rawCompleted, ...onlineQualifiedDates]);
+
+  const rawSlotCount = baseRaw && Array.isArray(baseRaw.timeSlots) ? baseRaw.timeSlots.length : 0;
+  const clean = sanitizeStudySchedule(
+    baseRaw
+      ? {
+          ...baseRaw,
+          completedDates: mergedCompleted,
+        }
+      : mergedCompleted.length > 0
+        ? { completedDates: mergedCompleted }
+        : null,
+    currentDateKey,
+  );
+
+  if (!inRam || rawSlotCount > clean.timeSlots.length || mergedCompleted.length > rawCompleted.length) {
     setInMemoryStudySchedule(uid, clean as unknown as Record<string, unknown>);
-    if (typeof window !== 'undefined') {
+    writePersistedStudySchedule(uid, clean);
+    if (rawSlotCount > clean.timeSlots.length && typeof window !== 'undefined') {
       try {
         window.dispatchEvent(
           new CustomEvent<StudyScheduleConfig>(STUDY_SCHEDULE_SYNC_EVENT, { detail: clean }),
@@ -716,16 +795,25 @@ export async function saveStudySchedule(
     nextPatch.streakDaysOfWeek = nextPatch.daysOfWeek;
   }
 
+  const onlineQualifiedDates = deriveQualifiedDatesFromOnlineTime(effectiveUid);
+  const nextCompletedDates = sanitizeCompletedDates([
+    ...current.completedDates,
+    ...(nextPatch.completedDates ?? []),
+    ...onlineQualifiedDates,
+  ]);
+
   const merged = sanitizeStudySchedule(
     {
       ...current,
       ...nextPatch,
+      completedDates: nextCompletedDates,
       updatedAt: new Date().toISOString(),
     },
     currentDateKey,
   );
 
   setInMemoryStudySchedule(effectiveUid, merged as unknown as Record<string, unknown>);
+  writePersistedStudySchedule(effectiveUid, merged);
   if (typeof window !== 'undefined') {
     try {
       window.dispatchEvent(
@@ -928,6 +1016,11 @@ export function hydrateOnlineTimeFromCloud(
   };
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent<OnlineTimeSyncDetail>(ONLINE_TIME_SYNC_EVENT, { detail }));
+    // Immediately refresh study streak from any newly hydrated past study days
+    const refreshedSchedule = loadStudySchedule(todayKey, effectiveUid);
+    window.dispatchEvent(
+      new CustomEvent<StudyScheduleConfig>(STUDY_SCHEDULE_SYNC_EVENT, { detail: refreshedSchedule }),
+    );
   }
 
   // If local had more seconds than cloud (e.g. offline/previous session), push merged map back up immediately
@@ -1088,7 +1181,7 @@ export async function upsertScheduleSlot(
   userId?: string | null,
   currentDateKey = getLocalDateKey(),
 ): Promise<{ ok: boolean; error?: string; schedule: StudyScheduleConfig; slot?: StudyTimeSlot }> {
-  const current = loadStudySchedule(currentDateKey);
+  const current = loadStudySchedule(currentDateKey, userId);
   const time = sanitizeTime(input.time, '');
   if (!time) {
     return {
@@ -1199,7 +1292,7 @@ export async function deleteScheduleSlot(
   userId?: string | null,
   currentDateKey = getLocalDateKey(),
 ): Promise<StudyScheduleConfig> {
-  const current = loadStudySchedule(currentDateKey);
+  const current = loadStudySchedule(currentDateKey, userId);
   const nextSlots = current.timeSlots.filter((s) => s.id !== slotId);
   return saveStudySchedule(
     {
@@ -1257,6 +1350,7 @@ export async function syncStudyScheduleFromCloud(
     const mergedCompleted = sanitizeCompletedDates([
       ...local.completedDates,
       ...(Array.isArray(data.completed_dates) ? data.completed_dates : []),
+      ...deriveQualifiedDatesFromOnlineTime(userId),
     ]);
 
     if (localUpdatedAt > remoteUpdatedAt) {
@@ -1267,6 +1361,10 @@ export async function syncStudyScheduleFromCloud(
     }
 
     const repeatMin = Number(data.continuous_repeat_minutes) || 0;
+    const remoteExamDate =
+      typeof data.target_exam_date === 'string' && VALID_DATE_REGEX.test(data.target_exam_date)
+        ? data.target_exam_date
+        : '';
     const hydrated = sanitizeStudySchedule({
       ...local,
       enabled: data.enabled ?? local.enabled,
@@ -1275,7 +1373,7 @@ export async function syncStudyScheduleFromCloud(
       streakDaysOfWeek: data.streak_days_of_week ?? data.days_of_week ?? local.streakDaysOfWeek,
       completedDates: mergedCompleted,
       targetExamLevel: data.target_exam_level ?? local.targetExamLevel,
-      targetExamDate: data.target_exam_date ?? local.targetExamDate,
+      targetExamDate: remoteExamDate || local.targetExamDate,
       isContinuousDaily: data.is_continuous_daily ?? local.isContinuousDaily,
       daysOfWeek: data.days_of_week ?? local.daysOfWeek,
       continuousRepeatEnabled: repeatMin > 0,
@@ -1286,6 +1384,7 @@ export async function syncStudyScheduleFromCloud(
 
     try {
       setInMemoryStudySchedule(userId, hydrated as unknown as Record<string, unknown>);
+      writePersistedStudySchedule(userId, hydrated);
       if (typeof window !== 'undefined') {
         window.dispatchEvent(
           new CustomEvent<StudyScheduleConfig>(STUDY_SCHEDULE_SYNC_EVENT, { detail: hydrated }),

@@ -144,12 +144,17 @@ const BG_IMAGE_LAYERS = [
   },
 ] as const;
 
-export const JapaneseLandscapeBg: React.FC = () => {
+/**
+ * `subdued` veils the illustration on study pages so text stays readable;
+ * the home page shows it at full strength.
+ */
+export const JapaneseLandscapeBg: React.FC<{ subdued?: boolean }> = ({ subdued = false }) => {
   return (
     <div
       aria-hidden
       className="pointer-events-none fixed inset-0 -z-10 h-dvh w-screen overflow-hidden select-none print:hidden"
     >
+      {subdued && <div className="absolute inset-0 z-10 bg-bg/55" />}
       {/* 1. Primary Dual Japanese Landscape Layers (aspect-preserved panoramic view, zero stretch) */}
       {BG_IMAGE_LAYERS.map((layer) => (
         <img

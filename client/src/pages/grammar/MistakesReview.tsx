@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useDispatch } from 'react-redux';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
   Check,
@@ -8,8 +8,8 @@ import {
   ChevronDown,
   ChevronUp,
   CircleCheck,
-  Clock,
   Eye,
+  MoreHorizontal,
   Play,
   RotateCcw,
   Trash2,
@@ -38,8 +38,9 @@ import {
   Badge,
   Button,
   Card,
+  Dropdown,
   EmptyState,
-  IconButton,
+  Modal,
   PageContainer,
   PageHeader,
   ProgressBar,
@@ -59,14 +60,6 @@ interface DrillSession {
 }
 
 const OPTION_LABELS = ['A', 'B', 'C', 'D', 'E', 'F'];
-
-const formatDuration = (seconds: number): string => {
-  if (seconds <= 0) return '—';
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  if (mins === 0) return `${secs}s`;
-  return `${mins}p ${secs}s`;
-};
 
 const formatAttemptDate = (iso: string): string => {
   const date = new Date(iso);
@@ -100,6 +93,10 @@ export const MistakesReview: React.FC = () => {
 
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
   const [drill, setDrill] = useState<DrillSession | null>(null);
+  const [confirmClear, setConfirmClear] = useState<
+    { kind: 'all' } | { kind: 'group'; group: AttemptMistakeGroup } | null
+  >(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     recordDailyStageSkillActivity('review', user?.id);
@@ -219,7 +216,7 @@ export const MistakesReview: React.FC = () => {
 
             <div className="grid grid-cols-2 gap-3 rounded-xl border border-line bg-surface-2 p-4">
               <div className="space-y-0.5">
-                <p className="text-xs font-medium text-success-fg">Đã nắm vững (Đã xóa)</p>
+                <p className="text-xs font-medium text-success-fg">Đã nhớ</p>
                 <p className="tabular text-2xl font-bold text-fg">{drill.resolvedCount}</p>
               </div>
               <div className="space-y-0.5 border-l border-line">
@@ -255,7 +252,7 @@ export const MistakesReview: React.FC = () => {
       <PageContainer size="md" className="space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Button variant="ghost" size="sm" onClick={() => setDrill(null)}>
-            ← Thoát chế độ làm lại
+            ← Quay lại danh sách
           </Button>
           <span className="tabular text-sm font-semibold text-fg">
             Câu {drill.index + 1} / {drill.items.length}
@@ -395,7 +392,7 @@ export const MistakesReview: React.FC = () => {
                       size="lg"
                       onClick={() => advanceDrill(false, currentMistake)}
                     >
-                      Chưa nhớ (Giữ lại ôn)
+                      Chưa nhớ
                     </Button>
                     <Button
                       variant="primary"
@@ -403,7 +400,7 @@ export const MistakesReview: React.FC = () => {
                       leftIcon={<Check className="size-4" aria-hidden />}
                       onClick={() => advanceDrill(true, currentMistake)}
                     >
-                      Đã nhớ (Xóa lỗi này)
+                      Đã nhớ
                     </Button>
                   </div>
                 </div>
@@ -415,57 +412,31 @@ export const MistakesReview: React.FC = () => {
     );
   }
 
+  const confirmClearAction = () => {
+    if (!confirmClear) return;
+    if (confirmClear.kind === 'all') {
+      handleClearAll();
+    } else {
+      handleClearGroup(confirmClear.group);
+    }
+    setConfirmClear(null);
+  };
+
   return (
-    <PageContainer size="md">
+    <PageContainer size="md" className="space-y-4">
       <PageHeader
         breadcrumbs={[
           { label: 'Trang chủ', to: '/' },
           { label: 'Ôn tập lỗi sai' },
         ]}
         title="Ôn tập lỗi sai"
-        description="Câu sai được lưu tách riêng theo từng lượt hoàn thành giống Lịch sử làm bài. Bấm mũi tên để ẩn hoặc hiện chi tiết câu sai."
-        actions={
-          user && allMistakes.length > 0 ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="primary"
-                size="sm"
-                leftIcon={<Play className="size-4" aria-hidden />}
-                onClick={() => startDrill('Ôn tất cả lỗi sai', allMistakes)}
-              >
-                Làm lại tất cả ({allMistakes.length})
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                leftIcon={
-                  allExpanded ? (
-                    <ChevronUp className="size-4" aria-hidden />
-                  ) : (
-                    <ChevronDown className="size-4" aria-hidden />
-                  )
-                }
-                onClick={handleToggleExpandAll}
-              >
-                {allExpanded ? 'Thu gọn tất cả' : 'Mở tất cả'}
-              </Button>
-              <Button
-                variant="danger"
-                size="sm"
-                leftIcon={<Trash2 className="size-4" aria-hidden />}
-                onClick={handleClearAll}
-              >
-                Xóa tất cả
-              </Button>
-            </div>
-          ) : undefined
-        }
+        description="Ôn lại những câu bạn từng làm sai. Trả lời đúng thì câu đó tự được gỡ khỏi danh sách."
       />
 
       {!user ? (
         <LoginRequiredState
           title="Đăng nhập để lưu & ôn tập lỗi sai"
-          description="Câu làm sai theo từng lượt làm bài được lưu vào tài khoản cá nhân của bạn để bạn ôn lại bất cứ lúc nào."
+          description="Câu làm sai được lưu vào tài khoản để bạn ôn lại bất cứ lúc nào."
         />
       ) : attemptGroups.length === 0 ? (
         <EmptyState
@@ -479,153 +450,205 @@ export const MistakesReview: React.FC = () => {
           }
         />
       ) : (
-        <div className="space-y-3">
-          {attemptGroups.map((group) => {
-            const isExpanded = Boolean(expandedIds[group.attemptId]);
-            const scoreTone =
-              group.percent >= 80 ? 'success' : group.percent >= 50 ? 'warning' : 'danger';
+        <>
+          {/* Summary + one main action */}
+          <Card padding="md" className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="tabular text-2xl font-bold text-fg">
+                {allMistakes.length}{' '}
+                <span className="text-base font-medium text-muted">câu cần ôn</span>
+              </p>
+              <p className="text-sm text-muted">từ {attemptGroups.length} bài đã làm</p>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Button
+                variant="primary"
+                leftIcon={<Play className="size-4" aria-hidden />}
+                onClick={() => startDrill('Ôn tất cả lỗi sai', allMistakes)}
+              >
+                Ôn tất cả
+              </Button>
+              <Dropdown
+                variant="ghost"
+                align="end"
+                aria-label="Tùy chọn khác"
+                label={<MoreHorizontal className="size-5" aria-hidden />}
+                items={[
+                  {
+                    id: 'toggle-expand',
+                    label: allExpanded ? 'Thu gọn tất cả' : 'Xem chi tiết tất cả',
+                    icon: allExpanded ? (
+                      <ChevronUp className="size-4" aria-hidden />
+                    ) : (
+                      <ChevronDown className="size-4" aria-hidden />
+                    ),
+                    onSelect: handleToggleExpandAll,
+                  },
+                  {
+                    id: 'clear-all',
+                    label: 'Xóa tất cả lỗi sai',
+                    icon: <Trash2 className="size-4" aria-hidden />,
+                    tone: 'danger',
+                    onSelect: () => setConfirmClear({ kind: 'all' }),
+                  },
+                ]}
+              />
+            </div>
+          </Card>
 
-            return (
-              <Card key={group.attemptId} padding="none" className="overflow-hidden">
-                <div
-                  className={cn(
-                    'flex flex-col gap-3 bg-surface-2 px-4 py-3.5 md:px-5 sm:flex-row sm:items-center sm:justify-between',
-                    isExpanded && 'border-b border-line',
-                  )}
-                >
-                  <button
-                    type="button"
-                    aria-expanded={isExpanded}
-                    onClick={() => toggleGroupExpanded(group.attemptId)}
-                    className="flex w-full min-w-0 cursor-pointer items-center gap-3 text-left sm:w-auto sm:flex-1"
-                  >
-                    <span
-                      aria-hidden
-                      className="grid size-8 shrink-0 place-items-center rounded-lg border border-line bg-glass text-fg transition-transform duration-150"
-                    >
-                      {isExpanded ? (
-                        <ChevronUp className="size-4" />
-                      ) : (
-                        <ChevronDown className="size-4" />
-                      )}
-                    </span>
+          <ul className="space-y-2.5">
+            {attemptGroups.map((group) => {
+              const isExpanded = Boolean(expandedIds[group.attemptId]);
+              const resultLabel =
+                group.percent >= 100
+                  ? 'cuối cùng đã đúng hết'
+                  : `đúng ${group.score}/${group.totalQuestions}`;
 
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h2 lang="ja" className="truncate text-sm font-bold text-fg md:text-base">
-                          {group.title}
-                        </h2>
-                        {group.level && group.level !== 'ALL' && (
-                          <Badge tone="primary">{group.level}</Badge>
-                        )}
-                        <Badge tone="danger" className="tabular">
-                          {group.mistakes.length} lỗi sai
-                        </Badge>
-                      </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted">
-                        <span>{formatAttemptDate(group.createdAt)}</span>
-                        <span className="inline-flex items-center gap-1">
-                          <Clock className="size-3" aria-hidden />
-                          {formatDuration(group.durationSeconds)}
+              return (
+                <li key={group.attemptId}>
+                  <Card padding="none" className="overflow-hidden">
+                    <div className="flex items-center gap-2 px-3 py-3 sm:gap-3 sm:px-4">
+                      <button
+                        type="button"
+                        aria-expanded={isExpanded}
+                        onClick={() => toggleGroupExpanded(group.attemptId)}
+                        className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
+                      >
+                        <span
+                          className="tabular grid size-10 shrink-0 place-items-center rounded-xl bg-danger-soft text-base font-bold text-danger-fg"
+                          title={`${group.mistakes.length} câu sai`}
+                        >
+                          {group.mistakes.length}
                         </span>
-                        <span className="tabular font-semibold text-fg">
-                          {group.score}/{group.totalQuestions}
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-center gap-2">
+                            <span lang="ja" className="truncate text-sm font-semibold text-fg md:text-base">
+                              {group.title}
+                            </span>
+                            {group.level && group.level !== 'ALL' && (
+                              <Badge tone="primary">{group.level}</Badge>
+                            )}
+                          </span>
+                          <span className="block truncate text-xs text-muted">
+                            {group.mistakes.length} câu sai · {formatAttemptDate(group.createdAt)} ·{' '}
+                            {resultLabel}
+                          </span>
                         </span>
-                        <Badge tone={scoreTone}>{group.percent}%</Badge>
-                      </div>
+                        <ChevronDown
+                          className={cn(
+                            'size-4 shrink-0 text-muted transition-transform duration-150',
+                            isExpanded && 'rotate-180',
+                          )}
+                          aria-hidden
+                        />
+                      </button>
+
+                      <Button
+                        variant="soft"
+                        size="sm"
+                        leftIcon={<Play className="size-3.5" aria-hidden />}
+                        onClick={() => startDrill(group.title, group.mistakes, group.redoPath)}
+                      >
+                        Ôn
+                      </Button>
+                      <Dropdown
+                        variant="ghost"
+                        size="sm"
+                        align="end"
+                        aria-label={`Tùy chọn cho ${group.title}`}
+                        label={<MoreHorizontal className="size-4" aria-hidden />}
+                        items={[
+                          {
+                            id: 'redo',
+                            label: 'Làm lại cả bài',
+                            icon: <RotateCcw className="size-4" aria-hidden />,
+                            onSelect: () => navigate(group.redoPath),
+                          },
+                          {
+                            id: 'clear',
+                            label: 'Xóa khỏi danh sách',
+                            icon: <Trash2 className="size-4" aria-hidden />,
+                            tone: 'danger',
+                            onSelect: () => setConfirmClear({ kind: 'group', group }),
+                          },
+                        ]}
+                      />
                     </div>
-                  </button>
 
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      leftIcon={<Play className="size-3.5" aria-hidden />}
-                      onClick={() => startDrill(group.title, group.mistakes, group.redoPath)}
-                    >
-                      Làm lại câu sai
-                    </Button>
-                    <Link
-                      to={group.redoPath}
-                      className={buttonStyles({ variant: 'soft', size: 'sm' })}
-                    >
-                      <RotateCcw className="size-3.5" aria-hidden />
-                      Làm lại bài
-                    </Link>
-                    <IconButton
-                      variant="ghost"
-                      size="sm"
-                      aria-label={`Xóa lỗi của lượt ${group.title}`}
-                      onClick={() => handleClearGroup(group)}
-                      className="text-danger-fg"
-                    >
-                      <Trash2 className="size-4" aria-hidden />
-                    </IconButton>
-                  </div>
-                </div>
-
-                {isExpanded && (
-                  <div className="divide-y divide-line">
-                    {group.mistakes.map((mistake) => (
-                      <div key={`${group.attemptId}-${mistake.id}`} className="space-y-3 p-4 md:p-5">
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                          <div className="min-w-0 space-y-1">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="text-xs font-semibold tracking-wide text-muted uppercase">
-                                  Câu hỏi
-                                </p>
-                                {mistake.level && <Badge tone="primary">{mistake.level}</Badge>}
+                    {isExpanded && (
+                      <ul className="divide-y divide-line border-t border-line">
+                        {group.mistakes.map((mistake) => (
+                          <li
+                            key={`${group.attemptId}-${mistake.id}`}
+                            className="flex items-start gap-3 px-4 py-3"
+                          >
+                            <div className="min-w-0 flex-1 space-y-1.5">
+                              <p lang="ja" className="text-sm font-medium leading-relaxed text-fg">
+                                {mistake.prompt}
+                              </p>
+                              <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                                <span className="inline-flex items-center gap-1 text-danger-fg">
+                                  <XCircle className="size-4 shrink-0" aria-label="Bạn chọn" />
+                                  <span lang="ja" className="line-through">
+                                    {mistake.userAnswer}
+                                  </span>
+                                </span>
+                                <span className="inline-flex items-center gap-1 text-success-fg">
+                                  <CheckCircle2 className="size-4 shrink-0" aria-label="Đáp án đúng" />
+                                  <span lang="ja" className="font-semibold">
+                                    {mistake.correctAnswer}
+                                  </span>
+                                </span>
                               </div>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                leftIcon={<Check className="size-3.5 text-success-fg" aria-hidden />}
-                                onClick={() => handleResolveSingle(mistake)}
-                              >
-                                Đã nhớ
-                              </Button>
+                              {mistake.explanation && (
+                                <p className="text-xs leading-relaxed text-muted">{mistake.explanation}</p>
+                              )}
                             </div>
-                            <p lang="ja" className="text-sm font-medium leading-relaxed text-fg">
-                              {mistake.prompt}
-                            </p>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-3">
-                            <div className="rounded-lg border border-danger-line bg-danger-soft p-3">
-                              <p className="text-xs font-semibold text-danger-fg uppercase">
-                                Bạn trả lời
-                              </p>
-                              <p lang="ja" className="mt-1 text-sm font-medium text-fg line-through">
-                                {mistake.userAnswer}
-                              </p>
-                            </div>
-
-                            <div className="rounded-lg border border-success-line bg-success-soft p-3">
-                              <p className="text-xs font-semibold text-success-fg uppercase">
-                                Đáp án đúng
-                              </p>
-                              <p lang="ja" className="mt-1 text-sm font-semibold text-fg">
-                                {mistake.correctAnswer}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-
-                        {mistake.explanation && (
-                          <p className="rounded-lg border border-line bg-surface-2 px-3.5 py-2.5 text-sm leading-relaxed text-muted">
-                            {mistake.explanation}
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </Card>
-            );
-          })}
-        </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              leftIcon={<Check className="size-3.5 text-success-fg" aria-hidden />}
+                              onClick={() => handleResolveSingle(mistake)}
+                            >
+                              Đã nhớ
+                            </Button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </Card>
+                </li>
+              );
+            })}
+          </ul>
+        </>
       )}
+
+      <Modal
+        open={confirmClear !== null}
+        onClose={() => setConfirmClear(null)}
+        size="sm"
+        title={confirmClear?.kind === 'all' ? 'Xóa tất cả lỗi sai?' : 'Xóa bài này khỏi danh sách?'}
+        description={
+          confirmClear?.kind === 'all'
+            ? `${allMistakes.length} câu sai sẽ bị xóa và không khôi phục được.`
+            : confirmClear?.kind === 'group'
+              ? `${confirmClear.group.mistakes.length} câu sai của "${confirmClear.group.title}" sẽ bị xóa.`
+              : undefined
+        }
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setConfirmClear(null)}>
+              Hủy
+            </Button>
+            <Button variant="danger" onClick={confirmClearAction}>
+              Xóa
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-muted">Bạn vẫn có thể làm lại bài để ôn tập bất cứ lúc nào.</p>
+      </Modal>
     </PageContainer>
   );
 };

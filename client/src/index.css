@@ -49,10 +49,10 @@
   --focus-ring: #0284C7;
 
   /* Sheer Porcelain Glass Surfaces (No Blur — shows background scenery clearly through cards, nav & toggle) */
-  --glass: rgba(255, 255, 255, 0.46);
-  --glass-hover: rgba(255, 255, 255, 0.68);
-  --glass-soft: rgba(248, 252, 255, 0.30);
-  --glass-header: rgba(255, 255, 255, 0.34);
+  --glass: rgba(255, 255, 255, 0.84);
+  --glass-hover: rgba(255, 255, 255, 0.94);
+  --glass-soft: rgba(248, 252, 255, 0.62);
+  --glass-header: rgba(255, 255, 255, 0.78);
 
   /* Japanese Decorative Accents */
   --sakura: #EC4899;
@@ -115,10 +115,10 @@
   --focus-ring: #38BDF8;
 
   /* Sheer Smoked Midnight Glass (No Blur — reveals Fuji snow, pagoda & sakura through cards & nav) */
-  --glass: rgba(6, 20, 44, 0.44);
-  --glass-hover: rgba(10, 32, 66, 0.66);
-  --glass-soft: rgba(6, 20, 44, 0.28);
-  --glass-header: rgba(5, 16, 36, 0.38);
+  --glass: rgba(10, 30, 58, 0.86);
+  --glass-hover: rgba(14, 40, 74, 0.94);
+  --glass-soft: rgba(8, 24, 48, 0.62);
+  --glass-header: rgba(5, 16, 36, 0.80);
 
   /* Japanese Decorative Accents */
   --sakura: #FB7185;

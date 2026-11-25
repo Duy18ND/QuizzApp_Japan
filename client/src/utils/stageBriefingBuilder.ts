@@ -7,6 +7,7 @@ import {
   getLiveVocabForUnit,
 } from '../services/curriculumStore';
 import { allGrammarSentencesBank } from '../data/grammar';
+import { getListeningSituation, getReadingSituation } from '../data/jlpt/situationPackUtils';
 import type {
   JLPTLevelFilter,
   JLPTListeningItem,
@@ -66,9 +67,10 @@ export interface BriefingKanjiItem {
 
 export interface BriefingQuickCheck {
   id: string;
-  category: 'Dấu hiệu & Sắc thái' | 'Từ vựng trọng tâm' | 'Chữ Hán (Kanji)';
+  category: 'Dấu hiệu & Sắc thái' | 'Cấu trúc' | 'Tình huống' | 'Từ vựng trọng tâm' | 'Chữ Hán (Kanji)';
   prompt: string;
-  options: [string, string, string];
+  /** 3 or 4 options */
+  options: string[];
   correctIndex: number;
   explanation: string;
 }
@@ -89,7 +91,7 @@ export interface StageBriefingData {
   vocabItems: BriefingVocabItem[];
   grammarItems: BriefingGrammarItem[];
   kanjiItems: BriefingKanjiItem[];
-  /** 3 comprehension & trigger-word checks for Phase 2 (100% retry-until-correct) */
+  /** Grammar practice for Phase 2: 3–5 questions per grammar point (100% retry-until-correct) */
   quickChecks: BriefingQuickCheck[];
   /** Targeted Vocab Quiz questions built directly from today's flipcard deck */
   vocabQuizQuestions: StageMasteryQuestion[];
@@ -99,7 +101,7 @@ export interface StageBriefingData {
   readingPassages: JLPTReadingPassage[];
   /** Targeted Listening dialogues for Active Listening mode (hide -> reveal script) */
   listeningItems: JLPTListeningItem[];
-  /** 8-question Mastery Mini-Test for Phase 4 (100% retry-until-correct) */
+  /** Mastery question pool for Phase 4 (up to 20; pick 10/15/20 with pickMasteryQuestions) */
   masteryQuestions: StageMasteryQuestion[];
 }
 
@@ -252,6 +254,49 @@ export function saveStageBossPassed(
     }
   }
   return next;
+}
+
+/** Vietnamese topic keywords of a stage → the matching situation of the Reading / Listening packs. */
+const SITUATION_KEYWORDS: Array<[situation: string, keywords: string[]]> = [
+  ['Trường học', ['trường', 'học sinh', 'sinh viên', 'lớp học', 'giáo viên', 'giới thiệu bản thân', 'kỳ thi', 'học tập']],
+  ['Mua sắm', ['mua', 'mua sắm', 'giá cả', 'cửa hàng', 'siêu thị', 'quần áo']],
+  ['Nhà hàng', ['ăn', 'ăn uống', 'nhà hàng', 'món', 'đồ uống', 'nấu', 'bữa']],
+  ['Ga tàu & Giao thông', ['di chuyển', 'phương tiện', 'tàu', 'xe', 'giao thông', 'nhà ga', 'đường đi']],
+  ['Bệnh viện', ['bệnh', 'bệnh viện', 'sức khỏe', 'cơ thể', 'thuốc', 'đau', 'lời khuyên', 'quy định']],
+  ['Làm thêm & Công ty', ['công việc', 'công ty', 'làm thêm', 'nghề nghiệp', 'văn phòng', 'kính ngữ', 'truyền đạt']],
+  ['Nhà ở & Hàng xóm', ['nhà ở', 'hàng xóm', 'tồn tại', 'vị trí', 'căn phòng', 'gia đình', 'sinh hoạt', 'con người', 'quan hệ']],
+  ['Bưu điện & Ngân hàng', ['bưu điện', 'ngân hàng', 'gửi', 'cho – nhận', 'cho nhận', 'tiền', 'hướng dẫn', 'điều kiện']],
+  ['Du lịch & Khách sạn', ['du lịch', 'khách sạn', 'kỳ nghỉ', 'chuyến đi', 'tham quan', 'dự định', 'kế hoạch']],
+  ['Sự kiện & Sở thích', ['sở thích', 'năng lực', 'lễ hội', 'thể thao', 'cuối tuần', 'thời tiết', 'mời rủ', 'xã hội']],
+];
+
+/** Best-matching situation for a stage's topic text, or null when nothing matches. */
+export function detectStageSituation(topicText: string): string | null {
+  // Whole-word match: punctuation becomes spaces, so "ăn" does not match inside "văn"
+  const text = ` ${topicText.toLowerCase().replace(/[()（）—,·&/:.\-「」]/g, ' ').replace(/\s+/g, ' ')} `;
+  let best: string | null = null;
+  let bestScore = 0;
+  for (const [situation, keywords] of SITUATION_KEYWORDS) {
+    const score = keywords.filter((kw) => text.includes(` ${kw} `)).length;
+    if (score > bestScore) {
+      best = situation;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
+/** Up to 2 items: topic-matching ones first, then the usual rotation. */
+function pickTopicFirst<T>(all: T[], rotationStart: number, matches: (item: T) => boolean): T[] {
+  if (all.length === 0) return [];
+  const picked: T[] = [];
+  const matching = all.filter(matches);
+  if (matching.length > 0) picked.push(matching[rotationStart % matching.length]);
+  for (let step = 0; picked.length < Math.min(2, all.length) && step < all.length; step += 1) {
+    const candidate = all[(rotationStart + step) % all.length];
+    if (!picked.includes(candidate)) picked.push(candidate);
+  }
+  return picked;
 }
 
 function hashString(input: string): number {
@@ -457,31 +502,91 @@ export function buildStageBriefing(
     }
   }
 
-  // 4. Build 3 Comprehension & Trigger-Word Checks for Phase 2 (need >= 2/3)
+  // 4. Grammar practice for Phase 2: 3–5 questions per grammar point of the stage
+  //    (meaning, structure, 1–2 situation scenarios, trigger words), retried until 100%.
   const seed = hashString(stage.id);
   const quickChecks: BriefingQuickCheck[] = [];
+  const allLevelMeanings = allLevelGrammar.map((r) => r.meaning);
+  const otherFormulas = grammarItems.map((g) => g.formula);
 
-  if (grammarItems.length > 0) {
-    const g = grammarItems[0];
-    const otherMeanings = allLevelGrammar
-      .filter((r) => r.id !== g.id)
-      .map((r) => r.meaning);
-    const [d1, d2] = uniqueStrings(otherMeanings, g.meaning, 2, [
-      'Diễn tả giả định trái thực tế',
-      'Chỉ hành động đã hoàn tất hoàn toàn',
-    ]);
-    const correctIdx = seed % 3;
-    quickChecks.push({
-      id: `${stage.id}-qc-gram`,
-      category: 'Dấu hiệu & Sắc thái',
-      prompt: `Khi thấy dấu hiệu ${g.triggerWords.length > 0 ? `「${g.triggerWords.slice(0, 2).join(' / ')}」` : `mẫu 「${g.name}」`}, cấu trúc 「${g.name}」 diễn đạt sắc thái nào?`,
-      options: rotate3([g.meaning, d1, d2], correctIdx),
-      correctIndex: correctIdx,
-      explanation: `${g.name} = ${g.meaning}. ${g.memoryTip}`,
+  chapterRules.slice(0, 4).forEach((rule, gIdx) => {
+    const g = grammarItems[gIdx];
+    if (!g) return;
+    const base = seed + gIdx * 7;
+
+    // a) Meaning
+    {
+      const [d1, d2, d3] = uniqueStrings(allLevelMeanings, g.meaning, 3, [
+        'Diễn tả giả định trái thực tế',
+        'Chỉ hành động đã hoàn tất hoàn toàn',
+        'Biểu thị sự cho phép',
+      ]);
+      const cIdx = base % 4;
+      quickChecks.push({
+        id: `${stage.id}-qc-g${gIdx}-meaning`,
+        category: 'Dấu hiệu & Sắc thái',
+        prompt: `Mẫu 「${g.name}」 có nghĩa là gì?`,
+        options: rotate4([g.meaning, d1, d2, d3], cIdx),
+        correctIndex: cIdx,
+        explanation: `${g.name} = ${g.meaning}. ${g.memoryTip}`,
+      });
+    }
+
+    // b) Structure (only when the formula differs from the name itself)
+    if (g.formula && g.formula !== g.name) {
+      const [d1, d2, d3] = uniqueStrings(otherFormulas, g.formula, 3, [
+        'V-ます（bỏ ます）+ ながら',
+        'V-た + ことがあります',
+        'V-て + もいいです',
+      ]);
+      const cIdx = (base + 1) % 4;
+      quickChecks.push({
+        id: `${stage.id}-qc-g${gIdx}-formula`,
+        category: 'Cấu trúc',
+        prompt: `Cấu trúc đúng của mẫu 「${g.name}」 (${g.meaning}) là gì?`,
+        options: rotate4([g.formula, d1, d2, d3], cIdx),
+        correctIndex: cIdx,
+        explanation: `Cấu trúc: ${g.formula}.`,
+      });
+    }
+
+    // c) Situation scenarios (4 options) from the grammar insight engine
+    const insight = buildGrammarDeepInsight(rule, chapterRules, allLevelGrammar);
+    insight.scenarioQuestions.slice(0, 2).forEach((sc, sIdx) => {
+      const options = Array.from(new Set(sc.options)).slice(0, 4);
+      const cIdx = options.indexOf(sc.correctAnswer);
+      if (options.length < 3 || cIdx < 0) return;
+      quickChecks.push({
+        id: `${stage.id}-qc-g${gIdx}-sc${sIdx}`,
+        category: 'Tình huống',
+        prompt: sc.prompt,
+        options,
+        correctIndex: cIdx,
+        explanation: `${sc.explanation} (Mẹo: ${insight.mnemonicTip})`,
+      });
     });
-  }
 
-  if (vocabItems.length >= 3) {
+    // d) Trigger words → which grammar
+    if (g.triggerWords.length > 0 && grammarItems.length >= 2) {
+      const otherNames = [
+        ...grammarItems.filter((x) => x.id !== g.id).map((x) => x.name),
+        ...allLevelGrammar.filter((r) => r.id !== g.id).map((r) => r.name),
+      ];
+      const [d1, d2, d3] = uniqueStrings(otherNames, g.name, 3, ['〜ながら', '〜たことがある', '〜てもいい']);
+      const cIdx = (base + 2) % 4;
+      quickChecks.push({
+        id: `${stage.id}-qc-g${gIdx}-trigger`,
+        category: 'Dấu hiệu & Sắc thái',
+        prompt: `Thấy dấu hiệu 「${g.triggerWords.slice(0, 2).join(' / ')}」 trong câu, nên nghĩ ngay tới mẫu nào?`,
+        options: rotate4([g.name, d1, d2, d3], cIdx),
+        correctIndex: cIdx,
+        explanation: `Dấu hiệu 「${g.triggerWords.slice(0, 2).join(' / ')}」 → ${g.name} (${g.meaning}).`,
+      });
+    }
+  });
+
+  // Stages without grammar (e.g. Kana starter) keep a short vocab / kanji check
+  if (quickChecks.length === 0 && vocabItems.length >= 3) {
     const v = vocabItems[seed % Math.min(vocabItems.length, 5)];
     const otherMeanings = vocabItems.filter((x) => x.id !== v.id).map((x) => x.meaning);
     const [d1, d2] = uniqueStrings(otherMeanings, v.meaning, 2, [
@@ -498,8 +603,7 @@ export function buildStageBriefing(
       explanation: `「${v.japanese}」 (${v.hiragana}) nghĩa là "${v.meaning}".`,
     });
   }
-
-  if (kanjiItems.length >= 3) {
+  if (quickChecks.length <= 1 && kanjiItems.length >= 3) {
     const k = kanjiItems[(seed + 2) % kanjiItems.length];
     const fmt = (x: BriefingKanjiItem) =>
       x.hanViet ? `${x.hanViet.toUpperCase()} — ${x.meaning}` : x.meaning;
@@ -518,38 +622,23 @@ export function buildStageBriefing(
       correctIndex: correctIdx,
       explanation: `「${k.kanji}」 (${k.hanViet || 'Kanji'}) mang nghĩa "${k.meaning}".`,
     });
-  } else if (grammarItems.length > 1) {
-    const g2 = grammarItems[1];
-    const otherMeanings = allLevelGrammar
-      .filter((r) => r.id !== g2.id)
-      .map((r) => r.meaning);
-    const [d1, d2] = uniqueStrings(otherMeanings, g2.meaning, 2, [
-      'Biểu thị sự cho phép',
-      'Diễn tả sự tiếc nuối',
-    ]);
-    const correctIdx = (seed + 2) % 3;
-    quickChecks.push({
-      id: `${stage.id}-qc-gram2`,
-      category: 'Dấu hiệu & Sắc thái',
-      prompt: `Mẫu ngữ pháp thứ 2 hôm nay 「${g2.name}」 dùng để nói về điều gì?`,
-      options: rotate3([g2.meaning, d1, d2], correctIdx),
-      correctIndex: correctIdx,
-      explanation: `${g2.name} = ${g2.meaning}. ${g2.memoryTip}`,
-    });
   }
 
-  // 5. Build 8-Question Mastery Mini-Test for Phase 4 (3 Vocab + 2 Kanji + 3 Grammar/Triggers)
+  // 5. Build the Mastery question pool for Phase 4 (up to 10 Vocab + 4 Kanji + 6 Grammar);
+  //    the learner then picks 10 / 15 / 20 of them (see pickMasteryQuestions)
   const masteryQuestions: StageMasteryQuestion[] = [];
   const allVocabMeanings = unitWords.map((w) => w.meaning.trim()).filter(Boolean);
   const allVocabHiragana = unitWords.map((w) => w.hiragana.trim()).filter(Boolean);
 
-  // 3 Vocab Mastery Questions
-  const vocabPool = unitWords.slice(0, 12);
-  for (let i = 0; i < Math.min(3, vocabPool.length); i += 1) {
-    const w = vocabPool[(seed + i * 3) % vocabPool.length];
+  // Up to 10 Vocab Mastery Questions (distinct words; every 3rd asks the reading)
+  const vocabPool = unitWords.slice(0, 16);
+  const vocabCount = Math.min(10, vocabPool.length);
+  const vocabStep = vocabPool.length % 3 === 0 ? 1 : 3;
+  for (let i = 0; i < vocabCount; i += 1) {
+    const w = vocabPool[(seed + i * vocabStep) % vocabPool.length];
     const kanjiStr = w.kanji?.trim() ?? '';
     const jp = kanjiStr || w.hiragana.trim();
-    const askReading = i === 1 && Boolean(kanjiStr) && kanjiStr !== w.hiragana.trim();
+    const askReading = i % 3 === 1 && Boolean(kanjiStr) && kanjiStr !== w.hiragana.trim();
 
     if (askReading) {
       const distractors = uniqueStrings(allVocabHiragana, w.hiragana.trim(), 3, [
@@ -586,9 +675,9 @@ export function buildStageBriefing(
     }
   }
 
-  // 2 Kanji Mastery Questions
-  for (let i = 0; i < Math.min(2, kanjiItems.length); i += 1) {
-    const k = kanjiItems[(seed + i * 2) % kanjiItems.length];
+  // Up to 4 Kanji Mastery Questions (distinct characters)
+  for (let i = 0; i < Math.min(4, kanjiItems.length); i += 1) {
+    const k = kanjiItems[(seed + i) % kanjiItems.length];
     const fmt = (x: BriefingKanjiItem) =>
       x.hanViet ? `${x.hanViet.toUpperCase()} (${x.meaning})` : x.meaning;
     const correctLabel = fmt(k);
@@ -615,12 +704,22 @@ export function buildStageBriefing(
     });
   }
 
-  // 3 Grammar & Trigger-Word Mastery Questions
-  const grammarRulesForTest = chapterRules.slice(0, 3);
-  for (let i = 0; i < grammarRulesForTest.length; i += 1) {
-    const rule = grammarRulesForTest[i];
+  // Up to 6 Grammar & Trigger-Word Mastery Questions: one scenario per rule,
+  // then a second scenario of the same rules when the chapter has few rules
+  const grammarRulesForTest = chapterRules.slice(0, 6);
+  const grammarSlots: Array<{ ruleIdx: number; scenarioIdx: number }> = grammarRulesForTest.map(
+    (_, ruleIdx) => ({ ruleIdx, scenarioIdx: 0 }),
+  );
+  for (let ruleIdx = 0; grammarSlots.length < 6 && ruleIdx < grammarRulesForTest.length; ruleIdx += 1) {
+    grammarSlots.push({ ruleIdx, scenarioIdx: 1 });
+  }
+  for (let slotIdx = 0; slotIdx < grammarSlots.length; slotIdx += 1) {
+    const { ruleIdx, scenarioIdx } = grammarSlots[slotIdx];
+    const i = slotIdx;
+    const rule = grammarRulesForTest[ruleIdx];
     const insight = buildGrammarDeepInsight(rule, chapterRules, allLevelGrammar);
-    const sc = insight.scenarioQuestions[0];
+    const sc = insight.scenarioQuestions[scenarioIdx];
+    if (scenarioIdx > 0 && !(sc && sc.options.length >= 4)) continue;
     if (sc && sc.options.length >= 4) {
       const cIdx = sc.options.indexOf(sc.correctAnswer);
       masteryQuestions.push({
@@ -652,72 +751,128 @@ export function buildStageBriefing(
     }
   }
 
-  // 6. Dedicated Flipcard -> 100% Quiz Decks (Vocab & Kanji)
-  const vocabQuizQuestions: StageMasteryQuestion[] = vocabItems.map((v, idx) => {
-    const hasDistinctKanji = v.japanese !== v.hiragana;
-    const askReading = idx % 2 === 1 && hasDistinctKanji;
-    if (askReading) {
-      const distractors = uniqueStrings(allVocabHiragana, v.hiragana, 3, [
-        'せんせい',
-        'がくせい',
-        'かいしゃいん',
-      ]);
-      const cIdx = (seed + idx) % 4;
-      return {
-        id: `${stage.id}-vq-${idx}`,
-        category: 'Từ vựng',
-        prompt: `Cách đọc Hiragana của từ 「${v.japanese}」 (${v.meaning}) là gì?`,
-        options: rotate4([v.hiragana, distractors[0], distractors[1], distractors[2]], cIdx),
-        correctIndex: cIdx,
-        explanation: `「${v.japanese}」 đọc là 「${v.hiragana}」 — nghĩa: ${v.meaning}.`,
-        reviewHint: 'Lật lại thẻ Từ vựng vừa học để ghi nhớ mặt chữ và cách đọc.',
-      };
+  // 6. Flipcard → 100% Quiz decks: every word / kanji is asked 3–5 times, each time a different
+  //    way (meaning ↔ word, reading ↔ writing, On / Kun, compound), interleaved round by round.
+  const interleaveRounds = (perItem: StageMasteryQuestion[][]): StageMasteryQuestion[] => {
+    const out: StageMasteryQuestion[] = [];
+    const maxRounds = Math.max(0, ...perItem.map((list) => list.length));
+    for (let round = 0; round < maxRounds; round += 1) {
+      for (const list of perItem) if (list[round]) out.push(list[round]);
     }
-    const distractors = uniqueStrings(allVocabMeanings, v.meaning, 3, [
-      'nhân viên công ty',
-      'bệnh viện / phòng khám',
-      'nhà ga gần đây',
-    ]);
-    const cIdx = (seed + idx + 1) % 4;
-    return {
-      id: `${stage.id}-vq-${idx}`,
-      category: 'Từ vựng',
-      prompt: `Từ 「${v.japanese}${hasDistinctKanji ? ` (${v.hiragana})` : ''}」 mang nghĩa nào?`,
-      options: rotate4([v.meaning, distractors[0], distractors[1], distractors[2]], cIdx),
-      correctIndex: cIdx,
-      explanation: `「${v.japanese}」 (${v.hiragana}) = ${v.meaning}.`,
-      reviewHint: 'Lật lại thẻ Từ vựng để nhớ rõ nghĩa tiếng Việt.',
-    };
-  });
+    return out;
+  };
 
-  const kanjiQuizQuestions: StageMasteryQuestion[] = kanjiItems.map((k, idx) => {
-    const fmt = (x: BriefingKanjiItem) =>
-      x.hanViet ? `${x.hanViet.toUpperCase()} — ${x.meaning}` : x.meaning;
-    const correctLabel = fmt(k);
-    const pool = effectiveKanjis
-      .filter((x) => x.id !== k.id)
-      .slice(0, 15)
-      .map((x) =>
-        x.hanViet
-          ? `${x.hanViet.toUpperCase()} — ${x.meanings.slice(0, 2).join(', ')}`
-          : x.meanings[0] || '',
-      );
-    const distractors = uniqueStrings(pool, correctLabel, 3, [
-      'NHẬT — mặt trời, ngày',
-      'NGUYỆT — mặt trăng, tháng',
-      'THỦY — nước',
-    ]);
-    const cIdx = (seed + idx) % 4;
-    return {
-      id: `${stage.id}-kq-${idx}`,
-      category: 'Chữ Hán',
-      prompt: `Chữ Hán 「${k.kanji}」${k.onReading ? ` (On: ${k.onReading})` : ''} có âm Hán Việt & nghĩa là gì?`,
-      options: rotate4([correctLabel, distractors[0], distractors[1], distractors[2]], cIdx),
-      correctIndex: cIdx,
-      explanation: `「${k.kanji}」 = ${correctLabel}${k.kunReading ? ` · Kun: ${k.kunReading}` : ''}.`,
-      reviewHint: 'Xem lại thẻ chữ Kanji này để nhớ âm Hán Việt & bộ thủ.',
-    };
-  });
+  const vocabQuizQuestions: StageMasteryQuestion[] = interleaveRounds(
+    vocabItems.map((v, idx) => {
+      const list: StageMasteryQuestion[] = [];
+      const hasKanjiForm = v.japanese !== v.hiragana;
+      const others = vocabItems.filter((x) => x.id !== v.id);
+      const vocabHint = 'Lật lại thẻ Từ vựng vừa học để ghi nhớ mặt chữ và cách đọc.';
+      const push = (kind: string, prompt: string, correct: string, pool: string[], fallbacks: string[], explanation: string) => {
+        const distractors = uniqueStrings(pool, correct, 3, fallbacks);
+        if (distractors.length < 3) return;
+        const cIdx = (seed + idx + list.length) % 4;
+        list.push({
+          id: `${stage.id}-vq-${idx}-${kind}`,
+          category: 'Từ vựng',
+          prompt,
+          options: rotate4([correct, distractors[0], distractors[1], distractors[2]], cIdx),
+          correctIndex: cIdx,
+          explanation,
+          reviewHint: vocabHint,
+        });
+      };
+      const shown = `${v.japanese}${hasKanjiForm ? ` (${v.hiragana})` : ''}`;
+
+      push('meaning', `Từ 「${shown}」 nghĩa là gì?`, v.meaning,
+        [...others.map((x) => x.meaning), ...allVocabMeanings],
+        ['nhân viên công ty', 'bệnh viện / phòng khám', 'nhà ga gần đây'],
+        `「${shown}」 = ${v.meaning}.`);
+      push('word', `"${v.meaning}" trong tiếng Nhật là từ nào?`, v.japanese,
+        [...others.map((x) => x.japanese), ...unitWords.map((w) => (w.kanji?.trim() || w.hiragana.trim()))],
+        ['せんせい', 'がっこう', 'でんしゃ'],
+        `"${v.meaning}" = 「${v.japanese}」${hasKanjiForm ? ` (${v.hiragana})` : ''}.`);
+      if (hasKanjiForm) {
+        push('reading', `Cách đọc Hiragana của 「${v.japanese}」 là gì?`, v.hiragana,
+          [...others.map((x) => x.hiragana), ...allVocabHiragana],
+          ['せんせい', 'がくせい', 'かいしゃいん'],
+          `「${v.japanese}」 đọc là 「${v.hiragana}」 — ${v.meaning}.`);
+        push('writing', `「${v.hiragana}」 (${v.meaning}) viết bằng chữ Hán là gì?`, v.japanese,
+          [...others.filter((x) => x.japanese !== x.hiragana).map((x) => x.japanese),
+            ...unitWords.filter((w) => w.kanji?.trim()).map((w) => w.kanji!.trim())],
+          ['学生', '会社', '電車'],
+          `「${v.hiragana}」 viết là 「${v.japanese}」.`);
+      }
+      if (list.length < 3) {
+        // Kana-only words: pick the correctly matched "word = meaning" pair
+        push('pair', 'Chọn cặp ghép đúng (từ = nghĩa):', `${v.japanese} = ${v.meaning}`,
+          others.map((x) => `${v.japanese} = ${x.meaning}`),
+          [`${v.japanese} = đi làm`, `${v.japanese} = buổi sáng`, `${v.japanese} = rất đẹp`],
+          `「${v.japanese}」 = ${v.meaning}.`);
+      }
+      return list;
+    }),
+  );
+
+  const kanjiQuizQuestions: StageMasteryQuestion[] = interleaveRounds(
+    kanjiItems.map((k, idx) => {
+      const list: StageMasteryQuestion[] = [];
+      const others = kanjiItems.filter((x) => x.id !== k.id);
+      const fmt = (x: { hanViet?: string; meaning: string }) =>
+        x.hanViet ? `${x.hanViet.toUpperCase()} — ${x.meaning}` : x.meaning;
+      const extraPool = effectiveKanjis.filter((x) => x.id !== k.id).slice(0, 20);
+      const kanjiHint = 'Xem lại thẻ chữ Kanji này để nhớ âm Hán Việt, âm On / Kun và từ ghép.';
+      const push = (kind: string, prompt: string, correct: string, pool: string[], fallbacks: string[], explanation: string) => {
+        const distractors = uniqueStrings(pool, correct, 3, fallbacks);
+        if (distractors.length < 3) return;
+        const cIdx = (seed + idx + list.length * 2) % 4;
+        list.push({
+          id: `${stage.id}-kq-${idx}-${kind}`,
+          category: 'Chữ Hán',
+          prompt,
+          options: rotate4([correct, distractors[0], distractors[1], distractors[2]], cIdx),
+          correctIndex: cIdx,
+          explanation,
+          reviewHint: kanjiHint,
+        });
+      };
+
+      push('meaning', `Chữ Hán 「${k.kanji}」 có âm Hán Việt & nghĩa là gì?`, fmt(k),
+        [...others.map(fmt), ...extraPool.map((x) => fmt({ hanViet: x.hanViet, meaning: x.meanings.slice(0, 2).join(', ') }))],
+        ['NHẬT — mặt trời, ngày', 'NGUYỆT — mặt trăng, tháng', 'THỦY — nước'],
+        `「${k.kanji}」 = ${fmt(k)}.`);
+      push('char', `Chữ Hán nào có nghĩa ${fmt(k)}?`, k.kanji,
+        [...others.map((x) => x.kanji), ...extraPool.map((x) => x.kanji)],
+        ['日', '月', '水'],
+        `${fmt(k)} → 「${k.kanji}」.`);
+      if (k.onReading) {
+        push('on', `Âm On (音読み) của 「${k.kanji}」 là gì?`, k.onReading,
+          [...others.map((x) => x.onReading ?? ''), ...extraPool.flatMap((x) => x.onReadings.slice(0, 1))],
+          ['ニチ', 'ゲツ', 'スイ'],
+          `「${k.kanji}」 âm On: ${k.onReading}${k.kunReading ? ` · âm Kun: ${k.kunReading}` : ''}.`);
+      }
+      if (k.kunReading) {
+        push('kun', `Âm Kun (訓読み) của 「${k.kanji}」 là gì?`, k.kunReading,
+          [...others.map((x) => x.kunReading ?? ''), ...extraPool.flatMap((x) => x.kunReadings.slice(0, 1))],
+          ['ひ', 'つき', 'みず'],
+          `「${k.kanji}」 âm Kun: ${k.kunReading}.`);
+      }
+      const compound = k.compounds.find((c) => c.word && c.hiragana && c.word !== c.hiragana);
+      if (compound) {
+        push('compound', `Từ ghép 「${compound.word}」 (có chữ ${k.kanji}) đọc là gì?`, compound.hiragana,
+          [...others.flatMap((x) => x.compounds.map((c) => c.hiragana)), ...allVocabHiragana],
+          ['にほん', 'がっこう', 'せんせい'],
+          `「${compound.word}」 đọc là 「${compound.hiragana}」 — ${compound.meaning}.`);
+      }
+      if (list.length < 3) {
+        push('pair', 'Chọn cặp ghép đúng (chữ Hán = Hán Việt & nghĩa):', `${k.kanji} = ${fmt(k)}`,
+          others.map((x) => `${k.kanji} = ${fmt(x)}`),
+          [`${k.kanji} = NHẬT — mặt trời`, `${k.kanji} = THỦY — nước`, `${k.kanji} = MỘC — cây`],
+          `「${k.kanji}」 = ${fmt(k)}.`);
+      }
+      return list;
+    }),
+  );
 
   // 7. Targeted Reading Passages & Listening Dialogues for this Stage
   const jlptFilter: JLPTLevelFilter =
@@ -725,24 +880,23 @@ export function buildStageBriefing(
   const shortPassages = getLiveJlptReadingPassages(cmsSnapshot, 'reading-short', jlptFilter);
   const mediumPassages = getLiveJlptReadingPassages(cmsSnapshot, 'reading-medium', jlptFilter);
   const allPassages = shortPassages.length > 0 ? shortPassages : mediumPassages;
-  const readingPassages: JLPTReadingPassage[] = [];
-  if (allPassages.length > 0) {
-    const pStart = (Math.max(1, stage.stageNumber) - 1) % allPassages.length;
-    readingPassages.push(allPassages[pStart]);
-    if (allPassages.length > 1) {
-      readingPassages.push(allPassages[(pStart + 1) % allPassages.length]);
-    }
-  }
+  // Prefer the situation that matches the stage topic (e.g. "Di chuyển, Phương tiện" → Ga tàu & Giao thông)
+  const stageSituation = detectStageSituation(
+    [stage.title, targetUnit?.name ?? '', targetChapter?.title ?? ''].join(' · '),
+  );
+  const stageIdx = Math.max(1, stage.stageNumber) - 1;
+  const readingPassages: JLPTReadingPassage[] = pickTopicFirst(
+    allPassages,
+    stageIdx,
+    (p) => stageSituation !== null && getReadingSituation(p) === stageSituation,
+  );
 
   const allListening = getLiveJlptListeningItems(cmsSnapshot, jlptFilter);
-  const listeningItems: JLPTListeningItem[] = [];
-  if (allListening.length > 0) {
-    const lStart = ((Math.max(1, stage.stageNumber) - 1) * 2) % allListening.length;
-    listeningItems.push(allListening[lStart]);
-    if (allListening.length > 1) {
-      listeningItems.push(allListening[(lStart + 1) % allListening.length]);
-    }
-  }
+  const listeningItems: JLPTListeningItem[] = pickTopicFirst(
+    allListening,
+    stageIdx * 2,
+    (i) => stageSituation !== null && getListeningSituation(i) === stageSituation,
+  );
 
   return {
     stageId: stage.id,
@@ -755,6 +909,40 @@ export function buildStageBriefing(
     kanjiQuizQuestions,
     readingPassages,
     listeningItems,
-    masteryQuestions: masteryQuestions.slice(0, 8),
+    // Same prompt can come from two generators (e.g. a 2nd grammar scenario): keep the first
+    masteryQuestions: masteryQuestions.filter(
+      (q, idx) => masteryQuestions.findIndex((other) => other.prompt === q.prompt) === idx,
+    ),
   };
+}
+
+export const MASTERY_LENGTH_OPTIONS = [10, 15, 20] as const;
+
+/**
+ * Picks `count` questions from the Mastery pool, interleaving categories
+ * (Từ vựng → Chữ Hán → Ngữ pháp → …) so every test stays mixed.
+ */
+export function pickMasteryQuestions(
+  pool: StageMasteryQuestion[],
+  count: number,
+): StageMasteryQuestion[] {
+  const buckets = new Map<string, StageMasteryQuestion[]>();
+  for (const q of pool) {
+    const list = buckets.get(q.category) ?? [];
+    list.push(q);
+    buckets.set(q.category, list);
+  }
+  const lists = Array.from(buckets.values());
+  const picked: StageMasteryQuestion[] = [];
+  for (let round = 0; picked.length < count; round += 1) {
+    let addedThisRound = false;
+    for (const list of lists) {
+      if (round < list.length && picked.length < count) {
+        picked.push(list[round]);
+        addedThisRound = true;
+      }
+    }
+    if (!addedThisRound) break;
+  }
+  return picked;
 }

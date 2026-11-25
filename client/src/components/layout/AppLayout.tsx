@@ -36,8 +36,6 @@ import {
   OPEN_LEVEL_MODAL_EVENT,
 } from '../../services/userLevelService';
 import { JapaneseLookupProvider } from '../common/JapaneseLookupPopover';
-import { WhatsNewNavButton } from '../home/WhatsNewBoard';
-import { DailyStudyGateBanner } from '../settings/DailyStudyGateBanner';
 import { LevelSelectionModal } from '../settings/LevelSelectionModal';
 import { Badge, LoadingState } from '../ui';
 import { buttonStyles } from '../ui/styles';
@@ -50,6 +48,25 @@ const ADMIN_ROLE_BADGE_TONE = {
   SUPER_ADMIN: 'sakura',
   ADMIN: 'primary',
 } as const;
+
+/** Main sections: header links on desktop, bottom bar on phones. */
+const NAV_ITEMS = [
+  { to: '/', label: 'Trang chủ', icon: Home, match: (p: string) => p === '/' },
+  { to: '/roadmap', label: 'Lộ trình', icon: Map, match: (p: string) => p.startsWith('/roadmap') },
+  { to: '/games', label: 'Mini-game', icon: Gamepad2, match: (p: string) => p.startsWith('/games') },
+  {
+    to: '/vocabulary',
+    label: 'Từ vựng',
+    icon: BookOpen,
+    match: (p: string) => p.startsWith('/vocabulary') && !p.startsWith('/vocabulary/review'),
+  },
+  {
+    to: '/vocabulary/review',
+    label: 'Ôn tập',
+    icon: RotateCcw,
+    match: (p: string) => p.startsWith('/vocabulary/review') || p.startsWith('/jlpt'),
+  },
+] as const;
 
 export const AppLayout: React.FC = () => {
   const { pathname } = useLocation();
@@ -141,7 +158,7 @@ export const AppLayout: React.FC = () => {
 
   return (
     <div className="relative isolate flex h-dvh flex-col overflow-hidden bg-transparent text-fg">
-      <JapaneseLandscapeBg />
+      <JapaneseLandscapeBg subdued={!isHome} />
       <ClickEffect />
 
       <a
@@ -170,13 +187,35 @@ export const AppLayout: React.FC = () => {
             </span>
           </Link>
 
-          <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-1 sm:flex-nowrap sm:gap-2.5">
-            {!isHome && (
+          <nav aria-label="Điều hướng chính" className="hidden items-center gap-1 md:flex">
+            {NAV_ITEMS.map((item) => {
+              const active = item.match(pathname);
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  aria-current={active ? 'page' : undefined}
+                  title={item.label}
+                  className={cn(
+                    'inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium whitespace-nowrap transition-colors',
+                    active ? 'bg-primary-soft text-primary-fg' : 'text-muted hover:bg-glass-hover hover:text-fg',
+                  )}
+                >
+                  <Icon className="size-4 shrink-0" aria-hidden />
+                  <span className="hidden lg:inline">{item.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+
+          <div className="ml-auto flex min-w-0 flex-nowrap items-center justify-end gap-1.5 sm:gap-2">
+            {isAuthOrAdminRoute && (
               <Link
                 to="/"
                 aria-label="Về trang chủ"
                 title="Về trang chủ"
-                className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'h-8 px-2 sm:px-3' })}
+                className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'h-8 px-2 sm:px-3 md:hidden' })}
               >
                 <span aria-hidden>←</span>
                 <span className="hidden sm:inline">Trang chủ</span>
@@ -227,7 +266,7 @@ export const AppLayout: React.FC = () => {
                   onClick={() => void signOut()}
                   aria-label="Đăng xuất"
                   title="Đăng xuất"
-                  className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'h-8 gap-1.5 px-2 sm:px-2.5' })}
+                  className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'hidden h-8 gap-1.5 px-2 sm:px-2.5 md:inline-flex' })}
                 >
                   <LogOut className="size-3.5 shrink-0" aria-hidden />
                   <span className="hidden md:inline text-xs">Đăng xuất</span>
@@ -236,36 +275,17 @@ export const AppLayout: React.FC = () => {
             ) : (
               <>
                 <Link
-                  to="/profile"
-                  aria-label="Hồ sơ & Lịch sử"
-                  title="Hồ sơ & Lịch sử"
-                  className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'hidden h-8 gap-1.5 px-2.5 md:inline-flex' })}
-                >
-                  <UserRound className="size-3.5 shrink-0" aria-hidden />
-                  <Badge tone="neutral" className="px-1.5 py-0 text-[10px]">
-                    Khách
-                  </Badge>
-                </Link>
-                <Link
                   to="/login"
                   aria-label="Đăng nhập / Đăng ký"
                   title="Đăng nhập / Đăng ký"
                   className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'h-8 gap-1 px-2 sm:gap-1.5 sm:px-3' })}
                 >
                   <LogIn className="size-3.5 shrink-0" aria-hidden />
-                  {isHome ? (
-                    <>
-                      <span className="hidden text-xs min-[360px]:inline sm:hidden">Đăng nhập</span>
-                      <span className="hidden text-sm sm:inline">Đăng nhập / Đăng ký</span>
-                    </>
-                  ) : (
-                    <span className="hidden text-xs sm:inline sm:text-sm">Đăng nhập / Đăng ký</span>
-                  )}
+                  <span className="hidden text-sm sm:inline">Đăng nhập</span>
                 </Link>
               </>
             )}
 
-            <WhatsNewNavButton />
 
             <Link
               to="/settings"
@@ -275,12 +295,13 @@ export const AppLayout: React.FC = () => {
             >
               <Settings className="size-4" aria-hidden />
             </Link>
-            <ThemeToggle />
+            <div className="hidden md:block">
+              <ThemeToggle />
+            </div>
           </div>
         </div>
       </header>
 
-      <DailyStudyGateBanner />
 
       <main
         ref={mainRef}
@@ -310,37 +331,7 @@ export const AppLayout: React.FC = () => {
           className="relative z-40 flex-none border-t border-line bg-glass-header pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden print:hidden"
         >
           <div className="mx-auto grid max-w-lg grid-cols-5">
-            {(
-              [
-                { to: '/', label: 'Trang chủ', icon: Home, match: (p: string) => p === '/' },
-                {
-                  to: '/roadmap',
-                  label: 'Lộ trình',
-                  icon: Map,
-                  match: (p: string) => p.startsWith('/roadmap'),
-                },
-                {
-                  to: '/games',
-                  label: 'Mini-game',
-                  icon: Gamepad2,
-                  match: (p: string) => p.startsWith('/games'),
-                },
-                {
-                  to: '/vocabulary',
-                  label: 'Từ vựng',
-                  icon: BookOpen,
-                  match: (p: string) =>
-                    p.startsWith('/vocabulary') && !p.startsWith('/vocabulary/review'),
-                },
-                {
-                  to: '/vocabulary/review',
-                  label: 'Ôn tập',
-                  icon: RotateCcw,
-                  match: (p: string) =>
-                    p.startsWith('/vocabulary/review') || p.startsWith('/jlpt'),
-                },
-              ] as const
-            ).map((item) => {
+            {NAV_ITEMS.map((item) => {
               const active = item.match(pathname);
               const Icon = item.icon;
               return (

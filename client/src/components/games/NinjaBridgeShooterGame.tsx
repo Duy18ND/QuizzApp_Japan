@@ -2,10 +2,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Flame,
   Heart,
+  Infinity as InfinityIcon,
   Keyboard,
   Pause,
   Play,
-  Puzzle,
   RotateCcw,
   Smartphone,
   Sparkles,
@@ -18,7 +18,6 @@ import { Badge, Button, Card, Chip } from '../ui';
 import { cn } from '../../lib/cn';
 import type { VocabularyItem } from '../../types/vocabulary';
 import {
-  buildKanaTileRack,
   cleanReadingForGame,
   computeMoraRomajiEnds,
   countCompletedMorasByRomajiLen,
@@ -31,7 +30,8 @@ import {
 import { shuffleArray } from '../../utils/shuffle';
 import { speakJapanese, stopJapaneseSpeech } from '../../utils/tts';
 
-export type ShooterControlMode = 'romaji' | 'tiles' | 'tap4';
+export type ShooterControlMode = 'romaji' | 'tap4';
+export type ShooterRunMode = 'lesson' | 'endless';
 type MonsterKind = 'lantern' | 'ninja' | 'oni';
 
 interface PreparedWord {
@@ -130,8 +130,11 @@ function detectInitialShooterControlMode(): ShooterControlMode {
   if (typeof window === 'undefined') return 'romaji';
   try {
     const saved = window.localStorage.getItem(INPUT_PREF_STORAGE_KEY);
-    if (saved === 'romaji' || saved === 'tiles' || saved === 'tap4') {
+    if (saved === 'romaji' || saved === 'tap4') {
       return saved;
+    }
+    if (saved === 'tiles') {
+      return 'tap4';
     }
   } catch {
     // ignore
@@ -146,7 +149,7 @@ function detectInitialShooterControlMode(): ShooterControlMode {
   const isSmallOrTablet = window.innerWidth < 1024;
 
   if (isTouchPrimary || (!hasFineHover && (navigator.maxTouchPoints > 0 || isSmallOrTablet))) {
-    return 'tiles';
+    return 'tap4';
   }
   return 'romaji';
 }
@@ -243,7 +246,6 @@ export const NinjaBridgeShooterGame: React.FC<NinjaBridgeShooterProps> = ({
     detectInitialShooterControlMode(),
   );
   const [hwKeyboardDetected, setHwKeyboardDetected] = useState(false);
-  const [showRomajiOnTiles, setShowRomajiOnTiles] = useState(true);
   const [composingText, setComposingText] = useState('');
   const [internalSoundEnabled, setInternalSoundEnabled] = useState(true);
   const soundEnabled = externalSoundEnabled ?? internalSoundEnabled;
@@ -261,7 +263,7 @@ export const NinjaBridgeShooterGame: React.FC<NinjaBridgeShooterProps> = ({
   }, [onToggleSound]);
 
   const [phase, setPhase] = useState<'ready' | 'playing' | 'paused' | 'ended'>('ready');
-  const [targetKills, setTargetKills] = useState<15 | 25>(15);
+  const [runMode, setRunMode] = useState<ShooterRunMode>('lesson');
 
   const [lives, setLives] = useState(3);
   const [score, setScore] = useState(0);
@@ -269,12 +271,10 @@ export const NinjaBridgeShooterGame: React.FC<NinjaBridgeShooterProps> = ({
   const [maxCombo, setMaxCombo] = useState(0);
   const [rageGauge, setRageGauge] = useState(0); // 0..100 (100 = Sakura Ultimate Ready!)
   const [defeatedCount, setDefeatedCount] = useState(0);
+  const [clearedWordsCount, setClearedWordsCount] = useState(0);
   const [playerFrame, setPlayerFrame] = useState<1 | 2 | 3>(1);
   const [playerLane, setPlayerLane] = useState<0 | 1 | 2>(1);
   const [typedInput, setTypedInput] = useState('');
-  const [tileStepIndex, setTileStepIndex] = useState(0);
-  const [usedTileUids, setUsedTileUids] = useState<string[]>([]);
-  const [wrongTileUid, setWrongTileUid] = useState<string | null>(null);
   const [wrongKeyMonsterId, setWrongKeyMonsterId] = useState<string | null>(null);
   const [lockedMonsterId, setLockedMonsterId] = useState<string | null>(null);
   const [monsters, setMonsters] = useState<ActiveMonster[]>([]);
@@ -285,6 +285,7 @@ export const NinjaBridgeShooterGame: React.FC<NinjaBridgeShooterProps> = ({
   const deckRef = useRef<PreparedWord[]>([]);
   const deckCursorRef = useRef(0);
   const spawnCountRef = useRef(0);
+  const defeatedCountRef = useRef(0);
   const lastSpawnAtRef = useRef(0);
   const startTimeRef = useRef(0);
   const slashTimerRef = useRef<number | null>(null);
@@ -300,8 +301,6 @@ export const NinjaBridgeShooterGame: React.FC<NinjaBridgeShooterProps> = ({
     setTypedInput('');
     setComposingText('');
     if (imeInputRef.current) imeInputRef.current.value = '';
-    setTileStepIndex(0);
-    setUsedTileUids([]);
     try {
       window.localStorage.setItem(INPUT_PREF_STORAGE_KEY, nextMode);
     } catch {
@@ -368,6 +367,7 @@ export const NinjaBridgeShooterGame: React.FC<NinjaBridgeShooterProps> = ({
     deckRef.current = shuffleArray(preparedPool);
     deckCursorRef.current = 0;
     spawnCountRef.current = 0;
+    defeatedCountRef.current = 0;
     lastSpawnAtRef.current = 0;
     startTimeRef.current = Date.now();
     finishNotifiedRef.current = false;
@@ -380,13 +380,12 @@ export const NinjaBridgeShooterGame: React.FC<NinjaBridgeShooterProps> = ({
     setMaxCombo(0);
     setRageGauge(0);
     setDefeatedCount(0);
+    setClearedWordsCount(0);
     setPlayerFrame(1);
     setPlayerLane(1);
     setTypedInput('');
     setComposingText('');
     if (imeInputRef.current) imeInputRef.current.value = '';
-    setTileStepIndex(0);
-    setUsedTileUids([]);
     setLockedMonsterId(null);
     setMonsters([]);
     setProjectiles([]);
@@ -434,8 +433,6 @@ export const NinjaBridgeShooterGame: React.FC<NinjaBridgeShooterProps> = ({
         setTypedInput('');
         setComposingText('');
         if (imeInputRef.current) imeInputRef.current.value = '';
-        setTileStepIndex(0);
-        setUsedTileUids([]);
         setLockedMonsterId((curr) =>
           breached.some((b) => b.uid === curr) ? null : curr,
         );
@@ -458,17 +455,37 @@ export const NinjaBridgeShooterGame: React.FC<NinjaBridgeShooterProps> = ({
           setPhase('ended');
           return;
         }
+        // In lesson mode, if all words have already been spawned and no monsters remain, end cleanly
+        if (
+          runMode === 'lesson' &&
+          deckCursorRef.current >= deckRef.current.length &&
+          moved.length === 0
+        ) {
+          monstersRef.current = moved;
+          setMonsters(moved);
+          setPhase('ended');
+          return;
+        }
       }
 
       const elapsedSinceSpawn = now - lastSpawnAtRef.current;
+      const spawnCooldownMs =
+        runMode === 'endless'
+          ? Math.max(1700, 3200 - defeatedCountRef.current * 28)
+          : 3200;
+      const hasWordsRemaining =
+        runMode === 'endless' || deckCursorRef.current < deckRef.current.length;
       const shouldSpawn =
-        moved.length === 0 || (moved.length < 3 && elapsedSinceSpawn > 3200);
+        hasWordsRemaining &&
+        (moved.length === 0 || (moved.length < 3 && elapsedSinceSpawn > spawnCooldownMs));
 
       if (shouldSpawn) {
         lastSpawnAtRef.current = now;
         spawnCountRef.current += 1;
         const idx = spawnCountRef.current;
-        const isBoss = idx % 5 === 0;
+        const wordsLeftInDeck = deckRef.current.length - deckCursorRef.current;
+        const isBoss =
+          idx % 5 === 0 && (runMode === 'endless' || wordsLeftInDeck >= 3);
         const isFastNinja = !isBoss && idx % 3 === 0;
         const kind: MonsterKind = isBoss ? 'oni' : isFastNinja ? 'ninja' : 'lantern';
 
@@ -484,13 +501,16 @@ export const NinjaBridgeShooterGame: React.FC<NinjaBridgeShooterProps> = ({
 
         const w1 = drawNextWord();
         const queue = isBoss ? [drawNextWord(), drawNextWord()] : [];
+        const endlessRamp =
+          runMode === 'endless' ? 1 + Math.min(0.65, defeatedCountRef.current * 0.015) : 1;
+        const baseSpeed = isBoss ? 2.1 : isFastNinja ? 3.6 : 2.8;
 
         moved.push({
           uid: `m-${idx}-${Date.now()}`,
           kind,
           lane,
           yPct: 20,
-          speedPctPerSec: isBoss ? 2.1 : isFastNinja ? 3.6 : 2.8,
+          speedPctPerSec: baseSpeed * endlessRamp,
           hp: isBoss ? 3 : 1,
           maxHp: isBoss ? 3 : 1,
           currentWord: w1,
@@ -506,7 +526,7 @@ export const NinjaBridgeShooterGame: React.FC<NinjaBridgeShooterProps> = ({
 
     rafId = window.requestAnimationFrame(step);
     return () => window.cancelAnimationFrame(rafId);
-  }, [drawNextWord, phase, preparedPool.length]);
+  }, [drawNextWord, phase, preparedPool.length, runMode]);
 
   useEffect(() => {
     if (phase !== 'ended' || finishNotifiedRef.current) return;
@@ -514,11 +534,11 @@ export const NinjaBridgeShooterGame: React.FC<NinjaBridgeShooterProps> = ({
     const durationSeconds = Math.max(5, Math.round((Date.now() - startTimeRef.current) / 1000));
     onSessionFinish?.({
       score,
-      defeatedCount,
+      defeatedCount: clearedWordsCount,
       missedWords,
       durationSeconds,
     });
-  }, [defeatedCount, missedWords, onSessionFinish, phase, score]);
+  }, [clearedWordsCount, missedWords, onSessionFinish, phase, score]);
 
   const hitOrDefeatMonster = useCallback(
     (target: ActiveMonster) => {
@@ -534,6 +554,7 @@ export const NinjaBridgeShooterGame: React.FC<NinjaBridgeShooterProps> = ({
       setCombo(nextCombo);
       setMaxCombo((m) => Math.max(m, nextCombo));
       setRageGauge((r) => Math.min(100, r + 25));
+      setClearedWordsCount((c) => c + 1);
 
       const basePts = isFinalHit ? MONSTER_META[target.kind].points : 80;
       const isQuickCrit = target.yPct < 42;
@@ -564,8 +585,6 @@ export const NinjaBridgeShooterGame: React.FC<NinjaBridgeShooterProps> = ({
       setTypedInput('');
       setComposingText('');
       if (imeInputRef.current) imeInputRef.current.value = '';
-      setTileStepIndex(0);
-      setUsedTileUids([]);
 
       if (!isFinalHit) {
         const nextWord = target.wordQueue[0] ?? drawNextWord();
@@ -588,16 +607,18 @@ export const NinjaBridgeShooterGame: React.FC<NinjaBridgeShooterProps> = ({
         monstersRef.current = nextMonsters;
         setMonsters(nextMonsters);
         setLockedMonsterId(null);
-        setDefeatedCount((c) => {
-          const next = c + 1;
-          if (next >= targetKills) {
-            setPhase('ended');
-          }
-          return next;
-        });
+        defeatedCountRef.current += 1;
+        setDefeatedCount((c) => c + 1);
+        if (
+          runMode === 'lesson' &&
+          deckCursorRef.current >= deckRef.current.length &&
+          nextMonsters.length === 0
+        ) {
+          setPhase('ended');
+        }
       }
     },
-    [combo, drawNextWord, soundEnabled, targetKills, triggerPlayerSlash],
+    [combo, drawNextWord, runMode, soundEnabled, triggerPlayerSlash],
   );
 
   // Sakura Ultimate (Tuyệt Kỹ Anh Đào Trảm) — wipes or damages all monsters on the bridge!
@@ -607,8 +628,6 @@ export const NinjaBridgeShooterGame: React.FC<NinjaBridgeShooterProps> = ({
     setTypedInput('');
     setComposingText('');
     if (imeInputRef.current) imeInputRef.current.value = '';
-    setTileStepIndex(0);
-    setUsedTileUids([]);
 
     const currentList = [...monstersRef.current];
     for (const m of currentList) {
@@ -619,7 +638,9 @@ export const NinjaBridgeShooterGame: React.FC<NinjaBridgeShooterProps> = ({
     }
 
     const totalGained = currentList.length * 220;
+    const wordsWiped = currentList.reduce((sum, m) => sum + 1 + m.wordQueue.length, 0);
     setScore((s) => s + totalGained);
+    setClearedWordsCount((c) => c + wordsWiped);
     const burstId = `ult-${Date.now()}`;
     setBursts((prev) => [
       ...prev,
@@ -639,14 +660,12 @@ export const NinjaBridgeShooterGame: React.FC<NinjaBridgeShooterProps> = ({
     monstersRef.current = [];
     setMonsters([]);
     setLockedMonsterId(null);
-    setDefeatedCount((c) => {
-      const next = c + currentList.length;
-      if (next >= targetKills) {
-        setPhase('ended');
-      }
-      return next;
-    });
-  }, [phase, rageGauge, soundEnabled, targetKills, triggerPlayerSlash]);
+    defeatedCountRef.current += currentList.length;
+    setDefeatedCount((c) => c + currentList.length);
+    if (runMode === 'lesson' && deckCursorRef.current >= deckRef.current.length) {
+      setPhase('ended');
+    }
+  }, [phase, rageGauge, runMode, soundEnabled, triggerPlayerSlash]);
 
   // Closest monster (default lock priority)
   const primaryMonster = useMemo(() => {
@@ -832,49 +851,6 @@ export const NinjaBridgeShooterGame: React.FC<NinjaBridgeShooterProps> = ({
         .join(',')
     : '';
 
-  // Kana Tile Rack (Kiểu A) — locked strictly to targetWordKey
-  const kanaTileRack = useMemo(() => {
-    if (!targetWordKey || targetWordId === null) return [];
-    const targetWord = preparedPool.find((w) => w.id === targetWordId);
-    if (!targetWord) return [];
-    return buildKanaTileRack(targetWordKey, targetWord.moras);
-  }, [preparedPool, targetWordId, targetWordKey]);
-
-  const handleTapKanaTile = (tileUid: string, tileKana: string) => {
-    if (phase !== 'playing' || !primaryMonster) return;
-    if (usedTileUids.includes(tileUid)) return;
-
-    const moras = primaryMonster.currentWord.moras;
-    const expectedMora = moras[tileStepIndex];
-    if (!expectedMora) return;
-
-    if (tileKana === expectedMora.kana) {
-      const nextStep = tileStepIndex + 1;
-      setPlayerLane(primaryMonster.lane);
-
-      if (nextStep >= moras.length) {
-        hitOrDefeatMonster(primaryMonster);
-      } else {
-        setTileStepIndex(nextStep);
-        setUsedTileUids((prev) => [...prev, tileUid]);
-        setRageGauge((r) => Math.min(100, r + 8));
-        triggerPlayerSlash(
-          primaryMonster.lane,
-          primaryMonster.yPct,
-          false,
-        );
-      }
-    } else {
-      setCombo(0);
-      setWrongTileUid(tileUid);
-      setWrongKeyMonsterId(primaryMonster.uid);
-      window.setTimeout(() => {
-        setWrongTileUid(null);
-        setWrongKeyMonsterId(null);
-      }, 260);
-    }
-  };
-
   // Fixed Hình 5 & Hình 6 ("Chạm 4 Bùa") — locked strictly to targetWordKey so it NEVER scrambles on 60fps movement!
   const tapChoices = useMemo(() => {
     if (!targetWordKey || targetWordId === null || preparedPool.length === 0) return [];
@@ -984,35 +960,7 @@ export const NinjaBridgeShooterGame: React.FC<NinjaBridgeShooterProps> = ({
     );
   };
 
-  const renderTileSlotsOnMonster = (monster: ActiveMonster, isTarget: boolean) => {
-    const matchedCount = isTarget ? tileStepIndex : 0;
-    return (
-      <div className="mt-1 flex flex-wrap items-center justify-center gap-0.5">
-        {monster.currentWord.moras.map((mora, idx) => {
-          const filled = idx < matchedCount;
-          const isNext = isTarget && idx === matchedCount;
-          return (
-            <span
-              key={idx}
-              lang="ja"
-              className={cn(
-                'inline-flex min-w-[22px] items-center justify-center rounded border px-1 py-0.5 text-[11px] font-bold',
-                filled
-                  ? 'border-success bg-success text-on-primary'
-                  : isNext
-                    ? 'border-primary bg-primary-soft text-primary-fg'
-                    : 'border-line bg-surface-2 text-muted',
-              )}
-            >
-              {filled ? mora.kana : '＿'}
-            </span>
-          );
-        })}
-      </div>
-    );
-  };
-
-  const isVictory = phase === 'ended' && lives > 0 && defeatedCount >= targetKills;
+  const isVictory = phase === 'ended' && runMode === 'lesson' && lives > 0;
 
   return (
     <div className="space-y-3">
@@ -1034,13 +982,6 @@ export const NinjaBridgeShooterGame: React.FC<NinjaBridgeShooterProps> = ({
             Gõ phím
           </Chip>
           <Chip
-            selected={controlMode === 'tiles'}
-            onClick={() => selectControlMode('tiles')}
-          >
-            <Puzzle className="size-3.5" aria-hidden />
-            Ghép mảnh
-          </Chip>
-          <Chip
             selected={controlMode === 'tap4'}
             onClick={() => selectControlMode('tap4')}
           >
@@ -1050,15 +991,6 @@ export const NinjaBridgeShooterGame: React.FC<NinjaBridgeShooterProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5">
-          {controlMode === 'tiles' && (
-            <Chip
-              selected={showRomajiOnTiles}
-              onClick={() => setShowRomajiOnTiles((v) => !v)}
-            >
-              Hiện Romaji
-            </Chip>
-          )}
-
           {!onToggleSound && (
             <Button
               type="button"
@@ -1137,8 +1069,15 @@ export const NinjaBridgeShooterGame: React.FC<NinjaBridgeShooterProps> = ({
                   />
                 ))}
               </div>
-              <Badge tone="primary" className="tabular">
-                Hạ quái: {defeatedCount}/{targetKills}
+              <Badge tone={runMode === 'endless' ? 'sakura' : 'primary'} className="tabular">
+                {runMode === 'endless' ? (
+                  <>
+                    <InfinityIcon className="size-3.5" aria-hidden />
+                    Vô hạn · {clearedWordsCount} từ
+                  </>
+                ) : (
+                  <>Đã chém: {clearedWordsCount}/{preparedPool.length} từ</>
+                )}
               </Badge>
               {combo > 1 && (
                 <Badge tone="sakura" className="tabular">
@@ -1211,8 +1150,6 @@ export const NinjaBridgeShooterGame: React.FC<NinjaBridgeShooterProps> = ({
                     imeInputRef.current.value = '';
                     imeInputRef.current.focus({ preventScroll: true });
                   }
-                  setTileStepIndex(0);
-                  setUsedTileUids([]);
                 }}
                 style={{
                   left: `${LANE_X_PCT[m.lane]}%`,
@@ -1257,7 +1194,7 @@ export const NinjaBridgeShooterGame: React.FC<NinjaBridgeShooterProps> = ({
                   </p>
 
                   {/* Companion Kanji subline (when different from Hiragana reading) */}
-                  {controlMode !== 'tiles' && m.currentWord.kanjiTarget !== m.currentWord.reading && (
+                  {m.currentWord.kanjiTarget !== m.currentWord.reading && (
                     <p lang="ja" className="text-[11px] font-bold text-muted sm:text-xs">
                       {m.currentWord.word}
                     </p>
@@ -1265,7 +1202,6 @@ export const NinjaBridgeShooterGame: React.FC<NinjaBridgeShooterProps> = ({
 
                   {/* Direct Interactive Hiragana Cells inside [ ... ] */}
                   {controlMode === 'romaji' && renderHiraganaSlotsOnMonsterCard(m, isTarget)}
-                  {controlMode === 'tiles' && renderTileSlotsOnMonster(m, isTarget)}
                 </div>
 
                 <img
@@ -1369,26 +1305,32 @@ export const NinjaBridgeShooterGame: React.FC<NinjaBridgeShooterProps> = ({
                       <p className="text-xs text-muted sm:text-sm">
                         {controlMode === 'romaji'
                           ? 'Gõ trực tiếp Hiragana (IME tiếng Nhật) hoặc phím A–Z để Ninja phóng kiếm khí chém thẳng lên ô chữ trên đầu Yōkai!'
-                          : controlMode === 'tiles'
-                            ? 'Chạm ghép đúng thứ tự các mảnh chữ Kana bên dưới chân cầu để phóng kiếm khí chém chữ trên đầu Yōkai!'
-                            : 'Chạm nhanh vào lá bùa đáp án đúng ở chân cầu để phóng kiếm khí hạ quái!'}
+                          : 'Chạm nhanh vào lá bùa đáp án đúng ở chân cầu để phóng kiếm khí hạ quái!'}
                       </p>
                     </div>
 
-                    <div className="flex items-center justify-center gap-2">
-                      <span className="text-xs font-medium text-muted">Độ dài màn:</span>
-                      <Chip
-                        selected={targetKills === 15}
-                        onClick={() => setTargetKills(15)}
-                      >
-                        15 Quái (Nhanh)
-                      </Chip>
-                      <Chip
-                        selected={targetKills === 25}
-                        onClick={() => setTargetKills(25)}
-                      >
-                        25 Quái (Chuẩn)
-                      </Chip>
+                    <div className="space-y-1.5">
+                      <div className="flex flex-wrap items-center justify-center gap-2">
+                        <span className="text-xs font-medium text-muted">Chế độ:</span>
+                        <Chip
+                          selected={runMode === 'lesson'}
+                          onClick={() => setRunMode('lesson')}
+                        >
+                          Theo bài ({preparedPool.length} từ)
+                        </Chip>
+                        <Chip
+                          selected={runMode === 'endless'}
+                          onClick={() => setRunMode('endless')}
+                        >
+                          <InfinityIcon className="size-3.5" aria-hidden />
+                          Random vô hạn
+                        </Chip>
+                      </div>
+                      <p className="text-[11px] text-muted">
+                        {runMode === 'lesson'
+                          ? `Làm hết trọn bộ ${preparedPool.length} từ trong bài đã chọn.`
+                          : 'Từ ra ngẫu nhiên vô hạn và nhanh dần — chỉ thua khi hết 3 HP.'}
+                      </p>
                     </div>
 
                     <Button
@@ -1407,7 +1349,9 @@ export const NinjaBridgeShooterGame: React.FC<NinjaBridgeShooterProps> = ({
                   <>
                     <h2 className="text-lg font-bold text-fg">Đang tạm dừng</h2>
                     <p className="text-xs text-muted">
-                      Đã hạ {defeatedCount}/{targetKills} quái · Điểm hiện tại: {score}
+                      {runMode === 'endless'
+                        ? `Chế độ vô hạn · Đã chém ${clearedWordsCount} từ · Điểm: ${score}`
+                        : `Đã chém ${clearedWordsCount}/${preparedPool.length} từ · Điểm: ${score}`}
                     </p>
                     <div className="flex flex-wrap justify-center gap-2">
                       <Button
@@ -1432,14 +1376,28 @@ export const NinjaBridgeShooterGame: React.FC<NinjaBridgeShooterProps> = ({
 
                 {phase === 'ended' && (
                   <>
-                    <Badge tone={isVictory ? 'success' : 'warning'} className="mx-auto">
-                      {isVictory ? '★ Bảo vệ Cầu Anh Đào thành công!' : 'Quái đã vượt qua cầu!'}
+                    <Badge
+                      tone={
+                        runMode === 'endless'
+                          ? 'sakura'
+                          : isVictory
+                            ? 'success'
+                            : 'warning'
+                      }
+                      className="mx-auto"
+                    >
+                      {runMode === 'endless'
+                        ? `∞ Hết HP · Trụ được ${clearedWordsCount} từ!`
+                        : isVictory
+                          ? `★ Hoàn thành trọn bộ ${preparedPool.length} từ!`
+                          : 'Hết HP — Quái đã vượt qua cầu!'}
                     </Badge>
                     <h2 className="text-xl font-bold text-fg">
                       {score.toLocaleString('vi-VN')} điểm
                     </h2>
                     <div className="flex flex-wrap justify-center gap-2 text-xs">
-                      <Badge tone="primary">Hạ gục: {defeatedCount} quái</Badge>
+                      <Badge tone="primary">Đã chém: {clearedWordsCount} từ</Badge>
+                      <Badge tone="neutral">Hạ gục: {defeatedCount} quái</Badge>
                       <Badge tone="sakura">Max Combo: x{maxCombo}</Badge>
                       <Badge tone="success">✓ Đã cộng vào tiến độ Màn hôm nay</Badge>
                     </div>
@@ -1502,84 +1460,7 @@ export const NinjaBridgeShooterGame: React.FC<NinjaBridgeShooterProps> = ({
           )}
         </div>
 
-        {/* Hình 4 Removed in PC Keyboard Mode! Bottom dock ONLY renders for Touch Modes (Kana Tiles / Tap 4 Amulets) */}
-        {controlMode === 'tiles' && (
-          <div className="shrink-0 border-t border-line bg-surface p-3">
-            <div className="space-y-2.5">
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-surface-2/60 px-3 py-1.5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-semibold text-muted">Ghép từ cho:</span>
-                  <Badge tone="primary">
-                    {primaryMonster
-                      ? `${primaryMonster.currentWord.meaning}${
-                          primaryMonster.currentWord.word !== primaryMonster.currentWord.reading
-                            ? ` (${primaryMonster.currentWord.word})`
-                            : ''
-                        }`
-                      : 'Đang chờ Yōkai...'}
-                  </Badge>
-                </div>
-                {primaryMonster && (
-                  <div className="flex flex-wrap items-center gap-1">
-                    {primaryMonster.currentWord.moras.map((mora, idx) => {
-                      const filled = idx < tileStepIndex;
-                      const isNext = idx === tileStepIndex;
-                      return (
-                        <span
-                          key={idx}
-                          lang="ja"
-                          className={cn(
-                            'inline-flex min-w-[28px] items-center justify-center rounded-lg border-2 px-1.5 py-0.5 text-sm font-bold transition-colors',
-                            filled
-                              ? 'border-success bg-success text-on-primary'
-                              : isNext
-                                ? 'border-primary bg-primary-soft/50 text-primary-fg'
-                                : 'border-line bg-surface text-muted',
-                          )}
-                        >
-                          {filled ? mora.kana : '＿'}
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
-                {kanaTileRack.map((tile) => {
-                  const used = usedTileUids.includes(tile.uid);
-                  const isWrong = wrongTileUid === tile.uid;
-                  return (
-                    <button
-                      key={tile.uid}
-                      type="button"
-                      disabled={phase !== 'playing' || used}
-                      onClick={() => handleTapKanaTile(tile.uid, tile.kana)}
-                      className={cn(
-                        'flex min-h-[52px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 px-2 py-1.5 text-center shadow-card transition-all duration-100 active:scale-95',
-                        used
-                          ? 'border-success-line bg-success-soft/35 text-success-fg opacity-35'
-                          : isWrong
-                            ? 'border-danger bg-danger-soft text-danger-fg'
-                            : 'border-line bg-surface-2 text-fg hover:border-primary hover:bg-primary-soft/45',
-                      )}
-                    >
-                      <span lang="ja" className="text-lg font-bold leading-none">
-                        {tile.kana}
-                      </span>
-                      {showRomajiOnTiles && (
-                        <span className="mt-1 font-mono text-[10px] font-semibold text-muted">
-                          {tile.romaji}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        )}
-
+        {/* Bottom dock ONLY renders for Touch Tap-4 Mode */}
         {controlMode === 'tap4' && (
           <div className="shrink-0 border-t border-line bg-surface p-3">
             <div className="space-y-2">

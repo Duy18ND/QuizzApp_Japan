@@ -54,6 +54,10 @@ export const ONLINE_TIME_CLOUD_ITEM_ID = '__daily_online_study_time__';
 export const USER_CUSTOM_STUDIO_ITEM_ID = '__user_custom_studio__';
 /** Mini-game Ninja belt XP + daily challenge dates (see miniGameProfileService.ts) */
 export const MINIGAME_PROFILE_ITEM_ID = '__minigame_profile__';
+/** Reading / Listening items marked done (see jlptProgressService.ts) */
+export const JLPT_PROGRESS_ITEM_ID = '__jlpt_done_items__';
+/** Best JLPT mock-exam result per preset (see JlptFullTestView.tsx) */
+export const JLPT_EXAM_RESULTS_ITEM_ID = '__jlpt_exam_results__';
 
 export interface AttemptMistakeResolutions {
   resolvedItemKeys: string[];
@@ -539,7 +543,9 @@ export async function deleteAllMistakesDirectFromSupabase(uid: string): Promise<
       .neq('item_id', MISTAKE_RESOLUTIONS_ITEM_ID)
       .neq('item_id', ONLINE_TIME_CLOUD_ITEM_ID)
       .neq('item_id', USER_CUSTOM_STUDIO_ITEM_ID)
-      .neq('item_id', MINIGAME_PROFILE_ITEM_ID);
+      .neq('item_id', MINIGAME_PROFILE_ITEM_ID)
+      .neq('item_id', JLPT_PROGRESS_ITEM_ID)
+      .neq('item_id', JLPT_EXAM_RESULTS_ITEM_ID);
   } catch (err) {
     console.warn('Direct mistakes reset failed:', err);
   }

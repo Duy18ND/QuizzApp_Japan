@@ -44,6 +44,7 @@ import {
   type CustomKanjiEntry,
   type CustomLesson,
   type CustomLessonKind,
+  type CustomQuizEntry,
   type CustomStudioState,
   type CustomVocabEntry,
   type VisualRoadmap,
@@ -78,6 +79,7 @@ export const CustomStudioPage: React.FC = () => {
   const [vocabDraft, setVocabDraft] = useState<CustomVocabEntry[]>([]);
   const [grammarDraft, setGrammarDraft] = useState<CustomGrammarEntry[]>([]);
   const [kanjiDraft, setKanjiDraft] = useState<CustomKanjiEntry[]>([]);
+  const [quizDraft, setQuizDraft] = useState<CustomQuizEntry[]>([]);
   const [bulkPasteText, setBulkPasteText] = useState('');
   const [showBulkPaste, setShowBulkPaste] = useState(false);
 
@@ -138,6 +140,19 @@ export const CustomStudioPage: React.FC = () => {
         ? [{ id: `k-${Date.now()}`, kanji: '', hanViet: '', meaning: '', reading: '' }]
         : [],
     );
+    setQuizDraft(
+      kind === 'quiz'
+        ? [
+            {
+              id: `q-${Date.now()}`,
+              prompt: '',
+              options: ['', '', '', ''],
+              correctIndex: 0,
+              explanation: '',
+            },
+          ]
+        : [],
+    );
     setEditorOpen(true);
   };
 
@@ -150,6 +165,11 @@ export const CustomStudioPage: React.FC = () => {
     setVocabDraft(lesson.vocabItems ? [...lesson.vocabItems] : []);
     setGrammarDraft(lesson.grammarItems ? [...lesson.grammarItems] : []);
     setKanjiDraft(lesson.kanjiItems ? [...lesson.kanjiItems] : []);
+    setQuizDraft(
+      lesson.quizItems
+        ? lesson.quizItems.map((q) => ({ ...q, options: [...q.options] }))
+        : [],
+    );
     setBulkPasteText('');
     setShowBulkPaste(false);
     setEditorOpen(true);
@@ -214,15 +234,31 @@ export const CustomStudioPage: React.FC = () => {
       }))
       .filter((k) => k.kanji && k.meaning);
 
+    const cleanQuiz: CustomQuizEntry[] = quizDraft
+      .map((q) => {
+        const cleanOpts = q.options.map((o) => o.trim()).filter(Boolean);
+        return {
+          ...q,
+          prompt: q.prompt.trim(),
+          options: cleanOpts,
+          correctIndex: Math.max(0, Math.min(cleanOpts.length - 1, q.correctIndex)),
+          explanation: q.explanation?.trim() || undefined,
+          speakText: q.speakText?.trim() || undefined,
+        };
+      })
+      .filter((q) => q.prompt && q.options.length >= 2);
+
     const itemCount =
       lessonKind === 'vocab'
         ? cleanVocab.length
         : lessonKind === 'grammar'
           ? cleanGrammar.length
-          : cleanKanji.length;
+          : lessonKind === 'quiz'
+            ? cleanQuiz.length
+            : cleanKanji.length;
 
     if (itemCount === 0) {
-      toast({ title: 'Hãy thêm ít nhất 1 mục nội dung có đủ chữ và nghĩa!', tone: 'warning' });
+      toast({ title: 'Hãy thêm ít nhất 1 mục nội dung đầy đủ (chữ/nghĩa hoặc câu hỏi/đáp án)!', tone: 'warning' });
       return;
     }
 
@@ -235,6 +271,7 @@ export const CustomStudioPage: React.FC = () => {
       vocabItems: lessonKind === 'vocab' ? cleanVocab : undefined,
       grammarItems: lessonKind === 'grammar' ? cleanGrammar : undefined,
       kanjiItems: lessonKind === 'kanji' ? cleanKanji : undefined,
+      quizItems: lessonKind === 'quiz' ? cleanQuiz : undefined,
       createdAt:
         studio.lessons.find((l) => l.id === editingLessonId)?.createdAt ?? now,
       updatedAt: now,
@@ -327,14 +364,14 @@ export const CustomStudioPage: React.FC = () => {
             <Badge tone="sakura">Creator Studio</Badge>
           </span>
         }
-        description="Tự soạn bài Từ vựng / Ngữ pháp / Kanji như Admin, tự vẽ Bản đồ Lộ trình kéo-thả và học ngay trên Flashcard, Quiz & 6 Mini-game."
+        description="Tạo bài (từ vựng, ngữ pháp, Kanji, quiz) rồi ghép thành lộ trình — học ngay bằng Flashcard, Quiz và Mini-game."
         actions={
           <div className="flex flex-wrap gap-2">
-            <Link
-              to="/roadmap"
-              className={buttonStyles({ variant: 'secondary', size: 'sm' })}
-            >
-              Về Bản đồ Màn
+            <Link to="/roadmap?new=quiz" className={buttonStyles({ variant: 'primary', size: 'sm' })}>
+              Tạo quiz
+            </Link>
+            <Link to="/roadmap?new=wizard" className={buttonStyles({ variant: 'secondary', size: 'sm' })}>
+              Tạo lộ trình
             </Link>
             <Link
               to="/games"
@@ -410,6 +447,15 @@ export const CustomStudioPage: React.FC = () => {
               >
                 + Bài Kanji
               </Button>
+              <Button
+                type="button"
+                variant="soft"
+                size="sm"
+                leftIcon={<Plus className="size-4" aria-hidden />}
+                onClick={() => openNewLessonModal('quiz')}
+              >
+                + Bộ Quiz 4 đáp án
+              </Button>
             </div>
           </Card>
 
@@ -436,24 +482,36 @@ export const CustomStudioPage: React.FC = () => {
                     ? lesson.vocabItems?.length ?? 0
                     : lesson.kind === 'grammar'
                       ? lesson.grammarItems?.length ?? 0
-                      : lesson.kanjiItems?.length ?? 0;
+                      : lesson.kind === 'quiz'
+                        ? lesson.quizItems?.length ?? 0
+                        : lesson.kanjiItems?.length ?? 0;
                 const kindLabel =
                   lesson.kind === 'vocab'
                     ? 'Từ vựng'
                     : lesson.kind === 'grammar'
                       ? 'Ngữ pháp'
-                      : 'Chữ Hán';
+                      : lesson.kind === 'quiz'
+                        ? 'Quiz 4 đáp án'
+                        : 'Chữ Hán';
                 return (
                   <Card key={lesson.id} padding="md" className="flex flex-col justify-between gap-3">
                     <div className="space-y-1.5">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <Badge tone={lesson.kind === 'vocab' ? 'primary' : lesson.kind === 'kanji' ? 'warning' : 'sakura'}>
+                          <Badge
+                            tone={
+                              lesson.kind === 'vocab'
+                                ? 'primary'
+                                : lesson.kind === 'kanji' || lesson.kind === 'quiz'
+                                  ? 'warning'
+                                  : 'sakura'
+                            }
+                          >
                             {kindLabel}
                           </Badge>
                           <Badge tone="neutral">{lesson.level}</Badge>
                           <Badge tone="success" className="tabular">
-                            {count} mục
+                            {count} {lesson.kind === 'quiz' ? 'câu' : 'mục'}
                           </Badge>
                         </div>
                         <div className="flex items-center gap-1">
@@ -891,6 +949,118 @@ export const CustomStudioPage: React.FC = () => {
                     >
                       <Trash2 className="size-4 text-danger-fg" aria-hidden />
                     </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* QUIZ EDITOR (4-OPTION MULTIPLE CHOICE) */}
+          {lessonKind === 'quiz' && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-fg">
+                  Danh sách câu hỏi trắc nghiệm ({quizDraft.length})
+                </span>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  leftIcon={<Plus className="size-3.5" aria-hidden />}
+                  onClick={() =>
+                    setQuizDraft((prev) => [
+                      ...prev,
+                      {
+                        id: `q-${Date.now()}-${prev.length}`,
+                        prompt: '',
+                        options: ['', '', '', ''],
+                        correctIndex: 0,
+                        explanation: '',
+                      },
+                    ])
+                  }
+                >
+                  Thêm câu hỏi
+                </Button>
+              </div>
+              <div className="max-h-80 space-y-2.5 overflow-y-auto pr-1">
+                {quizDraft.map((row, idx) => (
+                  <div
+                    key={row.id}
+                    className="space-y-2 rounded-xl border border-line bg-surface-2/50 p-3"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-bold text-primary-fg">Câu {idx + 1}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setQuizDraft((prev) => prev.filter((_, i) => i !== idx))}
+                      >
+                        <Trash2 className="size-4 text-danger-fg" aria-hidden />
+                      </Button>
+                    </div>
+                    <Input
+                      placeholder="Nội dung câu hỏi *"
+                      value={row.prompt}
+                      onChange={(e) =>
+                        setQuizDraft((prev) =>
+                          prev.map((item, i) =>
+                            i === idx ? { ...item, prompt: e.target.value } : item,
+                          ),
+                        )
+                      }
+                    />
+                    <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                      {[0, 1, 2, 3].map((optIdx) => (
+                        <div key={optIdx} className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setQuizDraft((prev) =>
+                                prev.map((item, i) =>
+                                  i === idx ? { ...item, correctIndex: optIdx } : item,
+                                ),
+                              )
+                            }
+                            aria-label={`Chọn đáp án ${String.fromCharCode(65 + optIdx)} là đáp án đúng`}
+                            className={
+                              row.correctIndex === optIdx
+                                ? 'grid size-7 shrink-0 cursor-pointer place-items-center rounded-lg bg-success text-xs font-bold text-on-primary'
+                                : 'grid size-7 shrink-0 cursor-pointer place-items-center rounded-lg border border-line bg-surface text-xs font-bold text-muted hover:border-primary'
+                            }
+                          >
+                            {String.fromCharCode(65 + optIdx)}
+                          </button>
+                          <Input
+                            placeholder={`Đáp án ${String.fromCharCode(65 + optIdx)}${optIdx < 2 ? ' *' : ''}`}
+                            value={row.options[optIdx] ?? ''}
+                            onChange={(e) =>
+                              setQuizDraft((prev) =>
+                                prev.map((item, i) => {
+                                  if (i !== idx) return item;
+                                  const nextOpts = [...item.options];
+                                  while (nextOpts.length <= optIdx) nextOpts.push('');
+                                  nextOpts[optIdx] = e.target.value;
+                                  return { ...item, options: nextOpts };
+                                }),
+                              )
+                            }
+                            className="flex-1"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <Input
+                      placeholder="Giải thích đáp án (tiếng Việt, tùy chọn)..."
+                      value={row.explanation ?? ''}
+                      onChange={(e) =>
+                        setQuizDraft((prev) =>
+                          prev.map((item, i) =>
+                            i === idx ? { ...item, explanation: e.target.value } : item,
+                          ),
+                        )
+                      }
+                    />
                   </div>
                 ))}
               </div>

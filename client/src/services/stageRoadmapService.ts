@@ -25,7 +25,25 @@ import {
 export type RoadmapMode = 'fixed' | 'custom';
 export type DailyMinutesTarget = 10 | 15 | 20 | 25 | 30;
 export type RepeatMinutesOption = 5 | 10 | 15;
-export type TotalStagesOption = 10 | 20 | 30 | 60;
+export type TotalStagesOption = 10 | 20 | 30 | 35 | 40 | 45 | 60;
+
+export const DAILY_PACE_PRESETS: ReadonlyArray<{
+  minutes: DailyMinutesTarget;
+  stages: TotalStagesOption;
+  label: string;
+  hint: string;
+}> = [
+  { minutes: 10, stages: 60, label: '10p / ngày', hint: '60 buổi · Học nhẹ' },
+  { minutes: 15, stages: 45, label: '15p / ngày', hint: '45 buổi · Đều đặn' },
+  { minutes: 20, stages: 40, label: '20p / ngày', hint: '40 buổi · Cân bằng' },
+  { minutes: 25, stages: 35, label: '25p / ngày', hint: '35 buổi · Chuẩn nhanh' },
+  { minutes: 30, stages: 30, label: '30p / ngày', hint: '30 buổi · Chuyên sâu' },
+];
+
+export function getStageCountForDailyMinutes(minutes: DailyMinutesTarget): TotalStagesOption {
+  const preset = DAILY_PACE_PRESETS.find((p) => p.minutes === minutes);
+  return preset ? preset.stages : 35;
+}
 export type StageSkill =
   | 'vocab'
   | 'kanji'
@@ -70,8 +88,11 @@ export interface RoadmapForecast {
 
 export interface CustomStageOverride {
   title?: string;
+  theme?: string;
   extraTasks?: StageTask[];
   removedTaskIds?: string[];
+  /** When true, hides auto-generated textbook tasks and shows only extraTasks (used by JSON / custom-built stages). */
+  replaceBaseTasks?: boolean;
 }
 
 export interface CustomRoadmapConfig {
@@ -81,11 +102,13 @@ export interface CustomRoadmapConfig {
   textbookId: string;
   startDate: string;
   dailyMinutesTarget: DailyMinutesTarget;
-  totalStages: TotalStagesOption;
+  totalStages: number;
   studyWeekdays: number[]; // 0 (CN) .. 6 (T7)
   skills: StageSkill[];
   reminderTime: string; // HH:MM
   repeatIntervalMinutes: RepeatMinutesOption;
+  /** Independent notification toggle for this custom roadmap (defaults to true). */
+  notificationsEnabled?: boolean;
   stageOverrides?: Record<number, CustomStageOverride>;
   chunkTitles?: Record<number, string>;
   authorName?: string;
@@ -108,6 +131,8 @@ export interface UserStageRoadmapState {
   fixedRepeatIntervalMinutes: RepeatMinutesOption;
   fixedStudyWeekdays?: number[];
   fixedIncludeKanaStarter?: boolean;
+  /** Independent notification toggle for the Fixed Roadmap (Giáo trình chuẩn). */
+  fixedNotificationsEnabled?: boolean;
   notificationsEnabled: boolean;
   customConfig: CustomRoadmapConfig | null;
   customRoadmaps: CustomRoadmapConfig[];
@@ -195,6 +220,7 @@ export function createDefaultStageRoadmapState(todayKey = getLocalDateKey()): Us
     fixedReminderTime: '20:00',
     fixedRepeatIntervalMinutes: 10,
     fixedStudyWeekdays: [...ALL_WEEKDAYS],
+    fixedNotificationsEnabled: true,
     notificationsEnabled: true,
     customConfig: null,
     customRoadmaps: [],
@@ -208,7 +234,11 @@ export function createDefaultStageRoadmapState(todayKey = getLocalDateKey()): Us
 export function getRecommendedFixedStageCount(
   level: StudyLevel,
   textbookId?: string | null,
+  dailyMinutesTarget?: DailyMinutesTarget,
 ): TotalStagesOption {
+  if (dailyMinutesTarget !== undefined) {
+    return getStageCountForDailyMinutes(dailyMinutesTarget);
+  }
   if (level === 'N5' && (!textbookId || textbookId === 'minna-n5')) {
     return 60;
   }
@@ -225,21 +255,89 @@ export function createDefaultCustomConfig(
   todayKey = getLocalDateKey(),
 ): CustomRoadmapConfig {
   const book = resolveActiveVocabTextbook(level, userId, explicitBookId);
-  const recommendedStages = getRecommendedFixedStageCount(level, book.id);
+  const defaultMinutes: DailyMinutesTarget = 20;
+  const recommendedStages = getRecommendedFixedStageCount(level, book.id, defaultMinutes);
   return {
     id: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     name: `Lộ trình ${level} · ${book.shortTitle}`,
     level,
     textbookId: book.id,
     startDate: todayKey,
-    dailyMinutesTarget: 25,
+    dailyMinutesTarget: defaultMinutes,
     totalStages: recommendedStages,
     studyWeekdays: [...ALL_WEEKDAYS],
     skills: [...DEFAULT_SKILLS],
     reminderTime: '20:00',
     repeatIntervalMinutes: 10,
+    notificationsEnabled: true,
     stageOverrides: {},
   };
+}
+
+/**
+ * Clones the learner's current Fixed Roadmap into an editable Custom Roadmap while
+ * preserving all completed Stage records (`fixed-...-sN` → `custom-...-sN`).
+ */
+export function cloneFixedRoadmapToCustom(options: {
+  state: UserStageRoadmapState;
+  level: StudyLevel;
+  textbookId: string;
+  bookShortTitle: string;
+}): {
+  config: CustomRoadmapConfig;
+  nextCompletedStages: Record<string, StageCompletionRecord>;
+  preservedCount: number;
+} {
+  const { state, level, textbookId, bookShortTitle } = options;
+  const totalStages = getRecommendedFixedStageCount(
+    level,
+    textbookId,
+    state.fixedDailyMinutesTarget,
+  );
+  const cloneId = `custom-clone-${Date.now().toString(36)}`;
+  const levelLower = level.toLowerCase();
+  const fixedPrefix = `fixed-${levelLower}-${textbookId}-`;
+  const customPrefix = `custom-${cloneId}-${levelLower}-${textbookId}-`;
+
+  const nextCompletedStages: Record<string, StageCompletionRecord> = {
+    ...state.completedStages,
+  };
+  let preservedCount = 0;
+
+  for (const [stageId, rec] of Object.entries(state.completedStages)) {
+    if (!stageId.startsWith(fixedPrefix)) continue;
+    const mappedId = `${customPrefix}${stageId.slice(fixedPrefix.length)}`;
+    if (!nextCompletedStages[mappedId]) {
+      nextCompletedStages[mappedId] = {
+        ...rec,
+        stageId: mappedId,
+      };
+      preservedCount += 1;
+    }
+  }
+
+  const config: CustomRoadmapConfig = {
+    id: cloneId,
+    name: `Tùy biến · ${level} ${bookShortTitle}`,
+    level,
+    textbookId,
+    startDate: state.fixedStartDate,
+    dailyMinutesTarget: state.fixedDailyMinutesTarget,
+    totalStages,
+    studyWeekdays:
+      state.fixedStudyWeekdays && state.fixedStudyWeekdays.length > 0
+        ? [...state.fixedStudyWeekdays]
+        : [...ALL_WEEKDAYS],
+    skills: [...DEFAULT_SKILLS],
+    reminderTime: state.fixedReminderTime || '20:00',
+    repeatIntervalMinutes: state.fixedRepeatIntervalMinutes || 10,
+    notificationsEnabled: state.fixedNotificationsEnabled ?? state.notificationsEnabled,
+    includeKanaStarter: Boolean(state.fixedIncludeKanaStarter),
+    stageOverrides: {},
+    chunkTitles: {},
+  };
+
+  return { config, nextCompletedStages, preservedCount };
 }
 
 function sanitizeSingleCustomConfig(
@@ -263,9 +361,9 @@ function sanitizeSingleCustomConfig(
     null,
     typeof c.textbookId === 'string' ? c.textbookId : null,
   );
-  const totalRaw = Number(c.totalStages);
-  const totalStages: TotalStagesOption =
-    totalRaw === 10 || totalRaw === 20 || totalRaw === 30 || totalRaw === 60 ? totalRaw : 20;
+  const totalRaw = Math.round(Number(c.totalStages));
+  const totalStages: number =
+    Number.isFinite(totalRaw) && totalRaw >= 1 && totalRaw <= 60 ? totalRaw : 30;
   const rawOverrides =
     c.stageOverrides && typeof c.stageOverrides === 'object' && !Array.isArray(c.stageOverrides)
       ? (c.stageOverrides as Record<number, CustomStageOverride>)
@@ -291,6 +389,7 @@ function sanitizeSingleCustomConfig(
     skills: sanitizeSkills(c.skills),
     reminderTime: sanitizeTimeStr(c.reminderTime, '20:00'),
     repeatIntervalMinutes: sanitizeRepeatInterval(c.repeatIntervalMinutes),
+    notificationsEnabled: c.notificationsEnabled !== false,
     stageOverrides: rawOverrides,
     chunkTitles: rawChunkTitles,
     authorName:
@@ -367,6 +466,10 @@ export function sanitizeStageRoadmapState(
     fixedRepeatIntervalMinutes: sanitizeRepeatInterval(obj.fixedRepeatIntervalMinutes),
     fixedStudyWeekdays: sanitizeDaysArray(obj.fixedStudyWeekdays, ALL_WEEKDAYS),
     fixedIncludeKanaStarter: Boolean(obj.fixedIncludeKanaStarter),
+    fixedNotificationsEnabled:
+      typeof obj.fixedNotificationsEnabled === 'boolean'
+        ? obj.fixedNotificationsEnabled
+        : obj.notificationsEnabled !== false,
     notificationsEnabled: obj.notificationsEnabled !== false,
     customConfig: activeCustom,
     customRoadmaps: list,
@@ -457,6 +560,7 @@ export function saveStageRoadmapState(
       studyWeekdays: effective.studyWeekdays,
       dailyMinutesTarget: effective.dailyMinutesTarget,
       lastCompletedDate,
+      activeStageLabel: effective.roadmapLabel,
     });
   }
 
@@ -816,13 +920,15 @@ const MINNA_N5_60_SLOTS: MinnaStageSlot[] = [
 
 export function generateStageMap(options: {
   mode: RoadmapMode;
+  /** Unique ID of the active CustomRoadmapConfig so each custom plan tracks its own progress independently. */
+  customRoadmapId?: string | null;
   level: StudyLevel;
   textbookId?: string | null;
   userId?: string | null;
   snapshot: CmsSnapshot;
   startDate: string;
   dailyMinutesTarget: DailyMinutesTarget;
-  totalStages?: TotalStagesOption;
+  totalStages?: number;
   studyWeekdays?: number[];
   skills?: StageSkill[];
   stageOverrides?: Record<number, CustomStageOverride>;
@@ -831,6 +937,7 @@ export function generateStageMap(options: {
 }): RoadmapStage[] {
   const {
     mode,
+    customRoadmapId,
     level,
     textbookId,
     userId,
@@ -870,7 +977,12 @@ export function generateStageMap(options: {
     totalStages + kanaStageCount,
     studyWeekdays,
   );
-  const modePrefix = mode === 'custom' ? `custom-${levelLower}-${book.id}` : `fixed-${levelLower}-${book.id}`;
+  const modePrefix =
+    mode === 'custom'
+      ? customRoadmapId
+        ? `custom-${customRoadmapId}-${levelLower}-${book.id}`
+        : `custom-${levelLower}-${book.id}`
+      : `fixed-${levelLower}-${book.id}`;
 
   const getUnitAt = (idx: number) => {
     const pool = availableUnits.length > 0 ? availableUnits : bookUnits;
@@ -1106,7 +1218,7 @@ export function generateStageMap(options: {
           {
             id: `${modePrefix}-kana-s5-t2`,
             title: 'Dojo Boss: Chém Từ Vựng Cầu Anh Đào (Bài 1)',
-            subtitle: 'Ghép mảnh Kana / gõ chữ hạ 15 Yōkai bảo vệ Cầu Anh Đào.',
+            subtitle: 'Gõ Hiragana hoặc chạm chọn để hạ Yōkai bảo vệ Cầu Anh Đào.',
             skill: 'vocab',
             minutes: 5,
             to: firstLesson.dojoShooterPath,
@@ -1690,9 +1802,12 @@ export function generateStageMap(options: {
 
     const override = stageOverrides[stageNumber];
     const removedSet = new Set(override?.removedTaskIds ?? []);
-    const filteredBase = candidateTasks.filter((t) => !removedSet.has(t.id));
+    const filteredBase = override?.replaceBaseTasks
+      ? []
+      : candidateTasks.filter((t) => !removedSet.has(t.id));
     const tasks = [...filteredBase, ...(override?.extraTasks ?? [])];
     const resolvedTitle = override?.title?.trim() ? override.title.trim() : title;
+    const resolvedTheme = override?.theme?.trim() ? override.theme.trim() : theme;
 
     stages.push({
       stageNumber,
@@ -1700,7 +1815,7 @@ export function generateStageMap(options: {
       chunkNumber,
       chunkTitle,
       title: resolvedTitle,
-      theme,
+      theme: resolvedTheme,
       scheduledDate:
         scheduledDates[i + kanaStageCount] ?? addDaysToDateKey(startDate, i + kanaStageCount),
       minOnlineMinutes: dailyMinutesTarget,
@@ -2011,18 +2126,20 @@ export function getEffectiveReminderSettings(state: UserStageRoadmapState): {
   repeatIntervalMinutes: RepeatMinutesOption;
   dailyMinutesTarget: DailyMinutesTarget;
   studyWeekdays: number[];
+  roadmapLabel: string;
 } {
   if (state.activeMode === 'custom' && state.customConfig) {
     return {
-      enabled: state.notificationsEnabled,
+      enabled: state.customConfig.notificationsEnabled !== false,
       reminderTime: state.customConfig.reminderTime,
       repeatIntervalMinutes: state.customConfig.repeatIntervalMinutes,
       dailyMinutesTarget: state.customConfig.dailyMinutesTarget,
       studyWeekdays: state.customConfig.studyWeekdays,
+      roadmapLabel: state.customConfig.name,
     };
   }
   return {
-    enabled: state.notificationsEnabled,
+    enabled: state.fixedNotificationsEnabled ?? state.notificationsEnabled,
     reminderTime: state.fixedReminderTime,
     repeatIntervalMinutes: state.fixedRepeatIntervalMinutes,
     dailyMinutesTarget: state.fixedDailyMinutesTarget,
@@ -2030,6 +2147,7 @@ export function getEffectiveReminderSettings(state: UserStageRoadmapState): {
       state.fixedStudyWeekdays && state.fixedStudyWeekdays.length > 0
         ? state.fixedStudyWeekdays
         : ALL_WEEKDAYS,
+    roadmapLabel: 'Giáo trình chuẩn',
   };
 }
 
