@@ -11,6 +11,7 @@
 import { DEFAULT_TIMEZONE } from './notificationService';
 import { isSupabaseAccountUuid } from './sessionScope';
 import { supabase } from './supabaseClient';
+import { FunctionsFetchError, FunctionsHttpError, FunctionsRelayError } from '@supabase/supabase-js';
 
 export interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
@@ -334,6 +335,45 @@ export async function getPwaPushDiagnosticStatus(
 }
 
 /**
+ * Turns a `supabase.functions.invoke` error into the real cause (not deployed, missing
+ * secrets, expired session, no subscription…) instead of one generic message.
+ */
+async function describeEdgeFunctionError(error: unknown): Promise<string> {
+  if (error instanceof FunctionsHttpError) {
+    const response = error.context as Response | undefined;
+    const status = response?.status ?? 0;
+    let body: { error?: string; message?: string; reason?: string } = {};
+    try {
+      body = (await response?.clone().json()) ?? {};
+    } catch {
+      body = {};
+    }
+    const serverText = body.error || body.message || '';
+
+    if (status === 404 && body.reason !== 'no-subscription') {
+      return 'Chưa deploy Edge Function `send-study-reminders` lên Supabase (lỗi 404). Chạy: supabase functions deploy send-study-reminders --no-verify-jwt';
+    }
+    if (status === 404) {
+      return 'Thiết bị này chưa đăng ký Web Push với máy chủ. Hãy bấm "Kích hoạt & Đồng bộ Cloud Push" rồi thử lại.';
+    }
+    if (status === 401) {
+      return 'Phiên đăng nhập đã hết hạn hoặc không hợp lệ (lỗi 401). Hãy đăng xuất rồi đăng nhập lại.';
+    }
+    if (status === 500 && serverText.includes('Missing')) {
+      return 'Supabase chưa cài đủ secrets (VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY…). Chạy `supabase secrets set ...` rồi deploy lại hàm.';
+    }
+    return `Edge Function báo lỗi ${status || ''}: ${serverText || 'không rõ nguyên nhân'}`.trim();
+  }
+  if (error instanceof FunctionsRelayError) {
+    return 'Supabase không chuyển được yêu cầu tới Edge Function (relay error). Kiểm tra hàm đã deploy và đang chạy.';
+  }
+  if (error instanceof FunctionsFetchError) {
+    return 'Không gọi được Edge Function (mất mạng hoặc sai VITE_SUPABASE_URL).';
+  }
+  return 'Không gọi được Edge Function `send-study-reminders`.';
+}
+
+/**
  * Triggers a REAL VAPID Web Push from the Supabase Edge Function (`send-study-reminders`
  * with `mode: 'self-test'`) after an optional server-side delay so the user can exit to
  * the Home Screen and swipe the app completely out of Recent Apps ("xóa màn hình chờ").
@@ -417,16 +457,28 @@ export async function triggerServerWebPushTest(options: {
         sentCount: 0,
         delaySeconds,
         reason: 'edge-error',
-        message:
-          'Edge Function `send-study-reminders` chưa cập nhật bản hỗ trợ test tức thì (hãy deploy lại `supabase/functions/send-study-reminders/index.ts` trên Supabase).',
+        message: await describeEdgeFunctionError(error),
       };
     }
 
     const resObj = (data && typeof data === 'object' ? data : {}) as {
       ok?: boolean;
       sentCount?: number;
+      scheduled?: boolean;
+      subscriptionCount?: number;
       error?: string;
     };
+
+    if (resObj.ok && resObj.scheduled) {
+      const deviceCount = Number(resObj.subscriptionCount || 0);
+      return {
+        ok: true,
+        sentCount: deviceCount,
+        delaySeconds,
+        message: `Server đã nhận lệnh và sẽ bắn Web Push sau ${delaySeconds}s tới ${deviceCount} thiết bị. Thoát MH chính & vuốt XÓA app ngay!`,
+      };
+    }
+
     const sentCount = Number(resObj.sentCount || 0);
     if (!resObj.ok || sentCount <= 0) {
       return {
