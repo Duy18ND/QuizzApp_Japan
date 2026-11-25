@@ -828,6 +828,9 @@ export const HomePage: React.FC = () => {
               label="Kanji đã thuộc"
               size="sm"
             />
+            <Link to="/kanji" className="text-xs text-muted hover:text-primary-fg hover:underline">
+              Viết đúng 3 lần để thuộc 1 chữ → Luyện Kanji
+            </Link>
           </div>
           <div className="flex flex-col gap-1.5">
             <Stat
@@ -840,6 +843,9 @@ export const HomePage: React.FC = () => {
               label="Ngữ pháp đã luyện"
               size="sm"
             />
+            <Link to="/grammar" className="text-xs text-muted hover:text-primary-fg hover:underline">
+              Làm bài luyện của mẫu câu → Ngữ pháp
+            </Link>
           </div>
           <Stat
             label="Bài sai cần ôn"
