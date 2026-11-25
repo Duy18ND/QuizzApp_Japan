@@ -13,7 +13,6 @@ import {
   Circle,
   Clock,
   Download,
-  ExternalLink,
   FastForward,
   Lock,
   Map as MapIcon,
@@ -76,28 +75,18 @@ import {
   ONLINE_TIME_SYNC_EVENT,
 } from '../services/notificationService';
 import {
-  dispatchStudyReminderNotification,
   getBrowserNotificationPermission,
   isRunningStandalone,
   isWebPushConfigured,
   isWebPushSubscribedOnDevice,
   PWA_INSTALL_CHANGE_EVENT,
   requestBrowserNotificationPermission,
-  scheduleDelayedLockscreenTestNotification,
   subscribeAndSyncWebPush,
   triggerOneTapPwaInstall,
   type BrowserNotificationState,
 } from '../services/pwaReminderService';
 import {
-  consumeGoogleCalendarSyncPending,
-  downloadRoadmapIcsFile,
-  requestGoogleCalendarConsent,
-  syncRoadmapStagesToGoogleCalendar,
-  type GoogleCalendarSyncResult,
-} from '../services/googleCalendarSyncService';
-import {
   buildCurriculumTaskCatalog,
-  buildOneTapStageGoogleCalendarUrl,
   calculateRoadmapForecast,
   completeStageAndUnlockNext,
   computeStartDateToAlignStageWithToday,
@@ -212,11 +201,6 @@ export const StageRoadmapPage: React.FC = () => {
   );
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [proPaywallOpen, setProPaywallOpen] = useState(false);
-  const [gcalModalOpen, setGcalModalOpen] = useState(false);
-  const [gcalSyncing, setGcalSyncing] = useState(false);
-  const [gcalProgress, setGcalProgress] = useState<{ done: number; total: number } | null>(null);
-  const [gcalResult, setGcalResult] = useState<GoogleCalendarSyncResult | null>(null);
-  const [lockTestCountdown, setLockTestCountdown] = useState<number>(0);
   const [draftConfig, setDraftConfig] = useState<CustomRoadmapConfig>(() =>
     createDefaultCustomConfig(studyLevel ?? 'N3', user?.id, studyTextbookId),
   );
@@ -419,23 +403,6 @@ export const StageRoadmapPage: React.FC = () => {
         todayKey,
       }),
     [draftConfig.startDate, draftConfig.studyWeekdays, draftEffectiveTotalStages, todayKey],
-  );
-
-  const googleCalendarUrl = useMemo(
-    () =>
-      buildOneTapStageGoogleCalendarUrl({
-        level: activeLevel,
-        textbookTitle: activeBook.title,
-        mode: roadmapState.activeMode,
-        reminderTime: effectiveSettings.reminderTime,
-        studyWeekdays: effectiveSettings.studyWeekdays,
-        dailyMinutesTarget: effectiveSettings.dailyMinutesTarget,
-        startDate:
-          roadmapState.activeMode === 'custom' && roadmapState.customConfig
-            ? roadmapState.customConfig.startDate
-            : roadmapState.fixedStartDate,
-      }),
-    [activeBook.title, activeLevel, effectiveSettings, roadmapState],
   );
 
   const updateState = (next: UserStageRoadmapState) => {
@@ -815,132 +782,6 @@ export const StageRoadmapPage: React.FC = () => {
     });
   };
 
-  const handleSendTestNotification = async () => {
-    let perm = getBrowserNotificationPermission();
-    if (perm !== 'granted') {
-      perm = await requestBrowserNotificationPermission();
-      setNotifPermission(perm);
-    }
-    if (perm !== 'granted') {
-      toast({
-        title:
-          perm === 'unsupported'
-            ? 'Trình duyệt này chưa hỗ trợ Web Notification.'
-            : 'Trình duyệt đang chặn thông báo — hãy cho phép quyền Thông báo trên thanh địa chỉ trình duyệt.',
-        tone: 'warning',
-      });
-      return;
-    }
-    const ok = await dispatchStudyReminderNotification({
-      title: `Nihongo 問 · Chuông nhắc học ${activeLevel} hoạt động tốt!`,
-      body: activeStage
-        ? `Hôm nay: Màn ${activeStage.stageNumber} (${activeStage.title}) · Mục tiêu ${effectiveSettings.dailyMinutesTarget} phút/ngày.`
-        : `Hệ thống sẽ nhắc lúc ${effectiveSettings.reminderTime} và lặp mỗi ${effectiveSettings.repeatIntervalMinutes}p nếu chưa xong Màn.`,
-      tag: `nihongo-test-notif-${Date.now()}`,
-    });
-    toast({
-      title: ok
-        ? 'Đã gửi thông báo thử nghiệm! Hãy kiểm tra góc màn hình hoặc thanh thông báo thiết bị.'
-        : 'Không thể hiển thị thông báo thử nghiệm.',
-      tone: ok ? 'success' : 'warning',
-    });
-  };
-
-  useEffect(() => {
-    if (lockTestCountdown <= 0) return;
-    const timer = window.setInterval(() => {
-      setLockTestCountdown((prev) => (prev <= 1 ? 0 : prev - 1));
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, [lockTestCountdown]);
-
-  const handleLockscreenTestNotification = async () => {
-    const res = await scheduleDelayedLockscreenTestNotification(
-      {
-        title: `🇯🇵 Nihongo 問 · Test màn hình khóa thành công (${activeLevel})!`,
-        body: activeStage
-          ? `Thông báo đã gửi khi khóa màn hình! Hôm nay: Màn ${activeStage.stageNumber}.`
-          : 'Thông báo đã gửi thành công ngay cả khi tắt màn hình chờ!',
-      },
-      15,
-    );
-    setNotifPermission(getBrowserNotificationPermission());
-    if (!res.ok) {
-      toast({
-        title:
-          res.mode === 'unsupported'
-            ? 'Trình duyệt này chưa hỗ trợ thông báo (trên iPhone cần Cài App ra Màn hình chính trước).'
-            : 'Bạn cần cho phép quyền Thông báo để test màn hình khóa.',
-        tone: 'warning',
-      });
-      return;
-    }
-    setLockTestCountdown(15);
-    toast({
-      title: '⏳ Đếm ngược 15 giây — Hãy KHÓA MÀN HÌNH điện thoại ngay bây giờ để kiểm tra chuông!',
-      description:
-        res.mode === 'service-worker'
-          ? 'Đang chạy qua Service Worker nền. Đợi 15 giây xem thông báo có sáng màn hình khóa không nhé!'
-          : 'Đang hẹn giờ trên trình duyệt (để kêu ngay cả khi vuốt tắt app, hãy đồng bộ thêm Google Calendar).',
-      tone: 'info',
-    });
-  };
-
-  const runGoogleCalendarSync = async (allowConsentRedirect: boolean) => {
-    setGcalModalOpen(true);
-    setGcalSyncing(true);
-    setGcalResult(null);
-    setGcalProgress({ done: 0, total: Math.min(60, stages.length) });
-
-    const completedSet = new Set(Object.keys(roadmapState.completedStages));
-    const res = await syncRoadmapStagesToGoogleCalendar({
-      stages,
-      completedStageIds: completedSet,
-      level: activeLevel,
-      bookTitle: activeBook.title,
-      reminderTime: effectiveSettings.reminderTime,
-      dailyMinutesTarget: effectiveSettings.dailyMinutesTarget,
-      onProgress: (done, total) => setGcalProgress({ done, total }),
-    });
-
-    setGcalSyncing(false);
-
-    if (res.needsReauth && allowConsentRedirect) {
-      toast({
-        title: 'Đang chuyển sang Google để cấp quyền ghi Lịch (chỉ 1 lần)...',
-        tone: 'info',
-      });
-      const authRes = await requestGoogleCalendarConsent();
-      if (!authRes.ok) {
-        setGcalResult({
-          ...res,
-          errorMessage: authRes.error || res.errorMessage,
-        });
-      }
-      return;
-    }
-
-    setGcalResult(res);
-    if (res.ok) {
-      toast({
-        title: `🎉 Đã đồng bộ ${res.created + res.updated} ngày học chi tiết lên Google Calendar!`,
-        tone: 'success',
-      });
-    } else if (res.errorMessage) {
-      toast({ title: res.errorMessage, tone: 'warning' });
-    }
-  };
-
-  useEffect(() => {
-    if (!user || stages.length === 0) return;
-    if (!consumeGoogleCalendarSyncPending()) return;
-    const timer = window.setTimeout(() => {
-      void runGoogleCalendarSync(false);
-    }, 250);
-    return () => window.clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, stages.length]);
-
   const handleToggleNotificationEnforcement = async () => {
     const needsPermissionOrPush =
       !roadmapState.notificationsEnabled ||
@@ -1107,44 +948,6 @@ export const StageRoadmapPage: React.FC = () => {
             </Button>
             <Button
               type="button"
-              variant="secondary"
-              size="sm"
-              leftIcon={<Calendar className="size-4 text-primary-fg" aria-hidden />}
-              onClick={() => {
-                setGcalResult(null);
-                setGcalModalOpen(true);
-              }}
-            >
-              Đồng bộ GG Cal
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              leftIcon={<Download className="size-4 text-primary-fg" aria-hidden />}
-              onClick={() => {
-                const completedSet = new Set(Object.keys(roadmapState.completedStages));
-                const res = downloadRoadmapIcsFile({
-                  stages,
-                  completedStageIds: completedSet,
-                  level: activeLevel,
-                  bookTitle: activeBook.title,
-                  reminderTime: effectiveSettings.reminderTime,
-                  dailyMinutesTarget: effectiveSettings.dailyMinutesTarget,
-                });
-                toast({
-                  title:
-                    res.count > 0
-                      ? `Đã tải ${res.filename} (${res.count} ngày học)! Mở file để thêm vào Lịch điện thoại.`
-                      : 'Bạn đã hoàn thành hết các Màn trong lộ trình này rồi!',
-                  tone: res.count > 0 ? 'success' : 'info',
-                });
-              }}
-            >
-              Tải lịch .ics
-            </Button>
-            <Button
-              type="button"
               variant={
                 roadmapState.notificationsEnabled && notifPermission === 'granted'
                   ? 'soft'
@@ -1166,34 +969,6 @@ export const StageRoadmapPage: React.FC = () => {
                   ? 'Cấp quyền chuông'
                   : `Đang nhắc mỗi ${effectiveSettings.repeatIntervalMinutes}p`}
             </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => void handleSendTestNotification()}
-              title="Gửi thử ngay 1 thông báo lên thiết bị"
-            >
-              🔔 Test ngay
-            </Button>
-            <Button
-              type="button"
-              variant={lockTestCountdown > 0 ? 'primary' : 'secondary'}
-              size="sm"
-              disabled={lockTestCountdown > 0}
-              onClick={() => void handleLockscreenTestNotification()}
-              title="Hẹn 15 giây rồi khóa màn hình điện thoại để kiểm tra thông báo màn hình khóa"
-            >
-              {lockTestCountdown > 0
-                ? `🔒 Khóa máy ngay (${lockTestCountdown}s)`
-                : '🔒 Test tắt màn hình (15s)'}
-            </Button>
-            <Link
-              to="/settings"
-              className={buttonStyles({ variant: 'soft', size: 'sm' })}
-              title="Mở Cài đặt để tải lịch .ics & test đủ 5 chế độ (bao gồm xóa app khỏi đa nhiệm)"
-            >
-              <span>5 kiểu Test &amp; .ics →</span>
-            </Link>
           </div>
         }
       />
@@ -3238,7 +3013,7 @@ export const StageRoadmapPage: React.FC = () => {
         onClose={() => setIosGuideOpen(false)}
         size="sm"
         title="Cài Nihongo 問 như App Store (10 giây)"
-        description="Không cần tải file .ics hay qua App Store — cài trực tiếp ra màn hình chính để mở toàn màn hình và nhận nhắc học."
+        description="Không cần qua App Store — cài trực tiếp ra màn hình chính để mở toàn màn hình và nhận nhắc học."
         footer={
           <Button type="button" variant="primary" onClick={() => setIosGuideOpen(false)}>
             Đã hiểu
@@ -3499,145 +3274,6 @@ export const StageRoadmapPage: React.FC = () => {
         </div>
       </Modal>
 
-      {/* Google Calendar 1-Tap Full-Roadmap Sync Modal */}
-      <Modal
-        open={gcalModalOpen}
-        onClose={() => !gcalSyncing && setGcalModalOpen(false)}
-        size="md"
-        title="Đồng bộ lịch học lên Google Calendar"
-        description={`Điền chi tiết từng ngày (${activeLevel} · ${activeBook.shortTitle}) kèm chuông báo điện thoại ngay cả khi tắt máy chờ hoặc đóng app.`}
-        footer={
-          <>
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={gcalSyncing}
-              onClick={() => setGcalModalOpen(false)}
-            >
-              Đóng
-            </Button>
-            <Button
-              type="button"
-              variant="primary"
-              disabled={gcalSyncing}
-              leftIcon={<Calendar className="size-4" aria-hidden />}
-              onClick={() => void runGoogleCalendarSync(true)}
-            >
-              {gcalSyncing ? 'Đang đồng bộ...' : 'Đồng bộ từng ngày (1 chạm)'}
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-3.5 text-sm">
-          <div className="rounded-xl border border-line bg-surface-2/60 p-3.5 space-y-1.5 text-xs sm:text-sm">
-            <p className="font-semibold text-fg">
-              Lịch sẽ được tự động fill vào Google Calendar của bạn:
-            </p>
-            <ul className="list-disc space-y-1 pl-5 text-muted">
-              <li>
-                Số ngày đồng bộ:{' '}
-                <strong className="text-fg">
-                  {Math.min(
-                    60,
-                    stages.filter(
-                      (s) => !roadmapState.completedStages[s.id] && s.scheduledDate >= todayKey,
-                    ).length,
-                  )}{' '}
-                  ngày học riêng biệt
-                </strong>{' '}
-                (mỗi ngày ghi rõ tên Màn, danh sách bài &amp; link vào học ngay)
-              </li>
-              <li>
-                Giờ học:{' '}
-                <strong className="text-fg">
-                  {effectiveSettings.reminderTime} ({effectiveSettings.dailyMinutesTarget} phút/ngày)
-                </strong>
-              </li>
-              <li>
-                Báo chuông điện thoại:{' '}
-                <strong className="text-fg">Tự động báo trước 10 phút &amp; đúng giờ</strong> (kêu thật kể cả khi khóa màn hình chờ &amp; vuốt tắt app!)
-              </li>
-              <li>
-                Đồng bộ lại nhiều lần sẽ <strong className="text-fg">tự cập nhật</strong>, không tạo lịch trùng.
-              </li>
-            </ul>
-          </div>
-
-          {gcalSyncing && gcalProgress && (
-            <div className="space-y-1.5 rounded-xl border border-primary/35 bg-primary-soft/20 p-3">
-              <div className="flex items-center justify-between text-xs font-semibold text-primary-fg">
-                <span>Đang ghi lịch từng ngày lên Google Calendar...</span>
-                <span className="tabular">
-                  {gcalProgress.done}/{gcalProgress.total}
-                </span>
-              </div>
-              <ProgressBar
-                value={gcalProgress.done}
-                max={Math.max(1, gcalProgress.total)}
-                size="sm"
-                tone="primary"
-                label="Tiến độ đồng bộ Google Calendar"
-              />
-            </div>
-          )}
-
-          {gcalResult && (
-            <Notice tone={gcalResult.ok ? 'success' : 'warning'}>
-              <p className="font-bold">
-                {gcalResult.ok
-                  ? `🎉 Hoàn tất! Đã tạo mới ${gcalResult.created} ngày & cập nhật ${gcalResult.updated} ngày lên Google Calendar.`
-                  : 'Chưa đồng bộ được qua API'}
-              </p>
-              {gcalResult.errorMessage && (
-                <p className="mt-1 text-xs leading-relaxed">{gcalResult.errorMessage}</p>
-              )}
-              {gcalResult.ok && (
-                <p className="mt-1 text-xs">
-                  Hãy mở app Google Calendar trên điện thoại — toàn bộ các ngày học kèm link vào bài đã hiển thị sẵn!
-                </p>
-              )}
-            </Notice>
-          )}
-
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 text-xs">
-            <Button
-              type="button"
-              variant="soft"
-              size="sm"
-              leftIcon={<Download className="size-3.5" aria-hidden />}
-              onClick={() => {
-                const completedSet = new Set(Object.keys(roadmapState.completedStages));
-                const res = downloadRoadmapIcsFile({
-                  stages,
-                  completedStageIds: completedSet,
-                  level: activeLevel,
-                  bookTitle: activeBook.title,
-                  reminderTime: effectiveSettings.reminderTime,
-                  dailyMinutesTarget: effectiveSettings.dailyMinutesTarget,
-                });
-                toast({
-                  title:
-                    res.count > 0
-                      ? `Đã tải ${res.filename} (${res.count} ngày học)! Mở file để thêm vào Lịch điện thoại.`
-                      : 'Bạn đã hoàn thành hết các Màn trong lộ trình này rồi!',
-                  tone: res.count > 0 ? 'success' : 'info',
-                });
-              }}
-            >
-              Tải file lịch chi tiết (.ics)
-            </Button>
-            <a
-              href={googleCalendarUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 font-semibold text-primary-fg hover:underline"
-            >
-              Mở nhanh lịch lặp (URL)
-              <ExternalLink className="size-3.5" aria-hidden />
-            </a>
-          </div>
-        </div>
-      </Modal>
     </PageContainer>
   );
 };

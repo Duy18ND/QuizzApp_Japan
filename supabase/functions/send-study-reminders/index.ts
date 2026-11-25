@@ -34,6 +34,114 @@ interface PushRow {
   last_completed_date: string | null;
   active_stage_label: string | null;
   last_notified_at: string | null;
+  /** "<dateKey>|<slotId>|<HH:MM>" of the custom slots already pushed today */
+  sent_slot_keys: string[] | null;
+}
+
+/** One entry of user_reminders.time_slots (see StudyTimeSlot in the client). */
+interface StudySlot {
+  id?: string;
+  scheduleType?: 'recurring' | 'once';
+  time?: string;
+  label?: string;
+  daysOfWeek?: number[];
+  date?: string;
+}
+
+interface ReminderRow {
+  user_id: string;
+  enabled: boolean | null;
+  time_slots: unknown;
+}
+
+type LocalParts = ReturnType<typeof getLocalParts>;
+
+/** A slot still fires if the cron run happens up to this many minutes late. */
+const SLOT_CATCH_UP_MINUTES = 30;
+const ALL_WEEKDAYS = [1, 2, 3, 4, 5, 6, 0];
+
+function parseHourMinute(value: unknown): number | null {
+  if (typeof value !== 'string') return null;
+  const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
+  if (!match) return null;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour > 23 || minute > 59) return null;
+  return hour * 60 + minute;
+}
+
+function getDueSlots(rawSlots: unknown, local: LocalParts, completedToday: boolean): StudySlot[] {
+  if (!Array.isArray(rawSlots)) return [];
+  return (rawSlots as StudySlot[]).filter((slot) => {
+    if (!slot || typeof slot !== 'object') return false;
+    const slotMinutes = parseHourMinute(slot.time);
+    if (slotMinutes === null) return false;
+
+    if (slot.scheduleType === 'once') {
+      // One-off appointment: fires on its date even if today's Stage is already done.
+      if (slot.date !== local.dateKey) return false;
+    } else {
+      if (completedToday) return false;
+      const days =
+        Array.isArray(slot.daysOfWeek) && slot.daysOfWeek.length > 0 ? slot.daysOfWeek : ALL_WEEKDAYS;
+      if (!days.includes(local.weekday)) return false;
+    }
+
+    const minutesLate = local.totalMinutes - slotMinutes;
+    return minutesLate >= 0 && minutesLate < SLOT_CATCH_UP_MINUTES;
+  });
+}
+
+function slotKey(dateKey: string, slot: StudySlot): string {
+  return `${dateKey}|${slot.id ?? ''}|${slot.time ?? ''}`;
+}
+
+function keepTodaySlotKeys(raw: unknown, dateKey: string): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((key): key is string => typeof key === 'string' && key.startsWith(`${dateKey}|`));
+}
+
+function isMainReminderDue(row: PushRow, local: LocalParts, now: Date): boolean {
+  const allowedDays =
+    Array.isArray(row.study_weekdays) && row.study_weekdays.length > 0 ? row.study_weekdays : ALL_WEEKDAYS;
+  if (!allowedDays.includes(local.weekday)) return false;
+
+  const reminderMinutes = parseHourMinute(row.reminder_time) ?? 20 * 60;
+  if (local.totalMinutes < reminderMinutes) return false;
+
+  const repeatMs = Math.max(5, Number(row.repeat_interval_minutes) || 10) * 60_000;
+  const lastNotifiedMs = row.last_notified_at ? Date.parse(row.last_notified_at) : 0;
+  return !(lastNotifiedMs > 0 && now.getTime() - lastNotifiedMs < repeatMs - 30_000);
+}
+
+interface PushMessage {
+  title: string;
+  body: string;
+  url: string;
+  tag: string;
+}
+
+/** 'gone' = the browser dropped this subscription (404/410): the caller should delete it. */
+async function sendPush(
+  client: typeof webpush,
+  row: PushRow,
+  message: PushMessage,
+): Promise<'sent' | 'gone' | 'failed'> {
+  try {
+    await client.sendNotification(
+      { endpoint: row.endpoint, keys: { p256dh: row.p256dh, auth: row.auth } },
+      JSON.stringify(message),
+    );
+    return 'sent';
+  } catch (pushErr: unknown) {
+    const statusCode =
+      typeof pushErr === 'object' && pushErr !== null && 'statusCode' in pushErr
+        ? Number((pushErr as { statusCode?: number }).statusCode)
+        : 0;
+    if (statusCode === 404 || statusCode === 410) return 'gone';
+    console.error('push failed', row.id, statusCode, pushErr);
+    return 'failed';
+  }
 }
 
 function getLocalParts(now: Date, timeZone: string) {
@@ -282,80 +390,104 @@ async function handleRequest(req: Request): Promise<Response> {
     return jsonResponse({ error: error.message }, 500);
   }
 
-  const now = new Date();
-  let sentCount = 0;
-  let prunedCount = 0;
-  let skippedCount = 0;
+  const subs = (rows ?? []) as PushRow[];
 
-  for (const row of (rows ?? []) as PushRow[]) {
-    const local = getLocalParts(now, row.timezone || 'Asia/Ho_Chi_Minh');
-
-    // Already completed today's Stage + 10-15m gate -> stay silent!
-    if (row.last_completed_date === local.dateKey) {
-      skippedCount += 1;
-      continue;
+  // Every time slot the user set up (Settings → Lịch nhắc học) lives in user_reminders.
+  const remindersByUser = new Map<string, ReminderRow>();
+  const userIds = [...new Set(subs.map((row) => row.user_id))];
+  if (userIds.length > 0) {
+    const { data: reminderRows, error: remindersErr } = await supabase
+      .from('user_reminders')
+      .select('user_id, enabled, time_slots')
+      .in('user_id', userIds);
+    if (remindersErr) {
+      console.error('load user_reminders failed', remindersErr.message);
     }
-
-    const allowedDays = Array.isArray(row.study_weekdays) && row.study_weekdays.length > 0
-      ? row.study_weekdays
-      : [1, 2, 3, 4, 5, 6, 0];
-    if (!allowedDays.includes(local.weekday)) {
-      skippedCount += 1;
-      continue;
-    }
-
-    const [rh, rm] = (row.reminder_time || '20:00').split(':').map(Number);
-    const reminderMinutes = (rh || 20) * 60 + (rm || 0);
-    if (local.totalMinutes < reminderMinutes) {
-      skippedCount += 1;
-      continue;
-    }
-
-    const repeatMs = Math.max(5, Number(row.repeat_interval_minutes) || 10) * 60_000;
-    const lastNotifiedMs = row.last_notified_at ? Date.parse(row.last_notified_at) : 0;
-    if (lastNotifiedMs > 0 && now.getTime() - lastNotifiedMs < repeatMs - 30_000) {
-      skippedCount += 1;
-      continue;
-    }
-
-    const stageLabel = row.active_stage_label || 'Màn hôm nay';
-    const targetMins = row.daily_minutes_target || 10;
-
-    try {
-      await webpush.sendNotification(
-        {
-          endpoint: row.endpoint,
-          keys: {
-            p256dh: row.p256dh,
-            auth: row.auth,
-          },
-        },
-        JSON.stringify({
-          title: `Nihongo 問 · ${stageLabel} đang chờ bạn!`,
-          body: `Online tối thiểu ${targetMins} phút và hoàn thành ${stageLabel} để mở khóa Màn kế tiếp & tắt nhắc hôm nay.`,
-          url: `${appBaseUrl.replace(/\/$/, '')}/#/roadmap`,
-          tag: `nihongo-stage-${local.dateKey}`,
-        }),
-      );
-
-      await supabase
-        .from('user_push_subscriptions')
-        .update({ last_notified_at: now.toISOString() })
-        .eq('id', row.id);
-      sentCount += 1;
-    } catch (pushErr: unknown) {
-      const statusCode =
-        typeof pushErr === 'object' && pushErr !== null && 'statusCode' in pushErr
-          ? Number((pushErr as { statusCode?: number }).statusCode)
-          : 0;
-      if (statusCode === 404 || statusCode === 410) {
-        await supabase.from('user_push_subscriptions').delete().eq('id', row.id);
-        prunedCount += 1;
-      }
+    for (const reminder of (reminderRows ?? []) as ReminderRow[]) {
+      remindersByUser.set(reminder.user_id, reminder);
     }
   }
 
-  return jsonResponse({ ok: true, sentCount, prunedCount, skippedCount });
+  const now = new Date();
+  const baseUrl = appBaseUrl.replace(/\/$/, '');
+  let sentCount = 0;
+  let slotSentCount = 0;
+  let prunedCount = 0;
+  let skippedCount = 0;
+
+  for (const row of subs) {
+    const local = getLocalParts(now, row.timezone || 'Asia/Ho_Chi_Minh');
+    const completedToday = row.last_completed_date === local.dateKey;
+    const reminders = remindersByUser.get(row.user_id);
+
+    let notifiedThisRun = false;
+    let subscriptionGone = false;
+
+    // A) Each custom time slot fires once on its day (recurring weekdays or one-off date).
+    const previousKeys = keepTodaySlotKeys(row.sent_slot_keys, local.dateKey);
+    const sentKeys = [...previousKeys];
+    const dueSlots =
+      reminders && reminders.enabled !== false
+        ? getDueSlots(reminders.time_slots, local, completedToday).filter(
+            (slot) => !sentKeys.includes(slotKey(local.dateKey, slot)),
+          )
+        : [];
+
+    for (const slot of dueSlots) {
+      const label = typeof slot.label === 'string' ? slot.label.trim() : '';
+      const result = await sendPush(webpush, row, {
+        title: `Nihongo 問 · Đến giờ học ${slot.time}!`,
+        body: label || 'Mở app để vào bài học hôm nay nhé.',
+        url: `${baseUrl}/#/roadmap`,
+        tag: `nihongo-slot-${local.dateKey}-${slot.id ?? slot.time}`,
+      });
+      if (result === 'gone') {
+        subscriptionGone = true;
+        break;
+      }
+      if (result === 'sent') {
+        sentKeys.push(slotKey(local.dateKey, slot));
+        notifiedThisRun = true;
+        slotSentCount += 1;
+      }
+    }
+
+    // B) Main daily reminder: from reminder_time, repeat until today's Stage is done.
+    if (!subscriptionGone && !notifiedThisRun && !completedToday && isMainReminderDue(row, local, now)) {
+      const stageLabel = row.active_stage_label || 'Màn hôm nay';
+      const targetMins = row.daily_minutes_target || 10;
+      const result = await sendPush(webpush, row, {
+        title: `Nihongo 問 · ${stageLabel} đang chờ bạn!`,
+        body: `Online tối thiểu ${targetMins} phút và hoàn thành ${stageLabel} để mở khóa Màn kế tiếp & tắt nhắc hôm nay.`,
+        url: `${baseUrl}/#/roadmap`,
+        tag: `nihongo-stage-${local.dateKey}`,
+      });
+      if (result === 'gone') {
+        subscriptionGone = true;
+      } else if (result === 'sent') {
+        notifiedThisRun = true;
+        sentCount += 1;
+      }
+    }
+
+    if (subscriptionGone) {
+      await supabase.from('user_push_subscriptions').delete().eq('id', row.id);
+      prunedCount += 1;
+      continue;
+    }
+
+    const keysChanged =
+      sentKeys.length !== previousKeys.length ||
+      (Array.isArray(row.sent_slot_keys) ? row.sent_slot_keys.length : 0) !== previousKeys.length;
+    if (notifiedThisRun || keysChanged) {
+      const patch: Record<string, unknown> = { sent_slot_keys: sentKeys };
+      if (notifiedThisRun) patch.last_notified_at = now.toISOString();
+      await supabase.from('user_push_subscriptions').update(patch).eq('id', row.id);
+    }
+    if (!notifiedThisRun) skippedCount += 1;
+  }
+
+  return jsonResponse({ ok: true, sentCount, slotSentCount, prunedCount, skippedCount });
 }
 
 Deno.serve(async (req) => {

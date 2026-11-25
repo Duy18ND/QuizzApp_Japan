@@ -5,7 +5,6 @@ import { AppLayout } from './components/layout/AppLayout';
 import { EmptyState, LoadingState, PageContainer, buttonStyles } from './components/ui';
 import { ToastProvider } from './components/ui/Toast';
 import { useAuth } from './context/auth-context';
-import { hasGoogleCalendarSyncPending } from './services/googleCalendarSyncService';
 import { consumeOAuthLoginPending } from './services/supabaseClient';
 import './index.css';
 
@@ -106,12 +105,6 @@ function AdminPostLoginRedirector() {
   useEffect(() => {
     if (status !== 'authenticated' || !user) return;
     if (!consumeOAuthLoginPending()) return;
-    if (hasGoogleCalendarSyncPending()) {
-      if (pathname !== '/roadmap') {
-        navigate('/roadmap', { replace: true });
-      }
-      return;
-    }
     if ((user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') && pathname !== '/admin') {
       navigate('/admin', { replace: true });
     }

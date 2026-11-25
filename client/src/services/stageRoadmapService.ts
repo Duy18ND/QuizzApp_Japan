@@ -2,7 +2,6 @@ import type { CmsSnapshot } from './adminCmsService';
 import { getLiveGrammarBooks, getLiveKanjis } from './curriculumStore';
 import {
   addDaysToDateKey,
-  buildRruleStringForDays,
   DEFAULT_TIMEZONE,
   getLocalDateKey,
   getNowInTimezone,
@@ -2066,53 +2065,6 @@ export function isDailyEnforcementPending(
     reminderTime: settings.reminderTime,
     repeatIntervalMinutes: settings.repeatIntervalMinutes,
   };
-}
-
-/**
- * Builds a 1-tap Google Calendar URL (NO `.ics` file download!).
- * Opens Google Calendar directly on mobile or desktop with pre-filled recurring reminder
- * and a deep link straight to `/roadmap/stages`.
- */
-export function buildOneTapStageGoogleCalendarUrl(options: {
-  level: StudyLevel;
-  textbookTitle: string;
-  mode: RoadmapMode;
-  reminderTime: string;
-  studyWeekdays: number[];
-  dailyMinutesTarget: DailyMinutesTarget;
-  startDate?: string;
-}): string {
-  const todayKey = getLocalDateKey();
-  const baseDate =
-    options.startDate && VALID_DATE_RE.test(options.startDate) && options.startDate >= todayKey
-      ? options.startDate
-      : todayKey;
-  const cleanTime = sanitizeTimeStr(options.reminderTime, '20:00');
-  const [hh, mm] = cleanTime.split(':').map(Number);
-  const startTotal = hh * 60 + mm;
-  const endTotal = startTotal + Math.max(15, options.dailyMinutesTarget);
-  const endH = String(Math.floor((endTotal % 1440) / 60)).padStart(2, '0');
-  const endM = String(endTotal % 60).padStart(2, '0');
-  const endDate = endTotal >= 1440 ? addDaysToDateKey(baseDate, 1) : baseDate;
-
-  const dtStart = `${baseDate.replace(/-/g, '')}T${String(hh).padStart(2, '0')}${String(mm).padStart(2, '0')}00`;
-  const dtEnd = `${endDate.replace(/-/g, '')}T${endH}${endM}00`;
-  const stageUrl =
-    typeof window !== 'undefined' && window.location
-      ? `${window.location.origin}${window.location.pathname}#/roadmap`
-      : 'https://duy18nd.github.io/QuizzApp_Japan/#/roadmap';
-
-  const modeLabel = options.mode === 'custom' ? 'Lộ trình tự tạo' : 'Lộ trình cố định';
-  const params = new URLSearchParams({
-    action: 'TEMPLATE',
-    text: `🇯🇵 Nihongo 問 — Mở Màn hôm nay (${options.level} · ${options.dailyMinutesTarget}p)`,
-    dates: `${dtStart}/${dtEnd}`,
-    details: `${modeLabel} (${options.textbookTitle}).\nOnline tối thiểu ${options.dailyMinutesTarget} phút & hoàn thành Màn hôm nay để mở khóa Màn kế tiếp.\nVào học ngay: ${stageUrl}`,
-    ctz: DEFAULT_TIMEZONE,
-    recur: buildRruleStringForDays(options.studyWeekdays),
-  });
-
-  return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 
 export function formatMmSs(totalSeconds: number): string {

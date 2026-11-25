@@ -4,7 +4,6 @@ import {
   Calendar,
   CheckCircle2,
   Clock,
-  ExternalLink,
   Flame,
   Pencil,
   Plus,
@@ -18,8 +17,6 @@ import { onActiveSessionUserChange } from '../../services/sessionScope';
 import { LoginRequiredState } from '../auth/LoginRequiredState';
 import {
   ALL_DAYS_ORDERED,
-  buildExamGoogleCalendarUrl,
-  buildGoogleCalendarUrl,
   calculateStudyStreakStats,
   deleteScheduleSlot,
   formatOnlineDurationVi,
@@ -320,22 +317,6 @@ export const StudyScheduleCard: React.FC<{ embedded?: boolean }> = ({ embedded =
     toast({ title: `Đã xóa lịch ${slotTime}`, tone: 'info' });
   };
 
-  const handleOpenGoogleCalendar = (slot?: StudyTimeSlot) => {
-    const url = buildGoogleCalendarUrl(schedule, slot);
-    window.open(url, '_blank', 'noopener,noreferrer');
-  };
-
-  const handleOpenExamGoogleCalendar = (offsetDays: 0 | 7) => {
-    if (!schedule.targetExamDate) return;
-    const url = buildExamGoogleCalendarUrl(
-      schedule.targetExamLevel,
-      schedule.targetExamDate,
-      offsetDays,
-      todayKey,
-    );
-    window.open(url, '_blank', 'noopener,noreferrer');
-  };
-
   const handleCompleteStudyToday = async () => {
     const updated = await recordStudyCompletion(todayKey, user?.id);
     setSchedule(updated);
@@ -364,7 +345,7 @@ export const StudyScheduleCard: React.FC<{ embedded?: boolean }> = ({ embedded =
               </h2>
             </div>
             <p className="text-xs text-muted sm:text-sm">
-              Đồng bộ lịch học qua Google Calendar và tự động tính chuỗi online theo thời gian bạn học trên web.
+              Thêm, sửa, xóa khung giờ học — mỗi khung giờ đều có thông báo đẩy về điện thoại kể cả khi đã thoát app. Chuỗi online được tính tự động theo thời gian bạn học trên web.
             </p>
           </div>
         )}
@@ -390,7 +371,7 @@ export const StudyScheduleCard: React.FC<{ embedded?: boolean }> = ({ embedded =
             1. Lịch nhắc giờ học (Study Reminders — Khi nào gửi thông báo)
           </h3>
           <p className="text-xs text-muted sm:text-sm">
-            Đặt khung giờ học và bấm <strong>Google Lịch</strong> để nhận chuông nhắc trên điện thoại/máy tính. Lịch{' '}
+            Đặt khung giờ học để nhận thông báo đẩy trên điện thoại/máy tính, kể cả khi đã thoát app. Lịch{' '}
             <strong>Repeats Weekly</strong> lặp hàng tuần; lịch <strong>One-Time</strong> nhắc 1 lần rồi tự xóa hết ngày.
           </p>
         </div>
@@ -443,17 +424,7 @@ export const StudyScheduleCard: React.FC<{ embedded?: boolean }> = ({ embedded =
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-[1.45fr_1fr_1fr] gap-1 min-[375px]:gap-1.5 sm:flex sm:shrink-0 sm:items-center sm:gap-2">
-                    <Button
-                      variant="soft"
-                      size="sm"
-                      aria-label={`Thêm lịch ${slot.time} vào Google Calendar`}
-                      className="justify-center gap-1 px-1.5 text-[11px] min-[375px]:gap-1.5 min-[375px]:px-2 min-[375px]:text-xs sm:px-3 sm:text-sm"
-                      leftIcon={<Calendar className="size-3 shrink-0 min-[375px]:size-3.5" aria-hidden />}
-                      onClick={() => handleOpenGoogleCalendar(slot)}
-                    >
-                      Google Lịch
-                    </Button>
+                  <div className="grid grid-cols-2 gap-1 min-[375px]:gap-1.5 sm:flex sm:shrink-0 sm:items-center sm:gap-2">
                     <Button
                       variant="secondary"
                       size="sm"
@@ -671,7 +642,7 @@ export const StudyScheduleCard: React.FC<{ embedded?: boolean }> = ({ embedded =
         </div>
       </section>
 
-      {/* 2. Merged Section 2 + 3: Study Goal & Streak (Auto Web Online Time + Exam Target & Calendar) */}
+      {/* 2. Merged Section 2 + 3: Study Goal & Streak (Auto Web Online Time + Exam Target) */}
       <section className="space-y-4 border-t border-line pt-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -754,15 +725,15 @@ export const StudyScheduleCard: React.FC<{ embedded?: boolean }> = ({ embedded =
           </div>
         </div>
 
-        {/* Merged JLPT Target Exam & Exam Calendar Reminder */}
+        {/* JLPT Target Exam countdown */}
         <div className="space-y-3 rounded-xl border border-line bg-surface-2 p-3 sm:p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <h4 className="text-xs font-semibold text-fg sm:text-sm">
-                Mục tiêu kỳ thi JLPT &amp; Lịch nhắc ngày thi
+                Mục tiêu kỳ thi JLPT
               </h4>
               <p className="text-xs text-muted">
-                Chọn cấp độ + ngày thi dự kiến để đếm ngược và đẩy lịch nhắc trực tiếp vào Google Calendar.
+                Chọn cấp độ + ngày thi dự kiến để đếm ngược số ngày còn lại.
               </p>
             </div>
 
@@ -837,34 +808,6 @@ export const StudyScheduleCard: React.FC<{ embedded?: boolean }> = ({ embedded =
             </div>
           </div>
 
-          {schedule.targetExamDate ? (
-            <div className="grid grid-cols-2 gap-1.5 border-t border-line pt-3 sm:flex sm:flex-wrap sm:items-center sm:gap-2.5">
-              <Button
-                variant="secondary"
-                size="sm"
-                className="h-auto min-h-9 justify-center gap-1 px-1.5 py-2 text-[11px] leading-tight whitespace-normal min-[375px]:gap-1.5 min-[375px]:px-2.5 min-[375px]:text-xs min-[375px]:whitespace-nowrap sm:px-3 sm:text-sm"
-                leftIcon={<AlarmClock className="size-3 shrink-0 min-[375px]:size-3.5 sm:size-4" aria-hidden />}
-                rightIcon={<ExternalLink className="hidden size-3.5 shrink-0 sm:inline" aria-hidden />}
-                onClick={() => handleOpenExamGoogleCalendar(7)}
-              >
-                Trước 7 ngày ôn
-              </Button>
-              <Button
-                variant="soft"
-                size="sm"
-                className="h-auto min-h-9 justify-center gap-1 px-1.5 py-2 text-[11px] leading-tight whitespace-normal min-[375px]:gap-1.5 min-[375px]:px-2.5 min-[375px]:text-xs min-[375px]:whitespace-nowrap sm:px-3 sm:text-sm"
-                leftIcon={<Calendar className="size-3 shrink-0 min-[375px]:size-3.5 sm:size-4" aria-hidden />}
-                rightIcon={<ExternalLink className="hidden size-3.5 shrink-0 sm:inline" aria-hidden />}
-                onClick={() => handleOpenExamGoogleCalendar(0)}
-              >
-                Ngày thi chính thức
-              </Button>
-            </div>
-          ) : (
-            <p className="border-t border-line pt-2.5 text-xs text-muted">
-              Chọn <strong>Ngày thi dự kiến</strong> để mở nút thêm lịch nhắc <strong>Trước 7 ngày ôn</strong> &amp; <strong>Ngày thi chính thức</strong> trên Google Calendar.
-            </p>
-          )}
         </div>
         </>
         )}
@@ -893,7 +836,7 @@ export const StudyScheduleModal: React.FC<StudyScheduleModalProps> = ({ open, on
           <span>Lịch nhắc học &amp; Mục tiêu JLPT</span>
         </span>
       }
-      description="Thêm lịch nhắc Google Calendar và theo dõi chuỗi học online tự động trên web."
+      description="Thêm, sửa, xóa khung giờ nhắc học (thông báo đẩy) và theo dõi chuỗi học online tự động trên web."
     >
       <StudyScheduleCard embedded />
     </Modal>
