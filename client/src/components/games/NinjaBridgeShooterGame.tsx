@@ -1019,9 +1019,10 @@ export const NinjaBridgeShooterGame: React.FC<NinjaBridgeShooterProps> = ({
       {/* Compact Control Bar — only input device mode */}
       <Card
         padding="sm"
-        className="flex flex-wrap items-center justify-between gap-2"
+        className="flex flex-wrap items-center justify-between gap-2 bg-surface/90 backdrop-blur-md"
       >
         <div className="flex flex-wrap items-center gap-1.5">
+          <span className="hidden text-xs font-medium text-muted sm:inline">Điều khiển:</span>
           {hwKeyboardDetected && (
             <Badge tone="success">⌨ Bàn phím rời</Badge>
           )}
@@ -1030,21 +1031,21 @@ export const NinjaBridgeShooterGame: React.FC<NinjaBridgeShooterProps> = ({
             onClick={() => selectControlMode('romaji')}
           >
             <Keyboard className="size-3.5" aria-hidden />
-            Gõ Phím (PC)
+            Gõ phím
           </Chip>
           <Chip
             selected={controlMode === 'tiles'}
             onClick={() => selectControlMode('tiles')}
           >
             <Puzzle className="size-3.5" aria-hidden />
-            Ghép Mảnh (Touch)
+            Ghép mảnh
           </Chip>
           <Chip
             selected={controlMode === 'tap4'}
             onClick={() => selectControlMode('tap4')}
           >
             <Smartphone className="size-3.5" aria-hidden />
-            Chạm 4 Bùa
+            Chạm chọn
           </Chip>
         </div>
 
@@ -1054,7 +1055,7 @@ export const NinjaBridgeShooterGame: React.FC<NinjaBridgeShooterProps> = ({
               selected={showRomajiOnTiles}
               onClick={() => setShowRomajiOnTiles((v) => !v)}
             >
-              Romaji trên mảnh ({showRomajiOnTiles ? 'BẬT' : 'TẮT'})
+              Hiện Romaji
             </Chip>
           )}
 

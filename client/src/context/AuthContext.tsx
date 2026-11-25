@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef } from 'react';
 import { broadcastUserProgressReset } from '../hooks/useUserProgress';
 import { clearInMemoryAccountData } from '../services/cloudProgressWriter';
 import { clearLastPracticeTarget } from '../services/lastPracticeService';
+import { clearMiniGameProfileCache } from '../services/miniGameProfileService';
 import {
   deriveClientPasswordHash,
   PASSWORD_HASH_SCHEME,
@@ -556,6 +557,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     purgeLegacyQuickTestStorage();
     purgeGuestStudyLevelStorage();
     clearInMemoryAccountData();
+    clearMiniGameProfileCache();
     clearSavedOAuthProviderToken();
     if (supabase) {
       try {

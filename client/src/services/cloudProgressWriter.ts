@@ -52,6 +52,8 @@ export const PRACTICE_TYPE_KEYS: Array<keyof GrammarProgress> = [
 export const MISTAKE_RESOLUTIONS_ITEM_ID = '__attempt_mistake_resolutions__';
 export const ONLINE_TIME_CLOUD_ITEM_ID = '__daily_online_study_time__';
 export const USER_CUSTOM_STUDIO_ITEM_ID = '__user_custom_studio__';
+/** Mini-game Ninja belt XP + daily challenge dates (see miniGameProfileService.ts) */
+export const MINIGAME_PROFILE_ITEM_ID = '__minigame_profile__';
 
 export interface AttemptMistakeResolutions {
   resolvedItemKeys: string[];
@@ -536,7 +538,8 @@ export async function deleteAllMistakesDirectFromSupabase(uid: string): Promise<
       .eq('item_type', 'mistake')
       .neq('item_id', MISTAKE_RESOLUTIONS_ITEM_ID)
       .neq('item_id', ONLINE_TIME_CLOUD_ITEM_ID)
-      .neq('item_id', USER_CUSTOM_STUDIO_ITEM_ID);
+      .neq('item_id', USER_CUSTOM_STUDIO_ITEM_ID)
+      .neq('item_id', MINIGAME_PROFILE_ITEM_ID);
   } catch (err) {
     console.warn('Direct mistakes reset failed:', err);
   }
