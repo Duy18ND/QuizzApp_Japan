@@ -249,6 +249,218 @@ export async function syncWebPushScheduleToCloud(
   }
 }
 
+export interface PwaPushDiagnosticStatus {
+  isStandalone: boolean;
+  isIos: boolean;
+  permission: BrowserNotificationState;
+  vapidConfigured: boolean;
+  swActive: boolean;
+  deviceSubscribed: boolean;
+  cloudSubscriptionCount: number;
+  cloudNotificationsEnabled: boolean | null;
+  cloudReminderTime: string | null;
+}
+
+export interface ServerWebPushTestResult {
+  ok: boolean;
+  sentCount: number;
+  delaySeconds: number;
+  reason?:
+    | 'no-supabase'
+    | 'no-vapid'
+    | 'not-standalone-ios'
+    | 'denied'
+    | 'no-sw'
+    | 'edge-error'
+    | 'no-subscription';
+  message: string;
+}
+
+export async function getPwaPushDiagnosticStatus(
+  userId?: string,
+): Promise<PwaPushDiagnosticStatus> {
+  const isStandalone = isRunningStandalone();
+  const isIos = isIosDevice();
+  const permission = getBrowserNotificationPermission();
+  const vapidConfigured = isWebPushConfigured();
+
+  let swActive = false;
+  let deviceSubscribed = false;
+  if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      swActive = Boolean(reg?.active);
+      if (reg && 'pushManager' in reg) {
+        const sub = await reg.pushManager.getSubscription();
+        deviceSubscribed = Boolean(sub);
+      }
+    } catch {
+      // Ignore SW capability errors
+    }
+  }
+
+  let cloudSubscriptionCount = 0;
+  let cloudNotificationsEnabled: boolean | null = null;
+  let cloudReminderTime: string | null = null;
+  if (supabase && userId && isSupabaseAccountUuid(userId)) {
+    try {
+      const { data, count } = await supabase
+        .from('user_push_subscriptions')
+        .select('id, notifications_enabled, reminder_time', { count: 'exact' })
+        .eq('user_id', userId)
+        .limit(1);
+      cloudSubscriptionCount = count ?? (data?.length || 0);
+      if (data && data[0]) {
+        cloudNotificationsEnabled = Boolean(data[0].notifications_enabled);
+        cloudReminderTime =
+          typeof data[0].reminder_time === 'string' ? data[0].reminder_time : null;
+      }
+    } catch {
+      // Non-blocking if schema not ready
+    }
+  }
+
+  return {
+    isStandalone,
+    isIos,
+    permission,
+    vapidConfigured,
+    swActive,
+    deviceSubscribed,
+    cloudSubscriptionCount,
+    cloudNotificationsEnabled,
+    cloudReminderTime,
+  };
+}
+
+/**
+ * Triggers a REAL VAPID Web Push from the Supabase Edge Function (`send-study-reminders`
+ * with `mode: 'self-test'`) after an optional server-side delay so the user can exit to
+ * the Home Screen and swipe the app completely out of Recent Apps ("xóa màn hình chờ").
+ */
+export async function triggerServerWebPushTest(options: {
+  payload: WebPushSchedulePayload;
+  delaySeconds?: number;
+  stageLabel?: string;
+}): Promise<ServerWebPushTestResult> {
+  const delaySeconds = Math.max(0, Math.min(25, Math.round(options.delaySeconds ?? 0)));
+
+  if (!supabase || !isSupabaseAccountUuid(options.payload.userId)) {
+    return {
+      ok: false,
+      sentCount: 0,
+      delaySeconds,
+      reason: 'no-supabase',
+      message: 'Cần đăng nhập tài khoản để gửi Server Web Push qua đám mây.',
+    };
+  }
+  if (!isWebPushConfigured()) {
+    return {
+      ok: false,
+      sentCount: 0,
+      delaySeconds,
+      reason: 'no-vapid',
+      message: 'Chưa cấu hình VITE_VAPID_PUBLIC_KEY để kích hoạt Web Push.',
+    };
+  }
+  if (isIosDevice() && !isRunningStandalone()) {
+    return {
+      ok: false,
+      sentCount: 0,
+      delaySeconds,
+      reason: 'not-standalone-ios',
+      message:
+        'Trên iPhone, bạn cần bấm Chia sẻ ➔ Thêm vào MH chính rồi mở App từ icon ngoài màn hình chính mới nhận được Server Web Push.',
+    };
+  }
+
+  let perm = getBrowserNotificationPermission();
+  if (perm !== 'granted') {
+    perm = await requestBrowserNotificationPermission();
+  }
+  if (perm !== 'granted') {
+    return {
+      ok: false,
+      sentCount: 0,
+      delaySeconds,
+      reason: 'denied',
+      message: 'Chưa có quyền Thông báo. Hãy bấm Cho phép thông báo trên thiết bị.',
+    };
+  }
+
+  const subRes = await subscribeAndSyncWebPush(options.payload);
+  if (!subRes.ok) {
+    return {
+      ok: false,
+      sentCount: 0,
+      delaySeconds,
+      reason: subRes.reason === 'no-sw' ? 'no-sw' : 'no-subscription',
+      message:
+        subRes.reason === 'no-sw'
+          ? 'Trình duyệt hiện tại chưa hỗ trợ Service Worker Web Push.'
+          : 'Không thể đăng ký PushManager trên thiết bị này.',
+    };
+  }
+
+  try {
+    const { data, error } = await supabase.functions.invoke('send-study-reminders', {
+      body: {
+        mode: 'self-test',
+        delaySeconds,
+        stageLabel: options.stageLabel || options.payload.activeStageLabel || 'Màn hôm nay',
+      },
+    });
+
+    if (error) {
+      return {
+        ok: false,
+        sentCount: 0,
+        delaySeconds,
+        reason: 'edge-error',
+        message:
+          'Edge Function `send-study-reminders` chưa cập nhật bản hỗ trợ test tức thì (hãy deploy lại `supabase/functions/send-study-reminders/index.ts` trên Supabase).',
+      };
+    }
+
+    const resObj = (data && typeof data === 'object' ? data : {}) as {
+      ok?: boolean;
+      sentCount?: number;
+      error?: string;
+    };
+    const sentCount = Number(resObj.sentCount || 0);
+    if (!resObj.ok || sentCount <= 0) {
+      return {
+        ok: false,
+        sentCount,
+        delaySeconds,
+        reason: 'edge-error',
+        message:
+          resObj.error ||
+          'Máy chủ chưa gửi được Push tới thiết bị (hãy kiểm tra lại VAPID secrets trên Supabase).',
+      };
+    }
+
+    return {
+      ok: true,
+      sentCount,
+      delaySeconds,
+      message:
+        delaySeconds > 0
+          ? `Server Cloud đã giữ hẹn ${delaySeconds}s và vừa bắn Web Push tới ${sentCount} thiết bị!`
+          : `Đã gửi thành công Server Web Push tới ${sentCount} thiết bị!`,
+    };
+  } catch {
+    return {
+      ok: false,
+      sentCount: 0,
+      delaySeconds,
+      reason: 'edge-error',
+      message:
+        'Không gọi được Edge Function `send-study-reminders`. Nếu mới cập nhật code, hãy deploy lại hàm này trên Supabase.',
+    };
+  }
+}
+
 export async function dispatchStudyReminderNotification(payload: {
   title: string;
   body: string;

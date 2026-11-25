@@ -45,6 +45,11 @@ import {
   type StudyTimeSlot,
 } from '../../services/notificationService';
 import {
+  isWebPushConfigured,
+  subscribeAndSyncWebPush,
+  syncWebPushScheduleToCloud,
+} from '../../services/pwaReminderService';
+import {
   loadStageRoadmapState,
   saveStageRoadmapState,
   type RepeatMinutesOption,
@@ -201,6 +206,29 @@ export const StudyScheduleCard: React.FC<{ embedded?: boolean }> = ({ embedded =
     const updated = await saveStudySchedule(patch, user?.id);
     setSchedule(updated);
     syncToStageRoadmap(updated);
+    if (user?.id && isWebPushConfigured()) {
+      const rmState = loadStageRoadmapState(user.id);
+      const pushPayload = {
+        userId: user.id,
+        notificationsEnabled: updated.enabled,
+        reminderTime: updated.primaryTime || rmState.fixedReminderTime || '20:00',
+        repeatIntervalMinutes:
+          updated.continuousRepeatMinutes || rmState.fixedRepeatIntervalMinutes || 10,
+        studyWeekdays:
+          updated.streakDaysOfWeek.length > 0 ? updated.streakDaysOfWeek : ALL_SEVEN_DAYS,
+        dailyMinutesTarget: rmState.fixedDailyMinutesTarget || 15,
+        lastCompletedDate: updated.completedDates.includes(todayKey) ? todayKey : null,
+      };
+      if (
+        updated.enabled &&
+        typeof Notification !== 'undefined' &&
+        Notification.permission === 'granted'
+      ) {
+        void subscribeAndSyncWebPush(pushPayload);
+      } else {
+        void syncWebPushScheduleToCloud(pushPayload);
+      }
+    }
     if (toastMsg) {
       toast({ title: toastMsg, tone: 'success' });
     }

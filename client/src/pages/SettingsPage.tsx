@@ -23,6 +23,7 @@ import { clearMistakes, hydrateMistakes } from '../store/slices/mistakeSlice';
 import type { UserProgress } from '../types/quiz';
 import { isSpeechSupported, speakJapanese } from '../utils/tts';
 import { LoginRequiredState } from '../components/auth/LoginRequiredState';
+import { NotificationTestAndCalendarCard } from '../components/settings/NotificationTestAndCalendarCard';
 import { StudyScheduleCard } from '../components/settings/StudyScheduleCard';
 import { useAuth } from '../context/auth-context';
 import { commitUserProgress, loadUserProgress } from '../hooks/useUserProgress';
@@ -339,7 +340,10 @@ export const SettingsPage: React.FC = () => {
         )}
       </Card>
 
-      {/* 1. Study Schedule & Google Calendar */}
+      {/* 1. ICS Export, PWA Install & 5-Mode Notification Tests */}
+      <NotificationTestAndCalendarCard />
+
+      {/* 2. Study Schedule & Google Calendar */}
       <StudyScheduleCard />
 
       {/* 2. Theme */}
