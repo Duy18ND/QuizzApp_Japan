@@ -5,16 +5,16 @@ on:
     branches: ["main"]
   workflow_dispatch:
 
-# Cấp quyền cho GitHub Actions có thể deploy lên Pages
+# Grant permissions for GitHub Actions to deploy to GitHub Pages
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Không cho phép 2 tiến trình deploy chạy đè lên nhau
+# Never cancel an in-flight Pages deployment (prevents stuck / HTTP 500 states)
 concurrency:
   group: "pages"
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -43,7 +43,7 @@ jobs:
           VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
 
       - name: Setup Pages
-        uses: actions/configure-pages@v4
+        uses: actions/configure-pages@v5
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
@@ -53,10 +53,24 @@ jobs:
   deploy:
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || steps.deployment_retry.outputs.page_url }}
     runs-on: ubuntu-latest
     needs: build
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
+        continue-on-error: true
         uses: actions/deploy-pages@v4
+        with:
+          error_count: '15'
+
+      - name: Wait before retry on transient GitHub Pages 5xx
+        if: steps.deployment.outcome == 'failure'
+        run: sleep 20
+
+      - name: Retry deploy to GitHub Pages
+        id: deployment_retry
+        if: steps.deployment.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+        with:
+          error_count: '15'

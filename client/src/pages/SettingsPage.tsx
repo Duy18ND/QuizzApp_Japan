@@ -4,7 +4,6 @@ import {
   Download,
   GraduationCap,
   Moon,
-  RotateCcw,
   Sun,
   Upload,
 } from 'lucide-react';
@@ -12,12 +11,9 @@ import { useAppSettings, type AppSettings } from '../hooks/useAppSettings';
 import { useTheme } from '../hooks/useTheme';
 import { useUserProgress } from '../hooks/useUserProgress';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import {
-  hydrateGrammarProgress,
-  resetAllGrammarProgress,
-} from '../store/slices/grammarProgressSlice';
-import { hydrateKanjiState, resetAllKanjiProgress } from '../store/slices/kanjiSlice';
-import { clearMistakes, hydrateMistakes } from '../store/slices/mistakeSlice';
+import { hydrateGrammarProgress } from '../store/slices/grammarProgressSlice';
+import { hydrateKanjiState } from '../store/slices/kanjiSlice';
+import { hydrateMistakes } from '../store/slices/mistakeSlice';
 import type { UserProgress } from '../types/quiz';
 import { LoginRequiredState } from '../components/auth/LoginRequiredState';
 import { StudyScheduleCard } from '../components/settings/StudyScheduleCard';
@@ -25,11 +21,7 @@ import { useAuth } from '../context/auth-context';
 import { commitUserProgress, loadUserProgress } from '../hooks/useUserProgress';
 import { cn } from '../lib/cn';
 import { loadStudySchedule } from '../services/notificationService';
-import { clearJlptProgressCache } from '../services/jlptProgressService';
-import {
-  clearAllCloudAccountData,
-  pushRestoredProgressToCloud,
-} from '../services/progressSyncService';
+import { pushRestoredProgressToCloud } from '../services/progressSyncService';
 import {
   getVocabTextbooksForLevel,
   resolveActiveVocabTextbook,
@@ -43,7 +35,6 @@ import {
   Button,
   Card,
   Chip,
-  Modal,
   Notice,
   PageContainer,
   PageHeader,
@@ -74,7 +65,7 @@ export const SettingsPage: React.FC = () => {
   const mistakeItems = useAppSelector((state) => state.mistake.mistakes);
   const { theme, setTheme } = useTheme();
   const { settings, updateSettings } = useAppSettings();
-  const { progress, resetProgress } = useUserProgress();
+  const { progress } = useUserProgress();
   const { toast } = useToast();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -83,7 +74,6 @@ export const SettingsPage: React.FC = () => {
     tone: 'success' | 'danger';
     message: string;
   } | null>(null);
-  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
 
   const handleSelectStudyLevel = async (level: StudyLevel, textbookId?: string) => {
     setSavingLevel(level);
@@ -182,20 +172,6 @@ export const SettingsPage: React.FC = () => {
       const msg = error instanceof Error ? error.message : 'Không thể đọc file sao lưu JSON.';
       setImportStatus({ tone: 'danger', message: msg });
     }
-  };
-
-  const handleConfirmReset = () => {
-    resetProgress();
-    dispatch(resetAllKanjiProgress());
-    dispatch(resetAllGrammarProgress());
-    dispatch(clearMistakes());
-    clearJlptProgressCache();
-    if (user?.id) {
-      void clearAllCloudAccountData(user.id);
-    }
-    setIsResetModalOpen(false);
-    setImportStatus({ tone: 'success', message: 'Đã đặt lại toàn bộ tiến độ học tập.' });
-    toast({ title: 'Đã đặt lại tiến độ học tập', tone: 'info' });
   };
 
   return (
@@ -401,31 +377,6 @@ export const SettingsPage: React.FC = () => {
         </>
         )}
       </Card>
-
-      <Modal
-        open={isResetModalOpen}
-        onClose={() => setIsResetModalOpen(false)}
-        title="Xác nhận đặt lại tiến độ?"
-        description="Hành động này không thể hoàn tác. Bạn nên xuất sao lưu (.json) trước khi tiếp tục."
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setIsResetModalOpen(false)}>
-              Hủy bỏ
-            </Button>
-            <Button
-              variant="danger"
-              leftIcon={<RotateCcw className="size-4" aria-hidden />}
-              onClick={handleConfirmReset}
-            >
-              Xác nhận xóa tất cả
-            </Button>
-          </>
-        }
-      >
-        <Notice tone="danger">
-          Toàn bộ dữ liệu Kanji, Ngữ pháp, Từ vựng ★/sai và lịch sử lỗi sai của tài khoản này sẽ bị xóa về 0.
-        </Notice>
-      </Modal>
     </PageContainer>
   );
 };
