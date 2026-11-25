@@ -77,7 +77,7 @@ function jsonResponse(payload: Record<string, unknown>, status = 200): Response 
   });
 }
 
-Deno.serve(async (req) => {
+async function handleRequest(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { status: 200, headers: CORS_HEADERS });
   }
@@ -87,7 +87,13 @@ Deno.serve(async (req) => {
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
   const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY') ?? '';
   const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY') ?? '';
-  const vapidSubject = Deno.env.get('VAPID_SUBJECT') ?? 'mailto:admin@nihongo-app.local';
+  // web-push requires a URL subject: accept a bare email in the secret and prefix `mailto:`.
+  const rawVapidSubject = (Deno.env.get('VAPID_SUBJECT') ?? '').trim();
+  const vapidSubject = !rawVapidSubject
+    ? 'mailto:admin@nihongo-app.local'
+    : /^(mailto:|https?:\/\/)/i.test(rawVapidSubject)
+      ? rawVapidSubject
+      : `mailto:${rawVapidSubject}`;
   const appBaseUrl = Deno.env.get('APP_BASE_URL') ?? 'https://duy18nd.github.io/QuizzApp_Japan';
 
   if (!supabaseUrl || !serviceKey || !vapidPublicKey || !vapidPrivateKey) {
@@ -107,7 +113,21 @@ Deno.serve(async (req) => {
     body = {};
   }
 
-  webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
+  try {
+    webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
+  } catch (vapidErr: unknown) {
+    const detail = vapidErr instanceof Error ? vapidErr.message : String(vapidErr);
+    console.error('invalid VAPID config', detail);
+    return jsonResponse(
+      {
+        ok: false,
+        reason: 'invalid-vapid',
+        error:
+          'Cấu hình VAPID trên Supabase không hợp lệ (xem log Edge Function để biết chi tiết).',
+      },
+      500,
+    );
+  }
   const supabase = createClient(supabaseUrl, serviceKey);
 
   // Mode 1: Authenticated user self-test push (supports server-side delay so user can exit & swipe app away)
@@ -336,4 +356,17 @@ Deno.serve(async (req) => {
   }
 
   return jsonResponse({ ok: true, sentCount, prunedCount, skippedCount });
+}
+
+Deno.serve(async (req) => {
+  try {
+    return await handleRequest(req);
+  } catch (err: unknown) {
+    // Never answer with a bare 500 + no CORS: the browser would only report "failed to fetch".
+    console.error('send-study-reminders crashed', err);
+    return jsonResponse(
+      { ok: false, reason: 'crash', error: 'Edge Function gặp lỗi nội bộ (xem log trên Supabase).' },
+      500,
+    );
+  }
 });
