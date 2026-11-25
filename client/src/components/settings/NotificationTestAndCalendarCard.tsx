@@ -344,7 +344,7 @@ export const NotificationTestAndCalendarCard: React.FC = () => {
     });
   };
 
-  const handleSwBackgroundTest = async (delaySeconds: 15 | 30) => {
+  const handleSwBackgroundTest = async (delaySeconds: 5) => {
     setTestingMode(`sw-${delaySeconds}`);
     const res = await scheduleDelayedLockscreenTestNotification(
       {
@@ -380,8 +380,8 @@ export const NotificationTestAndCalendarCard: React.FC = () => {
     });
   };
 
-  const handleServerPushTest = async (delaySeconds: 0 | 15) => {
-    setTestingMode(delaySeconds > 0 ? 'server-15' : 'server-0');
+  const handleServerPushTest = async (delaySeconds: 0 | 5) => {
+    setTestingMode(delaySeconds > 0 ? 'server-5' : 'server-0');
     if (delaySeconds > 0) {
       setServerCountdown(delaySeconds);
       toast({
@@ -392,7 +392,7 @@ export const NotificationTestAndCalendarCard: React.FC = () => {
         tone: 'info',
         title: `Server Cloud đang đếm ngược ${delaySeconds}s...`,
         detail:
-          '3 bước test thật: (1) Bấm Home thoát ra Màn hình chính ➔ (2) Mở Đa nhiệm vuốt XÓA hẳn app Nihongo 問 ➔ (3) Đợi 15 giây xem máy có tự nổ chuông từ Apple/Google Push không!',
+          '3 bước test thật: (1) Bấm Home thoát ra Màn hình chính ➔ (2) Mở Đa nhiệm vuốt XÓA hẳn app Nihongo 問 ➔ (3) Đợi 5 giây xem máy có tự nổ chuông từ Apple/Google Push không!',
       });
     }
 
@@ -606,7 +606,7 @@ export const NotificationTestAndCalendarCard: React.FC = () => {
             Các kiểu Test Thông báo thực tế (Từ tại chỗ tới Xóa app đa nhiệm)
           </h3>
           <p className="text-xs text-muted">
-            Thử lần lượt từ trái sang phải. Muốn kiểm chứng <strong>thoát khỏi màn hình chính &amp; vuốt xóa app khỏi đa nhiệm vẫn nảy thông báo</strong>, hãy dùng nút <strong>Test 5 (Server Web Push 15s)</strong>.
+            Thử lần lượt từ trái sang phải. Muốn kiểm chứng <strong>thoát khỏi màn hình chính &amp; vuốt xóa app khỏi đa nhiệm vẫn nảy thông báo</strong>, hãy dùng nút <strong>Test 5 (Server Web Push 5s)</strong>.
           </p>
         </div>
 
@@ -633,16 +633,16 @@ export const NotificationTestAndCalendarCard: React.FC = () => {
             disabled={testingMode !== null || swCountdown > 0}
             className="h-auto justify-start py-2.5 text-left"
             leftIcon={<Smartphone className="size-4 shrink-0 text-primary-fg" aria-hidden />}
-            onClick={() => void handleSwBackgroundTest(15)}
+            onClick={() => void handleSwBackgroundTest(5)}
           >
             <span className="flex flex-col">
               <span className="font-semibold">
                 {swCountdown > 0
                   ? `2. Đếm ngược SW (${swCountdown}s)...`
-                  : '2. Thoát ra MH chính (SW 15s)'}
+                  : '2. Thoát ra MH chính (SW 5s)'}
               </span>
               <span className="text-[11px] font-normal opacity-80">
-                Bấm Home ra ngoài hoặc khóa màn hình 15s
+                Bấm Home ra ngoài hoặc khóa màn hình 5s
               </span>
             </span>
           </Button>
@@ -654,10 +654,10 @@ export const NotificationTestAndCalendarCard: React.FC = () => {
             disabled={testingMode !== null || swCountdown > 0}
             className="h-auto justify-start py-2.5 text-left"
             leftIcon={<Lock className="size-4 shrink-0 text-primary-fg" aria-hidden />}
-            onClick={() => void handleSwBackgroundTest(30)}
+            onClick={() => void handleSwBackgroundTest(5)}
           >
             <span className="flex flex-col">
-              <span className="font-semibold text-fg">3. Khóa máy chờ sâu (SW 30s)</span>
+              <span className="font-semibold text-fg">3. Khóa máy chờ sâu (SW 5s)</span>
               <span className="text-[11px] font-normal text-muted">Đủ thời gian khóa máy &amp; chờ sáng màn</span>
             </span>
           </Button>
@@ -684,16 +684,16 @@ export const NotificationTestAndCalendarCard: React.FC = () => {
             disabled={testingMode !== null || serverCountdown > 0}
             className="h-auto justify-start py-2.5 text-left sm:col-span-2"
             leftIcon={<PowerOff className="size-4 shrink-0" aria-hidden />}
-            onClick={() => void handleServerPushTest(15)}
+            onClick={() => void handleServerPushTest(5)}
           >
             <span className="flex flex-col">
               <span className="font-semibold">
                 {serverCountdown > 0
                   ? `5. Đang chờ Server bắn Push (${serverCountdown}s) — Hãy vuốt xóa App ngay!`
-                  : '5. Test THOÁT MH CHÍNH + XÓA APP khỏi đa nhiệm (Server Push 15s)'}
+                  : '5. Test THOÁT MH CHÍNH + XÓA APP khỏi đa nhiệm (Server Push 5s)'}
               </span>
               <span className="text-[11px] font-normal opacity-90">
-                Bấm xong hãy thoát về MH chính, vuốt XÓA app ở Recent Apps &amp; tắt màn hình — sau 15s vẫn nảy chuông!
+                Bấm xong hãy thoát về MH chính, vuốt XÓA app ở Recent Apps &amp; tắt màn hình — sau 5s vẫn nảy chuông!
               </span>
             </span>
           </Button>

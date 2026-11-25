@@ -368,7 +368,7 @@ async function describeEdgeFunctionError(error: unknown): Promise<string> {
     return 'Supabase không chuyển được yêu cầu tới Edge Function (relay error). Kiểm tra hàm đã deploy và đang chạy.';
   }
   if (error instanceof FunctionsFetchError) {
-    return 'Không gọi được Edge Function (mất mạng hoặc sai VITE_SUPABASE_URL).';
+    return 'Không gọi được Edge Function: thường do bản hàm trên Supabase là bản cũ (chặn CORS) hoặc chưa deploy. Chạy: supabase functions deploy send-study-reminders --no-verify-jwt. Nếu đã deploy, kiểm tra mạng / VITE_SUPABASE_URL.';
   }
   return 'Không gọi được Edge Function `send-study-reminders`.';
 }
