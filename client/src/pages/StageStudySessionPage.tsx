@@ -143,6 +143,7 @@ export const StageStudySessionPage: React.FC = () => {
       roadmapState.activeMode === 'custom' && roadmapState.customConfig
         ? generateStageMap({
             mode: 'custom',
+            customRoadmapId: roadmapState.customConfig.id,
             level: roadmapState.customConfig.level,
             textbookId: roadmapState.customConfig.textbookId,
             userId: user?.id,
@@ -164,7 +165,11 @@ export const StageStudySessionPage: React.FC = () => {
             snapshot: cmsSnapshot,
             startDate: roadmapState.fixedStartDate,
             dailyMinutesTarget: roadmapState.fixedDailyMinutesTarget,
-            totalStages: getRecommendedFixedStageCount(level, book.id),
+            totalStages: getRecommendedFixedStageCount(
+              level,
+              book.id,
+              roadmapState.fixedDailyMinutesTarget,
+            ),
             studyWeekdays: roadmapState.fixedStudyWeekdays,
             includeKanaStarter: roadmapState.fixedIncludeKanaStarter,
           });

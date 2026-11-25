@@ -62,6 +62,7 @@ import {
   Badge,
   Button,
   Card,
+  Chip,
   Field,
   IconButton,
   Input,
@@ -87,15 +88,40 @@ function computeDaysUntilExam(targetDate: string, todayKey: string): number | nu
   return Math.round(diffMs / (1000 * 60 * 60 * 24));
 }
 
+/** Computes the next two official JLPT dates (first Sunday of July & December). */
+function getUpcomingJlptPresets(todayKey: string): Array<{ label: string; dateKey: string }> {
+  const baseYear = Number(todayKey.slice(0, 4)) || new Date().getFullYear();
+  const candidates: Array<{ label: string; dateKey: string }> = [];
+  for (const year of [baseYear, baseYear + 1]) {
+    for (const month of [7, 12]) {
+      const firstOfMonth = new Date(Date.UTC(year, month - 1, 1));
+      const offsetToSunday = (7 - firstOfMonth.getUTCDay()) % 7;
+      const day = 1 + offsetToSunday;
+      const dateKey = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      if (dateKey >= todayKey) {
+        candidates.push({
+          label: `JLPT T${month}/${year} (${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')})`,
+          dateKey,
+        });
+      }
+    }
+  }
+  return candidates.slice(0, 2);
+}
+
 export const StudyScheduleCard: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
-  const { user } = useAuth();
+  const { user, studyLevel } = useAuth();
   const { toast } = useToast();
 
   const [todayKey, setTodayKey] = useState(() => getLocalDateKey());
-  const [schedule, setSchedule] = useState<StudyScheduleConfig>(() => loadStudySchedule());
-  const [todayOnlineSeconds, setTodayOnlineSeconds] = useState(() => getTodayOnlineSeconds());
+  const [schedule, setSchedule] = useState<StudyScheduleConfig>(() =>
+    loadStudySchedule(getLocalDateKey(), user?.id),
+  );
+  const [todayOnlineSeconds, setTodayOnlineSeconds] = useState(() =>
+    getTodayOnlineSeconds(getLocalDateKey(), user?.id),
+  );
   const [totalOnlineSeconds, setTotalOnlineSeconds] = useState(() =>
-    getTotalOnlineSeconds(loadOnlineTimeMap()),
+    getTotalOnlineSeconds(loadOnlineTimeMap(user?.id)),
   );
   const [notifPermission, setNotifPermission] = useState<BrowserNotificationState>(() =>
     getBrowserNotificationPermission(),
@@ -126,8 +152,22 @@ export const StudyScheduleCard: React.FC<{ embedded?: boolean }> = ({ embedded =
     [schedule.completedDates, todayKey],
   );
   const examDaysLeft = computeDaysUntilExam(schedule.targetExamDate, todayKey);
+  const upcomingJlptPresets = useMemo(() => getUpcomingJlptPresets(todayKey), [todayKey]);
+  const displayedExamLevel: JLPTExamLevelGoal =
+    schedule.targetExamDate || schedule.updatedAt !== new Date(0).toISOString()
+      ? schedule.targetExamLevel
+      : ((studyLevel as JLPTExamLevelGoal | null) ?? schedule.targetExamLevel);
   const onlineRemainingSeconds = Math.max(0, ONLINE_STREAK_THRESHOLD_SECONDS - todayOnlineSeconds);
   const needsHomeScreenInstall = isIosDevice() && !isRunningStandalone();
+
+  const [syncedUserId, setSyncedUserId] = useState<string | undefined>(user?.id);
+  if (syncedUserId !== user?.id) {
+    setSyncedUserId(user?.id);
+    const latestDate = getLocalDateKey();
+    setSchedule(loadStudySchedule(latestDate, user?.id));
+    setTodayOnlineSeconds(getTodayOnlineSeconds(latestDate, user?.id));
+    setTotalOnlineSeconds(getTotalOnlineSeconds(loadOnlineTimeMap(user?.id)));
+  }
 
   useEffect(() => {
     if (!user?.id) return;
@@ -243,11 +283,17 @@ export const StudyScheduleCard: React.FC<{ embedded?: boolean }> = ({ embedded =
     }
   };
 
-  const applyUpdate = async (patch: Partial<StudyScheduleConfig>, toastMsg?: string) => {
+  const applyUpdate = async (
+    patch: Partial<StudyScheduleConfig>,
+    toastMsg?: string,
+    syncRoadmap = true,
+  ) => {
     const updated = await saveStudySchedule(patch, user?.id);
     setSchedule(updated);
-    syncToStageRoadmap(updated);
-    await syncPushForSchedule(updated, patch.enabled === true);
+    if (syncRoadmap) {
+      syncToStageRoadmap(updated);
+      await syncPushForSchedule(updated, patch.enabled === true);
+    }
     if (toastMsg) {
       toast({ title: toastMsg, tone: 'success' });
     }
@@ -376,7 +422,7 @@ export const StudyScheduleCard: React.FC<{ embedded?: boolean }> = ({ embedded =
               <h2 className="text-base font-semibold text-fg sm:text-lg">Lịch nhắc học</h2>
             </div>
             <p className="text-sm text-muted">
-              Đặt giờ học, app sẽ gửi thông báo về điện thoại kể cả khi bạn đã thoát app.
+              Đặt các khung giờ nhắc phụ toàn app (hằng tuần hoặc hẹn 1 lần) — độc lập với giờ nhắc riêng của từng lộ trình ở trang Lộ trình.
             </p>
           </div>
         )}
@@ -709,7 +755,7 @@ export const StudyScheduleCard: React.FC<{ embedded?: boolean }> = ({ embedded =
             <div className="space-y-3 rounded-xl border border-line bg-surface-2 p-3 sm:p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-sm font-medium text-fg">Kỳ thi JLPT</span>
-                {examDaysLeft !== null && (
+                {examDaysLeft !== null ? (
                   <Badge
                     tone={examDaysLeft > 0 ? 'primary' : examDaysLeft === 0 ? 'sakura' : 'warning'}
                   >
@@ -720,17 +766,23 @@ export const StudyScheduleCard: React.FC<{ embedded?: boolean }> = ({ embedded =
                         ? 'Hôm nay thi!'
                         : `Đã qua ${Math.abs(examDaysLeft)} ngày`}
                   </Badge>
+                ) : (
+                  <span className="text-xs text-muted">Chưa hẹn ngày thi</span>
                 )}
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Field label="Cấp độ" htmlFor="target-exam-level">
                   <Select
                     id="target-exam-level"
                     wrapperClassName="w-full"
                     className="w-full"
-                    value={schedule.targetExamLevel}
+                    value={displayedExamLevel}
                     onChange={(e) =>
-                      void applyUpdate({ targetExamLevel: e.target.value as JLPTExamLevelGoal })
+                      void applyUpdate(
+                        { targetExamLevel: e.target.value as JLPTExamLevelGoal },
+                        `Đã đặt mục tiêu kỳ thi JLPT ${e.target.value}`,
+                        false,
+                      )
                     }
                   >
                     {JLPT_EXAM_LEVELS.map((lvl) => (
@@ -744,17 +796,70 @@ export const StudyScheduleCard: React.FC<{ embedded?: boolean }> = ({ embedded =
                   <Input
                     id="target-exam-date"
                     type="date"
+                    min={todayKey}
                     value={schedule.targetExamDate}
                     onChange={(e) =>
                       void applyUpdate(
-                        { targetExamDate: e.target.value },
-                        e.target.value ? 'Đã lưu ngày thi' : 'Đã xóa ngày thi',
+                        {
+                          targetExamLevel: displayedExamLevel,
+                          targetExamDate: e.target.value,
+                        },
+                        e.target.value
+                          ? `Đã hẹn ngày thi ${formatVietnameseDateWithWeekday(e.target.value)}`
+                          : 'Đã xóa ngày thi',
+                        false,
                       )
                     }
                     className="w-full tabular-nums"
                   />
                 </Field>
               </div>
+
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-xs text-muted">Chọn nhanh kỳ thi:</span>
+                {upcomingJlptPresets.map((preset) => (
+                  <Chip
+                    key={preset.dateKey}
+                    selected={schedule.targetExamDate === preset.dateKey}
+                    onClick={() =>
+                      void applyUpdate(
+                        {
+                          targetExamLevel: displayedExamLevel,
+                          targetExamDate: preset.dateKey,
+                        },
+                        `Đã hẹn ${preset.label}`,
+                        false,
+                      )
+                    }
+                  >
+                    {preset.label}
+                  </Chip>
+                ))}
+                {schedule.targetExamDate && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() =>
+                      void applyUpdate({ targetExamDate: '' }, 'Đã xóa ngày thi', false)
+                    }
+                  >
+                    Xóa ngày
+                  </Button>
+                )}
+              </div>
+
+              {schedule.targetExamDate && examDaysLeft !== null && (
+                <p className="rounded-lg border border-primary/30 bg-primary-soft/35 px-3 py-2 text-xs text-fg">
+                  Mục tiêu <strong>JLPT {displayedExamLevel}</strong> vào{' '}
+                  <strong>{formatVietnameseDateWithWeekday(schedule.targetExamDate)}</strong>
+                  {examDaysLeft > 0
+                    ? ` — còn ${examDaysLeft} ngày (~${Math.max(1, Math.ceil(examDaysLeft / 7))} tuần) để ôn luyện.`
+                    : examDaysLeft === 0
+                      ? ' — chúc bạn thi thật tốt hôm nay!'
+                      : ` — kỳ thi này đã qua ${Math.abs(examDaysLeft)} ngày.`}
+                </p>
+              )}
             </div>
           </>
         )}

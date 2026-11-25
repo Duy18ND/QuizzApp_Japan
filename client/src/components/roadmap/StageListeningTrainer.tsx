@@ -16,6 +16,7 @@ import { AudioSpeechPlayer } from '../jlpt/AudioSpeechPlayer';
 import { FuriganaText } from '../jlpt/FuriganaText';
 import type { JLPTListeningItem } from '../../data/jlpt/jlptDataset';
 import { cn } from '../../lib/cn';
+import { markJlptItemDone } from '../../services/jlptProgressService';
 import { recordQuizAttempt } from '../../services/quizHistoryService';
 import { recordDailyStageSkillActivity } from '../../services/stageRoadmapService';
 import type { StudyLevel } from '../../services/userLevelService';
@@ -82,6 +83,9 @@ export const StageListeningTrainer: React.FC<StageListeningTrainerProps> = ({
         ? Math.max(5, Math.round((Date.now() - sessionStartRef.current) / 1000))
         : 60;
     recordDailyStageSkillActivity('listening', userId);
+    for (const it of items) {
+      markJlptItemDone(userId, 'listening', it.id);
+    }
     void recordQuizAttempt(
       {
         quizType: 'jlpt-listening',
@@ -94,13 +98,14 @@ export const StageListeningTrainer: React.FC<StageListeningTrainerProps> = ({
       userId,
     );
     setDone(true);
-  }, [items.length, level, userId]);
+  }, [items, level, userId]);
 
   const handlePickOption = useCallback(
     (optIdx: number) => {
       if (isAnswered || !currentItem) return;
       setPickedOpt(optIdx);
       if (optIdx === currentItem.correctIndex) {
+        markJlptItemDone(userId, 'listening', currentItem.id);
         setMasteredIds((prev) =>
           prev.includes(currentItem.id) ? prev : [...prev, currentItem.id],
         );
@@ -109,7 +114,7 @@ export const StageListeningTrainer: React.FC<StageListeningTrainerProps> = ({
         setQueue((prev) => [...prev, { itemId: currentItem.id, isRetry: true }]);
       }
     },
-    [currentItem, isAnswered],
+    [currentItem, isAnswered, userId],
   );
 
   const handleAdvance = useCallback(() => {

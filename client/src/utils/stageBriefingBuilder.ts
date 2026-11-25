@@ -751,72 +751,128 @@ export function buildStageBriefing(
     }
   }
 
-  // 6. Dedicated Flipcard -> 100% Quiz Decks (Vocab & Kanji)
-  const vocabQuizQuestions: StageMasteryQuestion[] = vocabItems.map((v, idx) => {
-    const hasDistinctKanji = v.japanese !== v.hiragana;
-    const askReading = idx % 2 === 1 && hasDistinctKanji;
-    if (askReading) {
-      const distractors = uniqueStrings(allVocabHiragana, v.hiragana, 3, [
-        'せんせい',
-        'がくせい',
-        'かいしゃいん',
-      ]);
-      const cIdx = (seed + idx) % 4;
-      return {
-        id: `${stage.id}-vq-${idx}`,
-        category: 'Từ vựng',
-        prompt: `Cách đọc Hiragana của từ 「${v.japanese}」 (${v.meaning}) là gì?`,
-        options: rotate4([v.hiragana, distractors[0], distractors[1], distractors[2]], cIdx),
-        correctIndex: cIdx,
-        explanation: `「${v.japanese}」 đọc là 「${v.hiragana}」 — nghĩa: ${v.meaning}.`,
-        reviewHint: 'Lật lại thẻ Từ vựng vừa học để ghi nhớ mặt chữ và cách đọc.',
-      };
+  // 6. Flipcard → 100% Quiz decks: every word / kanji is asked 3–5 times, each time a different
+  //    way (meaning ↔ word, reading ↔ writing, On / Kun, compound), interleaved round by round.
+  const interleaveRounds = (perItem: StageMasteryQuestion[][]): StageMasteryQuestion[] => {
+    const out: StageMasteryQuestion[] = [];
+    const maxRounds = Math.max(0, ...perItem.map((list) => list.length));
+    for (let round = 0; round < maxRounds; round += 1) {
+      for (const list of perItem) if (list[round]) out.push(list[round]);
     }
-    const distractors = uniqueStrings(allVocabMeanings, v.meaning, 3, [
-      'nhân viên công ty',
-      'bệnh viện / phòng khám',
-      'nhà ga gần đây',
-    ]);
-    const cIdx = (seed + idx + 1) % 4;
-    return {
-      id: `${stage.id}-vq-${idx}`,
-      category: 'Từ vựng',
-      prompt: `Từ 「${v.japanese}${hasDistinctKanji ? ` (${v.hiragana})` : ''}」 mang nghĩa nào?`,
-      options: rotate4([v.meaning, distractors[0], distractors[1], distractors[2]], cIdx),
-      correctIndex: cIdx,
-      explanation: `「${v.japanese}」 (${v.hiragana}) = ${v.meaning}.`,
-      reviewHint: 'Lật lại thẻ Từ vựng để nhớ rõ nghĩa tiếng Việt.',
-    };
-  });
+    return out;
+  };
 
-  const kanjiQuizQuestions: StageMasteryQuestion[] = kanjiItems.map((k, idx) => {
-    const fmt = (x: BriefingKanjiItem) =>
-      x.hanViet ? `${x.hanViet.toUpperCase()} — ${x.meaning}` : x.meaning;
-    const correctLabel = fmt(k);
-    const pool = effectiveKanjis
-      .filter((x) => x.id !== k.id)
-      .slice(0, 15)
-      .map((x) =>
-        x.hanViet
-          ? `${x.hanViet.toUpperCase()} — ${x.meanings.slice(0, 2).join(', ')}`
-          : x.meanings[0] || '',
-      );
-    const distractors = uniqueStrings(pool, correctLabel, 3, [
-      'NHẬT — mặt trời, ngày',
-      'NGUYỆT — mặt trăng, tháng',
-      'THỦY — nước',
-    ]);
-    const cIdx = (seed + idx) % 4;
-    return {
-      id: `${stage.id}-kq-${idx}`,
-      category: 'Chữ Hán',
-      prompt: `Chữ Hán 「${k.kanji}」${k.onReading ? ` (On: ${k.onReading})` : ''} có âm Hán Việt & nghĩa là gì?`,
-      options: rotate4([correctLabel, distractors[0], distractors[1], distractors[2]], cIdx),
-      correctIndex: cIdx,
-      explanation: `「${k.kanji}」 = ${correctLabel}${k.kunReading ? ` · Kun: ${k.kunReading}` : ''}.`,
-      reviewHint: 'Xem lại thẻ chữ Kanji này để nhớ âm Hán Việt & bộ thủ.',
-    };
-  });
+  const vocabQuizQuestions: StageMasteryQuestion[] = interleaveRounds(
+    vocabItems.map((v, idx) => {
+      const list: StageMasteryQuestion[] = [];
+      const hasKanjiForm = v.japanese !== v.hiragana;
+      const others = vocabItems.filter((x) => x.id !== v.id);
+      const vocabHint = 'Lật lại thẻ Từ vựng vừa học để ghi nhớ mặt chữ và cách đọc.';
+      const push = (kind: string, prompt: string, correct: string, pool: string[], fallbacks: string[], explanation: string) => {
+        const distractors = uniqueStrings(pool, correct, 3, fallbacks);
+        if (distractors.length < 3) return;
+        const cIdx = (seed + idx + list.length) % 4;
+        list.push({
+          id: `${stage.id}-vq-${idx}-${kind}`,
+          category: 'Từ vựng',
+          prompt,
+          options: rotate4([correct, distractors[0], distractors[1], distractors[2]], cIdx),
+          correctIndex: cIdx,
+          explanation,
+          reviewHint: vocabHint,
+        });
+      };
+      const shown = `${v.japanese}${hasKanjiForm ? ` (${v.hiragana})` : ''}`;
+
+      push('meaning', `Từ 「${shown}」 nghĩa là gì?`, v.meaning,
+        [...others.map((x) => x.meaning), ...allVocabMeanings],
+        ['nhân viên công ty', 'bệnh viện / phòng khám', 'nhà ga gần đây'],
+        `「${shown}」 = ${v.meaning}.`);
+      push('word', `"${v.meaning}" trong tiếng Nhật là từ nào?`, v.japanese,
+        [...others.map((x) => x.japanese), ...unitWords.map((w) => (w.kanji?.trim() || w.hiragana.trim()))],
+        ['せんせい', 'がっこう', 'でんしゃ'],
+        `"${v.meaning}" = 「${v.japanese}」${hasKanjiForm ? ` (${v.hiragana})` : ''}.`);
+      if (hasKanjiForm) {
+        push('reading', `Cách đọc Hiragana của 「${v.japanese}」 là gì?`, v.hiragana,
+          [...others.map((x) => x.hiragana), ...allVocabHiragana],
+          ['せんせい', 'がくせい', 'かいしゃいん'],
+          `「${v.japanese}」 đọc là 「${v.hiragana}」 — ${v.meaning}.`);
+        push('writing', `「${v.hiragana}」 (${v.meaning}) viết bằng chữ Hán là gì?`, v.japanese,
+          [...others.filter((x) => x.japanese !== x.hiragana).map((x) => x.japanese),
+            ...unitWords.filter((w) => w.kanji?.trim()).map((w) => w.kanji!.trim())],
+          ['学生', '会社', '電車'],
+          `「${v.hiragana}」 viết là 「${v.japanese}」.`);
+      }
+      if (list.length < 3) {
+        // Kana-only words: pick the correctly matched "word = meaning" pair
+        push('pair', 'Chọn cặp ghép đúng (từ = nghĩa):', `${v.japanese} = ${v.meaning}`,
+          others.map((x) => `${v.japanese} = ${x.meaning}`),
+          [`${v.japanese} = đi làm`, `${v.japanese} = buổi sáng`, `${v.japanese} = rất đẹp`],
+          `「${v.japanese}」 = ${v.meaning}.`);
+      }
+      return list;
+    }),
+  );
+
+  const kanjiQuizQuestions: StageMasteryQuestion[] = interleaveRounds(
+    kanjiItems.map((k, idx) => {
+      const list: StageMasteryQuestion[] = [];
+      const others = kanjiItems.filter((x) => x.id !== k.id);
+      const fmt = (x: { hanViet?: string; meaning: string }) =>
+        x.hanViet ? `${x.hanViet.toUpperCase()} — ${x.meaning}` : x.meaning;
+      const extraPool = effectiveKanjis.filter((x) => x.id !== k.id).slice(0, 20);
+      const kanjiHint = 'Xem lại thẻ chữ Kanji này để nhớ âm Hán Việt, âm On / Kun và từ ghép.';
+      const push = (kind: string, prompt: string, correct: string, pool: string[], fallbacks: string[], explanation: string) => {
+        const distractors = uniqueStrings(pool, correct, 3, fallbacks);
+        if (distractors.length < 3) return;
+        const cIdx = (seed + idx + list.length * 2) % 4;
+        list.push({
+          id: `${stage.id}-kq-${idx}-${kind}`,
+          category: 'Chữ Hán',
+          prompt,
+          options: rotate4([correct, distractors[0], distractors[1], distractors[2]], cIdx),
+          correctIndex: cIdx,
+          explanation,
+          reviewHint: kanjiHint,
+        });
+      };
+
+      push('meaning', `Chữ Hán 「${k.kanji}」 có âm Hán Việt & nghĩa là gì?`, fmt(k),
+        [...others.map(fmt), ...extraPool.map((x) => fmt({ hanViet: x.hanViet, meaning: x.meanings.slice(0, 2).join(', ') }))],
+        ['NHẬT — mặt trời, ngày', 'NGUYỆT — mặt trăng, tháng', 'THỦY — nước'],
+        `「${k.kanji}」 = ${fmt(k)}.`);
+      push('char', `Chữ Hán nào có nghĩa ${fmt(k)}?`, k.kanji,
+        [...others.map((x) => x.kanji), ...extraPool.map((x) => x.kanji)],
+        ['日', '月', '水'],
+        `${fmt(k)} → 「${k.kanji}」.`);
+      if (k.onReading) {
+        push('on', `Âm On (音読み) của 「${k.kanji}」 là gì?`, k.onReading,
+          [...others.map((x) => x.onReading ?? ''), ...extraPool.flatMap((x) => x.onReadings.slice(0, 1))],
+          ['ニチ', 'ゲツ', 'スイ'],
+          `「${k.kanji}」 âm On: ${k.onReading}${k.kunReading ? ` · âm Kun: ${k.kunReading}` : ''}.`);
+      }
+      if (k.kunReading) {
+        push('kun', `Âm Kun (訓読み) của 「${k.kanji}」 là gì?`, k.kunReading,
+          [...others.map((x) => x.kunReading ?? ''), ...extraPool.flatMap((x) => x.kunReadings.slice(0, 1))],
+          ['ひ', 'つき', 'みず'],
+          `「${k.kanji}」 âm Kun: ${k.kunReading}.`);
+      }
+      const compound = k.compounds.find((c) => c.word && c.hiragana && c.word !== c.hiragana);
+      if (compound) {
+        push('compound', `Từ ghép 「${compound.word}」 (có chữ ${k.kanji}) đọc là gì?`, compound.hiragana,
+          [...others.flatMap((x) => x.compounds.map((c) => c.hiragana)), ...allVocabHiragana],
+          ['にほん', 'がっこう', 'せんせい'],
+          `「${compound.word}」 đọc là 「${compound.hiragana}」 — ${compound.meaning}.`);
+      }
+      if (list.length < 3) {
+        push('pair', 'Chọn cặp ghép đúng (chữ Hán = Hán Việt & nghĩa):', `${k.kanji} = ${fmt(k)}`,
+          others.map((x) => `${k.kanji} = ${fmt(x)}`),
+          [`${k.kanji} = NHẬT — mặt trời`, `${k.kanji} = THỦY — nước`, `${k.kanji} = MỘC — cây`],
+          `「${k.kanji}」 = ${fmt(k)}.`);
+      }
+      return list;
+    }),
+  );
 
   // 7. Targeted Reading Passages & Listening Dialogues for this Stage
   const jlptFilter: JLPTLevelFilter =

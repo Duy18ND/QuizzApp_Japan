@@ -36,7 +36,6 @@ import {
   OPEN_LEVEL_MODAL_EVENT,
 } from '../../services/userLevelService';
 import { JapaneseLookupProvider } from '../common/JapaneseLookupPopover';
-import { DailyStudyGateBanner } from '../settings/DailyStudyGateBanner';
 import { LevelSelectionModal } from '../settings/LevelSelectionModal';
 import { Badge, LoadingState } from '../ui';
 import { buttonStyles } from '../ui/styles';
@@ -303,7 +302,6 @@ export const AppLayout: React.FC = () => {
         </div>
       </header>
 
-      <DailyStudyGateBanner />
 
       <main
         ref={mainRef}

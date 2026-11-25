@@ -7,7 +7,41 @@ import {
 } from './cloudProgressWriter';
 import { getActiveAuthenticatedUserId } from './sessionScope';
 
-export type CustomLessonKind = 'vocab' | 'grammar' | 'kanji';
+export type CustomLessonKind = 'vocab' | 'grammar' | 'kanji' | 'quiz';
+export type CustomLessonRole = 'vocab' | 'kanji' | 'grammar' | 'reading' | 'listening' | 'mixed';
+
+export const CUSTOM_ROLE_META: Record<
+  CustomLessonRole,
+  {
+    label: string;
+    tone: 'primary' | 'sakura' | 'success' | 'warning' | 'neutral';
+    stageSkill: 'vocab' | 'kanji' | 'grammar' | 'reading' | 'listening' | 'quiz';
+  }
+> = {
+  vocab: { label: 'Từ vựng', tone: 'primary', stageSkill: 'vocab' },
+  kanji: { label: 'Chữ Hán', tone: 'warning', stageSkill: 'kanji' },
+  grammar: { label: 'Ngữ pháp', tone: 'sakura', stageSkill: 'grammar' },
+  reading: { label: 'Đọc hiểu', tone: 'sakura', stageSkill: 'reading' },
+  listening: { label: 'Nghe hiểu', tone: 'primary', stageSkill: 'listening' },
+  mixed: { label: 'Tổng hợp', tone: 'success', stageSkill: 'quiz' },
+};
+
+export function resolveLessonRole(lesson: CustomLesson): CustomLessonRole {
+  if (
+    lesson.role === 'vocab' ||
+    lesson.role === 'kanji' ||
+    lesson.role === 'grammar' ||
+    lesson.role === 'reading' ||
+    lesson.role === 'listening' ||
+    lesson.role === 'mixed'
+  ) {
+    return lesson.role;
+  }
+  if (lesson.kind === 'vocab') return 'vocab';
+  if (lesson.kind === 'kanji') return 'kanji';
+  if (lesson.kind === 'grammar') return 'grammar';
+  return 'mixed';
+}
 
 export interface CustomVocabEntry {
   id: string;
@@ -36,15 +70,31 @@ export interface CustomKanjiEntry {
   mnemonic?: string;
 }
 
+export interface CustomQuizEntry {
+  id: string;
+  prompt: string;
+  options: string[];
+  correctIndex: number;
+  explanation?: string;
+  /** Japanese audio script read aloud via TTS (especially for Listening role). */
+  speakText?: string;
+  /** Optional uploaded audio clip (Data URL, e.g. mp3/m4a/wav). */
+  audioDataUrl?: string;
+  audioFileName?: string;
+}
+
 export interface CustomLesson {
   id: string;
   kind: CustomLessonKind;
+  /** Skill/topic role attached to a custom Quiz or Lesson (e.g. Từ vựng, Chữ Hán, Ngữ pháp...). */
+  role?: CustomLessonRole;
   title: string;
   level: JLPTLevel;
   description?: string;
   vocabItems?: CustomVocabEntry[];
   grammarItems?: CustomGrammarEntry[];
   kanjiItems?: CustomKanjiEntry[];
+  quizItems?: CustomQuizEntry[];
   createdAt: string;
   updatedAt: string;
 }
@@ -114,7 +164,10 @@ function sanitizeStudioState(raw: unknown): CustomStudioState {
           typeof l === 'object' &&
           typeof l.id === 'string' &&
           typeof l.title === 'string' &&
-          (l.kind === 'vocab' || l.kind === 'grammar' || l.kind === 'kanji'),
+          (l.kind === 'vocab' ||
+            l.kind === 'grammar' ||
+            l.kind === 'kanji' ||
+            l.kind === 'quiz'),
       )
     : [];
   const visualRoadmaps = Array.isArray(obj.visualRoadmaps)

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Flame,
   Heart,
+  Infinity as InfinityIcon,
   Play,
   RotateCcw,
   Star,
@@ -112,7 +113,7 @@ export const FruitSlashVocabGame: React.FC<FruitSlashVocabGameProps> = ({
   }, [words]);
 
   const [phase, setPhase] = useState<'ready' | 'playing' | 'ended'>('ready');
-  const [targetRounds, setTargetRounds] = useState<12 | 20>(12);
+  const [runMode, setRunMode] = useState<'lesson' | 'endless'>('lesson');
   const [internalSoundEnabled, setInternalSoundEnabled] = useState(true);
   const soundEnabled = externalSoundEnabled ?? internalSoundEnabled;
 
@@ -152,14 +153,14 @@ export const FruitSlashVocabGame: React.FC<FruitSlashVocabGameProps> = ({
   const scoreRef = useRef(0);
   const comboRef = useRef(0);
   const clearedRef = useRef(0);
-  const targetRoundsRef = useRef(12);
+  const runModeRef = useRef<'lesson' | 'endless'>('lesson');
   const soundRef = useRef(true);
   const finishNotifiedRef = useRef(false);
   const currentTargetRef = useRef<SlashWord | null>(null);
 
   useEffect(() => {
-    targetRoundsRef.current = targetRounds;
-  }, [targetRounds]);
+    runModeRef.current = runMode;
+  }, [runMode]);
 
   useEffect(() => {
     soundRef.current = soundEnabled;
@@ -176,6 +177,10 @@ export const FruitSlashVocabGame: React.FC<FruitSlashVocabGameProps> = ({
   const launchNextWave = useCallback(() => {
     if (pool.length === 0) return;
     if (deckRef.current.length === 0 || deckIdxRef.current >= deckRef.current.length) {
+      if (runModeRef.current === 'lesson' && deckRef.current.length > 0) {
+        setPhase('ended');
+        return;
+      }
       deckRef.current = shuffleArray(pool);
       deckIdxRef.current = 0;
     }
@@ -347,7 +352,7 @@ export const FruitSlashVocabGame: React.FC<FruitSlashVocabGameProps> = ({
           life: 1.25,
         });
 
-        if (clearedRef.current >= targetRoundsRef.current) {
+        if (runModeRef.current === 'lesson' && deckIdxRef.current >= deckRef.current.length) {
           setPhase('ended');
         } else {
           nextWaveTimerRef.current = 0.55;
@@ -656,7 +661,7 @@ export const FruitSlashVocabGame: React.FC<FruitSlashVocabGameProps> = ({
     lastPointerRef.current = null;
   };
 
-  const isVictory = phase === 'ended' && lives > 0 && clearedCount >= targetRounds;
+  const isVictory = phase === 'ended' && runMode === 'lesson' && lives > 0;
 
   return (
     <div className="space-y-3">
@@ -679,8 +684,15 @@ export const FruitSlashVocabGame: React.FC<FruitSlashVocabGameProps> = ({
                 />
               ))}
             </div>
-            <Badge tone="primary" className="tabular">
-              Đã chém: {clearedCount}/{targetRounds}
+            <Badge tone={runMode === 'endless' ? 'sakura' : 'primary'} className="tabular">
+              {runMode === 'endless' ? (
+                <>
+                  <InfinityIcon className="size-3.5" aria-hidden />
+                  Vô hạn · {clearedCount} từ
+                </>
+              ) : (
+                <>Đã chém: {clearedCount}/{pool.length}</>
+              )}
             </Badge>
             {combo > 1 && (
               <Badge tone="sakura" className="tabular">
@@ -763,20 +775,28 @@ export const FruitSlashVocabGame: React.FC<FruitSlashVocabGameProps> = ({
                     <p className="text-xs text-muted sm:text-sm">
                       Nhìn nghĩa tiếng Việt hiển thị ở thanh trên cùng → vuốt ngang (hoặc chạm nhanh) chém đôi quả cầu tiếng Nhật đúng nghĩa và tránh bom 💣!
                     </p>
-                    <div className="flex items-center justify-center gap-2">
-                      <span className="text-xs text-muted">Số đợt:</span>
-                      <Chip
-                        selected={targetRounds === 12}
-                        onClick={() => setTargetRounds(12)}
-                      >
-                        12 Từ (Nhanh)
-                      </Chip>
-                      <Chip
-                        selected={targetRounds === 20}
-                        onClick={() => setTargetRounds(20)}
-                      >
-                        20 Từ (Chuẩn)
-                      </Chip>
+                    <div className="space-y-1.5">
+                      <div className="flex flex-wrap items-center justify-center gap-2">
+                        <span className="text-xs text-muted">Chế độ:</span>
+                        <Chip
+                          selected={runMode === 'lesson'}
+                          onClick={() => setRunMode('lesson')}
+                        >
+                          Theo bài ({pool.length} từ)
+                        </Chip>
+                        <Chip
+                          selected={runMode === 'endless'}
+                          onClick={() => setRunMode('endless')}
+                        >
+                          <InfinityIcon className="size-3.5" aria-hidden />
+                          Random vô hạn
+                        </Chip>
+                      </div>
+                      <p className="text-[11px] text-muted">
+                        {runMode === 'lesson'
+                          ? `Chém lần lượt hết trọn bộ ${pool.length} từ trong bài đã chọn.`
+                          : 'Từ bay lên ngẫu nhiên vô hạn — chỉ thua khi hết 3 HP.'}
+                      </p>
                     </div>
                     <Button
                       type="button"
@@ -790,14 +810,31 @@ export const FruitSlashVocabGame: React.FC<FruitSlashVocabGameProps> = ({
                   </>
                 ) : (
                   <>
-                    <Badge tone={isVictory ? 'success' : 'warning'} className="mx-auto">
-                      {isVictory ? '★ Kiếm sĩ hoàn thành xuất sắc!' : 'Hết mạng rồi!'}
+                    <Badge
+                      tone={
+                        runMode === 'endless'
+                          ? 'sakura'
+                          : isVictory
+                            ? 'success'
+                            : 'warning'
+                      }
+                      className="mx-auto"
+                    >
+                      {runMode === 'endless'
+                        ? `∞ Hết HP · Chém được ${clearedCount} từ!`
+                        : isVictory
+                          ? `★ Hoàn thành trọn bộ ${pool.length} từ!`
+                          : 'Hết HP rồi!'}
                     </Badge>
                     <h2 className="text-2xl font-bold text-fg">
                       {score.toLocaleString('vi-VN')} điểm
                     </h2>
                     <p className="text-xs text-muted">
-                      Chém chuẩn: <strong className="text-fg">{clearedCount}/{targetRounds}</strong> từ · Đã tự động tích tiến độ học hôm nay.
+                      Chém chuẩn:{' '}
+                      <strong className="text-fg">
+                        {runMode === 'endless' ? `${clearedCount}` : `${clearedCount}/${pool.length}`}
+                      </strong>{' '}
+                      từ · Đã tự động tích tiến độ học hôm nay.
                     </p>
 
                     {missedWords.length > 0 && (

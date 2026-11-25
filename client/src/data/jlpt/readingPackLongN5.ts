@@ -1,0 +1,417 @@
+/**
+ * N5 long-reading pack: longer passages with 10–12 questions each
+ * (content, detail, vocabulary in context, kanji reading, true/false statements).
+ * Written with `{漢字|かな}` ruby (see situationPackUtils.ts).
+ */
+import type { JLPTReadingPassage } from './jlptDataset';
+import { situationReading } from './situationPackUtils';
+
+export const LONG_READING_N5: JLPTReadingPassage[] = [
+  situationReading({
+    id: 'long-n5-r01',
+    level: 'N5',
+    moduleId: 'reading-long',
+    situation: 'Trường học',
+    title: 'Một ngày ở trường tiếng Nhật của Lan',
+    paragraphs: [
+      'わたしはランです。ベトナムから{来|き}ました。いま、{東京|とうきょう}の{日本語|にほんご}{学校|がっこう}で{勉強|べんきょう}しています。{学校|がっこう}は{新宿|しんじゅく}{駅|えき}から{歩|ある}いて{十分|じゅっぷん}です。',
+      '{毎朝|まいあさ}{七時|しちじ}に{起|お}きます。{朝|あさ}ごはんはパンと{牛乳|ぎゅうにゅう}です。{八時|はちじ}{半|はん}に{家|いえ}を{出|で}て、{電車|でんしゃ}で{学校|がっこう}へ{行|い}きます。',
+      '{授業|じゅぎょう}は{九時|くじ}から{十二時|じゅうにじ}までです。{月曜日|げつようび}から{金曜日|きんようび}まで{毎日|まいにち}あります。クラスには{学生|がくせい}が{十五人|じゅうごにん}います。{中国|ちゅうごく}やタイやネパールの{人|ひと}もいます。',
+      '{先生|せんせい}は{山田|やまだ}{先生|せんせい}です。とても{親切|しんせつ}な{先生|せんせい}です。でも、{宿題|しゅくだい}が{多|おお}いです。わたしは{毎晩|まいばん}{一時間|いちじかん}{宿題|しゅくだい}をします。',
+      '{昼|ひる}ごはんは{学校|がっこう}の{近|ちか}くの{食堂|しょくどう}で{友|とも}だちと{食|た}べます。{午後|ごご}はコンビニでアルバイトをします。{土曜日|どようび}と{日曜日|にちようび}は{休|やす}みですから、{友|とも}だちと{公園|こうえん}へ{行|い}ったり、{映画|えいが}を{見|み}たりします。',
+    ],
+    translation:
+      'Tôi là Lan, đến từ Việt Nam. Hiện tôi đang học ở một trường tiếng Nhật tại Tokyo. Trường cách ga Shinjuku 10 phút đi bộ. Sáng nào tôi cũng dậy lúc 7 giờ, ăn sáng bánh mì và sữa. 8 rưỡi tôi ra khỏi nhà, đi tàu điện đến trường. Giờ học từ 9 giờ đến 12 giờ, ngày nào cũng có từ thứ Hai đến thứ Sáu. Lớp có 15 học sinh, có cả người Trung Quốc, Thái Lan, Nepal. Giáo viên là cô/thầy Yamada, rất tốt bụng. Nhưng bài tập về nhà nhiều, tối nào tôi cũng làm bài tập 1 tiếng. Trưa tôi ăn với bạn ở nhà ăn gần trường. Buổi chiều tôi làm thêm ở cửa hàng tiện lợi. Thứ Bảy và Chủ nhật được nghỉ nên tôi cùng bạn đi công viên, xem phim…',
+    vocab: [
+      ['授業', 'じゅぎょう', 'giờ học, tiết học'],
+      ['宿題', 'しゅくだい', 'bài tập về nhà'],
+      ['親切', 'しんせつ', 'tốt bụng, tử tế'],
+      ['食堂', 'しょくどう', 'nhà ăn'],
+      ['毎晩', 'まいばん', 'mỗi tối'],
+    ],
+    questions: [
+      {
+        prompt: 'ランさんはどこの{国|くに}の{人|ひと}ですか。',
+        options: ['ベトナム', '中国', 'タイ', 'ネパール'],
+        correct: 0,
+        explanation: '「ベトナムから来ました」→ Lan là người Việt Nam.',
+      },
+      {
+        prompt: '{学校|がっこう}は{駅|えき}からどのぐらいですか。',
+        options: ['電車で十分', '歩いて十分', 'バスで十分', '歩いて三十分'],
+        correct: 1,
+        explanation: '「新宿駅から歩いて十分です」→ đi bộ 10 phút.',
+      },
+      {
+        prompt: 'ランさんは{何時|なんじ}に{家|いえ}を{出|で}ますか。',
+        options: ['7:00', '8:00', '8:30', '9:00'],
+        correct: 2,
+        explanation: '「八時半に家を出て」→ 8 giờ 30. 7 giờ là giờ dậy, 9 giờ là giờ vào học.',
+      },
+      {
+        prompt: 'ランさんは{朝|あさ}{何|なに}を{食|た}べますか。',
+        options: ['ごはんとみそしる', 'パンと牛乳', 'ラーメン', '何も食べません'],
+        correct: 1,
+        explanation: '「朝ごはんはパンと牛乳です」→ bánh mì và sữa.',
+      },
+      {
+        prompt: '{授業|じゅぎょう}は{一日|いちにち}{何時間|なんじかん}ですか。',
+        options: ['一時間', '二時間', '三時間', '四時間'],
+        correct: 2,
+        explanation: 'Học từ 9 giờ đến 12 giờ → 3 tiếng.',
+      },
+      {
+        prompt: 'クラスに{学生|がくせい}は{何人|なんにん}いますか。',
+        options: ['五人', '十人', '十五人', '五十人'],
+        correct: 2,
+        explanation: '「学生が十五人います」→ 15 người.',
+      },
+      {
+        prompt: '「{親切|しんせつ}」の{読|よ}み{方|かた}はどれですか。',
+        options: ['しんせつ', 'しんぜつ', 'おやせつ', 'しんきり'],
+        correct: 0,
+        explanation: '親切 đọc là しんせつ — tốt bụng, tử tế.',
+      },
+      {
+        prompt: 'ランさんは{山田|やまだ}{先生|せんせい}についてどう{思|おも}っていますか。',
+        options: [
+          '親切ですが、宿題が多いです',
+          'こわいですが、宿題が少ないです',
+          '親切で、宿題がありません',
+          'あまり親切じゃありません',
+        ],
+        correct: 0,
+        explanation: '「とても親切な先生です。でも、宿題が多いです」.',
+      },
+      {
+        prompt: 'ランさんは{毎晩|まいばん}どのぐらい{宿題|しゅくだい}をしますか。',
+        options: ['三十分', '一時間', '二時間', 'しません'],
+        correct: 1,
+        explanation: '「毎晩一時間宿題をします」→ 1 tiếng.',
+      },
+      {
+        prompt: 'ランさんは{午後|ごご}{何|なに}をしますか。',
+        options: ['学校で勉強します', '公園へ行きます', 'コンビニでアルバイトをします', '家で寝ます'],
+        correct: 2,
+        explanation: '「午後はコンビニでアルバイトをします」.',
+      },
+      {
+        prompt: '{文章|ぶんしょう}の{内容|ないよう}と{合|あ}っているものはどれですか。',
+        options: [
+          'ランさんは土曜日も学校へ行きます',
+          'ランさんは昼ごはんを家で食べます',
+          'ランさんのクラスにはいろいろな国の人がいます',
+          'ランさんはバスで学校へ行きます',
+        ],
+        correct: 2,
+        explanation: 'Lớp có người Trung Quốc, Thái, Nepal → nhiều quốc tịch. Thứ Bảy nghỉ; trưa ăn ở nhà ăn; đi bằng tàu điện.',
+      },
+      {
+        prompt: '{休|やす}みの{日|ひ}、ランさんは{何|なに}をしますか。',
+        options: ['アルバイトだけします', '友だちと公園へ行ったり映画を見たりします', '一日中宿題をします', 'ベトナムへ帰ります'],
+        correct: 1,
+        explanation: '「友だちと公園へ行ったり、映画を見たりします」.',
+      },
+    ],
+  }),
+  situationReading({
+    id: 'long-n5-r02',
+    level: 'N5',
+    moduleId: 'reading-long',
+    situation: 'Mua sắm',
+    title: 'Đi mua quà sinh nhật cho mẹ',
+    paragraphs: [
+      '{来週|らいしゅう}の{水曜日|すいようび}は{母|はは}の{誕生日|たんじょうび}です。きのう、{妹|いもうと}といっしょにデパートへプレゼントを{買|か}いに{行|い}きました。',
+      'デパートの{一階|いっかい}にはかばんや{靴|くつ}がありました。{赤|あか}いかばんはとてもきれいでしたが、{二万円|にまんえん}でした。{高|たか}かったですから、{買|か}いませんでした。',
+      '{三階|さんがい}へ{行|い}きました。{三階|さんがい}にはセーターやスカーフがありました。{妹|いもうと}は{青|あお}いセーターがいいと{言|い}いました。でも、{母|はは}は{青|あお}があまり{好|す}きじゃありません。',
+      'わたしたちは{白|しろ}いスカーフを{買|か}いました。{四千円|よんせんえん}でした。{妹|いもうと}と{半分|はんぶん}ずつお{金|かね}を{払|はら}いました。それから、{地下|ちか}でケーキも{買|か}いました。',
+      '{帰|かえ}りに、{喫茶店|きっさてん}でコーヒーを{飲|の}みました。{母|はは}はスカーフが{好|す}きですから、きっと{喜|よろこ}ぶと{思|おも}います。',
+    ],
+    translation:
+      'Thứ Tư tuần sau là sinh nhật mẹ. Hôm qua tôi cùng em gái đi trung tâm thương mại mua quà. Tầng 1 có túi và giày. Chiếc túi đỏ rất đẹp nhưng giá 20.000 yên, đắt nên không mua. Lên tầng 3 có áo len và khăn quàng. Em gái nói áo len xanh được đấy, nhưng mẹ không thích màu xanh lắm. Chúng tôi mua khăn quàng trắng, 4.000 yên, hai chị em mỗi người trả một nửa. Sau đó còn mua bánh kem ở tầng hầm. Trên đường về chúng tôi uống cà phê ở quán. Mẹ thích khăn quàng nên chắc chắn sẽ vui.',
+    vocab: [
+      ['誕生日', 'たんじょうび', 'sinh nhật'],
+      ['半分', 'はんぶん', 'một nửa'],
+      ['地下', 'ちか', 'tầng hầm'],
+      ['喫茶店', 'きっさてん', 'quán cà phê'],
+      ['喜ぶ', 'よろこぶ', 'vui mừng'],
+    ],
+    questions: [
+      {
+        prompt: 'お{母|かあ}さんの{誕生日|たんじょうび}はいつですか。',
+        options: ['きのう', 'きょう', '来週の水曜日', '来週の金曜日'],
+        correct: 2,
+        explanation: '「来週の水曜日は母の誕生日です」.',
+      },
+      {
+        prompt: 'だれとデパートへ{行|い}きましたか。',
+        options: ['母', '妹', '友だち', 'ひとりで行きました'],
+        correct: 1,
+        explanation: '「妹といっしょにデパートへ…行きました」.',
+      },
+      {
+        prompt: 'どうして{赤|あか}いかばんを{買|か}いませんでしたか。',
+        options: ['きれいじゃなかったから', '高かったから', '小さかったから', '母が赤が嫌いだから'],
+        correct: 1,
+        explanation: '「二万円でした。高かったですから、買いませんでした」.',
+      },
+      {
+        prompt: 'セーターは{何階|なんがい}にありましたか。',
+        options: ['地下', '一階', '二階', '三階'],
+        correct: 3,
+        explanation: '「三階にはセーターやスカーフがありました」.',
+      },
+      {
+        prompt: 'どうして{青|あお}いセーターを{買|か}いませんでしたか。',
+        options: ['母は青があまり好きじゃないから', '高かったから', '妹が嫌いだったから', 'ありませんでしたから'],
+        correct: 0,
+        explanation: '「母は青があまり好きじゃありません」.',
+      },
+      {
+        prompt: '{二人|ふたり}は{何|なに}を{買|か}いましたか。',
+        options: ['赤いかばんとケーキ', '青いセーターとケーキ', '白いスカーフとケーキ', '白いスカーフとコーヒー'],
+        correct: 2,
+        explanation: 'Mua khăn quàng trắng, rồi mua thêm bánh kem ở tầng hầm.',
+      },
+      {
+        prompt: 'わたしはスカーフにいくら{払|はら}いましたか。',
+        options: ['四千円', '二千円', '一千円', '二万円'],
+        correct: 1,
+        explanation: 'Khăn 4.000 yên, chia đôi với em gái (半分ずつ) → mỗi người 2.000 yên.',
+      },
+      {
+        prompt: 'ケーキはどこで{買|か}いましたか。',
+        options: ['一階', '三階', '地下', '喫茶店'],
+        correct: 2,
+        explanation: '「地下でケーキも買いました」.',
+      },
+      {
+        prompt: '「{半分|はんぶん}ずつ」の{意味|いみ}はどれですか。',
+        options: ['mỗi người một nửa', 'chỉ một nửa', 'gấp đôi', 'từng chút một'],
+        correct: 0,
+        explanation: '半分 = một nửa; 〜ずつ = mỗi người/mỗi lần ~ → mỗi người trả một nửa.',
+      },
+      {
+        prompt: '「{喫茶店|きっさてん}」の{読|よ}み{方|かた}はどれですか。',
+        options: ['きっさてん', 'きつちゃてん', 'きさてん', 'のみてん'],
+        correct: 0,
+        explanation: '喫茶店 = きっさてん (quán cà phê, quán nước).',
+      },
+      {
+        prompt: '{文章|ぶんしょう}の{内容|ないよう}と{合|あ}っているものはどれですか。',
+        options: [
+          'わたしはひとりでプレゼントを買いました',
+          'わたしたちはデパートでコーヒーを飲みませんでした',
+          '母は青い色が大好きです',
+          'わたしたちはかばんを買いました',
+        ],
+        correct: 1,
+        explanation: 'Uống cà phê ở 喫茶店 trên đường về (帰りに), không phải trong trung tâm thương mại.',
+      },
+    ],
+  }),
+  situationReading({
+    id: 'long-n5-r03',
+    level: 'N5',
+    moduleId: 'reading-long',
+    situation: 'Du lịch & Khách sạn',
+    title: 'Nhật ký chuyến đi Kyoto',
+    paragraphs: [
+      '{先週|せんしゅう}の{土曜日|どようび}、{会社|かいしゃ}の{友|とも}だちと{三人|さんにん}で{京都|きょうと}へ{行|い}きました。{東京|とうきょう}から{新幹線|しんかんせん}で{二時間|にじかん}{半|はん}ぐらいかかりました。',
+      '{京都|きょうと}{駅|えき}に{着|つ}いて、まず{お寺|おてら}を{見|み}に{行|い}きました。{古|ふる}くて、{大|おお}きいお{寺|てら}でした。{人|ひと}がとても{多|おお}かったです。{外国|がいこく}の{人|ひと}もたくさんいました。',
+      '{昼|ひる}ごはんに{有名|ゆうめい}な{店|みせ}で{豆腐|とうふ}の{料理|りょうり}を{食|た}べました。{少|すこ}し{高|たか}かったですが、とてもおいしかったです。',
+      '{午後|ごご}は{雨|あめ}が{降|ふ}りましたから、{博物館|はくぶつかん}に{入|はい}りました。{夜|よる}は{旅館|りょかん}に{泊|と}まりました。{旅館|りょかん}の{部屋|へや}は{広|ひろ}くて、{静|しず}かでした。お{風呂|ふろ}も{気持|きも}ちがよかったです。',
+      '{日曜日|にちようび}は{天気|てんき}がよかったです。{朝|あさ}{早|はや}く{山|やま}に{登|のぼ}って、{写真|しゃしん}をたくさん{撮|と}りました。{家族|かぞく}にお{土産|みやげ}を{買|か}って、{夕方|ゆうがた}{東京|とうきょう}へ{帰|かえ}りました。また{行|い}きたいです。',
+    ],
+    translation:
+      'Thứ Bảy tuần trước tôi cùng bạn ở công ty, 3 người, đi Kyoto. Từ Tokyo đi Shinkansen mất khoảng 2 tiếng rưỡi. Đến ga Kyoto, trước tiên chúng tôi đi xem chùa. Chùa cổ và to. Rất đông người, có nhiều người nước ngoài. Trưa ăn món đậu phụ ở một quán nổi tiếng, hơi đắt nhưng rất ngon. Chiều trời mưa nên vào viện bảo tàng. Tối nghỉ ở lữ quán (ryokan). Phòng rộng và yên tĩnh, bồn tắm cũng dễ chịu. Chủ nhật trời đẹp. Sáng sớm leo núi, chụp nhiều ảnh. Mua quà cho gia đình rồi chiều tối về Tokyo. Tôi muốn đi lần nữa.',
+    vocab: [
+      ['新幹線', 'しんかんせん', 'tàu cao tốc Shinkansen'],
+      ['博物館', 'はくぶつかん', 'viện bảo tàng'],
+      ['旅館', 'りょかん', 'lữ quán kiểu Nhật'],
+      ['泊まる', 'とまる', 'nghỉ lại, trọ'],
+      ['お土産', 'おみやげ', 'quà lưu niệm'],
+    ],
+    questions: [
+      {
+        prompt: '{京都|きょうと}へ{何人|なんにん}で{行|い}きましたか。',
+        options: ['ひとり', '二人', '三人', '四人'],
+        correct: 2,
+        explanation: '「会社の友だちと三人で」→ tổng cộng 3 người.',
+      },
+      {
+        prompt: '{東京|とうきょう}から{京都|きょうと}まで{何|なに}で{行|い}きましたか。',
+        options: ['飛行機', 'バス', '車', '新幹線'],
+        correct: 3,
+        explanation: '「新幹線で二時間半ぐらいかかりました」.',
+      },
+      {
+        prompt: '{京都|きょうと}で{最初|さいしょ}に{何|なに}をしましたか。',
+        options: ['お寺を見に行きました', '昼ごはんを食べました', '博物館に入りました', '山に登りました'],
+        correct: 0,
+        explanation: '「まずお寺を見に行きました」— まず = trước tiên.',
+      },
+      {
+        prompt: 'お{寺|てら}はどうでしたか。',
+        options: ['新しくて小さかった', '古くて大きかった', '人が少なかった', '静かだった'],
+        correct: 1,
+        explanation: '「古くて、大きいお寺でした。人がとても多かったです」.',
+      },
+      {
+        prompt: '{昼|ひる}ごはんはどうでしたか。',
+        options: ['安くておいしかった', '高くてまずかった', '少し高かったが、おいしかった', '食べませんでした'],
+        correct: 2,
+        explanation: '「少し高かったですが、とてもおいしかったです」.',
+      },
+      {
+        prompt: 'どうして{博物館|はくぶつかん}に{入|はい}りましたか。',
+        options: ['雨が降ったから', '暑かったから', '友だちが行きたかったから', '有名だったから'],
+        correct: 0,
+        explanation: '「午後は雨が降りましたから、博物館に入りました」.',
+      },
+      {
+        prompt: '{夜|よる}はどこに{泊|と}まりましたか。',
+        options: ['ホテル', '友だちの家', '旅館', '新幹線'],
+        correct: 2,
+        explanation: '「夜は旅館に泊まりました」.',
+      },
+      {
+        prompt: '「{泊|と}まりました」の{意味|いみ}はどれですか。',
+        options: ['đã dừng lại', 'đã nghỉ lại qua đêm', 'đã ăn tối', 'đã tắm'],
+        correct: 1,
+        explanation: '泊まる = nghỉ lại, trọ qua đêm (khác 止まる = dừng lại).',
+      },
+      {
+        prompt: '{旅館|りょかん}の{部屋|へや}はどうでしたか。',
+        options: ['狭くてうるさかった', '広くて静かだった', '広いですが、うるさかった', '狭いですが、静かだった'],
+        correct: 1,
+        explanation: '「部屋は広くて、静かでした」.',
+      },
+      {
+        prompt: '{日曜日|にちようび}の{朝|あさ}、{何|なに}をしましたか。',
+        options: ['お寺を見ました', '山に登って写真を撮りました', '旅館で寝ていました', '東京へ帰りました'],
+        correct: 1,
+        explanation: '「朝早く山に登って、写真をたくさん撮りました」.',
+      },
+      {
+        prompt: '「お{土産|みやげ}」の{読|よ}み{方|かた}はどれですか。',
+        options: ['おどさん', 'おみやげ', 'おつちさん', 'おみあげ'],
+        correct: 1,
+        explanation: 'お土産 = おみやげ (quà mua khi đi du lịch về).',
+      },
+      {
+        prompt: '{文章|ぶんしょう}の{内容|ないよう}と{合|あ}っているものはどれですか。',
+        options: [
+          '二日とも天気がよかった',
+          '日曜日の夕方に東京へ帰った',
+          'お寺には外国の人がいなかった',
+          'もう京都へ行きたくない',
+        ],
+        correct: 1,
+        explanation: '「夕方東京へ帰りました」. Thứ Bảy chiều mưa; có nhiều người nước ngoài; 「また行きたいです」.',
+      },
+    ],
+  }),
+  situationReading({
+    id: 'long-n5-r04',
+    level: 'N5',
+    moduleId: 'reading-long',
+    situation: 'Nhà ở & Hàng xóm',
+    title: 'Căn phòng mới của Minh',
+    paragraphs: [
+      'ミンさんは{先月|せんげつ}{新|あたら}しいアパートに{引|ひ}っ{越|こ}しました。アパートは{駅|えき}から{少|すこ}し{遠|とお}いですが、{近|ちか}くに{大|おお}きいスーパーと{病院|びょういん}があります。',
+      'ミンさんの{部屋|へや}は{二階|にかい}です。{部屋|へや}は{一|ひと}つだけですが、{明|あか}るくてきれいです。{窓|まど}から{公園|こうえん}が{見|み}えます。{家賃|やちん}は{一|いっ}か{月|げつ}{五万円|ごまんえん}です。',
+      '{部屋|へや}にはベッドと{机|つくえ}があります。でも、テレビとソファはまだありません。{来週|らいしゅう}{買|か}いに{行|い}くつもりです。',
+      '{隣|となり}の{部屋|へや}には{木村|きむら}さんというおばあさんが{住|す}んでいます。{木村|きむら}さんはとても{優|やさ}しいです。きのう、ミンさんに{野菜|やさい}をくれました。',
+      'ゴミは{月曜日|げつようび}と{木曜日|もくようび}の{朝|あさ}{八時|はちじ}までに{出|だ}さなければなりません。ミンさんは{一度|いちど}{間違|まちが}えて、{水曜日|すいようび}に{出|だ}しました。{木村|きむら}さんが{親切|しんせつ}に{教|おし}えてくれました。',
+    ],
+    translation:
+      'Tháng trước anh Minh chuyển đến căn hộ mới. Căn hộ hơi xa ga nhưng gần đó có siêu thị lớn và bệnh viện. Phòng của Minh ở tầng 2. Chỉ có một phòng nhưng sáng sủa và sạch đẹp. Từ cửa sổ nhìn thấy công viên. Tiền thuê nhà 50.000 yên một tháng. Trong phòng có giường và bàn, nhưng chưa có TV và sofa. Tuần sau anh định đi mua. Phòng bên cạnh có bà Kimura sống. Bà Kimura rất hiền, hôm qua còn cho Minh rau. Rác phải đổ trước 8 giờ sáng thứ Hai và thứ Năm. Minh từng nhầm một lần, đổ vào thứ Tư. Bà Kimura đã ân cần chỉ cho anh.',
+    vocab: [
+      ['引っ越す', 'ひっこす', 'chuyển nhà'],
+      ['家賃', 'やちん', 'tiền thuê nhà'],
+      ['隣', 'となり', 'bên cạnh'],
+      ['間違える', 'まちがえる', 'nhầm, sai'],
+      ['ゴミを出す', 'ゴミをだす', 'đổ rác'],
+    ],
+    questions: [
+      {
+        prompt: 'ミンさんはいつ{引|ひ}っ{越|こ}しましたか。',
+        options: ['先週', '先月', '去年', '来週'],
+        correct: 1,
+        explanation: '「先月新しいアパートに引っ越しました」.',
+      },
+      {
+        prompt: 'アパートの{近|ちか}くに{何|なに}がありますか。',
+        options: ['駅と学校', 'スーパーと病院', '公園と銀行', 'デパートと駅'],
+        correct: 1,
+        explanation: '「近くに大きいスーパーと病院があります」. Ga thì hơi xa.',
+      },
+      {
+        prompt: 'ミンさんの{部屋|へや}は{何階|なんがい}ですか。',
+        options: ['一階', '二階', '三階', '四階'],
+        correct: 1,
+        explanation: '「ミンさんの部屋は二階です」.',
+      },
+      {
+        prompt: '{窓|まど}から{何|なに}が{見|み}えますか。',
+        options: ['駅', '病院', '公園', 'スーパー'],
+        correct: 2,
+        explanation: '「窓から公園が見えます」.',
+      },
+      {
+        prompt: '「{家賃|やちん}」の{意味|いみ}はどれですか。',
+        options: ['tiền điện', 'tiền thuê nhà', 'tiền ăn', 'tiền tàu xe'],
+        correct: 1,
+        explanation: '家賃 (やちん) = tiền thuê nhà — 一か月五万円.',
+      },
+      {
+        prompt: '{部屋|へや}にまだないものはどれですか。',
+        options: ['ベッド', '机', 'テレビ', '窓'],
+        correct: 2,
+        explanation: '「テレビとソファはまだありません」.',
+      },
+      {
+        prompt: 'ミンさんは{来週|らいしゅう}{何|なに}をするつもりですか。',
+        options: ['また引っ越します', 'テレビとソファを買いに行きます', '木村さんに野菜をあげます', '病院へ行きます'],
+        correct: 1,
+        explanation: '「来週買いに行くつもりです」— mua TV và sofa.',
+      },
+      {
+        prompt: '{木村|きむら}さんはどんな{人|ひと}ですか。',
+        options: ['こわい人', '若い学生', '優しいおばあさん', 'アパートの大家さん'],
+        correct: 2,
+        explanation: '「木村さんというおばあさん…とても優しいです」.',
+      },
+      {
+        prompt: 'きのう{木村|きむら}さんはミンさんに{何|なに}をくれましたか。',
+        options: ['果物', '野菜', 'お菓子', 'ゴミ袋'],
+        correct: 1,
+        explanation: '「ミンさんに野菜をくれました」.',
+      },
+      {
+        prompt: 'ゴミは{何曜日|なんようび}に{出|だ}しますか。',
+        options: ['月曜日と水曜日', '月曜日と木曜日', '水曜日と金曜日', '毎日'],
+        correct: 1,
+        explanation: '「ゴミは月曜日と木曜日の朝八時までに出さなければなりません」.',
+      },
+      {
+        prompt: 'ミンさんはどんな{間違|まちが}いをしましたか。',
+        options: ['ゴミを水曜日に出しました', 'ゴミを夜に出しました', '部屋を間違えました', '家賃を払いませんでした'],
+        correct: 0,
+        explanation: '「一度間違えて、水曜日に出しました」.',
+      },
+      {
+        prompt: '{文章|ぶんしょう}の{内容|ないよう}と{合|あ}っているものはどれですか。',
+        options: [
+          'アパートは駅のすぐ前です',
+          'ミンさんの部屋は暗いです',
+          '木村さんはミンさんの隣に住んでいます',
+          'ゴミは朝十時までに出せばいいです',
+        ],
+        correct: 2,
+        explanation: '「隣の部屋には木村さん…が住んでいます」. Ga hơi xa; phòng sáng; rác trước 8 giờ.',
+      },
+    ],
+  }),
+];

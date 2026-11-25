@@ -3,8 +3,11 @@ import {
   CheckCircle2,
   Clock,
   Flame,
+  Heart,
+  Infinity as InfinityIcon,
   Play,
   RotateCcw,
+  Square,
   Trophy,
   Volume2,
   VolumeX,
@@ -29,7 +32,7 @@ export interface MiniGamePair {
 }
 
 /* ============================================================================
-   GAME 2: NỐI CẶP 2 CỘT (LIÊN KẾT BÙA — 4 CHẾ ĐỘ: KANJI / TỪ VỰNG / NGỮ PHÁP)
+   GAME 2: NỐI CẶP 2 CỘT (THEO BÀI TRỌN BỘ HOẶC VÔ HẠN 3 HP)
    ============================================================================ */
 
 export type PairMatchSourceMode =
@@ -45,7 +48,12 @@ export const PairMatchGame: React.FC<{
   levelLabel: string;
   soundEnabled?: boolean;
   onToggleSound?: () => void;
-  onCompleteRound: (stats: { score: number; skill: StageSkill; seconds: number }) => void;
+  onCompleteRound: (stats: {
+    score: number;
+    skill: StageSkill;
+    seconds: number;
+    matchedCount: number;
+  }) => void;
 }> = ({
   words,
   kanjis,
@@ -55,10 +63,13 @@ export const PairMatchGame: React.FC<{
   onToggleSound,
   onCompleteRound,
 }) => {
-  const [sourceMode, setSourceMode] = useState<PairMatchSourceMode>('kanji-meaning');
+  const [sourceMode, setSourceMode] = useState<PairMatchSourceMode>('vocab-meaning');
+  const [runMode, setRunMode] = useState<'lesson' | 'endless'>('lesson');
   const [wave, setWave] = useState(1);
+  const [lives, setLives] = useState(3);
   const [score, setScore] = useState(0);
   const [combo, setCombo] = useState(0);
+  const [totalMatched, setTotalMatched] = useState(0);
   const [seconds, setSeconds] = useState(0);
   const [selectedLeftId, setSelectedLeftId] = useState<string | null>(null);
   const [selectedRightId, setSelectedRightId] = useState<string | null>(null);
@@ -109,13 +120,23 @@ export const PairMatchGame: React.FC<{
     }));
   }, [grammars, kanjis, sourceMode, words]);
 
+  const shuffledDeck = useMemo(() => {
+    if (roundSeed < 0) return [];
+    return shuffleArray(allPairs);
+  }, [allPairs, roundSeed]);
+
+  const totalWaves = Math.max(1, Math.ceil(shuffledDeck.length / 6));
+
   const wavePairs = useMemo(() => {
-    if (roundSeed < 0 || allPairs.length === 0) return [];
-    const shuffled = shuffleArray(allPairs);
-    const start = ((wave - 1) * 6) % Math.max(1, shuffled.length);
-    const slice = shuffled.slice(start, start + 6);
-    return slice.length >= 4 ? slice : shuffled.slice(0, Math.min(6, shuffled.length));
-  }, [allPairs, roundSeed, wave]);
+    if (shuffledDeck.length === 0) return [];
+    if (runMode === 'lesson') {
+      const start = (wave - 1) * 6;
+      return shuffledDeck.slice(start, start + 6);
+    }
+    // Endless mode: fresh random 6 pairs on every wave
+    const fresh = shuffleArray(allPairs);
+    return fresh.slice(0, Math.min(6, fresh.length));
+  }, [allPairs, runMode, shuffledDeck, wave]);
 
   const leftItems = useMemo(() => shuffleArray(wavePairs), [wavePairs]);
   const rightItems = useMemo(() => shuffleArray(wavePairs), [wavePairs]);
@@ -126,11 +147,33 @@ export const PairMatchGame: React.FC<{
     return () => window.clearInterval(t);
   }, [finished]);
 
-  const resetGame = (nextMode = sourceMode) => {
-    setSourceMode(nextMode);
+  const getActiveSkill = useCallback((): StageSkill => {
+    if (sourceMode === 'grammar-meaning') return 'grammar';
+    if (sourceMode.startsWith('kanji')) return 'kanji';
+    return 'vocab';
+  }, [sourceMode]);
+
+  const finishAndSave = useCallback(
+    (finalScore: number, finalMatched: number) => {
+      setFinished(true);
+      onCompleteRound({
+        score: finalScore,
+        skill: getActiveSkill(),
+        seconds: Math.max(5, seconds),
+        matchedCount: Math.max(1, finalMatched),
+      });
+    },
+    [getActiveSkill, onCompleteRound, seconds],
+  );
+
+  const resetGame = (nextSource = sourceMode, nextRun = runMode) => {
+    setSourceMode(nextSource);
+    setRunMode(nextRun);
     setWave(1);
+    setLives(3);
     setScore(0);
     setCombo(0);
+    setTotalMatched(0);
     setSeconds(0);
     setSelectedLeftId(null);
     setSelectedRightId(null);
@@ -147,27 +190,22 @@ export const PairMatchGame: React.FC<{
         const nextCombo = combo + 1;
         setCombo(nextCombo);
         const nextScore = score + 100 + nextCombo * 20;
+        const nextTotalMatched = totalMatched + 1;
         setScore(nextScore);
+        setTotalMatched(nextTotalMatched);
         setSelectedLeftId(null);
         setSelectedRightId(null);
 
         setMatchedIds((prev) => {
           const next = [...prev, leftId];
           if (next.length >= wavePairs.length) {
-            if (wave < 3) {
+            if (runMode === 'endless' || wave < totalWaves) {
               window.setTimeout(() => {
                 setWave((w) => w + 1);
                 setMatchedIds([]);
-              }, 360);
+              }, 340);
             } else {
-              setFinished(true);
-              const skill: StageSkill =
-                sourceMode === 'grammar-meaning'
-                  ? 'grammar'
-                  : sourceMode.startsWith('kanji')
-                    ? 'kanji'
-                    : 'vocab';
-              onCompleteRound({ score: nextScore, skill, seconds });
+              finishAndSave(nextScore, nextTotalMatched);
             }
           }
           return next;
@@ -175,6 +213,19 @@ export const PairMatchGame: React.FC<{
       } else {
         setCombo(0);
         setWrongFlash(true);
+        if (runMode === 'endless') {
+          const nextLives = Math.max(0, lives - 1);
+          setLives(nextLives);
+          if (nextLives <= 0) {
+            window.setTimeout(() => {
+              setWrongFlash(false);
+              setSelectedLeftId(null);
+              setSelectedRightId(null);
+              finishAndSave(score, totalMatched);
+            }, 320);
+            return;
+          }
+        }
         window.setTimeout(() => {
           setWrongFlash(false);
           setSelectedLeftId(null);
@@ -182,94 +233,164 @@ export const PairMatchGame: React.FC<{
         }, 320);
       }
     },
-    [combo, onCompleteRound, score, seconds, soundEnabled, sourceMode, wave, wavePairs],
+    [
+      combo,
+      finishAndSave,
+      lives,
+      runMode,
+      score,
+      soundEnabled,
+      totalMatched,
+      totalWaves,
+      wave,
+      wavePairs,
+    ],
   );
 
   const handlePickLeft = (id: string) => {
-    if (matchedIds.includes(id)) return;
+    if (matchedIds.includes(id) || finished) return;
     setSelectedLeftId(id);
     if (selectedRightId) verifyMatch(id, selectedRightId);
   };
 
   const handlePickRight = (id: string) => {
-    if (matchedIds.includes(id)) return;
+    if (matchedIds.includes(id) || finished) return;
     setSelectedRightId(id);
     if (selectedLeftId) verifyMatch(selectedLeftId, id);
   };
 
   return (
     <div className="space-y-4">
-      <Card padding="md" className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-1.5">
-          {(
-            [
-              { id: 'kanji-meaning', label: 'Chữ Hán ↔ Nghĩa Việt' },
-              { id: 'kanji-reading', label: 'Chữ Hán ↔ Âm đọc' },
-              { id: 'vocab-meaning', label: 'Từ vựng ↔ Nghĩa Việt' },
-              { id: 'grammar-meaning', label: 'Ngữ pháp ↔ Ý nghĩa' },
-            ] as const
-          ).map((m) => (
+      <Card padding="md" className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {(
+              [
+                { id: 'vocab-meaning', label: 'Từ vựng ↔ Nghĩa' },
+                { id: 'kanji-meaning', label: 'Chữ Hán ↔ Nghĩa' },
+                { id: 'kanji-reading', label: 'Chữ Hán ↔ Âm đọc' },
+                { id: 'grammar-meaning', label: 'Ngữ pháp ↔ Ý nghĩa' },
+              ] as const
+            ).map((m) => (
+              <Chip
+                key={m.id}
+                selected={sourceMode === m.id}
+                onClick={() => resetGame(m.id, runMode)}
+              >
+                {m.label}
+              </Chip>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5">
             <Chip
-              key={m.id}
-              selected={sourceMode === m.id}
-              onClick={() => resetGame(m.id)}
+              selected={runMode === 'lesson'}
+              onClick={() => resetGame(sourceMode, 'lesson')}
             >
-              {m.label}
+              Theo bài ({allPairs.length} cặp)
             </Chip>
-          ))}
+            <Chip
+              selected={runMode === 'endless'}
+              onClick={() => resetGame(sourceMode, 'endless')}
+            >
+              <InfinityIcon className="size-3.5" aria-hidden />
+              Vô hạn (3 HP)
+            </Chip>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Badge tone="primary" className="tabular">
-            Đợt {wave}/3
-          </Badge>
-          <Badge tone="neutral" className="tabular">
-            <Clock className="size-3.5" aria-hidden />
-            {seconds}s
-          </Badge>
-          {combo > 1 && (
-            <Badge tone="sakura" className="tabular">
-              <Flame className="size-3.5" aria-hidden />
-              x{combo}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            {runMode === 'endless' && (
+              <div className="flex items-center gap-1" aria-label={`Còn ${lives} mạng`}>
+                {[1, 2, 3].map((idx) => (
+                  <Heart
+                    key={idx}
+                    className={cn(
+                      'size-4',
+                      idx <= lives ? 'fill-current text-danger-fg' : 'text-line-strong',
+                    )}
+                  />
+                ))}
+              </div>
+            )}
+            <Badge tone={runMode === 'endless' ? 'sakura' : 'primary'} className="tabular">
+              {runMode === 'endless' ? (
+                <>
+                  <InfinityIcon className="size-3.5" aria-hidden />
+                  Đợt {wave} · {totalMatched} cặp
+                </>
+              ) : (
+                <>
+                  Đợt {wave}/{totalWaves} · {totalMatched}/{allPairs.length} cặp
+                </>
+              )}
             </Badge>
-          )}
-          <Badge tone="success" className="tabular">
-            {score} điểm
-          </Badge>
-          {onToggleSound && (
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={onToggleSound}
-              leftIcon={
-                soundEnabled ? (
-                  <Volume2 className="size-4 text-primary-fg" aria-hidden />
-                ) : (
-                  <VolumeX className="size-4 text-muted" aria-hidden />
-                )
-              }
-            >
-              {soundEnabled ? 'Âm đọc BẬT' : 'Âm đọc TẮT'}
-            </Button>
-          )}
+            <Badge tone="neutral" className="tabular">
+              <Clock className="size-3.5" aria-hidden />
+              {seconds}s
+            </Badge>
+            {combo > 1 && (
+              <Badge tone="sakura" className="tabular">
+                <Flame className="size-3.5" aria-hidden />
+                x{combo}
+              </Badge>
+            )}
+            <Badge tone="success" className="tabular">
+              {score} điểm
+            </Badge>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {runMode === 'endless' && !finished && totalMatched > 0 && (
+              <Button
+                type="button"
+                variant="soft"
+                size="sm"
+                leftIcon={<Square className="size-3.5" aria-hidden />}
+                onClick={() => finishAndSave(score, totalMatched)}
+              >
+                Dừng &amp; Lưu điểm
+              </Button>
+            )}
+            {onToggleSound && (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={onToggleSound}
+                leftIcon={
+                  soundEnabled ? (
+                    <Volume2 className="size-4 text-primary-fg" aria-hidden />
+                  ) : (
+                    <VolumeX className="size-4 text-muted" aria-hidden />
+                  )
+                }
+              >
+                {soundEnabled ? 'Âm đọc BẬT' : 'Âm đọc TẮT'}
+              </Button>
+            )}
+          </div>
         </div>
       </Card>
 
       {finished ? (
         <Card padding="lg" className="space-y-4 text-center">
-          <Badge tone="success" className="mx-auto">
-            ★ Hoàn thành 3 đợt Liên Kết Bùa ({levelLabel})
+          <Badge tone={runMode === 'endless' ? 'sakura' : 'success'} className="mx-auto">
+            {runMode === 'endless'
+              ? `∞ Kết thúc Vô hạn · Đã nối ${totalMatched} cặp (${wave} đợt)`
+              : `★ Hoàn thành trọn bộ ${totalMatched} cặp (${levelLabel})`}
           </Badge>
           <h3 className="text-2xl font-bold text-fg">{score.toLocaleString('vi-VN')} điểm</h3>
           <p className="text-sm text-muted">
-            Thời gian hoàn thành: <strong className="text-fg">{seconds} giây</strong> · Đã tự động cập nhật tiến độ học hôm nay!
+            Thời gian: <strong className="text-fg">{seconds} giây</strong> · Đã tự động cập nhật
+            tiến độ học hôm nay!
           </p>
           <Button
             type="button"
             variant="primary"
             leftIcon={<RotateCcw className="size-4" aria-hidden />}
-            onClick={() => resetGame(sourceMode)}
+            onClick={() => resetGame(sourceMode, runMode)}
           >
             Chơi lại vòng mới
           </Button>
@@ -279,12 +400,11 @@ export const PairMatchGame: React.FC<{
           <div className="flex items-center justify-between text-xs text-muted">
             <span>Chọn 1 thẻ cột Trái rồi nối với thẻ tương ứng ở cột Phải:</span>
             <span className="tabular font-semibold text-fg">
-              Đã nối: {matchedIds.length}/{wavePairs.length} cặp
+              Đợt này: {matchedIds.length}/{wavePairs.length} cặp
             </span>
           </div>
 
           <div className="grid grid-cols-2 gap-2 sm:gap-5">
-            {/* Left Column: Japanese / Kanji / Grammar */}
             <div className="space-y-2 sm:space-y-2.5">
               <p className="text-[11px] font-bold tracking-wider text-primary-fg uppercase sm:text-xs">
                 Cột A · Tiếng Nhật
@@ -322,7 +442,6 @@ export const PairMatchGame: React.FC<{
               })}
             </div>
 
-            {/* Right Column: Vietnamese Meaning / Reading */}
             <div className="space-y-2 sm:space-y-2.5">
               <p className="text-[11px] font-bold tracking-wider text-sakura uppercase sm:text-xs">
                 Cột B · Ý nghĩa / Cách đọc
@@ -360,7 +479,7 @@ export const PairMatchGame: React.FC<{
 };
 
 /* ============================================================================
-   GAME 3: LẬT THẺ KÝ ỨC (MEMORY FLIP — CẶP BÙA NHẬT)
+   GAME 3: LẬT THẺ KÝ ỨC (THEO BÀI TRỌN BỘ HOẶC VÔ HẠN)
    ============================================================================ */
 
 interface MemoryCardTile {
@@ -377,47 +496,61 @@ export const MemoryFlipGame: React.FC<{
   kanjis: KanjiItem[];
   soundEnabled?: boolean;
   onToggleSound?: () => void;
-  onCompleteRound: (stats: { score: number; skill: StageSkill; moves: number }) => void;
+  onCompleteRound: (stats: {
+    score: number;
+    skill: StageSkill;
+    moves: number;
+    matchedPairs: number;
+  }) => void;
 }> = ({ words, kanjis, soundEnabled = true, onToggleSound, onCompleteRound }) => {
   const [poolType, setPoolType] = useState<'vocab' | 'kanji'>('vocab');
+  const [runMode, setRunMode] = useState<'lesson' | 'endless'>('lesson');
   const [seed, setSeed] = useState(0);
+  const [boardIdx, setBoardIdx] = useState(1);
   const [flippedUids, setFlippedUids] = useState<string[]>([]);
   const [matchedPairIds, setMatchedPairIds] = useState<string[]>([]);
   const [moves, setMoves] = useState(0);
+  const [totalMatchedPairs, setTotalMatchedPairs] = useState(0);
+  const [totalScore, setTotalScore] = useState(0);
+  const [finished, setFinished] = useState(false);
+
+  const allEntries = useMemo(() => {
+    if (poolType === 'kanji') {
+      return kanjis.map((k) => ({
+        pairId: `k-${k.id}`,
+        jp: k.kanji,
+        jpSub: k.hanViet,
+        vi: k.meanings[0] ?? '',
+        speak: k.kunReadings?.[0] || k.kanji,
+      }));
+    }
+    return words.map((w) => ({
+      pairId: `v-${w.id}`,
+      jp: w.kanji || w.hiragana,
+      jpSub: w.kanji && w.kanji !== w.hiragana ? w.hiragana : undefined,
+      vi: w.meaning,
+      speak: w.hiragana || w.kanji || '',
+    }));
+  }, [kanjis, poolType, words]);
+
+  const shuffledEntries = useMemo(() => {
+    if (seed < 0) return [];
+    return shuffleArray(allEntries);
+  }, [allEntries, seed]);
+
+  const totalBoards = Math.max(1, Math.ceil(shuffledEntries.length / 6));
 
   const tiles = useMemo<MemoryCardTile[]>(() => {
-    if (seed < 0) return [];
-    const basePairs: Array<{
-      pairId: string;
-      jp: string;
-      jpSub?: string;
-      vi: string;
-      speak?: string;
-    }> =
-      poolType === 'kanji'
-        ? shuffleArray(kanjis)
-            .slice(0, 6)
-            .map((k) => ({
-              pairId: `k-${k.id}`,
-              jp: k.kanji,
-              jpSub: k.hanViet,
-              vi: k.meanings[0] ?? '',
-              speak: k.kunReadings?.[0] || k.kanji,
-            }))
-        : shuffleArray(words)
-            .slice(0, 6)
-            .map((w) => ({
-              pairId: `v-${w.id}`,
-              jp: w.kanji || w.hiragana,
-              jpSub: w.kanji && w.kanji !== w.hiragana ? w.hiragana : undefined,
-              vi: w.meaning,
-              speak: w.hiragana || w.kanji || '',
-            }));
+    if (shuffledEntries.length === 0) return [];
+    const basePairs =
+      runMode === 'lesson'
+        ? shuffledEntries.slice((boardIdx - 1) * 6, boardIdx * 6)
+        : shuffleArray(allEntries).slice(0, Math.min(6, allEntries.length));
 
     const deck: MemoryCardTile[] = [];
     for (const p of basePairs) {
       deck.push({
-        uid: `${p.pairId}-jp`,
+        uid: `${boardIdx}-${p.pairId}-jp`,
         pairId: p.pairId,
         content: p.jp,
         sub: p.jpSub,
@@ -425,20 +558,33 @@ export const MemoryFlipGame: React.FC<{
         speakText: p.speak,
       });
       deck.push({
-        uid: `${p.pairId}-vi`,
+        uid: `${boardIdx}-${p.pairId}-vi`,
         pairId: p.pairId,
         content: p.vi,
         isJapanese: false,
       });
     }
     return shuffleArray(deck);
-  }, [kanjis, poolType, seed, words]);
+  }, [allEntries, boardIdx, runMode, shuffledEntries]);
 
-  const totalPairs = Math.floor(tiles.length / 2);
-  const isFinished = totalPairs > 0 && matchedPairIds.length === totalPairs;
+  const boardPairsCount = Math.floor(tiles.length / 2);
+
+  const finishAndSave = useCallback(
+    (finalScore: number, finalMoves: number, finalPairs: number) => {
+      setFinished(true);
+      onCompleteRound({
+        score: finalScore,
+        skill: poolType === 'kanji' ? 'kanji' : 'vocab',
+        moves: Math.max(1, finalMoves),
+        matchedPairs: Math.max(1, finalPairs),
+      });
+    },
+    [onCompleteRound, poolType],
+  );
 
   const handleFlip = (tile: MemoryCardTile) => {
     if (
+      finished ||
       flippedUids.length >= 2 ||
       flippedUids.includes(tile.uid) ||
       matchedPairIds.includes(tile.pairId)
@@ -457,151 +603,203 @@ export const MemoryFlipGame: React.FC<{
       const t2 = tiles.find((t) => t.uid === nextFlipped[1]);
       if (t1 && t2 && t1.pairId === t2.pairId) {
         const nextMatched = [...matchedPairIds, t1.pairId];
+        const nextTotalPairs = totalMatchedPairs + 1;
+        const nextScore = totalScore + 150;
         setMatchedPairIds(nextMatched);
+        setTotalMatchedPairs(nextTotalPairs);
+        setTotalScore(nextScore);
         setFlippedUids([]);
-        if (nextMatched.length === totalPairs) {
-          const finalScore = Math.max(300, 1200 - nextMoves * 40);
-          onCompleteRound({
-            score: finalScore,
-            skill: poolType === 'kanji' ? 'kanji' : 'vocab',
-            moves: nextMoves,
-          });
+
+        if (nextMatched.length === boardPairsCount) {
+          if (runMode === 'endless' || boardIdx < totalBoards) {
+            window.setTimeout(() => {
+              setBoardIdx((b) => b + 1);
+              setMatchedPairIds([]);
+              setFlippedUids([]);
+            }, 520);
+          } else {
+            finishAndSave(nextScore, nextMoves, nextTotalPairs);
+          }
         }
       } else {
-        window.setTimeout(() => setFlippedUids([]), 680);
+        window.setTimeout(() => setFlippedUids([]), 620);
       }
     }
   };
 
-  const reset = (nextType = poolType) => {
+  const reset = (nextType = poolType, nextRun = runMode) => {
     setPoolType(nextType);
+    setRunMode(nextRun);
+    setBoardIdx(1);
     setFlippedUids([]);
     setMatchedPairIds([]);
     setMoves(0);
+    setTotalMatchedPairs(0);
+    setTotalScore(0);
+    setFinished(false);
     setSeed((s) => s + 1);
   };
 
   return (
     <div className="space-y-4">
-      <Card padding="md" className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Chip selected={poolType === 'vocab'} onClick={() => reset('vocab')}>
-            Bộ Từ vựng (6 cặp)
-          </Chip>
-          <Chip selected={poolType === 'kanji'} onClick={() => reset('kanji')}>
-            Bộ Chữ Hán (6 cặp)
-          </Chip>
+      <Card padding="md" className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Chip selected={poolType === 'vocab'} onClick={() => reset('vocab', runMode)}>
+              Bộ Từ vựng ({words.length})
+            </Chip>
+            <Chip selected={poolType === 'kanji'} onClick={() => reset('kanji', runMode)}>
+              Bộ Chữ Hán ({kanjis.length})
+            </Chip>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Chip selected={runMode === 'lesson'} onClick={() => reset(poolType, 'lesson')}>
+              Theo bài ({allEntries.length} cặp)
+            </Chip>
+            <Chip selected={runMode === 'endless'} onClick={() => reset(poolType, 'endless')}>
+              <InfinityIcon className="size-3.5" aria-hidden />
+              Vô hạn
+            </Chip>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge tone="primary" className="tabular">
-            Đã mở: {matchedPairIds.length}/{totalPairs} cặp
-          </Badge>
-          <Badge tone="neutral" className="tabular">
-            Số lượt lật: {moves}
-          </Badge>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            leftIcon={<RotateCcw className="size-3.5" aria-hidden />}
-            onClick={() => reset(poolType)}
-          >
-            Trộn bài mới
-          </Button>
-          {onToggleSound && (
+
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone={runMode === 'endless' ? 'sakura' : 'primary'} className="tabular">
+              {runMode === 'endless' ? (
+                <>
+                  <InfinityIcon className="size-3.5" aria-hidden />
+                  Bàn {boardIdx} · {totalMatchedPairs} cặp
+                </>
+              ) : (
+                <>
+                  Bàn {boardIdx}/{totalBoards} · {totalMatchedPairs}/{allEntries.length} cặp
+                </>
+              )}
+            </Badge>
+            <Badge tone="neutral" className="tabular">
+              Lượt lật: {moves}
+            </Badge>
+            <Badge tone="success" className="tabular">
+              {totalScore} điểm
+            </Badge>
+          </div>
+          <div className="flex items-center gap-2">
+            {runMode === 'endless' && !finished && totalMatchedPairs > 0 && (
+              <Button
+                type="button"
+                variant="soft"
+                size="sm"
+                leftIcon={<Square className="size-3.5" aria-hidden />}
+                onClick={() => finishAndSave(totalScore, moves, totalMatchedPairs)}
+              >
+                Dừng &amp; Lưu điểm
+              </Button>
+            )}
             <Button
               type="button"
               variant="secondary"
               size="sm"
-              onClick={onToggleSound}
-              leftIcon={
-                soundEnabled ? (
-                  <Volume2 className="size-4 text-primary-fg" aria-hidden />
-                ) : (
-                  <VolumeX className="size-4 text-muted" aria-hidden />
-                )
-              }
+              leftIcon={<RotateCcw className="size-3.5" aria-hidden />}
+              onClick={() => reset(poolType, runMode)}
             >
-              {soundEnabled ? 'Âm đọc BẬT' : 'Âm đọc TẮT'}
+              Trộn lại
             </Button>
-          )}
+            {onToggleSound && (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={onToggleSound}
+                leftIcon={
+                  soundEnabled ? (
+                    <Volume2 className="size-4 text-primary-fg" aria-hidden />
+                  ) : (
+                    <VolumeX className="size-4 text-muted" aria-hidden />
+                  )
+                }
+              >
+                {soundEnabled ? 'Âm đọc BẬT' : 'Âm đọc TẮT'}
+              </Button>
+            )}
+          </div>
         </div>
       </Card>
 
-      <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
-        {tiles.map((tile) => {
-          const isOpen =
-            flippedUids.includes(tile.uid) || matchedPairIds.includes(tile.pairId);
-          const isDone = matchedPairIds.includes(tile.pairId);
-          return (
-            <button
-              key={tile.uid}
-              type="button"
-              onClick={() => handleFlip(tile)}
-              className={cn(
-                'flex h-24 sm:h-28 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 p-2.5 text-center shadow-card transition-all duration-150',
-                isDone
-                  ? 'border-success-line bg-success-soft/45 text-success-fg'
-                  : isOpen
-                    ? 'border-primary bg-surface text-fg ring-2 ring-primary/25'
-                    : 'border-line bg-glass hover:border-primary/60',
-              )}
-            >
-              {isOpen ? (
-                <>
-                  <span
-                    lang={tile.isJapanese ? 'ja' : undefined}
-                    className={cn(
-                      'font-bold',
-                      tile.isJapanese ? 'text-base sm:text-lg text-fg' : 'text-xs sm:text-sm text-fg',
-                    )}
-                  >
-                    {tile.content}
-                  </span>
-                  {tile.sub && (
-                    <span className="mt-0.5 text-[11px] text-muted">{tile.sub}</span>
-                  )}
-                </>
-              ) : (
-                <span
-                  lang="ja"
-                  className="grid size-10 place-items-center rounded-xl bg-primary-soft text-base font-bold text-primary-fg"
-                >
-                  問
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {isFinished && (
-        <Card padding="md" className="flex flex-wrap items-center justify-between gap-3 border-success-line bg-success-soft/35">
-          <div>
-            <p className="text-sm font-bold text-fg">
-              ★ Tuyệt vời! Bạn đã lật mở toàn bộ {totalPairs} cặp bùa sau {moves} lượt!
-            </p>
-            <p className="text-xs text-muted">
-              Đã tự động ghi nhận hoạt động luyện tập hôm nay trên Bản đồ Màn.
-            </p>
-          </div>
+      {finished ? (
+        <Card padding="lg" className="space-y-4 text-center">
+          <Badge tone={runMode === 'endless' ? 'sakura' : 'success'} className="mx-auto">
+            {runMode === 'endless'
+              ? `∞ Hoàn thành ${boardIdx} bàn · Đã mở ${totalMatchedPairs} cặp!`
+              : `★ Đã lật hết trọn bộ ${totalMatchedPairs} cặp sau ${moves} lượt!`}
+          </Badge>
+          <h3 className="text-2xl font-bold text-fg">{totalScore.toLocaleString('vi-VN')} điểm</h3>
+          <p className="text-xs text-muted">
+            Đã tự động ghi nhận hoạt động luyện tập hôm nay trên Bản đồ Màn.
+          </p>
           <Button
             type="button"
             variant="primary"
-            size="sm"
             leftIcon={<RotateCcw className="size-4" aria-hidden />}
-            onClick={() => reset(poolType)}
+            onClick={() => reset(poolType, runMode)}
           >
             Chơi tiếp ván mới
           </Button>
         </Card>
+      ) : (
+        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+          {tiles.map((tile) => {
+            const isOpen =
+              flippedUids.includes(tile.uid) || matchedPairIds.includes(tile.pairId);
+            const isDone = matchedPairIds.includes(tile.pairId);
+            return (
+              <button
+                key={tile.uid}
+                type="button"
+                onClick={() => handleFlip(tile)}
+                className={cn(
+                  'flex h-24 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 p-2.5 text-center shadow-card transition-all duration-150 sm:h-28',
+                  isDone
+                    ? 'border-success-line bg-success-soft/45 text-success-fg'
+                    : isOpen
+                      ? 'border-primary bg-surface text-fg ring-2 ring-primary/25'
+                      : 'border-line bg-glass hover:border-primary/60',
+                )}
+              >
+                {isOpen ? (
+                  <>
+                    <span
+                      lang={tile.isJapanese ? 'ja' : undefined}
+                      className={cn(
+                        'font-bold',
+                        tile.isJapanese ? 'text-base text-fg sm:text-lg' : 'text-xs text-fg sm:text-sm',
+                      )}
+                    >
+                      {tile.content}
+                    </span>
+                    {tile.sub && (
+                      <span className="mt-0.5 text-[11px] text-muted">{tile.sub}</span>
+                    )}
+                  </>
+                ) : (
+                  <span
+                    lang="ja"
+                    className="grid size-10 place-items-center rounded-xl bg-primary-soft text-base font-bold text-primary-fg"
+                  >
+                    問
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
       )}
     </div>
   );
 };
 
 /* ============================================================================
-   GAME 4: PHẢN XẠ ĐÚNG / SAI 60s (○ / × SPEED RUN)
+   GAME 4: PHẢN XẠ ĐÚNG / SAI (THEO BÀI · VÔ HẠN 3 HP · 45s TỐC ĐỘ)
    ============================================================================ */
 
 export const SpeedTrueFalseGame: React.FC<{
@@ -609,17 +807,27 @@ export const SpeedTrueFalseGame: React.FC<{
   kanjis: KanjiItem[];
   soundEnabled?: boolean;
   onToggleSound?: () => void;
-  onCompleteRound: (stats: { score: number; skill: StageSkill; correctCount: number }) => void;
+  onCompleteRound: (stats: {
+    score: number;
+    skill: StageSkill;
+    correctCount: number;
+    totalAnswered: number;
+  }) => void;
 }> = ({ words, kanjis, soundEnabled = true, onToggleSound, onCompleteRound }) => {
-  const [running, setRunning] = useState(false);
+  const [runMode, setRunMode] = useState<'lesson' | 'endless' | 'timed45'>('lesson');
+  const [phase, setPhase] = useState<'ready' | 'playing' | 'ended'>('ready');
   const [timeLeft, setTimeLeft] = useState(45);
+  const [lives, setLives] = useState(3);
   const [score, setScore] = useState(0);
   const [combo, setCombo] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
+  const [answeredCount, setAnsweredCount] = useState(0);
   const [qIndex, setQIndex] = useState(0);
+  const [seed, setSeed] = useState(0);
   const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null);
   const scoreRef = useRef(0);
   const correctRef = useRef(0);
+  const answeredRef = useRef(0);
   const onCompleteRef = useRef(onCompleteRound);
 
   useEffect(() => {
@@ -627,6 +835,7 @@ export const SpeedTrueFalseGame: React.FC<{
   }, [onCompleteRound]);
 
   const questions = useMemo(() => {
+    if (seed < 0) return [];
     const list: Array<{
       prompt: string;
       sub?: string;
@@ -649,45 +858,50 @@ export const SpeedTrueFalseGame: React.FC<{
       });
     }
 
-    const shuffledK = shuffleArray(kanjis);
-    for (let i = 0; i < Math.min(20, shuffledK.length); i += 1) {
-      const k = shuffledK[i];
-      const isTrue = i % 2 === 1;
-      const other = shuffledK[(i + 2) % shuffledK.length] ?? k;
-      const actual = `${k.hanViet ? `[${k.hanViet}] ` : ''}${k.meanings[0] ?? ''}`;
-      const shown = isTrue
-        ? actual
-        : `${other.hanViet ? `[${other.hanViet}] ` : ''}${other.meanings[0] ?? ''}`;
-      list.push({
-        prompt: k.kanji,
-        sub: 'Chữ Hán (Kanji)',
-        shownMeaning: shown,
-        actualMeaning: actual,
-        isTrue: isTrue || shown === actual,
-      });
+    if (runMode !== 'lesson') {
+      const shuffledK = shuffleArray(kanjis);
+      for (let i = 0; i < Math.min(30, shuffledK.length); i += 1) {
+        const k = shuffledK[i];
+        const isTrue = i % 2 === 1;
+        const other = shuffledK[(i + 2) % shuffledK.length] ?? k;
+        const actual = `${k.hanViet ? `[${k.hanViet}] ` : ''}${k.meanings[0] ?? ''}`;
+        const shown = isTrue
+          ? actual
+          : `${other.hanViet ? `[${other.hanViet}] ` : ''}${other.meanings[0] ?? ''}`;
+        list.push({
+          prompt: k.kanji,
+          sub: 'Chữ Hán (Kanji)',
+          shownMeaning: shown,
+          actualMeaning: actual,
+          isTrue: isTrue || shown === actual,
+        });
+      }
     }
 
     return shuffleArray(list);
-  }, [kanjis, words]);
+  }, [kanjis, runMode, seed, words]);
 
   const currentQ = questions[qIndex % Math.max(1, questions.length)];
 
   useEffect(() => {
-    if (running && soundEnabled && currentQ) {
-      speakJapanese(currentQ.sub && currentQ.sub !== 'Chữ Hán (Kanji)' ? currentQ.sub : currentQ.prompt);
+    if (phase === 'playing' && soundEnabled && currentQ) {
+      speakJapanese(
+        currentQ.sub && currentQ.sub !== 'Chữ Hán (Kanji)' ? currentQ.sub : currentQ.prompt,
+      );
     }
-  }, [currentQ, running, soundEnabled]);
+  }, [currentQ, phase, soundEnabled]);
 
   useEffect(() => {
-    if (!running) return;
+    if (phase !== 'playing' || runMode !== 'timed45') return;
     const timer = window.setInterval(() => {
       setTimeLeft((t) => {
         if (t <= 1) {
-          setRunning(false);
+          setPhase('ended');
           onCompleteRef.current({
             score: scoreRef.current,
             skill: 'quiz',
             correctCount: correctRef.current,
+            totalAnswered: Math.max(1, answeredRef.current),
           });
           return 0;
         }
@@ -695,25 +909,43 @@ export const SpeedTrueFalseGame: React.FC<{
       });
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [running]);
+  }, [phase, runMode]);
 
-  const start = () => {
+  const finishNow = useCallback(() => {
+    setPhase('ended');
+    onCompleteRef.current({
+      score: scoreRef.current,
+      skill: 'quiz',
+      correctCount: correctRef.current,
+      totalAnswered: Math.max(1, answeredRef.current),
+    });
+  }, []);
+
+  const start = (nextMode = runMode) => {
+    setRunMode(nextMode);
     scoreRef.current = 0;
     correctRef.current = 0;
+    answeredRef.current = 0;
     setTimeLeft(45);
+    setLives(3);
     setScore(0);
     setCombo(0);
     setCorrectCount(0);
-    setQIndex((i) => i + 1);
-    setRunning(true);
+    setAnsweredCount(0);
+    setQIndex(0);
+    setSeed((s) => s + 1);
+    setPhase('playing');
   };
 
   const answer = useCallback(
     (userSaysTrue: boolean) => {
-      if (!running || !currentQ) return;
+      if (phase !== 'playing' || !currentQ) return;
       const ok = userSaysTrue === currentQ.isTrue;
       setFeedback(ok ? 'correct' : 'wrong');
-      window.setTimeout(() => setFeedback(null), 220);
+      window.setTimeout(() => setFeedback(null), 200);
+
+      answeredRef.current += 1;
+      setAnsweredCount(answeredRef.current);
 
       if (ok) {
         const nextCombo = combo + 1;
@@ -724,14 +956,28 @@ export const SpeedTrueFalseGame: React.FC<{
         setScore(scoreRef.current);
       } else {
         setCombo(0);
+        if (runMode === 'endless') {
+          const nextLives = Math.max(0, lives - 1);
+          setLives(nextLives);
+          if (nextLives <= 0) {
+            finishNow();
+            return;
+          }
+        }
       }
+
+      if (runMode === 'lesson' && qIndex + 1 >= questions.length) {
+        finishNow();
+        return;
+      }
+
       setQIndex((i) => i + 1);
     },
-    [combo, currentQ, running],
+    [combo, currentQ, finishNow, lives, phase, qIndex, questions.length, runMode],
   );
 
   useEffect(() => {
-    if (!running) return;
+    if (phase !== 'playing') return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
@@ -743,21 +989,61 @@ export const SpeedTrueFalseGame: React.FC<{
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [answer, running]);
+  }, [answer, phase]);
 
   return (
     <Card padding="lg" className="space-y-4 text-center">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <Badge tone="primary" className="tabular">
-          <Clock className="size-3.5" aria-hidden />
-          Còn {timeLeft}s
-        </Badge>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {runMode === 'endless' && (
+            <div className="flex items-center gap-1" aria-label={`Còn ${lives} mạng`}>
+              {[1, 2, 3].map((idx) => (
+                <Heart
+                  key={idx}
+                  className={cn(
+                    'size-4',
+                    idx <= lives ? 'fill-current text-danger-fg' : 'text-line-strong',
+                  )}
+                />
+              ))}
+            </div>
+          )}
+          <Badge tone={runMode === 'endless' ? 'sakura' : 'primary'} className="tabular">
+            {runMode === 'timed45' ? (
+              <>
+                <Clock className="size-3.5" aria-hidden />
+                Còn {timeLeft}s
+              </>
+            ) : runMode === 'endless' ? (
+              <>
+                <InfinityIcon className="size-3.5" aria-hidden />
+                Vô hạn · {correctCount} đúng
+              </>
+            ) : (
+              <>
+                Câu {Math.min(qIndex + 1, Math.max(1, questions.length))}/{questions.length}
+              </>
+            )}
+          </Badge>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
           {combo > 1 && <Badge tone="sakura">Combo x{combo}</Badge>}
           <Badge tone="success" className="tabular">
             <Trophy className="size-3.5" aria-hidden />
-            {score} điểm ({correctCount} câu đúng)
+            {score} điểm ({correctCount} đúng)
           </Badge>
+          {phase === 'playing' && runMode === 'endless' && answeredCount > 0 && (
+            <Button
+              type="button"
+              variant="soft"
+              size="sm"
+              leftIcon={<Square className="size-3.5" aria-hidden />}
+              onClick={finishNow}
+            >
+              Dừng &amp; Lưu
+            </Button>
+          )}
           {onToggleSound && (
             <Button
               type="button"
@@ -778,25 +1064,53 @@ export const SpeedTrueFalseGame: React.FC<{
         </div>
       </div>
 
-      <ProgressBar value={timeLeft} max={45} size="sm" label="Thời gian còn lại" />
+      {runMode === 'timed45' && (
+        <ProgressBar value={timeLeft} max={45} size="sm" label="Thời gian còn lại" />
+      )}
+      {runMode === 'lesson' && phase === 'playing' && (
+        <ProgressBar
+          value={answeredCount}
+          max={Math.max(1, questions.length)}
+          size="sm"
+          label="Tiến độ bài học"
+        />
+      )}
 
-      {!running ? (
-        <div className="space-y-3 py-6">
+      {phase !== 'playing' ? (
+        <div className="space-y-4 py-4">
           <h3 className="text-xl font-bold text-fg">
-            {timeLeft === 0
-              ? `Hết giờ! Bạn đạt ${score.toLocaleString('vi-VN')} điểm (${correctCount} câu đúng)`
-              : 'Phản Xạ Đúng / Sai 45 Giây (○ / ×)'}
+            {phase === 'ended'
+              ? runMode === 'endless'
+                ? `∞ Hết HP! Đạt ${score.toLocaleString('vi-VN')} điểm (${correctCount} câu đúng)`
+                : `Hoàn thành! ${score.toLocaleString('vi-VN')} điểm (${correctCount}/${answeredCount} câu đúng)`
+              : 'Phản Xạ Đúng / Sai (○ / ×)'}
           </h3>
           <p className="text-sm text-muted">
-            Phán đoán thật nhanh cặp Từ vựng / Kanji và Nghĩa bên dưới là Đúng (○) hay Sai (×)!
+            Phán đoán thật nhanh cặp từ và nghĩa bên dưới là Đúng (○) hay Sai (×).
           </p>
+
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <span className="text-xs font-medium text-muted">Chế độ:</span>
+            <Chip selected={runMode === 'lesson'} onClick={() => setRunMode('lesson')}>
+              Theo bài ({words.length} từ)
+            </Chip>
+            <Chip selected={runMode === 'endless'} onClick={() => setRunMode('endless')}>
+              <InfinityIcon className="size-3.5" aria-hidden />
+              Vô hạn (3 HP)
+            </Chip>
+            <Chip selected={runMode === 'timed45'} onClick={() => setRunMode('timed45')}>
+              <Clock className="size-3.5" aria-hidden />
+              45s Tốc độ
+            </Chip>
+          </div>
+
           <Button
             type="button"
             variant="primary"
             leftIcon={<Play className="size-4" aria-hidden />}
-            onClick={start}
+            onClick={() => start(runMode)}
           >
-            {timeLeft === 0 ? 'Chơi lại 45s' : 'Bắt đầu thử thách 45s'}
+            {phase === 'ended' ? 'Chơi lại' : 'Bắt đầu ngay'}
           </Button>
         </div>
       ) : (
@@ -821,10 +1135,8 @@ export const SpeedTrueFalseGame: React.FC<{
                 </p>
               )}
               <div className="my-3 border-t border-line" />
-              <p className="text-xs uppercase tracking-wider text-muted">Nghĩa hiển thị:</p>
-              <p className="mt-1 text-lg font-bold text-primary-fg">
-                “{currentQ.shownMeaning}”
-              </p>
+              <p className="text-xs tracking-wider text-muted uppercase">Nghĩa hiển thị:</p>
+              <p className="mt-1 text-lg font-bold text-primary-fg">“{currentQ.shownMeaning}”</p>
             </div>
 
             <div className="mx-auto grid max-w-md grid-cols-2 gap-3">
@@ -856,87 +1168,130 @@ export const SpeedTrueFalseGame: React.FC<{
 };
 
 /* ============================================================================
-   GAME 5: THÍNH GIÁC NINJA (NGHE PHÁT ÂM TTS & BẮT MỤC TIÊU)
+   GAME 5: THÍNH GIÁC NINJA (THEO BÀI TRỌN BỘ HOẶC VÔ HẠN 3 HP)
    ============================================================================ */
 
 export const ListeningDojoGame: React.FC<{
   words: VocabularyItem[];
   soundEnabled?: boolean;
   onToggleSound?: () => void;
-  onCompleteRound: (stats: { score: number; skill: StageSkill; correctCount: number }) => void;
+  onCompleteRound: (stats: {
+    score: number;
+    skill: StageSkill;
+    correctCount: number;
+    totalAnswered: number;
+  }) => void;
 }> = ({ words, soundEnabled = true, onToggleSound, onCompleteRound }) => {
+  const [runMode, setRunMode] = useState<'lesson' | 'endless'>('lesson');
+  const [seed, setSeed] = useState(0);
   const [roundIdx, setRoundIdx] = useState(0);
+  const [lives, setLives] = useState(3);
   const [score, setScore] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
+  const [answeredCount, setAnsweredCount] = useState(0);
   const [pickedId, setPickedId] = useState<number | null>(null);
-  const totalRounds = 10;
+  const [finished, setFinished] = useState(false);
 
-  const questions = useMemo(() => {
-    const pool = shuffleArray(words).slice(0, totalRounds);
-    return pool.map((target) => {
-      const distractors = shuffleArray(words.filter((w) => w.id !== target.id)).slice(0, 3);
-      return {
-        target,
-        options: shuffleArray([target, ...distractors]),
-      };
-    });
-  }, [words]);
+  const deck = useMemo(() => {
+    if (seed < 0) return [];
+    return shuffleArray(words);
+  }, [seed, words]);
 
-  const current = questions[roundIdx];
-  const isFinished = roundIdx >= questions.length;
+  const currentQuestion = useMemo(() => {
+    if (deck.length === 0) return null;
+    const target =
+      runMode === 'lesson'
+        ? deck[roundIdx] ?? null
+        : deck[roundIdx % deck.length] ?? null;
+    if (!target) return null;
+    const distractors = shuffleArray(words.filter((w) => w.id !== target.id)).slice(0, 3);
+    return {
+      target,
+      options: shuffleArray([target, ...distractors]),
+    };
+  }, [deck, roundIdx, runMode, words]);
 
   useEffect(() => {
-    if (soundEnabled && current && !isFinished) {
-      speakJapanese(current.target.hiragana || current.target.kanji || '');
+    if (soundEnabled && currentQuestion && !finished) {
+      speakJapanese(currentQuestion.target.hiragana || currentQuestion.target.kanji || '');
     }
-  }, [current, isFinished, soundEnabled]);
+  }, [currentQuestion, finished, soundEnabled]);
+
+  const finishAndSave = useCallback(
+    (finalScore: number, finalCorrect: number, finalAnswered: number) => {
+      setFinished(true);
+      onCompleteRound({
+        score: finalScore,
+        skill: 'listening',
+        correctCount: finalCorrect,
+        totalAnswered: Math.max(1, finalAnswered),
+      });
+    },
+    [onCompleteRound],
+  );
 
   const handleSelect = (opt: VocabularyItem) => {
-    if (!current || pickedId !== null) return;
+    if (!currentQuestion || pickedId !== null || finished) return;
     setPickedId(opt.id);
-    const isOk = opt.id === current.target.id;
+    const isOk = opt.id === currentQuestion.target.id;
     const nextScore = isOk ? score + 120 : score;
     const nextCorrect = isOk ? correctCount + 1 : correctCount;
+    const nextAnswered = answeredCount + 1;
+    const nextLives = !isOk && runMode === 'endless' ? Math.max(0, lives - 1) : lives;
+
     if (isOk) {
       setScore(nextScore);
       setCorrectCount(nextCorrect);
+    } else if (runMode === 'endless') {
+      setLives(nextLives);
     }
+    setAnsweredCount(nextAnswered);
 
     window.setTimeout(() => {
       setPickedId(null);
-      if (roundIdx + 1 >= questions.length) {
-        onCompleteRound({
-          score: nextScore,
-          skill: 'listening',
-          correctCount: nextCorrect,
-        });
+      if (runMode === 'endless' && nextLives <= 0) {
+        finishAndSave(nextScore, nextCorrect, nextAnswered);
+        return;
+      }
+      if (runMode === 'lesson' && roundIdx + 1 >= deck.length) {
+        finishAndSave(nextScore, nextCorrect, nextAnswered);
+        return;
       }
       setRoundIdx((r) => r + 1);
-    }, 650);
+    }, 620);
   };
 
-  const restart = () => {
+  const restart = (nextMode = runMode) => {
+    setRunMode(nextMode);
     setScore(0);
     setCorrectCount(0);
+    setAnsweredCount(0);
+    setLives(3);
     setPickedId(null);
     setRoundIdx(0);
+    setFinished(false);
+    setSeed((s) => s + 1);
   };
 
-  if (isFinished) {
+  if (finished) {
     return (
       <Card padding="lg" className="space-y-4 text-center">
-        <Badge tone="success" className="mx-auto">
-          ★ Hoàn thành khóa Thính Giác Ninja ({correctCount}/{totalRounds} câu đúng)
+        <Badge tone={runMode === 'endless' ? 'sakura' : 'success'} className="mx-auto">
+          {runMode === 'endless'
+            ? `∞ Hết HP · Nghe chuẩn ${correctCount}/${answeredCount} từ`
+            : `★ Hoàn thành trọn bộ Thính Giác (${correctCount}/${deck.length} từ đúng)`}
         </Badge>
         <h3 className="text-2xl font-bold text-fg">{score.toLocaleString('vi-VN')} điểm</h3>
-        <Button
-          type="button"
-          variant="primary"
-          leftIcon={<RotateCcw className="size-4" aria-hidden />}
-          onClick={restart}
-        >
-          Luyện nghe tiếp 10 từ mới
-        </Button>
+        <div className="flex flex-wrap justify-center gap-2">
+          <Button
+            type="button"
+            variant="primary"
+            leftIcon={<RotateCcw className="size-4" aria-hidden />}
+            onClick={() => restart(runMode)}
+          >
+            Luyện nghe tiếp
+          </Button>
+        </div>
       </Card>
     );
   }
@@ -944,11 +1299,49 @@ export const ListeningDojoGame: React.FC<{
   return (
     <Card padding="lg" className="space-y-5 text-center">
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-        <Badge tone="primary">
-          Câu {roundIdx + 1}/{totalRounds}
-        </Badge>
-        <div className="flex items-center gap-2">
-          <Badge tone="success">{score} điểm</Badge>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Chip selected={runMode === 'lesson'} onClick={() => restart('lesson')}>
+            Theo bài ({deck.length} từ)
+          </Chip>
+          <Chip selected={runMode === 'endless'} onClick={() => restart('endless')}>
+            <InfinityIcon className="size-3.5" aria-hidden />
+            Vô hạn (3 HP)
+          </Chip>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {runMode === 'endless' && (
+            <div className="flex items-center gap-1" aria-label={`Còn ${lives} mạng`}>
+              {[1, 2, 3].map((idx) => (
+                <Heart
+                  key={idx}
+                  className={cn(
+                    'size-4',
+                    idx <= lives ? 'fill-current text-danger-fg' : 'text-line-strong',
+                  )}
+                />
+              ))}
+            </div>
+          )}
+          <Badge tone={runMode === 'endless' ? 'sakura' : 'primary'} className="tabular">
+            {runMode === 'endless'
+              ? `∞ · Đúng ${correctCount} từ`
+              : `Câu ${roundIdx + 1}/${deck.length}`}
+          </Badge>
+          <Badge tone="success" className="tabular">
+            {score} điểm
+          </Badge>
+          {runMode === 'endless' && answeredCount > 0 && (
+            <Button
+              type="button"
+              variant="soft"
+              size="sm"
+              leftIcon={<Square className="size-3.5" aria-hidden />}
+              onClick={() => finishAndSave(score, correctCount, answeredCount)}
+            >
+              Dừng &amp; Lưu
+            </Button>
+          )}
           {onToggleSound && (
             <Button
               type="button"
@@ -969,7 +1362,7 @@ export const ListeningDojoGame: React.FC<{
         </div>
       </div>
 
-      {current && (
+      {currentQuestion && (
         <>
           <div className="space-y-2 py-2">
             <Button
@@ -977,7 +1370,11 @@ export const ListeningDojoGame: React.FC<{
               variant="soft"
               size="lg"
               leftIcon={<Volume2 className="size-5 text-primary-fg" aria-hidden />}
-              onClick={() => speakJapanese(current.target.hiragana || current.target.kanji || '')}
+              onClick={() =>
+                speakJapanese(
+                  currentQuestion.target.hiragana || currentQuestion.target.kanji || '',
+                )
+              }
             >
               Nghe lại phát âm tiếng Nhật
             </Button>
@@ -987,9 +1384,9 @@ export const ListeningDojoGame: React.FC<{
           </div>
 
           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-            {current.options.map((opt) => {
+            {currentQuestion.options.map((opt) => {
               const isPicked = pickedId === opt.id;
-              const isCorrect = opt.id === current.target.id;
+              const isCorrect = opt.id === currentQuestion.target.id;
               return (
                 <button
                   key={opt.id}

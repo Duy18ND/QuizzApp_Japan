@@ -13,16 +13,121 @@ export interface RealJlptExamPreset {
   passScore: number; // Official JLPT passing score out of 180
   seedOffset: number;
   description: string;
+  /** Paper style: full JLPT mock (default), short Mini test, or NAT-TEST-style paper */
+  format?: ExamFormat;
+  /** How many items each part draws (defaults = JLPT mock sizes, see DEFAULT_EXAM_COUNTS) */
+  counts?: Partial<ExamCounts>;
+}
+
+export type ExamFormat = 'jlpt' | 'mini' | 'nat';
+
+export interface ExamCounts {
+  kanji: number;
+  vocab: number;
+  grammar: number;
+  star: number;
+  readingShort: number;
+  readingMedium: number;
+  readingLong: number;
+  listening: number;
+}
+
+export const DEFAULT_EXAM_COUNTS: ExamCounts = {
+  kanji: 6,
+  vocab: 6,
+  grammar: 6,
+  star: 3,
+  readingShort: 1,
+  readingMedium: 1,
+  readingLong: 1,
+  listening: 5,
+};
+
+export const EXAM_FORMAT_COUNTS: Record<ExamFormat, ExamCounts> = {
+  jlpt: DEFAULT_EXAM_COUNTS,
+  mini: { kanji: 3, vocab: 3, grammar: 3, star: 1, readingShort: 1, readingMedium: 0, readingLong: 0, listening: 3 },
+  nat: { kanji: 10, vocab: 10, grammar: 10, star: 4, readingShort: 2, readingMedium: 1, readingLong: 1, listening: 10 },
+};
+
+/** Full-paper minutes for a random (non-preset) paper of each format; null = sum of section minutes */
+export const EXAM_FORMAT_MINUTES: Record<ExamFormat, Record<'N5' | 'N4' | 'N3', number> | null> = {
+  jlpt: null,
+  mini: { N5: 15, N4: 15, N3: 15 },
+  nat: { N5: 60, N4: 75, N3: 90 },
+};
+
+export const EXAM_FORMAT_META: Record<ExamFormat, { label: string; hint: string }> = {
+  jlpt: { label: 'Đề JLPT', hint: 'Đủ 4 phần theo cấu trúc kỳ thi JLPT, chấm Đậu / Trượt thang 180đ.' },
+  mini: { label: 'Mini test', hint: 'Đề ngắn ~15 phút, đủ 4 phần nhưng ít câu — ôn nhanh mỗi ngày.' },
+  nat: { label: 'NAT-TEST', hint: 'Đề dài theo kiểu NAT-TEST: nhiều câu hơn mỗi phần, thời gian dài hơn.' },
+};
+
+const PASS_SCORE: Record<'N5' | 'N4' | 'N3', number> = { N5: 80, N4: 90, N3: 95 };
+
+function buildMiniPresets(): RealJlptExamPreset[] {
+  return (['N5', 'N4', 'N3'] as const).flatMap((level) =>
+    [1, 2, 3, 4, 5, 6].map((n) => ({
+      id: `mini-${level.toLowerCase()}-${n}`,
+      level,
+      title: `Mini test ${level} · Đề ${n}`,
+      sessionLabel: `Mini ${n}`,
+      durationMinutes: 15,
+      passScore: PASS_SCORE[level],
+      seedOffset: 20 + n,
+      format: 'mini' as const,
+      counts: EXAM_FORMAT_COUNTS.mini,
+      description: `14 câu · 15 phút: 3 Kanji, 3 Từ vựng, 3 Ngữ pháp, 1 câu ★, 1 bài đọc ngắn, 3 câu nghe.`,
+    })),
+  );
+}
+
+function buildNatPresets(): RealJlptExamPreset[] {
+  const minutes = EXAM_FORMAT_MINUTES.nat!;
+  const natLevel = { N5: '5級', N4: '4級', N3: '3級' } as const;
+  return (['N5', 'N4', 'N3'] as const).flatMap((level) =>
+    [1, 2, 3, 4].map((n) => ({
+      id: `nat-${level.toLowerCase()}-${n}`,
+      level,
+      title: `NAT-TEST ${natLevel[level]} (≈${level}) · Đề ${n}`,
+      sessionLabel: `NAT ${n}`,
+      durationMinutes: minutes[level],
+      passScore: PASS_SCORE[level],
+      seedOffset: 40 + n,
+      format: 'nat' as const,
+      counts: EXAM_FORMAT_COUNTS.nat,
+      description: `Đề dài kiểu NAT-TEST ${natLevel[level]}: 10 Kanji, 10 Từ vựng, 10 Ngữ pháp, 4 câu ★, 4 bài đọc, 10 câu nghe · ${minutes[level]} phút.`,
+    })),
+  );
 }
 
 export const REAL_JLPT_EXAM_PRESETS: RealJlptExamPreset[] = [
-  // N5 Real-format exams
+  // N5 Real-format exams (6 full exams)
+  {
+    id: 'real-n5-2025-07',
+    level: 'N5',
+    title: 'Đề JLPT N5 · Kỳ tháng 07/2025',
+    sessionLabel: '07/2025',
+    durationMinutes: 40,
+    passScore: 80,
+    seedOffset: 3,
+    description: 'Đề mới nhất chuẩn cấu trúc JLPT N5: Ngôn ngữ & Đọc hiểu (120đ · liệt < 38) + Nghe hiểu (60đ · liệt < 19). Đậu ≥ 80/180.',
+  },
+  {
+    id: 'real-n5-2024-12',
+    level: 'N5',
+    title: 'Đề JLPT N5 · Kỳ tháng 12/2024',
+    sessionLabel: '12/2024',
+    durationMinutes: 40,
+    passScore: 80,
+    seedOffset: 4,
+    description: 'Đề chuẩn kỳ 12/2024 bám sát từ vựng đời sống, trợ từ cơ bản, đọc thông báo & 5 hội thoại Nghe hiểu.',
+  },
   {
     id: 'real-n5-2024-07',
     level: 'N5',
     title: 'Đề JLPT N5 · Kỳ tháng 07/2024',
     sessionLabel: '07/2024',
-    durationMinutes: 35,
+    durationMinutes: 40,
     passScore: 80,
     seedOffset: 0,
     description: 'Đề chuẩn cấu trúc JLPT N5 (4 phần: Từ vựng/Kanji · Ngữ pháp/★ · 3 bài Đọc hiểu · 5 bài Nghe hiểu). Thang 180 điểm (Đậu ≥ 80).',
@@ -32,7 +137,7 @@ export const REAL_JLPT_EXAM_PRESETS: RealJlptExamPreset[] = [
     level: 'N5',
     title: 'Đề JLPT N5 · Kỳ tháng 12/2023',
     sessionLabel: '12/2023',
-    durationMinutes: 35,
+    durationMinutes: 40,
     passScore: 80,
     seedOffset: 1,
     description: 'Bộ đề luyện thi chuẩn cấu trúc kỳ tháng 12/2023 kèm chấm điểm liệt từng phần và giải thích chi tiết.',
@@ -42,18 +147,48 @@ export const REAL_JLPT_EXAM_PRESETS: RealJlptExamPreset[] = [
     level: 'N5',
     title: 'Đề JLPT N5 · Kỳ tháng 07/2023',
     sessionLabel: '07/2023',
-    durationMinutes: 35,
+    durationMinutes: 40,
     passScore: 80,
     seedOffset: 2,
     description: 'Bộ đề chuẩn N5 tổng hợp trọng tâm sơ cấp, đọc bảng thông báo & hội thoại đời sống.',
   },
-  // N4 Real-format exams
+  {
+    id: 'real-n5-2022-12',
+    level: 'N5',
+    title: 'Đề JLPT N5 · Kỳ tháng 12/2022',
+    sessionLabel: '12/2022',
+    durationMinutes: 40,
+    passScore: 80,
+    seedOffset: 5,
+    description: 'Đề tổng ôn N5 kiểm tra toàn diện động từ nhóm I/II/III, tính từ và bẫy nghe giờ giấc/địa điểm.',
+  },
+  // N4 Real-format exams (6 full exams)
+  {
+    id: 'real-n4-2025-07',
+    level: 'N4',
+    title: 'Đề JLPT N4 · Kỳ tháng 07/2025',
+    sessionLabel: '07/2025',
+    durationMinutes: 45,
+    passScore: 90,
+    seedOffset: 3,
+    description: 'Đề mới nhất chuẩn JLPT N4: Ngôn ngữ & Đọc (120đ · liệt < 38) + Nghe (60đ · liệt < 19). Đậu ≥ 90/180.',
+  },
+  {
+    id: 'real-n4-2024-12',
+    level: 'N4',
+    title: 'Đề JLPT N4 · Kỳ tháng 12/2024',
+    sessionLabel: '12/2024',
+    durationMinutes: 45,
+    passScore: 90,
+    seedOffset: 4,
+    description: 'Đề N4 kỳ 12/2024 trọng tâm thể khả năng, bị động, cho-nhận và đọc hiểu thư từ/lịch trình.',
+  },
   {
     id: 'real-n4-2024-07',
     level: 'N4',
     title: 'Đề JLPT N4 · Kỳ tháng 07/2024',
     sessionLabel: '07/2024',
-    durationMinutes: 40,
+    durationMinutes: 45,
     passScore: 90,
     seedOffset: 0,
     description: 'Đề chuẩn cấu trúc JLPT N4 (Thang 180 điểm · Đậu ≥ 90 · Điểm liệt Nghe ≥ 19/60).',
@@ -63,7 +198,7 @@ export const REAL_JLPT_EXAM_PRESETS: RealJlptExamPreset[] = [
     level: 'N4',
     title: 'Đề JLPT N4 · Kỳ tháng 12/2023',
     sessionLabel: '12/2023',
-    durationMinutes: 40,
+    durationMinutes: 45,
     passScore: 90,
     seedOffset: 1,
     description: 'Bộ đề luyện thi N4 kỳ 12/2023 gồm trọn bộ Đọc ngắn/trung/tìm kiếm thông tin và 5 hội thoại Nghe hiểu.',
@@ -73,18 +208,48 @@ export const REAL_JLPT_EXAM_PRESETS: RealJlptExamPreset[] = [
     level: 'N4',
     title: 'Đề JLPT N4 · Kỳ tháng 07/2023',
     sessionLabel: '07/2023',
-    durationMinutes: 40,
+    durationMinutes: 45,
     passScore: 90,
     seedOffset: 2,
     description: 'Đề thi thử chuẩn N4 tập trung kính ngữ cơ bản, thể bị động/sai khiến và đọc hiểu email công việc.',
   },
-  // N3 Real-format exams
+  {
+    id: 'real-n4-2022-12',
+    level: 'N4',
+    title: 'Đề JLPT N4 · Kỳ tháng 12/2022',
+    sessionLabel: '12/2022',
+    durationMinutes: 45,
+    passScore: 90,
+    seedOffset: 5,
+    description: 'Đề tổng ôn N4 đánh giá phản xạ ngữ pháp liên kết câu, sắp xếp ★ và nghe hội thoại đời thường.',
+  },
+  // N3 Real-format exams (6 full exams)
+  {
+    id: 'real-n3-2025-07',
+    level: 'N3',
+    title: 'Đề JLPT N3 · Kỳ tháng 07/2025',
+    sessionLabel: '07/2025',
+    durationMinutes: 50,
+    passScore: 95,
+    seedOffset: 3,
+    description: 'Đề mới nhất chuẩn JLPT N3: 3 phần độc lập (Ngôn ngữ · Đọc · Nghe mỗi phần 60đ · liệt < 19). Đậu ≥ 95/180.',
+  },
+  {
+    id: 'real-n3-2024-12',
+    level: 'N3',
+    title: 'Đề JLPT N3 · Kỳ tháng 12/2024',
+    sessionLabel: '12/2024',
+    durationMinutes: 50,
+    passScore: 95,
+    seedOffset: 4,
+    description: 'Đề N3 kỳ 12/2024 chú trọng phân biệt từ đồng nghĩa, ngữ pháp trung cấp và đọc suy luận quan điểm tác giả.',
+  },
   {
     id: 'real-n3-2024-07',
     level: 'N3',
     title: 'Đề JLPT N3 · Kỳ tháng 07/2024',
     sessionLabel: '07/2024',
-    durationMinutes: 45,
+    durationMinutes: 50,
     passScore: 95,
     seedOffset: 0,
     description: 'Đề chuẩn cấu trúc JLPT N3 (Thang 180 điểm · Đậu ≥ 95 · Mỗi phần ≥ 19/60).',
@@ -94,7 +259,7 @@ export const REAL_JLPT_EXAM_PRESETS: RealJlptExamPreset[] = [
     level: 'N3',
     title: 'Đề JLPT N3 · Kỳ tháng 12/2023',
     sessionLabel: '12/2023',
-    durationMinutes: 45,
+    durationMinutes: 50,
     passScore: 95,
     seedOffset: 1,
     description: 'Bộ đề N3 kỳ 12/2023 gồm đọc luận trung–trường văn, tìm kiếm thông tin bảng biểu và 5 hội thoại tình huống.',
@@ -104,11 +269,23 @@ export const REAL_JLPT_EXAM_PRESETS: RealJlptExamPreset[] = [
     level: 'N3',
     title: 'Đề JLPT N3 · Kỳ tháng 07/2023',
     sessionLabel: '07/2023',
-    durationMinutes: 45,
+    durationMinutes: 50,
     passScore: 95,
     seedOffset: 2,
     description: 'Đề chuẩn N3 đánh giá toàn diện ngữ cảnh sắc thái, đọc suy luận và nghe hiểu công sở.',
   },
+  {
+    id: 'real-n3-2022-12',
+    level: 'N3',
+    title: 'Đề JLPT N3 · Kỳ tháng 12/2022',
+    sessionLabel: '12/2022',
+    durationMinutes: 50,
+    passScore: 95,
+    seedOffset: 5,
+    description: 'Đề tổng ôn N3 luyện sức bền đọc hiểu dài và bẫy phủ định kép trong bài Nghe hiểu.',
+  },
+  ...buildMiniPresets(),
+  ...buildNatPresets(),
 ];
 
 /* ============================================================================

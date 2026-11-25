@@ -92,39 +92,39 @@ const MINI_GAMES: MiniGameSpec[] = [
     id: 'shooter',
     glyph: '剣',
     title: 'Ninja chém từ',
-    subtitle: 'Gõ Hiragana hoặc ghép Kana để hạ Yōkai trên cầu.',
+    subtitle: 'Gõ Hiragana hoặc chạm chọn — theo bài hoặc vô hạn.',
     badge: 'Hot',
   },
   {
     id: 'slash',
     glyph: '斬',
     title: 'Chém hoa quả',
-    subtitle: 'Vuốt chém quả cầu đúng nghĩa, nhớ tránh bom.',
+    subtitle: 'Vuốt chém quả cầu đúng nghĩa — theo bài hoặc vô hạn.',
     badge: 'Mới',
   },
   {
     id: 'match',
     glyph: '結',
     title: 'Nối cặp',
-    subtitle: 'Nối Kanji ↔ nghĩa, âm đọc, từ vựng, ngữ pháp.',
+    subtitle: 'Nối Kanji, từ vựng, ngữ pháp — theo bài hoặc vô hạn.',
   },
   {
     id: 'memory',
     glyph: '札',
     title: 'Lật thẻ',
-    subtitle: 'Lật 12 thẻ, tìm cặp từ ↔ nghĩa.',
+    subtitle: 'Lật thẻ tìm cặp từ ↔ nghĩa — theo bài hoặc vô hạn.',
   },
   {
     id: 'truefalse',
     glyph: '速',
     title: 'Đúng hay sai',
-    subtitle: 'Phán đoán nhanh trong 45 giây.',
+    subtitle: 'Phán đoán nhanh ○/× — theo bài, vô hạn hoặc 45s.',
   },
   {
     id: 'listening',
     glyph: '聴',
     title: 'Luyện nghe',
-    subtitle: 'Nghe giọng đọc, bắt đúng từ.',
+    subtitle: 'Nghe giọng đọc bắt đúng từ — theo bài hoặc vô hạn.',
   },
 ];
 
@@ -198,6 +198,9 @@ export const MiniGamesPage: React.FC = () => {
   const [selectedCustomLessonId, setSelectedCustomLessonId] = useState<string | null>(() =>
     searchParams.get('customLesson'),
   );
+  const [allCurriculumMode, setAllCurriculumMode] = useState<boolean>(
+    () => searchParams.get('scope') === 'all-books',
+  );
   const [selectedUnitIds, setSelectedUnitIds] = useState<string[]>(() => {
     const param = searchParams.get('unit');
     if (!param || param === 'ALL') return [];
@@ -264,10 +267,12 @@ export const MiniGamesPage: React.FC = () => {
   const applySelectedUnitIds = useCallback(
     (nextIds: string[]) => {
       setSelectedCustomLessonId(null);
+      setAllCurriculumMode(false);
       setSelectedUnitIds(nextIds);
       setPracticeSet(null);
       const next = new URLSearchParams(searchParams);
       next.delete('customLesson');
+      next.delete('scope');
       if (nextIds.length === 0) {
         next.delete('unit');
       } else {
@@ -278,14 +283,28 @@ export const MiniGamesPage: React.FC = () => {
     [searchParams, setSearchParams],
   );
 
+  const applyAllCurriculumMode = useCallback(() => {
+    setSelectedCustomLessonId(null);
+    setAllCurriculumMode(true);
+    setSelectedUnitIds([]);
+    setPracticeSet(null);
+    const next = new URLSearchParams(searchParams);
+    next.delete('customLesson');
+    next.delete('unit');
+    next.set('scope', 'all-books');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+
   const applyCustomLessonId = useCallback(
     (lessonId: string) => {
       setSelectedCustomLessonId(lessonId);
+      setAllCurriculumMode(false);
       setSelectedUnitIds([]);
       setPracticeSet(null);
       setShowLessonPicker(false);
       const next = new URLSearchParams(searchParams);
       next.delete('unit');
+      next.delete('scope');
       next.set('customLesson', lessonId);
       setSearchParams(next, { replace: true });
     },
@@ -329,8 +348,8 @@ export const MiniGamesPage: React.FC = () => {
     if (activeCustomLesson) {
       return customVocabToVocabularyItems(activeCustomLesson);
     }
-    let pool = bookWords;
-    if (validSelectedUnits.length > 0) {
+    let pool = allCurriculumMode ? allVocab : bookWords;
+    if (!allCurriculumMode && validSelectedUnits.length > 0) {
       const selectedSet = new Set(validSelectedUnits.map((u) => u.id));
       const unitScoped = bookWords.filter((w) => selectedSet.has(w.unitId));
       if (unitScoped.length > 0) pool = unitScoped;
@@ -340,7 +359,7 @@ export const MiniGamesPage: React.FC = () => {
       if (starred.length >= 4) return starred;
     }
     return pool.length > 0 ? pool : allVocab;
-  }, [activeCustomLesson, allVocab, bookWords, onlyStarred, starredIds, validSelectedUnits]);
+  }, [activeCustomLesson, allCurriculumMode, allVocab, bookWords, onlyStarred, starredIds, validSelectedUnits]);
 
   const dailyChallengeIds = useMemo(
     () => pickDailyChallengeIds(bookWords, todayKey, `${activeLevel}|${activeBook.id}`),
@@ -388,19 +407,23 @@ export const MiniGamesPage: React.FC = () => {
 
   const levelKanjis = useMemo(() => {
     const all = getLiveKanjis(cmsSnapshot);
+    if (allCurriculumMode) return all;
     const scoped = all.filter((k) => k.jlptLevel === activeLevel);
     return scoped.length >= 6 ? scoped : all;
-  }, [activeLevel, cmsSnapshot]);
+  }, [activeLevel, allCurriculumMode, cmsSnapshot]);
 
   const levelGrammars = useMemo(() => {
     const books = getLiveGrammarBooks(cmsSnapshot);
+    if (allCurriculumMode) {
+      return books.flatMap((b) => b.chapters.flatMap((c) => c.grammars));
+    }
     const scoped = books
       .filter((b) => b.level === activeLevel)
       .flatMap((b) => b.chapters.flatMap((c) => c.grammars));
     return scoped.length >= 6
       ? scoped
       : books.flatMap((b) => b.chapters.flatMap((c) => c.grammars));
-  }, [activeLevel, cmsSnapshot]);
+  }, [activeLevel, allCurriculumMode, cmsSnapshot]);
 
   const updateHighScore = (gameId: MiniGameId, score: number) => {
     setHighScores((prev) => {
@@ -468,25 +491,31 @@ export const MiniGamesPage: React.FC = () => {
 
   const selectedUnitKey = activeCustomLesson
     ? `custom-${activeCustomLesson.id}`
-    : validSelectedUnits.length === 0
-      ? 'ALL'
-      : validSelectedUnits.map((u) => String(u.id)).join(',');
+    : allCurriculumMode
+      ? 'ALL_BOOKS'
+      : validSelectedUnits.length === 0
+        ? 'ALL'
+        : validSelectedUnits.map((u) => String(u.id)).join(',');
 
   const selectedUnitLabel = activeCustomLesson
     ? `Bài tự tạo: ${activeCustomLesson.title}`
-    : validSelectedUnits.length === 0
-      ? `Trọn bộ ${activeBook.shortTitle}`
-      : validSelectedUnits.length === 1
-        ? validSelectedUnits[0].name
-        : `${validSelectedUnits.length} bài đã chọn (${filteredWords.length} từ)`;
+    : allCurriculumMode
+      ? `Tất cả giáo trình (${filteredWords.length} từ)`
+      : validSelectedUnits.length === 0
+        ? `Trọn bộ ${activeBook.shortTitle}`
+        : validSelectedUnits.length === 1
+          ? validSelectedUnits[0].name
+          : `${validSelectedUnits.length} bài đã chọn (${filteredWords.length} từ)`;
 
   const selectValue = activeCustomLesson
     ? `custom:${activeCustomLesson.id}`
-    : validSelectedUnits.length === 0
-      ? 'ALL'
-      : validSelectedUnits.length === 1
-        ? String(validSelectedUnits[0].id)
-        : 'MULTI';
+    : allCurriculumMode
+      ? 'ALL_BOOKS'
+      : validSelectedUnits.length === 0
+        ? 'ALL'
+        : validSelectedUnits.length === 1
+          ? String(validSelectedUnits[0].id)
+          : 'MULTI';
 
   return (
     <PageContainer size="lg" className="max-w-5xl space-y-3 py-1">
@@ -624,6 +653,8 @@ export const MiniGamesPage: React.FC = () => {
               const val = e.target.value;
               if (val.startsWith('custom:')) {
                 applyCustomLessonId(val.slice('custom:'.length));
+              } else if (val === 'ALL_BOOKS') {
+                applyAllCurriculumMode();
               } else if (val === 'ALL') {
                 applySelectedUnitIds([]);
               } else if (val !== 'MULTI') {
@@ -633,6 +664,11 @@ export const MiniGamesPage: React.FC = () => {
             wrapperClassName="min-w-0 flex-1 basis-56 sm:max-w-xs"
             className="w-full"
           >
+            <optgroup label="Toàn bộ dữ liệu">
+              <option value="ALL_BOOKS">
+                🌐 Tất cả giáo trình ({allVocab.length} từ)
+              </option>
+            </optgroup>
             {studioVocabLessons.length > 0 && (
               <optgroup label="Bài tự tạo của bạn">
                 {studioVocabLessons.map((lesson) => (
@@ -644,7 +680,7 @@ export const MiniGamesPage: React.FC = () => {
             )}
             <optgroup label={`Giáo trình ${activeBook.shortTitle}`}>
               <option value="ALL">
-                Tất cả ({bookUnits.length} bài · {bookWords.length} từ)
+                Trọn bộ {activeBook.shortTitle} ({bookUnits.length} bài · {bookWords.length} từ)
               </option>
               {selectValue === 'MULTI' && (
                 <option value="MULTI">
@@ -658,6 +694,10 @@ export const MiniGamesPage: React.FC = () => {
               ))}
             </optgroup>
           </Select>
+
+          <Chip selected={allCurriculumMode} onClick={applyAllCurriculumMode}>
+            Tất cả giáo trình
+          </Chip>
 
           {bookUnits.length > 1 && (
             <Chip selected={showLessonPicker} onClick={() => setShowLessonPicker((v) => !v)}>
@@ -701,7 +741,9 @@ export const MiniGamesPage: React.FC = () => {
           <span>
             {activeCustomLesson
               ? `Bài tự tạo · ${activeCustomLesson.level}`
-              : `${activeLevel} · ${activeBook.shortTitle}`}
+              : allCurriculumMode
+                ? 'Tất cả giáo trình (N5–N3)'
+                : `${activeLevel} · ${activeBook.shortTitle}`}
           </span>
           <span aria-hidden>·</span>
           <span>
@@ -865,16 +907,16 @@ export const MiniGamesPage: React.FC = () => {
           words={gameWords}
           kanjis={levelKanjis}
           grammars={levelGrammars}
-          levelLabel={`${activeLevel} · ${selectedUnitLabel}`}
+          levelLabel={allCurriculumMode ? 'Tất cả giáo trình' : `${activeLevel} · ${selectedUnitLabel}`}
           soundEnabled={soundEnabled}
           onToggleSound={handleToggleSound}
-          onCompleteRound={({ score, skill, seconds }) =>
+          onCompleteRound={({ score, skill, seconds, matchedCount }) =>
             handleRecordGameCompletion({
               gameId: 'match',
               score,
               skill,
-              totalQuestions: 18,
-              correctAnswers: 18,
+              totalQuestions: Math.max(1, matchedCount),
+              correctAnswers: matchedCount,
               durationSeconds: seconds,
             })
           }
@@ -886,14 +928,14 @@ export const MiniGamesPage: React.FC = () => {
           kanjis={levelKanjis}
           soundEnabled={soundEnabled}
           onToggleSound={handleToggleSound}
-          onCompleteRound={({ score, skill, moves }) =>
+          onCompleteRound={({ score, skill, moves, matchedPairs }) =>
             handleRecordGameCompletion({
               gameId: 'memory',
               score,
               skill,
-              totalQuestions: 6,
-              correctAnswers: 6,
-              durationSeconds: moves * 3,
+              totalQuestions: Math.max(1, matchedPairs),
+              correctAnswers: matchedPairs,
+              durationSeconds: Math.max(5, moves * 3),
             })
           }
         />
@@ -904,14 +946,14 @@ export const MiniGamesPage: React.FC = () => {
           kanjis={levelKanjis}
           soundEnabled={soundEnabled}
           onToggleSound={handleToggleSound}
-          onCompleteRound={({ score, skill, correctCount }) =>
+          onCompleteRound={({ score, skill, correctCount, totalAnswered }) =>
             handleRecordGameCompletion({
               gameId: 'truefalse',
               score,
               skill,
-              totalQuestions: Math.max(1, correctCount),
+              totalQuestions: Math.max(1, totalAnswered),
               correctAnswers: correctCount,
-              durationSeconds: 45,
+              durationSeconds: Math.max(5, totalAnswered * 2),
             })
           }
         />
@@ -921,14 +963,14 @@ export const MiniGamesPage: React.FC = () => {
           words={gameWords}
           soundEnabled={soundEnabled}
           onToggleSound={handleToggleSound}
-          onCompleteRound={({ score, skill, correctCount }) =>
+          onCompleteRound={({ score, skill, correctCount, totalAnswered }) =>
             handleRecordGameCompletion({
               gameId: 'listening',
               score,
               skill,
-              totalQuestions: 10,
+              totalQuestions: Math.max(1, totalAnswered),
               correctAnswers: correctCount,
-              durationSeconds: 40,
+              durationSeconds: Math.max(5, totalAnswered * 4),
             })
           }
         />

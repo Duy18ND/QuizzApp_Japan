@@ -1,20 +1,23 @@
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
+  ArrowRight,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Gamepad2,
+  Lightbulb,
   RotateCcw,
   Volume2,
   XCircle,
 } from 'lucide-react';
 import { Badge, Button, Card, Modal } from '../ui';
+import { AudioSpeechPlayer } from '../jlpt/AudioSpeechPlayer';
 import { buttonStyles } from '../ui/styles';
 import { cn } from '../../lib/cn';
 import type { CustomLesson } from '../../services/customStudioService';
 import { shuffleArray } from '../../utils/shuffle';
-import { speakJapanese } from '../../utils/tts';
+import { parseCustomDialogueLines, speakJapanese } from '../../utils/tts';
 
 interface CustomLessonPlayerModalProps {
   lesson: CustomLesson | null;
@@ -27,18 +30,35 @@ export const CustomLessonPlayerModal: React.FC<CustomLessonPlayerModalProps> = (
   onClose,
   onMarkStudied,
 }) => {
+  const isCustomQuizLesson = lesson?.kind === 'quiz';
   const [mode, setMode] = useState<'flashcard' | 'quiz'>('flashcard');
   const [cardIndex, setCardIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
 
-  // Quiz state
+  // Quiz state (shared across both auto-generated vocab quiz & authored custom quiz)
   const [quizIndex, setQuizIndex] = useState(0);
   const [pickedOption, setPickedOption] = useState<string | null>(null);
+  const [pickedOptionIndex, setPickedOptionIndex] = useState<number | null>(null);
+  const [showScript, setShowScript] = useState(false);
   const [quizScore, setQuizScore] = useState(0);
   const [quizSeed, setQuizSeed] = useState(0);
+  const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
+
+  if (lesson && lesson.id !== activeLessonId) {
+    setActiveLessonId(lesson.id);
+    setMode(lesson.kind === 'quiz' ? 'quiz' : 'flashcard');
+    setCardIndex(0);
+    setFlipped(false);
+    setQuizIndex(0);
+    setPickedOption(null);
+    setPickedOptionIndex(null);
+    setShowScript(false);
+    setQuizScore(0);
+    setQuizSeed((s) => s + 1);
+  }
 
   const studyItems = useMemo(() => {
-    if (!lesson) return [];
+    if (!lesson || lesson.kind === 'quiz') return [];
     if (lesson.kind === 'vocab') {
       return (lesson.vocabItems ?? []).map((v) => ({
         id: v.id,
@@ -69,6 +89,11 @@ export const CustomLessonPlayerModal: React.FC<CustomLessonPlayerModalProps> = (
     }));
   }, [lesson]);
 
+  const authoredQuizItems = useMemo(
+    () => (lesson?.kind === 'quiz' ? (lesson.quizItems ?? []) : []),
+    [lesson],
+  );
+
   const quizQuestions = useMemo(() => {
     if (quizSeed < 0 || studyItems.length < 2) return [];
     const shuffled = shuffleArray(studyItems);
@@ -86,13 +111,19 @@ export const CustomLessonPlayerModal: React.FC<CustomLessonPlayerModalProps> = (
   const safeCardIdx = studyItems.length > 0 ? Math.min(cardIndex, studyItems.length - 1) : 0;
   const currentCard = studyItems[safeCardIdx];
   const currentQuiz = quizQuestions[quizIndex];
-  const quizFinished = quizQuestions.length > 0 && quizIndex >= quizQuestions.length;
+  const currentAuthoredQuiz = authoredQuizItems[quizIndex];
+  const quizFinished = isCustomQuizLesson
+    ? authoredQuizItems.length > 0 && quizIndex >= authoredQuizItems.length
+    : quizQuestions.length > 0 && quizIndex >= quizQuestions.length;
+
+  const totalCount = isCustomQuizLesson ? authoredQuizItems.length : studyItems.length;
 
   const resetAll = () => {
     setCardIndex(0);
     setFlipped(false);
     setQuizIndex(0);
     setPickedOption(null);
+    setPickedOptionIndex(null);
     setQuizScore(0);
     setQuizSeed((s) => s + 1);
   };
@@ -110,8 +141,10 @@ export const CustomLessonPlayerModal: React.FC<CustomLessonPlayerModalProps> = (
                 ? 'Bài Từ vựng tự tạo'
                 : lesson.kind === 'grammar'
                   ? 'Bài Ngữ pháp tự tạo'
-                  : 'Bài Kanji tự tạo'
-            } (${studyItems.length} mục)`
+                  : lesson.kind === 'quiz'
+                    ? 'Bộ Quiz trắc nghiệm tự tạo'
+                    : 'Bài Kanji tự tạo'
+            } (${totalCount} ${lesson.kind === 'quiz' ? 'câu' : 'mục'})`
           : ''
       }
       footer={
@@ -146,10 +179,224 @@ export const CustomLessonPlayerModal: React.FC<CustomLessonPlayerModalProps> = (
         </>
       }
     >
-      {studyItems.length === 0 ? (
+      {totalCount === 0 ? (
         <p className="py-6 text-center text-sm text-muted">
-          Bài học này chưa có mục nào. Hãy bấm “Sửa” để thêm từ vựng / ngữ pháp / Kanji.
+          Bài học này chưa có mục nào. Hãy bấm “Sửa” trong Studio để thêm nội dung.
         </p>
+      ) : isCustomQuizLesson ? (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Badge tone="primary" className="tabular">
+              {quizFinished
+                ? `Hoàn thành ${authoredQuizItems.length}/${authoredQuizItems.length} câu`
+                : `Câu ${quizIndex + 1}/${authoredQuizItems.length}`}
+            </Badge>
+            <Badge tone="success" className="tabular">
+              Đúng: {quizScore}/{authoredQuizItems.length}
+            </Badge>
+          </div>
+
+          {quizFinished ? (
+            <Card padding="lg" className="space-y-3 text-center">
+              <Badge tone="success" className="mx-auto">
+                ★ Hoàn thành bộ Quiz tự tạo!
+              </Badge>
+              <p className="text-2xl font-bold text-fg tabular">
+                {quizScore}/{authoredQuizItems.length} câu đúng (
+                {Math.round((quizScore / Math.max(1, authoredQuizItems.length)) * 100)}%)
+              </p>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  leftIcon={<RotateCcw className="size-4" aria-hidden />}
+                  onClick={resetAll}
+                >
+                  Làm lại lượt mới
+                </Button>
+                {onMarkStudied && (
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    leftIcon={<CheckCircle2 className="size-4" aria-hidden />}
+                    onClick={() => {
+                      onMarkStudied();
+                      onClose();
+                    }}
+                  >
+                    Hoàn thành &amp; Lưu tiến độ
+                  </Button>
+                )}
+              </div>
+            </Card>
+          ) : (
+            currentAuthoredQuiz && (
+              <div className="space-y-3">
+                <div className="space-y-2.5 rounded-xl border border-line bg-surface-2/60 p-4">
+                  {/* Uploaded MP3/M4A/WAV Audio Player */}
+                  {currentAuthoredQuiz.audioDataUrl && (
+                    <div className="rounded-lg border border-line bg-surface p-2">
+                      <audio
+                        controls
+                        src={currentAuthoredQuiz.audioDataUrl}
+                        className="h-9 w-full"
+                      />
+                    </div>
+                  )}
+
+                  {/* Japanese TTS Auto-Read Block: Multi-Speaker AudioSpeechPlayer OR Single Voice */}
+                  {(currentAuthoredQuiz.speakText || lesson?.role === 'listening') &&
+                    (() => {
+                      const dialogueLines = parseCustomDialogueLines(currentAuthoredQuiz.speakText);
+                      const revealScript = showScript || pickedOptionIndex !== null;
+                      if (dialogueLines) {
+                        return (
+                          <div className="space-y-2">
+                            <AudioSpeechPlayer
+                              key={currentAuthoredQuiz.id}
+                              dialogue={dialogueLines}
+                              questionPrompt={currentAuthoredQuiz.prompt}
+                            />
+                            <div className="flex justify-end">
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => setShowScript((v) => !v)}
+                              >
+                                {revealScript ? 'Ẩn Script hội thoại' : 'Xem Script hội thoại'}
+                              </Button>
+                            </div>
+                            {revealScript && (
+                              <div className="space-y-1 rounded-lg border border-line bg-surface p-2.5 text-sm">
+                                {dialogueLines.map((ln, lIdx) => (
+                                  <p key={`${ln.speaker}-${lIdx}`} lang="ja" className="text-fg">
+                                    <strong className="mr-1.5 text-primary-fg">
+                                      {ln.speaker}:
+                                    </strong>
+                                    <span>{ln.plainText}</span>
+                                  </p>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="space-y-2 rounded-lg border border-primary/35 bg-primary-soft/20 p-2.5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="primary"
+                              size="sm"
+                              leftIcon={<Volume2 className="size-4" aria-hidden />}
+                              onClick={() =>
+                                speakJapanese(
+                                  currentAuthoredQuiz.speakText || currentAuthoredQuiz.prompt,
+                                )
+                              }
+                            >
+                              Nghe giọng đọc tiếng Nhật
+                            </Button>
+                            {currentAuthoredQuiz.speakText && (
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => setShowScript((v) => !v)}
+                              >
+                                {revealScript ? 'Ẩn Script' : 'Xem Script tiếng Nhật'}
+                              </Button>
+                            )}
+                          </div>
+                          {currentAuthoredQuiz.speakText && revealScript && (
+                            <p
+                              lang="ja"
+                              className="rounded-lg border border-line bg-surface px-3 py-2 text-sm font-medium text-fg"
+                            >
+                              {currentAuthoredQuiz.speakText}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                  <p className="text-base font-bold text-fg sm:text-lg">
+                    {currentAuthoredQuiz.prompt}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {currentAuthoredQuiz.options.map((opt, idx) => {
+                    const isAnswered = pickedOptionIndex !== null;
+                    const isPicked = pickedOptionIndex === idx;
+                    const isCorrect = idx === currentAuthoredQuiz.correctIndex;
+                    return (
+                      <button
+                        key={`${currentAuthoredQuiz.id}-${idx}`}
+                        type="button"
+                        disabled={isAnswered}
+                        onClick={() => {
+                          setPickedOptionIndex(idx);
+                          if (isCorrect) setQuizScore((s) => s + 1);
+                        }}
+                        className={cn(
+                          'flex min-h-[52px] cursor-pointer items-center justify-between gap-2 rounded-xl border-2 px-3.5 py-2.5 text-left text-sm font-semibold transition-colors',
+                          isAnswered && isCorrect
+                            ? 'border-success bg-success-soft text-success-fg'
+                            : isPicked && !isCorrect
+                              ? 'border-danger bg-danger-soft text-danger-fg'
+                              : 'border-line bg-surface hover:border-primary',
+                        )}
+                      >
+                        <span>
+                          <span className="mr-1.5 opacity-70">
+                            {String.fromCharCode(65 + idx)}.
+                          </span>
+                          {opt}
+                        </span>
+                        {isAnswered && isCorrect && (
+                          <CheckCircle2 className="size-4 shrink-0" aria-hidden />
+                        )}
+                        {isPicked && !isCorrect && (
+                          <XCircle className="size-4 shrink-0" aria-hidden />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {pickedOptionIndex !== null && (
+                  <div className="space-y-2.5 rounded-xl border border-line bg-surface-2/70 p-3.5">
+                    {currentAuthoredQuiz.explanation && (
+                      <div className="flex items-start gap-2 text-xs leading-relaxed text-fg sm:text-sm">
+                        <Lightbulb className="mt-0.5 size-4 shrink-0 text-primary-fg" aria-hidden />
+                        <span>{currentAuthoredQuiz.explanation}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="sm"
+                        rightIcon={<ArrowRight className="size-4" aria-hidden />}
+                        onClick={() => {
+                          setPickedOptionIndex(null);
+                          setShowScript(false);
+                          setQuizIndex((i) => i + 1);
+                        }}
+                      >
+                        {quizIndex + 1 >= authoredQuizItems.length ? 'Xem kết quả' : 'Câu tiếp theo'}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          )}
+        </div>
       ) : (
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">

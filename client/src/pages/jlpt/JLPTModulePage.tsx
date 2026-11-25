@@ -1,3 +1,4 @@
+import { N3_GRAMMAR_UNITS } from '../../data/jlpt/listeningPackN3Lessons';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
@@ -13,6 +14,7 @@ import {
   Button,
   Card,
   Chip,
+  Select,
   EmptyState,
   ErrorState,
   Kbd,
@@ -44,12 +46,14 @@ import {
 } from '../../services/curriculumStore';
 import { useAuth } from '../../context/auth-context';
 import { clearAttemptMistakeGroup } from '../../services/attemptMistakeService';
+import { markJlptItemDone, useJlptDone } from '../../services/jlptProgressService';
 import { saveLastPracticeTarget } from '../../services/lastPracticeService';
 import { recordQuizAttempt } from '../../services/quizHistoryService';
 import { useAppDispatch } from '../../store/hooks';
 import { addMistake } from '../../store/slices/mistakeSlice';
 import { shuffleArray } from '../../utils/shuffle';
 import {
+  getItemLessons,
   getListeningSituation,
   getReadingSituation,
   SITUATION_TAGS,
@@ -90,6 +94,7 @@ export const JLPTModulePage: React.FC = () => {
 const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
   const dispatch = useAppDispatch();
   const { user, studyLevel } = useAuth();
+  const doneIds = useJlptDone(user?.id);
   const [searchParams] = useSearchParams();
   const retryAttemptId = searchParams.get('retryAttemptId')?.trim() || undefined;
   const sessionStartRef = useRef<number>(0);
@@ -157,6 +162,7 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
   }, []);
 
   const handleLevelChange = (nextLevel: JLPTLevelFilter) => {
+    setFilterSnapshot({ reading: [...doneIds.reading], listening: [...doneIds.listening] });
     setLevelFilter(nextLevel);
     resetSequentialSession();
   };
@@ -167,6 +173,7 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
   };
 
   const handleReshuffle = () => {
+    setFilterSnapshot({ reading: [...doneIds.reading], listening: [...doneIds.listening] });
     setSessionSeed((s) => s + 1);
     resetSequentialSession();
   };
@@ -244,6 +251,18 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
   }, [activeLesson, cmsSnapshot, levelFilter, meta.id, questionLimit, sessionSeed, sliceForDailyLesson]);
 
   const [situationFilter, setSituationFilter] = useState<string>('all');
+  const [doneFilter, setDoneFilter] = useState<'all' | 'todo' | 'done'>('all');
+  // Snapshot of done IDs taken when switching filter / reshuffling so answering an item in
+  // "Chưa làm" mode adds the ✓ badge without yanking the active item away mid-review.
+  const [filterSnapshot, setFilterSnapshot] = useState<{ reading: string[]; listening: string[] }>(
+    () => ({ reading: [], listening: [] }),
+  );
+
+  const handleDoneFilterChange = (next: 'all' | 'todo' | 'done') => {
+    setFilterSnapshot({ reading: [...doneIds.reading], listening: [...doneIds.listening] });
+    setDoneFilter(next);
+    resetSequentialSession();
+  };
 
   // Situations available for the current module & level (only the situation packs carry one)
   const availableSituations = useMemo(() => {
@@ -257,7 +276,7 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
   }, [cmsSnapshot, levelFilter, meta.id]);
   const activeSituation = availableSituations.some((t) => t === situationFilter) ? situationFilter : 'all';
 
-  const readingPassages = useMemo(() => {
+  const allScopedReading = useMemo(() => {
     if (
       meta.id !== 'reading-short' &&
       meta.id !== 'reading-medium' &&
@@ -266,26 +285,76 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
       return [];
     }
     const all = getLiveJlptReadingPassages(cmsSnapshot, meta.id, levelFilter);
-    const raw =
-      activeSituation === 'all' ? all : all.filter((p) => getReadingSituation(p) === activeSituation);
-    if (activeLesson > 0 && raw.length > 0) {
-      return [raw[(activeLesson - 1) % raw.length]];
-    }
-    return raw;
-  }, [activeLesson, activeSituation, cmsSnapshot, levelFilter, meta.id]);
+    return activeSituation === 'all'
+      ? all
+      : all.filter((p) => getReadingSituation(p) === activeSituation);
+  }, [activeSituation, cmsSnapshot, levelFilter, meta.id]);
 
-  const listeningItems = useMemo(() => {
+  const readingPassages = useMemo(() => {
+    if (allScopedReading.length === 0) return [];
+    if (activeLesson > 0) {
+      return [allScopedReading[(activeLesson - 1) % allScopedReading.length]];
+    }
+    if (doneFilter === 'todo') {
+      return allScopedReading.filter((p) => !filterSnapshot.reading.includes(p.id));
+    }
+    if (doneFilter === 'done') {
+      return allScopedReading.filter((p) => filterSnapshot.reading.includes(p.id));
+    }
+    return allScopedReading;
+  }, [activeLesson, allScopedReading, doneFilter, filterSnapshot.reading]);
+
+  // Textbook lessons (Minna "Bài N") available for listening at this level
+  const [lessonFilter, setLessonFilter] = useState<number | 'all'>('all');
+  const availableListeningLessons = useMemo(() => {
+    // Lesson numbers only mean something inside one level (N5 Bài 1 ≠ N3 Bài 1)
+    if (meta.id !== 'listening' || levelFilter === 'ALL') return [];
+    const set = new Set<number>();
+    for (const item of getLiveJlptListeningItems(cmsSnapshot, levelFilter)) {
+      for (const n of getItemLessons(item)) set.add(n);
+    }
+    return Array.from(set).sort((a, b) => a - b);
+  }, [cmsSnapshot, levelFilter, meta.id]);
+  const activeListeningLesson =
+    lessonFilter !== 'all' && availableListeningLessons.includes(lessonFilter) ? lessonFilter : 'all';
+
+  const allScopedListening = useMemo(() => {
     if (meta.id !== 'listening') return [];
     const all = getLiveJlptListeningItems(cmsSnapshot, levelFilter);
-    const raw =
-      activeSituation === 'all' ? all : all.filter((i) => getListeningSituation(i) === activeSituation);
+    return all.filter(
+      (i) =>
+        (activeSituation === 'all' || getListeningSituation(i) === activeSituation) &&
+        (activeListeningLesson === 'all' || getItemLessons(i).includes(activeListeningLesson)),
+    );
+  }, [activeListeningLesson, activeSituation, cmsSnapshot, levelFilter, meta.id]);
+
+  const listeningItems = useMemo(() => {
+    if (allScopedListening.length === 0) return [];
     if (activeLesson > 0 && sessionSeed === 0) {
-      return sliceForDailyLesson(raw, activeLesson, questionLimit);
+      return sliceForDailyLesson(allScopedListening, activeLesson, questionLimit);
     }
+    const filtered =
+      doneFilter === 'todo'
+        ? allScopedListening.filter((i) => !filterSnapshot.listening.includes(i.id))
+        : doneFilter === 'done'
+          ? allScopedListening.filter((i) => filterSnapshot.listening.includes(i.id))
+          : allScopedListening;
     void sessionSeed;
-    const pool = shuffleArray(raw);
-    return questionLimit > 0 ? pool.slice(0, questionLimit) : pool;
-  }, [activeLesson, activeSituation, cmsSnapshot, levelFilter, meta.id, questionLimit, sessionSeed, sliceForDailyLesson]);
+    // Listening plays every item of the current filters (lesson / situation / done) — no count picker
+    return shuffleArray(filtered);
+  }, [activeLesson, allScopedListening, doneFilter, filterSnapshot.listening, questionLimit, sessionSeed, sliceForDailyLesson]);
+
+  const progressSummary = useMemo(() => {
+    if (meta.id === 'reading-short' || meta.id === 'reading-medium' || meta.id === 'reading-long') {
+      const doneCount = allScopedReading.filter((p) => doneIds.reading.includes(p.id)).length;
+      return { kindLabel: 'bài đọc', doneCount, total: allScopedReading.length };
+    }
+    if (meta.id === 'listening') {
+      const doneCount = allScopedListening.filter((i) => doneIds.listening.includes(i.id)).length;
+      return { kindLabel: 'bài nghe', doneCount, total: allScopedListening.length };
+    }
+    return null;
+  }, [allScopedListening, allScopedReading, doneIds.listening, doneIds.reading, meta.id]);
 
   const isMcqMode = meta.id === 'kanji' || meta.id === 'vocab' || meta.id === 'grammar';
   const isStarMode = meta.id === 'star';
@@ -429,8 +498,10 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
 
           {(isMcqMode || isStarMode || isListeningMode) && (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-semibold tracking-wide text-muted uppercase">Số câu:</span>
-              {COUNT_OPTIONS.map((cnt) => (
+              {!isListeningMode && (
+                <span className="text-xs font-semibold tracking-wide text-muted uppercase">Số câu:</span>
+              )}
+              {!isListeningMode && COUNT_OPTIONS.map((cnt) => (
                 <Chip
                   key={cnt}
                   selected={questionLimit === cnt}
@@ -453,23 +524,88 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
         </div>
       </Card>
 
-      {availableSituations.length > 0 && (
-        <div className="mb-4 flex flex-wrap items-center gap-1.5">
-          <span className="mr-1 text-xs font-semibold tracking-wide text-muted uppercase">Tình huống:</span>
-          <Chip selected={activeSituation === 'all'} onClick={() => setSituationFilter('all')}>
-            Tất cả
-          </Chip>
-          {availableSituations.map((tag) => (
-            <Chip key={tag} selected={activeSituation === tag} onClick={() => setSituationFilter(tag)}>
-              {tag}
-            </Chip>
-          ))}
+      {(availableListeningLessons.length > 0 || availableSituations.length > 0) && (
+        <div className="mb-4 grid gap-2 sm:grid-cols-2">
+          {availableListeningLessons.length > 0 && (
+            <Select
+              aria-label="Lọc theo bài Minna"
+              value={String(activeListeningLesson)}
+              wrapperClassName="w-full"
+              className="w-full"
+              onChange={(e) => {
+                setLessonFilter(e.target.value === 'all' ? 'all' : Number(e.target.value));
+                resetSequentialSession();
+              }}
+            >
+              <option value="all">
+                {levelFilter === 'N3' ? 'Bài ngữ pháp N3: tất cả' : 'Bài Minna: tất cả'}
+              </option>
+              {availableListeningLessons.map((n) => (
+                <option key={n} value={n}>
+                  Bài {n}
+                  {levelFilter === 'N3' && N3_GRAMMAR_UNITS[n] ? ` · ${N3_GRAMMAR_UNITS[n]}` : ''}
+                </option>
+              ))}
+            </Select>
+          )}
+          {availableSituations.length > 0 && (
+            <Select
+              aria-label="Lọc theo tình huống"
+              value={activeSituation}
+              wrapperClassName="w-full"
+              className="w-full"
+              onChange={(e) => {
+                setSituationFilter(e.target.value);
+                resetSequentialSession();
+              }}
+            >
+              <option value="all">Tình huống: tất cả</option>
+              {availableSituations.map((tag) => (
+                <option key={tag} value={tag}>
+                  {tag}
+                </option>
+              ))}
+            </Select>
+          )}
         </div>
+      )}
+
+      {progressSummary && progressSummary.total > 0 && activeLesson === 0 && (
+        <Card padding="sm" className="mb-4 space-y-2.5 border-line bg-surface-2/60">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
+              <span className="font-semibold text-fg tabular">
+                Tiến độ: {progressSummary.doneCount}/{progressSummary.total} {progressSummary.kindLabel} đã làm
+              </span>
+              {progressSummary.doneCount === progressSummary.total && (
+                <Badge tone="success">✓ Hoàn thành toàn bộ</Badge>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Chip selected={doneFilter === 'all'} onClick={() => handleDoneFilterChange('all')}>
+                Tất cả ({progressSummary.total})
+              </Chip>
+              <Chip selected={doneFilter === 'todo'} onClick={() => handleDoneFilterChange('todo')}>
+                Chưa làm ({Math.max(0, progressSummary.total - progressSummary.doneCount)})
+              </Chip>
+              <Chip selected={doneFilter === 'done'} onClick={() => handleDoneFilterChange('done')}>
+                ✓ Đã làm ({progressSummary.doneCount})
+              </Chip>
+            </div>
+          </div>
+          <ProgressBar
+            value={progressSummary.doneCount}
+            max={progressSummary.total}
+            tone={progressSummary.doneCount === progressSummary.total ? 'success' : 'primary'}
+            size="sm"
+            label={`Tiến độ ${progressSummary.kindLabel}`}
+          />
+        </Card>
       )}
 
       {isReadingMode && (
         <JlptReadingView
-          key={`${meta.id}-${levelFilter}-${activeSituation}`}
+          key={`${meta.id}-${levelFilter}-${activeSituation}-${doneFilter}`}
           passages={readingPassages}
           moduleMeta={meta}
           retryAttemptId={retryAttemptId}
@@ -548,25 +684,91 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
           ) : (
             <div className="space-y-5">
               <div className="space-y-2.5 rounded-xl border border-line bg-glass p-3.5 shadow-card backdrop-blur-md">
-                {sequentialTotal > 1 && (
+                {sequentialTotal > 12 && (
+                  <div className="flex items-center gap-2 border-b border-line pb-2.5">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={currentIndex === 0}
+                      aria-label="Bài trước"
+                      onClick={() => {
+                        setCurrentIndex((i) => Math.max(0, i - 1));
+                        setSelectedMcqIdx(null);
+                        setStarResult(null);
+                        setShowTranscript(false);
+                      }}
+                    >
+                      ←
+                    </Button>
+                    <Select
+                      aria-label="Chọn bài"
+                      value={String(currentIndex)}
+                      wrapperClassName="min-w-0 flex-1"
+                      className="w-full"
+                      onChange={(e) => {
+                        setCurrentIndex(Number(e.target.value));
+                        setSelectedMcqIdx(null);
+                        setStarResult(null);
+                        setShowTranscript(false);
+                      }}
+                    >
+                      {Array.from({ length: sequentialTotal }).map((_, idx) => {
+                        const done =
+                          isListeningMode &&
+                          listeningItems[idx] &&
+                          doneIds.listening.includes(listeningItems[idx].id);
+                        return (
+                          <option key={idx} value={idx}>
+                            {done ? '✓ ' : ''}
+                            {isListeningMode ? `Hội thoại ${idx + 1}` : `Câu ${idx + 1}`}
+                            {isListeningMode && listeningItems[idx] ? ` · ${listeningItems[idx].situation}` : ''}
+                          </option>
+                        );
+                      })}
+                    </Select>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={currentIndex >= sequentialTotal - 1}
+                      aria-label="Bài sau"
+                      onClick={() => {
+                        setCurrentIndex((i) => Math.min(sequentialTotal - 1, i + 1));
+                        setSelectedMcqIdx(null);
+                        setStarResult(null);
+                        setShowTranscript(false);
+                      }}
+                    >
+                      →
+                    </Button>
+                  </div>
+                )}
+                {sequentialTotal > 1 && sequentialTotal <= 12 && (
                   <div className="flex flex-wrap items-center gap-1.5 border-b border-line pb-2.5">
                     <span className="mr-1 text-xs font-bold text-primary-fg">
                       📖 Mục lục bài ({sequentialTotal}):
                     </span>
-                    {Array.from({ length: sequentialTotal }).map((_, idx) => (
-                      <Chip
-                        key={idx}
-                        selected={idx === currentIndex}
-                        onClick={() => {
-                          setCurrentIndex(idx);
-                          setSelectedMcqIdx(null);
-                          setStarResult(null);
-                          setShowTranscript(false);
-                        }}
-                      >
-                        {isListeningMode ? `Hội thoại ${idx + 1}` : `Câu ${idx + 1}`}
-                      </Chip>
-                    ))}
+                    {Array.from({ length: sequentialTotal }).map((_, idx) => {
+                      const listeningDone =
+                        isListeningMode &&
+                        listeningItems[idx] &&
+                        doneIds.listening.includes(listeningItems[idx].id);
+                      return (
+                        <Chip
+                          key={idx}
+                          selected={idx === currentIndex}
+                          onClick={() => {
+                            setCurrentIndex(idx);
+                            setSelectedMcqIdx(null);
+                            setStarResult(null);
+                            setShowTranscript(false);
+                          }}
+                        >
+                          {isListeningMode
+                            ? `${listeningDone ? '✓ ' : ''}Hội thoại ${idx + 1}`
+                            : `Câu ${idx + 1}`}
+                        </Chip>
+                      );
+                    })}
                   </div>
                 )}
                 <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
@@ -717,6 +919,9 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
                         <div className="flex flex-wrap items-center gap-2">
                           <Badge tone="primary">{item.level}</Badge>
                           <Badge tone="neutral">{item.mondaiLabel}</Badge>
+                          {doneIds.listening.includes(item.id) && (
+                            <Badge tone="success">✓ Đã làm</Badge>
+                          )}
                         </div>
                         <Button
                           variant="soft"
@@ -771,6 +976,7 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
                         onSelect={(optIdx) => {
                           if (selectedMcqIdx !== null) return;
                           setSelectedMcqIdx(optIdx);
+                          markJlptItemDone(user?.id, 'listening', item.id);
                           if (optIdx === item.correctIndex) {
                             setCorrectCount((c) => c + 1);
                           } else {

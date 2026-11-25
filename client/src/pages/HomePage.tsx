@@ -4,8 +4,15 @@ import {
   AlarmClock,
   ArrowRight,
   Compass,
+  FileText,
   Flame,
+  Keyboard,
+  Layers,
+  ListChecks,
   LogIn,
+  MessagesSquare,
+  Sparkles,
+  Trophy,
 } from 'lucide-react';
 import { CommunityReviewsSection } from '../components/home/CommunityReviewsSection';
 import { StudyScheduleModal } from '../components/settings/StudyScheduleCard';
@@ -238,6 +245,7 @@ export const HomePage: React.FC = () => {
     const stages = isCustom && cfg
       ? generateStageMap({
           mode: 'custom',
+          customRoadmapId: cfg.id,
           level: cfg.level,
           textbookId: cfg.textbookId,
           userId: user?.id,
@@ -258,7 +266,11 @@ export const HomePage: React.FC = () => {
           snapshot: cmsSnapshot,
           startDate: stageRoadmapState.fixedStartDate,
           dailyMinutesTarget: stageRoadmapState.fixedDailyMinutesTarget,
-          totalStages: getRecommendedFixedStageCount(activeLevel, targetBookId),
+          totalStages: getRecommendedFixedStageCount(
+            activeLevel,
+            targetBookId,
+            stageRoadmapState.fixedDailyMinutesTarget,
+          ),
           studyWeekdays: stageRoadmapState.fixedStudyWeekdays,
           includeKanaStarter: stageRoadmapState.fixedIncludeKanaStarter,
         });
@@ -567,13 +579,13 @@ export const HomePage: React.FC = () => {
   ];
 
   const toolLinks = [
-    { label: 'Flashcard', to: vocabArea.quickActions?.[1]?.to ?? '/flashcard' },
-    { label: 'Quiz từ vựng', to: vocabArea.quickActions?.[2]?.to ?? '/vocabulary/quiz' },
-    { label: 'Luyện gõ', to: vocabArea.quickActions?.[3]?.to ?? '/vocabulary/writing' },
-    { label: 'Quiz tình huống', to: grammarArea.quickActions?.[1]?.to ?? '/grammar' },
-    { label: 'Thi thử JLPT', to: fullTestArea.to },
-    { label: 'Tự tạo bài', to: studioArea.to },
-    { label: 'Xuất PDF', to: pdfArea.to },
+    { label: 'Thi thử JLPT', to: fullTestArea.to, icon: Trophy },
+    { label: 'Flashcard', to: vocabArea.quickActions?.[1]?.to ?? '/flashcard', icon: Layers },
+    { label: 'Quiz từ vựng', to: vocabArea.quickActions?.[2]?.to ?? '/vocabulary/quiz', icon: ListChecks },
+    { label: 'Quiz tình huống', to: grammarArea.quickActions?.[1]?.to ?? '/grammar', icon: MessagesSquare },
+    { label: 'Luyện gõ', to: vocabArea.quickActions?.[3]?.to ?? '/vocabulary/writing', icon: Keyboard },
+    { label: 'Tự tạo bài', to: studioArea.to, icon: Sparkles },
+    { label: 'Xuất PDF', to: pdfArea.to, icon: FileText },
   ];
 
   const activeStage = stageMapSummary?.activeStage ?? null;
@@ -777,18 +789,30 @@ export const HomePage: React.FC = () => {
             </li>
           ))}
         </ul>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="mr-1 text-xs font-medium text-muted">Công cụ khác:</span>
-          {toolLinks.map((tool) => (
-            <Link
-              key={tool.label}
-              to={tool.to}
-              className="rounded-full border border-line bg-glass px-3 py-1 text-xs font-medium text-fg transition-colors hover:border-primary hover:text-primary-fg"
-            >
-              {tool.label}
-            </Link>
-          ))}
-        </div>
+      </section>
+
+      {/* More tools — compact icon grid inside one card so it stays readable over the backdrop */}
+      <section aria-labelledby="tools-heading">
+        <Card padding="sm" className="space-y-3">
+          <h2 id="tools-heading" className="px-1 text-base font-bold text-fg">
+            Công cụ khác
+          </h2>
+          <ul className="grid grid-cols-4 gap-1.5 sm:grid-cols-7">
+            {toolLinks.map(({ label, to, icon: Icon }) => (
+              <li key={label}>
+                <Link
+                  to={to}
+                  className="flex h-full flex-col items-center gap-1.5 rounded-xl px-1 py-2.5 text-center transition-colors hover:bg-primary-soft focus-visible:outline-2 focus-visible:outline-primary"
+                >
+                  <span className="grid size-10 place-items-center rounded-xl bg-primary-soft text-primary-fg">
+                    <Icon className="size-5" aria-hidden />
+                  </span>
+                  <span className="text-xs font-semibold leading-tight text-fg sm:text-sm">{label}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Card>
       </section>
 
       {user && <QuizHistoryCard limit={3} showProfileLink />}

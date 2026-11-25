@@ -19,11 +19,26 @@ import {
 import {
   EXTRA_LISTENING_ITEMS_N5_N4_N3,
   EXTRA_READING_PASSAGES_N5_N4_N3,
+  DEFAULT_EXAM_COUNTS,
+  EXAM_FORMAT_COUNTS,
+  EXAM_FORMAT_META,
+  EXAM_FORMAT_MINUTES,
   REAL_JLPT_EXAM_PRESETS,
+  type ExamCounts,
+  type ExamFormat,
   type RealJlptExamPreset,
 } from './realJlptExamsPack';
 
-export { REAL_JLPT_EXAM_PRESETS, type RealJlptExamPreset };
+export {
+  DEFAULT_EXAM_COUNTS,
+  EXAM_FORMAT_COUNTS,
+  EXAM_FORMAT_META,
+  EXAM_FORMAT_MINUTES,
+  REAL_JLPT_EXAM_PRESETS,
+  type ExamCounts,
+  type ExamFormat,
+  type RealJlptExamPreset,
+};
 import kanjiDataRaw from '../kanji/kanjiDataset.json';
 import { unit1Data } from '../n3/unit1';
 import { N3_EXTRA_TEXTBOOK_UNITS } from '../n3/extraTextbooksN3';
@@ -34,6 +49,13 @@ import type { GrammarMistake, MultipleChoiceQuestion, StarQuestion } from '../..
 import { SITUATION_LISTENING_N3, SITUATION_READING_N3 } from './situationPackN3';
 import { SITUATION_LISTENING_N4, SITUATION_READING_N4 } from './situationPackN4';
 import { SITUATION_LISTENING_N5, SITUATION_READING_N5 } from './situationPackN5';
+import { SITUATION_LESSON_LISTENING_N5 } from './situationPackN5Lessons';
+import { LONG_READING_N5 } from './readingPackLongN5';
+import { LONG_READING_N4 } from './readingPackLongN4';
+import { LONG_READING_N3 } from './readingPackLongN3';
+import { LISTENING_N5_EXTRA } from './listeningPackN5Extra';
+import { LESSON_LISTENING_N4 } from './listeningPackN4Lessons';
+import { LESSON_LISTENING_N3 } from './listeningPackN3Lessons';
 
 export type JLPTLevelFilter = 'ALL' | 'N5' | 'N4' | 'N3';
 export type JLPTExamLevel = 'N5' | 'N4' | 'N3';
@@ -2123,6 +2145,9 @@ const ALL_READING_PASSAGES: JLPTReadingPassage[] = [
   ...SITUATION_READING_N5,
   ...SITUATION_READING_N4,
   ...SITUATION_READING_N3,
+  ...LONG_READING_N5,
+  ...LONG_READING_N4,
+  ...LONG_READING_N3,
 ];
 const ALL_LISTENING_ITEMS: JLPTListeningItem[] = [
   ...MINNA_N5_LISTENING_ITEMS,
@@ -2132,6 +2157,10 @@ const ALL_LISTENING_ITEMS: JLPTListeningItem[] = [
   ...SITUATION_LISTENING_N5,
   ...SITUATION_LISTENING_N4,
   ...SITUATION_LISTENING_N3,
+  ...SITUATION_LESSON_LISTENING_N5,
+  ...LISTENING_N5_EXTRA,
+  ...LESSON_LISTENING_N4,
+  ...LESSON_LISTENING_N3,
 ];
 
 function filterByLevel<T extends { level: JLPTExamLevel }>(items: T[], level: JLPTLevelFilter): T[] {

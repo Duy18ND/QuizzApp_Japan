@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { IconButton } from './Button';
@@ -91,32 +92,84 @@ interface DropdownProps {
 
 export function Dropdown({ label, items, align = 'start', variant = 'secondary', size = 'md', 'aria-label': ariaLabel, className }: DropdownProps) {
   const [open, setOpen] = useState(false);
+  const [coords, setCoords] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  const computeCoords = () => {
+    const trigger = triggerRef.current;
+    if (!trigger) return null;
+    const rect = trigger.getBoundingClientRect();
+    const menuRect = menuRef.current?.getBoundingClientRect();
+    const menuW = menuRect?.width || 224;
+    const menuH = menuRect?.height || 260;
+    const gap = 8;
+    const pad = 8;
+
+    let left = align === 'end' ? rect.right - menuW : rect.left;
+    left = Math.max(pad, Math.min(left, window.innerWidth - menuW - pad));
+
+    let top = rect.bottom + gap;
+    if (top + menuH > window.innerHeight - pad && rect.top - gap - menuH >= pad) {
+      top = rect.top - gap - menuH;
+    } else {
+      top = Math.max(pad, Math.min(top, window.innerHeight - menuH - pad));
+    }
+    return { top, left };
+  };
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    const updatePosition = () => {
+      const next = computeCoords();
+      if (next) setCoords(next);
+    };
+    updatePosition();
+    const raf = window.requestAnimationFrame(updatePosition);
+    return () => window.cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [align, open, items.length]);
+
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+      const target = event.target as Node;
+      if (!rootRef.current?.contains(target) && !menuRef.current?.contains(target)) {
+        setOpen(false);
+      }
+    };
+    const onViewportChange = (event: Event) => {
+      if (event.type === 'scroll' && menuRef.current?.contains(event.target as Node)) {
+        return;
+      }
+      const next = computeCoords();
+      if (next) setCoords(next);
     };
     document.addEventListener('pointerdown', onPointerDown);
-    menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]:not(:disabled)')?.focus();
-    return () => document.removeEventListener('pointerdown', onPointerDown);
-  }, [open]);
+    window.addEventListener('resize', onViewportChange);
+    window.addEventListener('scroll', onViewportChange, true);
+    menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]:not(:disabled)')?.focus({ preventScroll: true });
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('resize', onViewportChange);
+      window.removeEventListener('scroll', onViewportChange, true);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, align]);
 
   const onMenuKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const nodes = Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not(:disabled)') ?? []);
     const index = nodes.indexOf(document.activeElement as HTMLElement);
     if (event.key === 'ArrowDown') {
       event.preventDefault();
-      nodes[(index + 1) % nodes.length]?.focus();
+      nodes[(index + 1) % nodes.length]?.focus({ preventScroll: true });
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
-      nodes[(index - 1 + nodes.length) % nodes.length]?.focus();
+      nodes[(index - 1 + nodes.length) % nodes.length]?.focus({ preventScroll: true });
     } else if (event.key === 'Escape') {
       setOpen(false);
-      triggerRef.current?.focus();
+      triggerRef.current?.focus({ preventScroll: true });
     } else if (event.key === 'Tab') {
       setOpen(false);
     }
@@ -130,44 +183,51 @@ export function Dropdown({ label, items, align = 'start', variant = 'secondary',
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={ariaLabel}
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => {
+          if (!open) {
+            const next = computeCoords();
+            if (next) setCoords(next);
+          }
+          setOpen((value) => !value);
+        }}
         className={buttonStyles({ variant, size })}
       >
         {label}
       </button>
-      {open && (
-        <div
-          ref={menuRef}
-          role="menu"
-          onKeyDown={onMenuKeyDown}
-          className={cn(
-            'absolute z-50 mt-2 min-w-48 animate-pop-in rounded-xl border border-line bg-surface p-1 shadow-pop',
-            align === 'end' ? 'right-0' : 'left-0',
-          )}
-        >
-          {items.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              role="menuitem"
-              disabled={item.disabled}
-              onClick={() => {
-                setOpen(false);
-                triggerRef.current?.focus();
-                item.onSelect();
-              }}
-              className={cn(
-                'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors duration-100',
-                'focus-visible:bg-surface-2 focus-visible:outline-none hover:bg-surface-2 disabled:pointer-events-none disabled:opacity-50',
-                item.tone === 'danger' ? 'text-danger-fg' : 'text-fg',
-              )}
-            >
-              {item.icon}
-              {item.label}
-            </button>
-          ))}
-        </div>
-      )}
+      {open &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            onKeyDown={onMenuKeyDown}
+            style={{ top: `${coords.top}px`, left: `${coords.left}px` }}
+            className="fixed z-[70] max-h-[calc(100dvh-24px)] min-w-56 max-w-[calc(100vw-16px)] overflow-y-auto animate-pop-in rounded-xl border border-line-strong bg-surface p-1.5 shadow-pop"
+          >
+            {items.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                role="menuitem"
+                disabled={item.disabled}
+                onClick={() => {
+                  setOpen(false);
+                  triggerRef.current?.focus();
+                  item.onSelect();
+                }}
+                className={cn(
+                  'flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors duration-100',
+                  'focus-visible:bg-surface-2 focus-visible:outline-none hover:bg-surface-2 disabled:pointer-events-none disabled:opacity-50',
+                  item.tone === 'danger' ? 'text-danger-fg' : 'text-fg',
+                )}
+              >
+                {item.icon}
+                <span className="truncate">{item.label}</span>
+              </button>
+            ))}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

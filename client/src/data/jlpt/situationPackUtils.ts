@@ -55,13 +55,18 @@ export function situationReading(spec: SituationReadingSpec): JLPTReadingPassage
     paragraphs: spec.paragraphs.map((p) => ({ segments: ruby(p) })),
     translation: spec.translation,
     vocabNotes: spec.vocab.map(([word, reading, meaning]) => ({ word, reading, meaning })),
-    questions: spec.questions.map((q, idx) => ({
-      id: `${spec.id}-q${idx + 1}`,
-      prompt: plainText(q.prompt),
-      options: q.options.map(plainText) as Four,
-      correctIndex: q.correct,
-      explanation: q.explanation,
-    })),
+    questions: spec.questions.map((q, idx) => {
+      // Rotate options per question so the right answer doesn't sit in the same slot every time.
+      const shift = (idx * 3 + spec.id.length) % 4;
+      const options = q.options.map((_, i) => plainText(q.options[(i + shift) % 4])) as Four;
+      return {
+        id: `${spec.id}-q${idx + 1}`,
+        prompt: plainText(q.prompt),
+        options,
+        correctIndex: (q.correct - shift + 4) % 4,
+        explanation: q.explanation,
+      };
+    }),
   };
 }
 
@@ -78,6 +83,8 @@ export interface SituationListeningSpec {
   correct: number;
   translation: string;
   explanation: string;
+  /** Textbook lesson (Minna no Nihongo) whose grammar / vocabulary the dialogue uses */
+  lesson?: number;
   /** More questions on the same dialogue: each becomes its own item ("Câu 2/2", …) sharing the audio */
   followUps?: Array<{ prompt: string; options: Four; correct: number; explanation: string }>;
 }
@@ -96,10 +103,9 @@ export function situationListening(spec: SituationListeningSpec): JLPTListeningI
   return questions.map((q, idx) => ({
     id: idx === 0 ? spec.id : `${spec.id}-q${idx + 1}`,
     level: spec.level,
-    mondaiLabel:
-      questions.length > 1
-        ? `${spec.mondai} · Câu ${idx + 1}/${questions.length} (${spec.situationTag})`
-        : `${spec.mondai} (${spec.situationTag})`,
+    mondaiLabel: `${spec.mondai}${spec.lesson ? ` · Bài ${spec.lesson}` : ''}${
+      questions.length > 1 ? ` · Câu ${idx + 1}/${questions.length}` : ''
+    } (${spec.situationTag})`,
     situation: spec.situation,
     questionPrompt: plainText(q.prompt),
     dialogue,
@@ -135,4 +141,67 @@ export function getReadingSituation(passage: Pick<JLPTReadingPassage, 'genre'>):
 export function getListeningSituation(item: Pick<JLPTListeningItem, 'mondaiLabel'>): string | null {
   const tag = /\(([^()]+)\)\s*$/.exec(item.mondaiLabel)?.[1] ?? null;
   return tag && (SITUATION_TAGS as readonly string[]).includes(tag) ? tag : null;
+}
+
+/** Lessons an item covers, read from "Bài 7" / "Bài 3–4" in its label (empty when untagged). */
+export function getItemLessons(item: Pick<JLPTListeningItem, 'mondaiLabel'>): number[] {
+  const match = /Bài\s*(\d+)(?:\s*[–-]\s*(\d+))?/.exec(item.mondaiLabel);
+  if (!match) return [];
+  const from = Number(match[1]);
+  const to = match[2] ? Number(match[2]) : from;
+  const lessons: number[] = [];
+  for (let n = from; n <= Math.min(to, from + 10); n += 1) lessons.push(n);
+  return lessons;
+}
+
+/** Compact row for lesson-tagged listening packs: one dialogue + one question. */
+export type LessonListeningRow = [
+  id: string,
+  lesson: number,
+  tag: string,
+  mondai: 1 | 2 | 3 | 4,
+  situation: string,
+  prompt: string,
+  lines: Array<[string, string]>,
+  options: Four,
+  correct: number,
+  translation: string,
+  explanation: string,
+];
+
+export const LESSON_MONDAI: Record<1 | 2 | 3 | 4, string> = {
+  1: 'Mondai 1 · Hiểu nhiệm vụ',
+  2: 'Mondai 2 · Hiểu điểm chính',
+  3: 'Mondai 3 · Biểu hiện giao tiếp',
+  4: 'Mondai 4 · Phản hồi nhanh',
+};
+
+/**
+ * Rows → listening items with ids `${prefix}-bNN-${id}`. Options are rotated per row so the right
+ * answer is spread over A–D whatever order the author wrote them in.
+ */
+export function buildLessonListening(
+  level: JLPTExamLevel,
+  prefix: string,
+  rows: LessonListeningRow[],
+): JLPTListeningItem[] {
+  return rows.flatMap(
+    ([id, lesson, tag, mondai, situation, prompt, lines, options, correct, translation, explanation], idx) => {
+      const shift = (idx * 3 + lesson) % 4;
+      return situationListening({
+        id: `${prefix}-b${String(lesson).padStart(2, '0')}-${id}`,
+        level,
+        lesson,
+        mondai: LESSON_MONDAI[mondai],
+        situationTag: tag,
+        situation,
+        questionPrompt: prompt,
+        lines,
+        options: options.map((_, i) => options[(i + shift) % 4]) as Four,
+        correct: (correct - shift + 4) % 4,
+        translation,
+        explanation,
+      });
+    },
+  );
 }
