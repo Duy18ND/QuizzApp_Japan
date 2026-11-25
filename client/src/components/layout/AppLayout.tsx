@@ -36,7 +36,6 @@ import {
   OPEN_LEVEL_MODAL_EVENT,
 } from '../../services/userLevelService';
 import { JapaneseLookupProvider } from '../common/JapaneseLookupPopover';
-import { WhatsNewNavButton } from '../home/WhatsNewBoard';
 import { DailyStudyGateBanner } from '../settings/DailyStudyGateBanner';
 import { LevelSelectionModal } from '../settings/LevelSelectionModal';
 import { Badge, LoadingState } from '../ui';
@@ -288,9 +287,6 @@ export const AppLayout: React.FC = () => {
               </>
             )}
 
-            <div className="hidden xl:block">
-              <WhatsNewNavButton />
-            </div>
 
             <Link
               to="/settings"
