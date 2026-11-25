@@ -1,14 +1,28 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { BookOpen, ChevronDown, ChevronUp, Sparkles, Trophy, Volume2, VolumeX } from 'lucide-react';
+import {
+  BookOpen,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  RotateCcw,
+  Sparkles,
+  Target,
+  Trophy,
+  Volume2,
+  VolumeX,
+  X,
+} from 'lucide-react';
 import {
   Badge,
+  Button,
   Card,
   Chip,
   EmptyState,
   IconButton,
   PageContainer,
   PageHeader,
+  ProgressBar,
   Select,
   useToast,
 } from '../components/ui';
@@ -43,12 +57,24 @@ import {
   loadCustomStudioState,
   type CustomLesson,
 } from '../services/customStudioService';
+import {
+  awardMiniGameXp,
+  computeRoundXp,
+  DAILY_CHALLENGE_BONUS_XP,
+  getBeltInfo,
+  loadMiniGameProfile,
+  pickDailyChallengeIds,
+  type MiniGameProfile,
+} from '../services/miniGameProfileService';
+import { getLocalDateKey } from '../services/notificationService';
 import { recordQuizAttempt } from '../services/quizHistoryService';
 import {
   recordDailyStageSkillActivity,
   type StageSkill,
 } from '../services/stageRoadmapService';
 import { requestOpenLevelModal, type StudyLevel } from '../services/userLevelService';
+import type { VocabularyItem } from '../types/vocabulary';
+import { shuffleArray } from '../utils/shuffle';
 import { stopJapaneseSpeech } from '../utils/tts';
 
 export type MiniGameId = 'shooter' | 'slash' | 'match' | 'memory' | 'truefalse' | 'listening';
@@ -101,6 +127,16 @@ const MINI_GAMES: MiniGameSpec[] = [
     subtitle: 'Nghe giọng đọc, bắt đúng từ.',
   },
 ];
+
+/** A temporary word set played instead of the selected lessons. */
+interface PracticeSet {
+  kind: 'review' | 'daily';
+  ids: number[];
+  label: string;
+}
+
+/** Practice sets smaller than this are padded with other words so every game has enough choices. */
+const MIN_PRACTICE_WORDS = 8;
 
 const HIGH_SCORE_KEY = 'nihonmaster_minigame_highscores_v1';
 const SOUND_PREF_KEY = 'nihonmaster_minigame_sound_v1';
@@ -174,6 +210,20 @@ export const MiniGamesPage: React.FC = () => {
   const [onlyStarred, setOnlyStarred] = useState(false);
   const [highScores, setHighScores] = useState<Record<string, number>>(() => loadHighScores());
   const [soundEnabled, setSoundEnabled] = useState<boolean>(() => loadSoundPref());
+  const [practiceSet, setPracticeSet] = useState<PracticeSet | null>(null);
+  const [lastMissedIds, setLastMissedIds] = useState<number[]>([]);
+  const [miniProfile, setMiniProfile] = useState<MiniGameProfile>({ xp: 0, dailyChallengeDates: [] });
+  const todayKey = getLocalDateKey();
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadMiniGameProfile(user?.id).then((profile) => {
+      if (!cancelled) setMiniProfile(profile);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     const syncStudio = () => {
@@ -215,6 +265,7 @@ export const MiniGamesPage: React.FC = () => {
     (nextIds: string[]) => {
       setSelectedCustomLessonId(null);
       setSelectedUnitIds(nextIds);
+      setPracticeSet(null);
       const next = new URLSearchParams(searchParams);
       next.delete('customLesson');
       if (nextIds.length === 0) {
@@ -231,6 +282,7 @@ export const MiniGamesPage: React.FC = () => {
     (lessonId: string) => {
       setSelectedCustomLessonId(lessonId);
       setSelectedUnitIds([]);
+      setPracticeSet(null);
       setShowLessonPicker(false);
       const next = new URLSearchParams(searchParams);
       next.delete('unit');
@@ -290,6 +342,50 @@ export const MiniGamesPage: React.FC = () => {
     return pool.length > 0 ? pool : allVocab;
   }, [activeCustomLesson, allVocab, bookWords, onlyStarred, starredIds, validSelectedUnits]);
 
+  const dailyChallengeIds = useMemo(
+    () => pickDailyChallengeIds(bookWords, todayKey, `${activeLevel}|${activeBook.id}`),
+    [activeBook.id, activeLevel, bookWords, todayKey],
+  );
+  const dailyDoneToday = miniProfile.dailyChallengeDates.includes(todayKey);
+  const beltInfo = getBeltInfo(miniProfile.xp);
+
+  // Words actually played: the selected lessons, or the review / daily-challenge set
+  const gameWords = useMemo(() => {
+    if (!practiceSet) return filteredWords;
+    const byId = new Map<number, VocabularyItem>();
+    for (const w of [...allVocab, ...bookWords, ...filteredWords]) byId.set(w.id, w);
+    const picked = practiceSet.ids
+      .map((id) => byId.get(id))
+      .filter((w): w is VocabularyItem => w !== undefined);
+    if (picked.length >= MIN_PRACTICE_WORDS) return picked;
+    const pickedIds = new Set(picked.map((w) => w.id));
+    const filler = shuffleArray(filteredWords.filter((w) => !pickedIds.has(w.id))).slice(
+      0,
+      MIN_PRACTICE_WORDS - picked.length,
+    );
+    return [...picked, ...filler];
+  }, [allVocab, bookWords, filteredWords, practiceSet]);
+
+  const practiceKey = practiceSet ? `${practiceSet.kind}-${practiceSet.ids.join('.')}` : 'lessons';
+
+  const startDailyChallenge = () => {
+    setLastMissedIds([]);
+    setPracticeSet({
+      kind: 'daily',
+      ids: dailyChallengeIds,
+      label: `Thử thách hôm nay · ${dailyChallengeIds.length} từ`,
+    });
+  };
+
+  const startMissedReview = () => {
+    setPracticeSet({
+      kind: 'review',
+      ids: lastMissedIds,
+      label: `Ôn ${lastMissedIds.length} từ vừa sai`,
+    });
+    setLastMissedIds([]);
+  };
+
   const levelKanjis = useMemo(() => {
     const all = getLiveKanjis(cmsSnapshot);
     const scoped = all.filter((k) => k.jlptLevel === activeLevel);
@@ -332,8 +428,16 @@ export const MiniGamesPage: React.FC = () => {
     totalQuestions: number;
     correctAnswers: number;
     durationSeconds: number;
+    /** Word ids answered wrong (Ninja & Fruit slash report them) */
+    missedIds?: number[];
   }) => {
     updateHighScore(options.gameId, options.score);
+    if (options.missedIds) {
+      setLastMissedIds(options.missedIds);
+      if (practiceSet?.kind === 'review' && options.missedIds.length === 0) {
+        toast({ title: 'Bạn đã nhớ hết các từ vừa sai!', tone: 'success' });
+      }
+    }
     recordDailyStageSkillActivity(options.skill, user?.id);
     void recordQuizAttempt({
       quizType: `minigame-${options.gameId}`,
@@ -342,9 +446,23 @@ export const MiniGamesPage: React.FC = () => {
       totalQuestions: Math.max(1, options.totalQuestions),
       durationSeconds: Math.max(5, options.durationSeconds),
     });
-    toast({
-      title: `Hoàn thành Mini-game (+${options.score} điểm)! Đã tự động tích tiến độ học hôm nay.`,
-      tone: 'success',
+    void awardMiniGameXp(
+      user?.id,
+      computeRoundXp(options.correctAnswers),
+      practiceSet?.kind === 'daily' ? todayKey : undefined,
+    ).then((res) => {
+      setMiniProfile(res.profile);
+      toast({
+        title: `Xong ván! +${res.gainedXp + res.dailyBonusXp} XP`,
+        description:
+          res.dailyBonusXp > 0
+            ? `Hoàn thành thử thách hôm nay (+${res.dailyBonusXp} XP thưởng).`
+            : `${options.score.toLocaleString('vi-VN')} điểm · đã tính vào mục tiêu hôm nay.`,
+        tone: 'success',
+      });
+      if (res.newBelt) {
+        toast({ title: `🎉 Chúc mừng! Bạn đã lên ${res.newBelt.name}`, tone: 'success' });
+      }
     });
   };
 
@@ -380,6 +498,69 @@ export const MiniGamesPage: React.FC = () => {
         title="Mini-game"
         description="Học từ vựng qua trò chơi — mỗi ván đều được tính vào mục tiêu hôm nay."
       />
+
+      {/* Ninja belt + daily challenge */}
+      <Card
+        padding="sm"
+        className="grid gap-3 bg-surface/90 backdrop-blur-md sm:grid-cols-2 sm:items-center"
+      >
+        <div className="flex items-center gap-3">
+          <span
+            aria-hidden
+            className={cn('h-3 w-10 shrink-0 rounded-full', beltInfo.belt.stripeClass)}
+          />
+          <div className="min-w-0 flex-1 space-y-1">
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="text-sm font-bold text-fg">{beltInfo.belt.name}</p>
+              <p className="text-xs text-muted tabular-nums">
+                {miniProfile.xp.toLocaleString('vi-VN')} XP
+              </p>
+            </div>
+            <ProgressBar
+              value={Math.round(beltInfo.progress * 100)}
+              max={100}
+              size="sm"
+              tone="primary"
+              label="Tiến độ lên đai tiếp theo"
+            />
+            <p className="text-xs text-muted">
+              {beltInfo.next
+                ? `Còn ${beltInfo.xpToNext.toLocaleString('vi-VN')} XP để lên ${beltInfo.next.name}`
+                : 'Bạn đã đạt đai cao nhất!'}
+              {!user && ' · Đăng nhập để lưu đai'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-line pt-3 sm:border-t-0 sm:border-l sm:pt-0 sm:pl-4">
+          <div className="min-w-0">
+            <p className="inline-flex items-center gap-1.5 text-sm font-bold text-fg">
+              <Target className="size-4 text-primary-fg" aria-hidden />
+              Thử thách hôm nay
+            </p>
+            <p className="text-xs text-muted">
+              {dailyDoneToday
+                ? 'Đã hoàn thành — mai quay lại nhé!'
+                : `${dailyChallengeIds.length} từ · game nào cũng được · +${DAILY_CHALLENGE_BONUS_XP} XP`}
+            </p>
+          </div>
+          {dailyDoneToday ? (
+            <Badge tone="success">
+              <CheckCircle2 className="size-3.5" aria-hidden />
+              Xong
+            </Badge>
+          ) : (
+            <Button
+              size="sm"
+              variant={practiceSet?.kind === 'daily' ? 'secondary' : 'primary'}
+              disabled={practiceSet?.kind === 'daily' || dailyChallengeIds.length < 4}
+              onClick={startDailyChallenge}
+            >
+              {practiceSet?.kind === 'daily' ? 'Đang chơi' : 'Chơi ngay'}
+            </Button>
+          )}
+        </div>
+      </Card>
 
       {/* Game picker: horizontal swipe on phones, grid from tablet up */}
       <div
@@ -589,17 +770,58 @@ export const MiniGamesPage: React.FC = () => {
         )}
       </Card>
 
+      {/* Practice mode banner, or the offer to review the words just missed */}
+      {practiceSet ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary bg-primary-soft px-3 py-2">
+          <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary-fg">
+            {practiceSet.kind === 'daily' ? (
+              <Target className="size-4" aria-hidden />
+            ) : (
+              <RotateCcw className="size-4" aria-hidden />
+            )}
+            {practiceSet.label}
+          </span>
+          <Button
+            size="sm"
+            variant="ghost"
+            leftIcon={<X className="size-3.5" aria-hidden />}
+            onClick={() => setPracticeSet(null)}
+          >
+            Thoát
+          </Button>
+        </div>
+      ) : lastMissedIds.length > 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-warning-line bg-warning-soft px-3 py-2">
+          <span className="text-sm text-warning-fg">
+            Ván vừa rồi còn <strong>{lastMissedIds.length}</strong> từ bạn chưa nhớ.
+          </span>
+          <div className="flex items-center gap-1.5">
+            <Button
+              size="sm"
+              variant="primary"
+              leftIcon={<RotateCcw className="size-3.5" aria-hidden />}
+              onClick={startMissedReview}
+            >
+              Ôn lại ngay
+            </Button>
+            <IconButton size="sm" aria-label="Bỏ qua" onClick={() => setLastMissedIds([])}>
+              <X className="size-4" aria-hidden />
+            </IconButton>
+          </div>
+        </div>
+      ) : null}
+
       {/* Active Mini-Game Arena */}
-      {filteredWords.length === 0 ? (
+      {gameWords.length === 0 ? (
         <EmptyState
           title="Chưa có từ vựng trong bộ lọc này"
           description="Hãy chọn Tất cả các bài hoặc đổi giáo trình để bắt đầu chơi."
         />
       ) : activeGame === 'shooter' ? (
         <NinjaBridgeShooterGame
-          key={`shooter-${activeBook.id}-${selectedUnitKey}-${onlyStarred}`}
-          words={filteredWords}
-          contextLabel={`${activeLevel} · ${selectedUnitLabel}`}
+          key={`shooter-${activeBook.id}-${selectedUnitKey}-${onlyStarred}-${practiceKey}`}
+          words={gameWords}
+          contextLabel={practiceSet ? practiceSet.label : `${activeLevel} · ${selectedUnitLabel}`}
           starredIds={starredIds}
           onToggleStar={(id) => toggleStar(id)}
           soundEnabled={soundEnabled}
@@ -612,14 +834,15 @@ export const MiniGamesPage: React.FC = () => {
               totalQuestions: Math.max(1, defeatedCount + missedWords.length),
               correctAnswers: defeatedCount,
               durationSeconds,
+              missedIds: missedWords.map((w) => w.id),
             })
           }
         />
       ) : activeGame === 'slash' ? (
         <FruitSlashVocabGame
-          key={`slash-${activeBook.id}-${selectedUnitKey}-${onlyStarred}`}
-          words={filteredWords}
-          contextLabel={`${activeLevel} · ${selectedUnitLabel}`}
+          key={`slash-${activeBook.id}-${selectedUnitKey}-${onlyStarred}-${practiceKey}`}
+          words={gameWords}
+          contextLabel={practiceSet ? practiceSet.label : `${activeLevel} · ${selectedUnitLabel}`}
           starredIds={starredIds}
           onToggleStar={(id) => toggleStar(id)}
           soundEnabled={soundEnabled}
@@ -632,13 +855,14 @@ export const MiniGamesPage: React.FC = () => {
               totalQuestions: Math.max(1, correctCount + missedWords.length),
               correctAnswers: correctCount,
               durationSeconds,
+              missedIds: missedWords.map((w) => w.id),
             })
           }
         />
       ) : activeGame === 'match' ? (
         <PairMatchGame
-          key={`match-${activeBook.id}-${selectedUnitKey}-${onlyStarred}`}
-          words={filteredWords}
+          key={`match-${activeBook.id}-${selectedUnitKey}-${onlyStarred}-${practiceKey}`}
+          words={gameWords}
           kanjis={levelKanjis}
           grammars={levelGrammars}
           levelLabel={`${activeLevel} · ${selectedUnitLabel}`}
@@ -657,8 +881,8 @@ export const MiniGamesPage: React.FC = () => {
         />
       ) : activeGame === 'memory' ? (
         <MemoryFlipGame
-          key={`memory-${activeBook.id}-${selectedUnitKey}-${onlyStarred}`}
-          words={filteredWords}
+          key={`memory-${activeBook.id}-${selectedUnitKey}-${onlyStarred}-${practiceKey}`}
+          words={gameWords}
           kanjis={levelKanjis}
           soundEnabled={soundEnabled}
           onToggleSound={handleToggleSound}
@@ -675,8 +899,8 @@ export const MiniGamesPage: React.FC = () => {
         />
       ) : activeGame === 'truefalse' ? (
         <SpeedTrueFalseGame
-          key={`tf-${activeBook.id}-${selectedUnitKey}-${onlyStarred}`}
-          words={filteredWords}
+          key={`tf-${activeBook.id}-${selectedUnitKey}-${onlyStarred}-${practiceKey}`}
+          words={gameWords}
           kanjis={levelKanjis}
           soundEnabled={soundEnabled}
           onToggleSound={handleToggleSound}
@@ -693,8 +917,8 @@ export const MiniGamesPage: React.FC = () => {
         />
       ) : (
         <ListeningDojoGame
-          key={`list-${activeBook.id}-${selectedUnitKey}-${onlyStarred}`}
-          words={filteredWords}
+          key={`list-${activeBook.id}-${selectedUnitKey}-${onlyStarred}-${practiceKey}`}
+          words={gameWords}
           soundEnabled={soundEnabled}
           onToggleSound={handleToggleSound}
           onCompleteRound={({ score, skill, correctCount }) =>
