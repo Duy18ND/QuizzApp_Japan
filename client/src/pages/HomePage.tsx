@@ -678,7 +678,7 @@ export const HomePage: React.FC = () => {
               </Badge>
             )}
             {!user && (
-              <Badge tone="neutral">Chế độ Khách · Lưu trên thiết bị</Badge>
+              <Badge tone="neutral">Chế độ khách · chưa lưu tiến độ</Badge>
             )}
           </div>
         </div>
