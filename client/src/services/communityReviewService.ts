@@ -5,7 +5,7 @@ export const REVIEW_FEATURE_TAGS = [
   'Lộ trình 5 kỹ năng',
   'Nghe hiểu tách giọng',
   'Giải thích Ngữ pháp',
-  'Bộ đề JLPT thật',
+  'Bộ đề thi thử',
   '6 Mini-game Dojo',
   'Xuất tài liệu PDF',
   'Tự tạo bài Studio',

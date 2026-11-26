@@ -169,7 +169,7 @@ async function saveExamResult(
   return next;
 }
 
-/** Deterministic seeded Fisher-Yates subset so each preset (07/2025..12/2022) has a distinct, stable question set. */
+/** Deterministic seeded Fisher-Yates subset so each preset has a distinct, stable question set. */
 function pickSeededSubset<T>(items: T[], count: number, seedNum: number): T[] {
   if (items.length === 0 || count <= 0) return [];
   const copy = [...items];
@@ -404,7 +404,7 @@ export const JlptFullTestView: React.FC<JlptFullTestViewProps> = ({
                 Bước 2 · Chọn phần thi &amp; Xem chuẩn chấm điểm JLPT
               </p>
               <p className="mt-0.5 text-xs text-muted">
-                Làm đủ cả 4 phần để nhận phiếu báo điểm Đỗ (合格) / Trượt (不合格) chuẩn JLPT thật, hoặc chọn lẻ từng phần để ôn nhanh.
+                Làm đủ cả 4 phần để nhận phiếu báo điểm Đỗ (合格) / Trượt (不合格) theo cách chấm JLPT, hoặc chọn lẻ từng phần để ôn nhanh.
               </p>
             </div>
             {!isFull4Sections && (
@@ -956,6 +956,39 @@ const JlptFullTestSession: React.FC<JlptFullTestSessionProps> = ({
           level: item.level,
           options: [...item.options],
         });
+      }
+    });
+
+    // correct answers, so "Xem lại" can show the whole paper
+    const addCorrect = (id: string, prompt: string, answer: string, explanation?: string, options?: string[]) =>
+      sessionMistakeSummary.push({
+        id: `ok_${id}`,
+        questionId: id,
+        prompt,
+        userAnswer: answer,
+        correctAnswer: answer,
+        explanation,
+        options,
+        isCorrect: true,
+      });
+    [...examSet.s1, ...examSet.grammarMcqs].forEach((q) => {
+      if (mcqAnswers[q.id] === q.correctIndex) {
+        addCorrect(q.id, q.prompt, q.options[q.correctIndex], q.explanation, [...q.options]);
+      }
+    });
+    examSet.starItems.forEach((item) => {
+      if (starAnswers[item.id]?.isCorrect) {
+        addCorrect(item.id, item.fullSentence, item.correctAnswer, item.explanation);
+      }
+    });
+    readingQuestions.forEach(({ passage, question }) => {
+      if (mcqAnswers[question.id] === question.correctIndex) {
+        addCorrect(question.id, `[${passage.title}] ${question.prompt}`, question.options[question.correctIndex], question.explanation, [...question.options]);
+      }
+    });
+    examSet.listeningItems.forEach((item) => {
+      if (mcqAnswers[item.id] === item.correctIndex) {
+        addCorrect(item.id, `${item.situation} — ${item.questionPrompt}`, item.options[item.correctIndex], item.explanation, [...item.options]);
       }
     });
 
