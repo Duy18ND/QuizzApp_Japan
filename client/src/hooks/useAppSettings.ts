@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { markUiChoice } from '../services/deviceSyncEvents';
 
 export type TtsGenderPref = 'auto' | 'female' | 'male';
 
@@ -83,6 +84,7 @@ export function useAppSettings() {
     const latest = loadAppSettings();
     const next = sanitizeAppSettings({ ...latest, ...patch });
     saveAppSettings(next);
+    markUiChoice('app');
     setSettings(next);
   }, []);
 

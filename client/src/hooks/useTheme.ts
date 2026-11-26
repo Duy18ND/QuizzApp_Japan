@@ -1,8 +1,10 @@
 import { useCallback, useSyncExternalStore } from 'react';
+import { markUiChoice } from '../services/deviceSyncEvents';
 
 export type Theme = 'light' | 'dark';
 
-const STORAGE_KEY = 'theme';
+export const THEME_STORAGE_KEY = 'theme';
+const STORAGE_KEY = THEME_STORAGE_KEY;
 const META_COLORS: Record<Theme, string> = { light: '#F8FAFC', dark: '#0B1120' };
 
 const media: MediaQueryList | null =
@@ -44,6 +46,7 @@ function setTheme(theme: Theme, persist: boolean) {
   if (persist) {
     try {
       localStorage.setItem(STORAGE_KEY, theme);
+      markUiChoice('theme');
     } catch {
       /* storage unavailable (private mode) — theme still applies for this session */
     }
@@ -64,6 +67,11 @@ if (typeof window !== 'undefined') {
   window.addEventListener('storage', (event) => {
     if (event.key === STORAGE_KEY) setTheme(readStored() ?? systemTheme(), false);
   });
+}
+
+/** Re-reads the stored theme after the account sync changed it. */
+export function applyStoredTheme(): void {
+  setTheme(readStored() ?? systemTheme(), false);
 }
 
 function subscribe(listener: () => void) {

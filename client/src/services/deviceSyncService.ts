@@ -1,10 +1,13 @@
 /**
  * Keeps the learning data that is cached in this browser (daily activity, stage tests,
- * saved Kanji, textbook choice, mini-game high scores) the same on every device of an
- * account. Stored as one reserved `user_progress` row; guests are never uploaded.
+ * saved Kanji, textbook choice, mini-game high scores) and the app settings the same on
+ * every device of an account. Stored as one reserved `user_progress` row; guests are never uploaded.
  */
 import { VOCAB_TEXTBOOK_PREFERENCES_KEY, VOCAB_TEXTBOOK_SYNC_EVENT } from '../data/vocabTextbooks';
-import { HIGH_SCORE_KEY, HIGH_SCORE_SYNC_EVENT } from './deviceSyncEvents';
+import { loadAppSettings, saveAppSettings, SETTINGS_STORAGE_KEY } from '../hooks/useAppSettings';
+import { applyStoredTheme, THEME_STORAGE_KEY } from '../hooks/useTheme';
+import { VOICE_PREFS_STORAGE_KEY } from '../utils/dialogueAudioEngine';
+import { HIGH_SCORE_KEY, HIGH_SCORE_SYNC_EVENT, UI_MARKS_KEY } from './deviceSyncEvents';
 import {
   mergeDeviceData,
   sanitizeDeviceData,
@@ -47,6 +50,65 @@ function writeJson(key: string, value: unknown): void {
   }
 }
 
+/**
+ * Voices are installed per operating system (a PC voice rarely exists on a phone), so the
+ * chosen voice stays on each device; everything else is shared.
+ */
+const DEVICE_ONLY_FIELDS = { app: 'ttsVoiceUri', voice: 'archetypeVoiceUriOverrides' } as const;
+const OBJECT_SETTINGS = [
+  ['app', SETTINGS_STORAGE_KEY],
+  ['voice', VOICE_PREFS_STORAGE_KEY],
+] as const;
+
+function readTheme(): string | null {
+  try {
+    return window.localStorage.getItem(THEME_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function readUi(): DeviceData['ui'] {
+  const marks = (readJson(UI_MARKS_KEY) ?? {}) as Record<string, number>;
+  const ui: DeviceData['ui'] = {};
+  const theme = readTheme();
+  if (theme) ui.theme = { value: theme, at: marks.theme ?? 0 };
+  for (const [name, key] of OBJECT_SETTINGS) {
+    const stored = readJson(key);
+    if (!stored || typeof stored !== 'object') continue;
+    const shared = { ...(stored as Record<string, unknown>) };
+    delete shared[DEVICE_ONLY_FIELDS[name]];
+    ui[name] = { value: shared, at: marks[name] ?? 0 };
+  }
+  return ui;
+}
+
+function writeUi(ui: DeviceData['ui']): void {
+  const current = readUi();
+  const marks = (readJson(UI_MARKS_KEY) ?? {}) as Record<string, number>;
+  for (const [name, choice] of Object.entries(ui)) {
+    marks[name] = choice.at;
+    if (current[name] && stableJson(current[name].value) === stableJson(choice.value)) continue;
+    if (name === 'theme') {
+      if (choice.value !== 'light' && choice.value !== 'dark') continue;
+      window.localStorage.setItem(THEME_STORAGE_KEY, choice.value);
+      applyStoredTheme();
+    } else if (name === 'app' || name === 'voice') {
+      const key = name === 'app' ? SETTINGS_STORAGE_KEY : VOICE_PREFS_STORAGE_KEY;
+      const field = DEVICE_ONLY_FIELDS[name];
+      const own = (readJson(key) as Record<string, unknown> | undefined)?.[field];
+      const next = {
+        ...(choice.value as Record<string, unknown>),
+        ...(own === undefined ? {} : { [field]: own }),
+      };
+      writeJson(key, next);
+      // announces the change to open screens
+      if (name === 'app') saveAppSettings(loadAppSettings());
+    }
+  }
+  writeJson(UI_MARKS_KEY, marks);
+}
+
 function readLocal(uid: string): DeviceData {
   const k = keys(uid);
   const activity: Record<string, unknown> = {};
@@ -74,6 +136,7 @@ function readLocal(uid: string): DeviceData {
     prefMarks: readJson(k.prefMarks),
     // scores saved before they were per-account live under the shared key
     highScores: readJson(k.highScores) ?? readJson(HIGH_SCORE_KEY),
+    ui: readUi(),
   });
 }
 
@@ -88,6 +151,7 @@ function writeLocal(uid: string, data: DeviceData): void {
   writeJson(k.kanjiMarks, data.kanjiMarks);
   writeJson(k.prefMarks, data.prefMarks);
   writeJson(k.highScores, data.highScores);
+  writeUi(data.ui);
   const allPrefs = (readJson(VOCAB_TEXTBOOK_PREFERENCES_KEY) ?? {}) as Record<string, unknown>;
   for (const [key, value] of Object.entries(data.prefs)) allPrefs[`${uid}:${key}`] = value;
   writeJson(VOCAB_TEXTBOOK_PREFERENCES_KEY, allPrefs);

@@ -34,6 +34,13 @@ export interface DeviceData {
   prefs: Record<string, string>;
   prefMarks: Record<string, number>;
   highScores: Record<string, number>;
+  /** theme / display settings / dialogue voice options, each with the time it was chosen */
+  ui: Record<string, UiChoice>;
+}
+
+export interface UiChoice {
+  value: unknown;
+  at: number;
 }
 
 const KEEP_DAYS = 14;
@@ -94,6 +101,7 @@ export function sanitizeDeviceData(raw: unknown): DeviceData {
     prefs: asObject<string>(o.prefs, (v) => typeof v === 'string'),
     prefMarks: asObject<number>(o.prefMarks, (v) => typeof v === 'number'),
     highScores: asObject<number>(o.highScores, (v) => typeof v === 'number'),
+    ui: asObject<UiChoice>(o.ui, (v) => isObject(v) && typeof v.at === 'number' && v.value !== undefined),
   };
 }
 
@@ -129,6 +137,8 @@ export function mergeDeviceData(local: DeviceData, remote: DeviceData): DeviceDa
     prefs,
     prefMarks: mergeKeys(local.prefMarks, remote.prefMarks, Math.max),
     highScores: mergeKeys(local.highScores, remote.highScores, Math.max),
+    // a tie (neither side timed) goes to the account's value
+    ui: mergeKeys(local.ui, remote.ui, (a, b) => (b.at >= a.at ? b : a)),
   };
 }
 
