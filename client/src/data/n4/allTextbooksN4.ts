@@ -1,6 +1,8 @@
-import type { ExtraTextbookUnitDef } from '../n5/extraTextbooksN5';
+import { splitGroupedUnit, type ExtraTextbookUnitDef } from '../n5/extraTextbooksN5';
+import { MINNA_N4_EXTRA_A } from './minnaN4LessonWordsA';
+import { MINNA_N4_EXTRA_B } from './minnaN4LessonWordsB';
 
-export const N4_ALL_TEXTBOOK_UNITS: ExtraTextbookUnitDef[] = [
+const N4_BASE_UNITS: ExtraTextbookUnitDef[] = [
   // ==================== MINNA NO NIHONGO II (BÀI 26–50 -> UNITS 1..10) ====================
   {
     unitId: 1,
@@ -793,3 +795,37 @@ export const N4_ALL_TEXTBOOK_UNITS: ExtraTextbookUnitDef[] = [
     ],
   },
 ];
+
+/** Lessons each grouped Minna II unit (1–10) used to cover. */
+const MINNA_N4_GROUPS: Record<number, number[]> = {
+  1: [26, 27], 2: [28, 29], 3: [30, 31], 4: [32, 33], 5: [34, 35],
+  6: [36, 37], 7: [38, 39], 8: [40, 41, 42, 43], 9: [44, 45, 46], 10: [47, 48, 49, 50],
+};
+
+const MINNA_N4_LESSON_TOPICS: Record<number, string> = {
+  26: 'Liên lạc & Rác thải', 27: 'Khả năng & Nhìn – nghe', 28: 'Vừa… vừa & Thói quen',
+  29: 'Trạng thái & Đồ thất lạc', 30: 'Sắp xếp & Chuẩn bị', 31: 'Dự định & Tương lai',
+  32: 'Lời khuyên & Thời tiết', 33: 'Biển báo & Lời nhắn', 34: 'Hướng dẫn & Lắp ráp',
+  35: 'Điều kiện & Du lịch', 36: 'Cố gắng & Thay đổi', 37: 'Bị động & Sản xuất',
+  38: 'Danh từ hóa & Sở thích', 39: 'Nguyên nhân & Cảm xúc', 40: 'Câu hỏi gián tiếp & Đo đạc',
+  41: 'Cho – nhận & Quà tặng', 42: 'Mục đích & Dụng cụ', 43: 'Trông có vẻ & Đi rồi về',
+  44: 'Quá mức & Dễ – khó', 45: 'Trường hợp & Trái ý', 46: 'Thời điểm & Vừa mới',
+  47: 'Nghe nói & Có vẻ', 48: 'Sai khiến & Xin phép', 49: 'Tôn kính ngữ', 50: 'Khiêm nhường ngữ',
+};
+
+const MINNA_N4_EXTRA = { ...MINNA_N4_EXTRA_A, ...MINNA_N4_EXTRA_B };
+
+/** Minna II as one unit per lesson (unit id = lesson number 26–50); old word ids are kept. */
+export const N4_ALL_TEXTBOOK_UNITS: ExtraTextbookUnitDef[] = N4_BASE_UNITS.flatMap((def) => {
+  const lessons = def.textbookId === 'minna-n4' ? MINNA_N4_GROUPS[def.unitId] : undefined;
+  if (!lessons) return [def];
+  return splitGroupedUnit(
+    def,
+    lessons,
+    (lesson) => lesson,
+    (lesson) => `Bài ${lesson} (Minna II — ${MINNA_N4_LESSON_TOPICS[lesson]})`,
+    Object.fromEntries(
+      lessons.map((lesson) => [lesson, { startId: 400000 + lesson * 100 + 1, words: MINNA_N4_EXTRA[lesson] ?? [] }]),
+    ),
+  );
+});

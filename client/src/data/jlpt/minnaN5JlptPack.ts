@@ -17,7 +17,7 @@ export const MINNA_N5_KANJI_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-kanji-1',
     moduleId: 'kanji',
     level: 'N5',
-    mondaiLabel: 'Mondai 1 · Minna I · Đọc chữ Hán',
+    mondaiLabel: 'Mondai 1 · Đọc chữ Hán',
     prompt: 'まいあさ 【六時】 に おきます。',
     highlight: '六時',
     options: ['ろくじ', 'ろくし', 'むじ', 'はちじ'],
@@ -28,7 +28,7 @@ export const MINNA_N5_KANJI_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-kanji-2',
     moduleId: 'kanji',
     level: 'N5',
-    mondaiLabel: 'Mondai 1 · Minna I · Đọc chữ Hán',
+    mondaiLabel: 'Mondai 1 · Đọc chữ Hán',
     prompt: 'えきの まえに 【銀行】 が あります。',
     highlight: '銀行',
     options: ['ぎんごう', 'きんこう', 'ぎんこう', 'ぎんきょう'],
@@ -39,7 +39,7 @@ export const MINNA_N5_KANJI_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-kanji-3',
     moduleId: 'kanji',
     level: 'N5',
-    mondaiLabel: 'Mondai 1 · Minna I · Đọc chữ Hán',
+    mondaiLabel: 'Mondai 1 · Đọc chữ Hán',
     prompt: 'にほんの 【食べ物】 は おいしいです。',
     highlight: '食べ物',
     options: ['たべもの', 'しょくぶつ', 'のみもの', 'かいもの'],
@@ -50,7 +50,7 @@ export const MINNA_N5_KANJI_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-kanji-4',
     moduleId: 'kanji',
     level: 'N5',
-    mondaiLabel: 'Mondai 1 · Minna I · Đọc chữ Hán',
+    mondaiLabel: 'Mondai 1 · Đọc chữ Hán',
     prompt: '【水曜日】 に としょかんへ いきます。',
     highlight: '水曜日',
     options: ['かようび', 'すいようび', 'もくようび', 'どようび'],
@@ -61,7 +61,7 @@ export const MINNA_N5_KANJI_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-kanji-5',
     moduleId: 'kanji',
     level: 'N5',
-    mondaiLabel: 'Mondai 1 · Minna I · Đọc chữ Hán',
+    mondaiLabel: 'Mondai 1 · Đọc chữ Hán',
     prompt: '【来週】 の どようびに ともだちと あいます。',
     highlight: '来週',
     options: ['こんしゅう', 'せんしゅう', 'らいしゅう', 'まいしゅう'],
@@ -72,7 +72,7 @@ export const MINNA_N5_KANJI_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-kanji-6',
     moduleId: 'kanji',
     level: 'N5',
-    mondaiLabel: 'Mondai 1 · Minna I · Đọc chữ Hán',
+    mondaiLabel: 'Mondai 1 · Đọc chữ Hán',
     prompt: 'ちかくに 【新しい】 スーパーが できました。',
     highlight: '新しい',
     options: ['ふるい', 'あたらしい', 'やさしい', 'たのしい'],
@@ -83,7 +83,7 @@ export const MINNA_N5_KANJI_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-kanji-7',
     moduleId: 'kanji',
     level: 'N5',
-    mondaiLabel: 'Mondai 1 · Minna I · Đọc chữ Hán',
+    mondaiLabel: 'Mondai 1 · Đọc chữ Hán',
     prompt: 'ははに 【手紙】 を かきました。',
     highlight: '手紙',
     options: ['てがみ', 'てかみ', 'しゅし', 'かみ'],
@@ -94,7 +94,7 @@ export const MINNA_N5_KANJI_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-kanji-8',
     moduleId: 'kanji',
     level: 'N5',
-    mondaiLabel: 'Mondai 1 · Minna I · Đọc chữ Hán',
+    mondaiLabel: 'Mondai 1 · Đọc chữ Hán',
     prompt: 'この みせの りんごは 【安い】 です。',
     highlight: '安い',
     options: ['たかい', 'やすい', 'ひろい', 'あまい'],
@@ -105,7 +105,7 @@ export const MINNA_N5_KANJI_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-kanji-9',
     moduleId: 'kanji',
     level: 'N5',
-    mondaiLabel: 'Mondai 2 · Minna I · Chọn chữ Hán',
+    mondaiLabel: 'Mondai 2 · Chọn chữ Hán',
     prompt: 'まいにち 【しんぶん】 を よみます。',
     highlight: 'しんぶん',
     options: ['新文', '新聞', '親聞', '新門'],
@@ -116,7 +116,7 @@ export const MINNA_N5_KANJI_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-kanji-10',
     moduleId: 'kanji',
     level: 'N5',
-    mondaiLabel: 'Mondai 2 · Minna I · Chọn chữ Hán',
+    mondaiLabel: 'Mondai 2 · Chọn chữ Hán',
     prompt: 'えきの 【ひがしぐち】 で まって ください。',
     highlight: 'ひがしぐち',
     options: ['西口', '南口', '北口', '東口'],
@@ -127,7 +127,7 @@ export const MINNA_N5_KANJI_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-kanji-11',
     moduleId: 'kanji',
     level: 'N5',
-    mondaiLabel: 'Mondai 2 · Minna I · Chọn chữ Hán',
+    mondaiLabel: 'Mondai 2 · Chọn chữ Hán',
     prompt: '【がいこく】 へ りょこうに いきたいです。',
     highlight: 'がいこく',
     options: ['外国', '大国', '中国', '各国'],
@@ -138,7 +138,7 @@ export const MINNA_N5_KANJI_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-kanji-12',
     moduleId: 'kanji',
     level: 'N5',
-    mondaiLabel: 'Mondai 2 · Minna I · Chọn chữ Hán',
+    mondaiLabel: 'Mondai 2 · Chọn chữ Hán',
     prompt: '【ごご】 さんじに かいぎが はじまります。',
     highlight: 'ごご',
     options: ['午前', '午後', '今午', '毎午'],
@@ -152,7 +152,7 @@ export const MINNA_N5_VOCAB_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-vocab-1',
     moduleId: 'vocab',
     level: 'N5',
-    mondaiLabel: 'Mondai 3 · Minna I · Chọn từ ngữ cảnh',
+    mondaiLabel: 'Mondai 3 · Chọn từ ngữ cảnh',
     prompt: 'あついですから、まどを （　　　） ください。',
     options: ['しめて', 'あけて', 'けして', 'とめて'],
     correctIndex: 1,
@@ -162,7 +162,7 @@ export const MINNA_N5_VOCAB_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-vocab-2',
     moduleId: 'vocab',
     level: 'N5',
-    mondaiLabel: 'Mondai 3 · Minna I · Chọn từ ngữ cảnh',
+    mondaiLabel: 'Mondai 3 · Chọn từ ngữ cảnh',
     prompt: 'へやが くらくなりました。でんきを （　　　） ましょう。',
     options: ['つけ', 'けし', 'しめ', 'おり'],
     correctIndex: 0,
@@ -172,7 +172,7 @@ export const MINNA_N5_VOCAB_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-vocab-3',
     moduleId: 'vocab',
     level: 'N5',
-    mondaiLabel: 'Mondai 3 · Minna I · Chọn từ ngữ cảnh',
+    mondaiLabel: 'Mondai 3 · Chọn từ ngữ cảnh',
     prompt: 'つぎの えきで でんしゃを （　　　）。',
     options: ['のります', 'おります', 'はいります', 'でます'],
     correctIndex: 1,
@@ -182,7 +182,7 @@ export const MINNA_N5_VOCAB_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-vocab-4',
     moduleId: 'vocab',
     level: 'N5',
-    mondaiLabel: 'Mondai 3 · Minna I · Chọn từ ngữ cảnh',
+    mondaiLabel: 'Mondai 3 · Chọn từ ngữ cảnh',
     prompt: 'かぜを ひきましたから、きょうは うちで （　　　）。',
     options: ['はたらきます', 'やすみます', 'あそびます', 'およぎます'],
     correctIndex: 1,
@@ -192,7 +192,7 @@ export const MINNA_N5_VOCAB_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-vocab-5',
     moduleId: 'vocab',
     level: 'N5',
-    mondaiLabel: 'Mondai 3 · Minna I · Chọn từ ngữ cảnh',
+    mondaiLabel: 'Mondai 3 · Chọn từ ngữ cảnh',
     prompt: '日本の りょうりは （　　　） で たべます。',
     options: ['はし', 'はさみ', 'かぎ', 'かさ'],
     correctIndex: 0,
@@ -202,7 +202,7 @@ export const MINNA_N5_VOCAB_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-vocab-6',
     moduleId: 'vocab',
     level: 'N5',
-    mondaiLabel: 'Mondai 3 · Minna I · Chọn từ ngữ cảnh',
+    mondaiLabel: 'Mondai 3 · Chọn từ ngữ cảnh',
     prompt: 'たんじょうびに ともだちから （　　　） を もらいました。',
     options: ['プレゼント', 'スケジュール', 'パスポート', 'エレベーター'],
     correctIndex: 0,
@@ -212,7 +212,7 @@ export const MINNA_N5_VOCAB_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-vocab-7',
     moduleId: 'vocab',
     level: 'N5',
-    mondaiLabel: 'Mondai 3 · Minna I · Chọn từ ngữ cảnh',
+    mondaiLabel: 'Mondai 3 · Chọn từ ngữ cảnh',
     prompt: 'としょかんで ほんを （　　　） ました。らいしゅう かえします。',
     options: ['かし', 'かり', 'おしえ', 'ならい'],
     correctIndex: 1,
@@ -222,7 +222,7 @@ export const MINNA_N5_VOCAB_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-vocab-8',
     moduleId: 'vocab',
     level: 'N5',
-    mondaiLabel: 'Mondai 3 · Minna I · Chọn từ ngữ cảnh',
+    mondaiLabel: 'Mondai 3 · Chọn từ ngữ cảnh',
     prompt: 'わたしの （　　　） は しゃしんを とることです。',
     options: ['しゅみ', 'やくそく', 'ようじ', 'いけん'],
     correctIndex: 0,
@@ -232,7 +232,7 @@ export const MINNA_N5_VOCAB_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-vocab-9',
     moduleId: 'vocab',
     level: 'N5',
-    mondaiLabel: 'Mondai 3 · Minna I · Chọn từ ngữ cảnh',
+    mondaiLabel: 'Mondai 3 · Chọn từ ngữ cảnh',
     prompt: 'にほんごが よく わかりませんから、（　　　） はなしてください。',
     options: ['ゆっくり', 'すぐ', 'もう', 'とても'],
     correctIndex: 0,
@@ -242,7 +242,7 @@ export const MINNA_N5_VOCAB_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-vocab-10',
     moduleId: 'vocab',
     level: 'N5',
-    mondaiLabel: 'Mondai 3 · Minna I · Chọn từ ngữ cảnh',
+    mondaiLabel: 'Mondai 3 · Chọn từ ngữ cảnh',
     prompt: 'へやに はいる まえに、くつを （　　　） ください。',
     options: ['はいて', 'きて', 'ぬいで', 'かけて'],
     correctIndex: 2,
@@ -252,7 +252,7 @@ export const MINNA_N5_VOCAB_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-vocab-11',
     moduleId: 'vocab',
     level: 'N5',
-    mondaiLabel: 'Mondai 3 · Minna I · Chọn từ ngữ cảnh',
+    mondaiLabel: 'Mondai 3 · Chọn từ ngữ cảnh',
     prompt: 'えきまで あるいて ５ふんです。とても （　　　） です。',
     options: ['べんり', 'たいへん', 'ざんねん', 'ひま'],
     correctIndex: 0,
@@ -262,7 +262,7 @@ export const MINNA_N5_VOCAB_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-vocab-12',
     moduleId: 'vocab',
     level: 'N5',
-    mondaiLabel: 'Mondai 3 · Minna I · Chọn từ ngữ cảnh',
+    mondaiLabel: 'Mondai 3 · Chọn từ ngữ cảnh',
     prompt: 'しゅくだいを （　　　） しまいました。すみません。',
     options: ['わすれて', 'なくして', 'おぼえて', 'しらべて'],
     correctIndex: 0,
@@ -275,7 +275,7 @@ export const MINNA_N5_GRAMMAR_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-gram-1',
     moduleId: 'grammar',
     level: 'N5',
-    mondaiLabel: 'Mondai 1 · Minna Bài 4–5 · Trợ từ',
+    mondaiLabel: 'Mondai 1 · Bài 4–5 · Trợ từ',
     prompt: 'きのう ともだち （　　　） バス （　　　） きょうとへ いきました。',
     options: ['と ／ で', 'に ／ を', 'で ／ と', 'と ／ に'],
     correctIndex: 0,
@@ -285,7 +285,7 @@ export const MINNA_N5_GRAMMAR_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-gram-2',
     moduleId: 'grammar',
     level: 'N5',
-    mondaiLabel: 'Mondai 1 · Minna Bài 6 · Trợ từ địa điểm',
+    mondaiLabel: 'Mondai 1 · Bài 6 · Trợ từ địa điểm',
     prompt: 'まいにち としょかん （　　　） にほんごを べんきょうします。',
     options: ['に', 'へ', 'で', 'を'],
     correctIndex: 2,
@@ -295,7 +295,7 @@ export const MINNA_N5_GRAMMAR_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-gram-3',
     moduleId: 'grammar',
     level: 'N5',
-    mondaiLabel: 'Mondai 1 · Minna Bài 8 · Tính từ',
+    mondaiLabel: 'Mondai 1 · Bài 8 · Tính từ',
     prompt: 'きのうの えいがは あまり （　　　）。',
     options: ['おもしろいです', 'おもしろかったです', 'おもしろくなかったです', 'おもしろいじゃありません'],
     correctIndex: 2,
@@ -305,7 +305,7 @@ export const MINNA_N5_GRAMMAR_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-gram-4',
     moduleId: 'grammar',
     level: 'N5',
-    mondaiLabel: 'Mondai 1 · Minna Bài 10 · Tồn tại',
+    mondaiLabel: 'Mondai 1 · Bài 10 · Tồn tại',
     prompt: 'つくえの うえに ねこ （　　　） います。',
     options: ['を', 'が', 'で', 'へ'],
     correctIndex: 1,
@@ -315,7 +315,7 @@ export const MINNA_N5_GRAMMAR_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-gram-5',
     moduleId: 'grammar',
     level: 'N5',
-    mondaiLabel: 'Mondai 1 · Minna Bài 11 · Tần suất',
+    mondaiLabel: 'Mondai 1 · Bài 11 · Tần suất',
     prompt: '１しゅうかん （　　　） ２かい テニスを します。',
     options: ['で', 'を', 'に', 'と'],
     correctIndex: 2,
@@ -325,7 +325,7 @@ export const MINNA_N5_GRAMMAR_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-gram-6',
     moduleId: 'grammar',
     level: 'N5',
-    mondaiLabel: 'Mondai 1 · Minna Bài 12 · So sánh',
+    mondaiLabel: 'Mondai 1 · Bài 12 · So sánh',
     prompt: 'にほんご （　　　） えいご （　　　） どちらが むずかしいですか。',
     options: ['と ／ と', 'や ／ や', 'は ／ が', 'より ／ の'],
     correctIndex: 0,
@@ -335,7 +335,7 @@ export const MINNA_N5_GRAMMAR_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-gram-7',
     moduleId: 'grammar',
     level: 'N5',
-    mondaiLabel: 'Mondai 1 · Minna Bài 13 · Mục đích',
+    mondaiLabel: 'Mondai 1 · Bài 13 · Mục đích',
     prompt: 'しゅうまつ、デパートへ くつを （　　　） いきます。',
     options: ['かってに', 'かいに', 'かうに', 'かいますに'],
     correctIndex: 1,
@@ -345,7 +345,7 @@ export const MINNA_N5_GRAMMAR_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-gram-8',
     moduleId: 'grammar',
     level: 'N5',
-    mondaiLabel: 'Mondai 1 · Minna Bài 15 · Xin phép',
+    mondaiLabel: 'Mondai 1 · Bài 15 · Xin phép',
     prompt: 'すみません、ここに すわって （　　　） いいですか。',
     options: ['は', 'も', 'を', 'が'],
     correctIndex: 1,
@@ -355,7 +355,7 @@ export const MINNA_N5_GRAMMAR_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-gram-9',
     moduleId: 'grammar',
     level: 'N5',
-    mondaiLabel: 'Mondai 1 · Minna Bài 16 · Thứ tự',
+    mondaiLabel: 'Mondai 1 · Bài 16 · Thứ tự',
     prompt: 'ばんごはんを （　　　）、テレビを みます。',
     options: ['たべてから', 'たべるから', 'たべたから', 'たべますから'],
     correctIndex: 0,
@@ -365,7 +365,7 @@ export const MINNA_N5_GRAMMAR_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-gram-10',
     moduleId: 'grammar',
     level: 'N5',
-    mondaiLabel: 'Mondai 1 · Minna Bài 17 · Nghĩa vụ',
+    mondaiLabel: 'Mondai 1 · Bài 17 · Nghĩa vụ',
     prompt: 'あした テストが ありますから、こんばん べんきょう （　　　）。',
     options: ['しなくてもいいです', 'しないでください', 'しなければなりません', 'してもいいです'],
     correctIndex: 2,
@@ -375,7 +375,7 @@ export const MINNA_N5_GRAMMAR_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-gram-11',
     moduleId: 'grammar',
     level: 'N5',
-    mondaiLabel: 'Mondai 1 · Minna Bài 18 · Trước khi',
+    mondaiLabel: 'Mondai 1 · Bài 18 · Trước khi',
     prompt: 'ごはんを （　　　） まえに、てを あらいます。',
     options: ['たべた', 'たべて', 'たべる', 'たべない'],
     correctIndex: 2,
@@ -385,7 +385,7 @@ export const MINNA_N5_GRAMMAR_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-gram-12',
     moduleId: 'grammar',
     level: 'N5',
-    mondaiLabel: 'Mondai 1 · Minna Bài 19 · Kinh nghiệm',
+    mondaiLabel: 'Mondai 1 · Bài 19 · Kinh nghiệm',
     prompt: 'わたしは ふじさんに のぼった （　　　） が あります。',
     options: ['もの', 'こと', 'とき', 'ひと'],
     correctIndex: 1,
@@ -395,7 +395,7 @@ export const MINNA_N5_GRAMMAR_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-gram-13',
     moduleId: 'grammar',
     level: 'N5',
-    mondaiLabel: 'Mondai 1 · Minna Bài 21 · Ý kiến',
+    mondaiLabel: 'Mondai 1 · Bài 21 · Ý kiến',
     prompt: 'わたしは にほんごの べんきょうは おもしろい （　　　） おもいます。',
     options: ['を', 'が', 'と', 'に'],
     correctIndex: 2,
@@ -405,7 +405,7 @@ export const MINNA_N5_GRAMMAR_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-gram-14',
     moduleId: 'grammar',
     level: 'N5',
-    mondaiLabel: 'Mondai 1 · Minna Bài 24 · Cho nhận hành động',
+    mondaiLabel: 'Mondai 1 · Bài 24 · Cho nhận hành động',
     prompt: 'あめが ふりましたから、たなかさんが かさを かして （　　　）。',
     options: ['あげました', 'もらいました', 'くれました', 'きました'],
     correctIndex: 2,
@@ -415,7 +415,7 @@ export const MINNA_N5_GRAMMAR_MCQS: JLPTMcqItem[] = [
     id: 'mnn5-gram-15',
     moduleId: 'grammar',
     level: 'N5',
-    mondaiLabel: 'Mondai 1 · Minna Bài 25 · Điều kiện & Nhượng bộ',
+    mondaiLabel: 'Mondai 1 · Bài 25 · Điều kiện & Nhượng bộ',
     prompt: 'いくら （　　　）、ぜんぜん わかりません。',
     options: ['かんがえたら', 'かんがえても', 'かんがえると', 'かんがえるとき'],
     correctIndex: 1,
@@ -427,7 +427,7 @@ export const MINNA_N5_STAR_ITEMS: JLPTStarItem[] = [
   {
     id: 'mnn5-star-1',
     level: 'N5',
-    mondaiLabel: 'Mondai ★ · Minna Bài 10',
+    mondaiLabel: 'Mondai ★ · Bài 10',
     prefix: 'きのう こうえんで ',
     suffix: ' みました。',
     chunks: [
@@ -445,7 +445,7 @@ export const MINNA_N5_STAR_ITEMS: JLPTStarItem[] = [
   {
     id: 'mnn5-star-2',
     level: 'N5',
-    mondaiLabel: 'Mondai ★ · Minna Bài 12',
+    mondaiLabel: 'Mondai ★ · Bài 12',
     prefix: 'くだものの なかで ',
     suffix: ' すきです。',
     chunks: [
@@ -463,7 +463,7 @@ export const MINNA_N5_STAR_ITEMS: JLPTStarItem[] = [
   {
     id: 'mnn5-star-3',
     level: 'N5',
-    mondaiLabel: 'Mondai ★ · Minna Bài 13',
+    mondaiLabel: 'Mondai ★ · Bài 13',
     prefix: 'あした デパートへ ',
     suffix: ' いきます。',
     chunks: [
@@ -481,7 +481,7 @@ export const MINNA_N5_STAR_ITEMS: JLPTStarItem[] = [
   {
     id: 'mnn5-star-4',
     level: 'N5',
-    mondaiLabel: 'Mondai ★ · Minna Bài 18',
+    mondaiLabel: 'Mondai ★ · Bài 18',
     prefix: 'わたしの ',
     suffix: ' です。',
     chunks: [
@@ -499,7 +499,7 @@ export const MINNA_N5_STAR_ITEMS: JLPTStarItem[] = [
   {
     id: 'mnn5-star-5',
     level: 'N5',
-    mondaiLabel: 'Mondai ★ · Minna Bài 19',
+    mondaiLabel: 'Mondai ★ · Bài 19',
     prefix: 'にちようびは うちで ',
     suffix: ' します。',
     chunks: [
@@ -517,7 +517,7 @@ export const MINNA_N5_STAR_ITEMS: JLPTStarItem[] = [
   {
     id: 'mnn5-star-6',
     level: 'N5',
-    mondaiLabel: 'Mondai ★ · Minna Bài 22',
+    mondaiLabel: 'Mondai ★ · Bài 22',
     prefix: 'あれは ',
     suffix: ' かばんです。',
     chunks: [
@@ -535,7 +535,7 @@ export const MINNA_N5_STAR_ITEMS: JLPTStarItem[] = [
   {
     id: 'mnn5-star-7',
     level: 'N5',
-    mondaiLabel: 'Mondai ★ · Minna Bài 24',
+    mondaiLabel: 'Mondai ★ · Bài 24',
     prefix: 'わたしは ',
     suffix: ' もらいました。',
     chunks: [
@@ -553,7 +553,7 @@ export const MINNA_N5_STAR_ITEMS: JLPTStarItem[] = [
   {
     id: 'mnn5-star-8',
     level: 'N5',
-    mondaiLabel: 'Mondai ★ · Minna Bài 25',
+    mondaiLabel: 'Mondai ★ · Bài 25',
     prefix: 'あした ',
     suffix: ' いきます。',
     chunks: [
@@ -574,7 +574,7 @@ export const MINNA_N5_STAR_ITEMS: JLPTStarItem[] = [
 MINNA_N5_STAR_ITEMS[1] = {
   id: 'mnn5-star-2',
   level: 'N5',
-  mondaiLabel: 'Mondai ★ · Minna Bài 12',
+  mondaiLabel: 'Mondai ★ · Bài 12',
   prefix: 'くだものの ',
   suffix: ' すきです。',
   chunks: [
@@ -593,7 +593,7 @@ MINNA_N5_STAR_ITEMS[1] = {
 MINNA_N5_STAR_ITEMS[1] = {
   id: 'mnn5-star-2',
   level: 'N5',
-  mondaiLabel: 'Mondai ★ · Minna Bài 12',
+  mondaiLabel: 'Mondai ★ · Bài 12',
   prefix: 'わたしは ',
   suffix: ' すきです。',
   chunks: [
@@ -611,7 +611,7 @@ MINNA_N5_STAR_ITEMS[1] = {
 MINNA_N5_STAR_ITEMS[2] = {
   id: 'mnn5-star-3',
   level: 'N5',
-  mondaiLabel: 'Mondai ★ · Minna Bài 13',
+  mondaiLabel: 'Mondai ★ · Bài 13',
   prefix: 'あした ',
   suffix: ' いきます。',
   chunks: [
@@ -633,7 +633,7 @@ export const MINNA_N5_READING_PASSAGES: JLPTReadingPassage[] = [
     moduleId: 'reading-short',
     level: 'N5',
     title: 'Bảng thông báo thư viện Sakura (Bài 4–10)',
-    genre: 'Thông báo ngắn · Minna I',
+    genre: 'Thông báo ngắn',
     paragraphs: [
       {
         segments: [
@@ -704,7 +704,7 @@ export const MINNA_N5_READING_PASSAGES: JLPTReadingPassage[] = [
     moduleId: 'reading-short',
     level: 'N5',
     title: 'Tin nhắn rủ đi ăn tối (Bài 6–13)',
-    genre: 'Tin nhắn · Minna I',
+    genre: 'Tin nhắn',
     paragraphs: [
       {
         segments: [
@@ -769,7 +769,7 @@ export const MINNA_N5_READING_PASSAGES: JLPTReadingPassage[] = [
     moduleId: 'reading-short',
     level: 'N5',
     title: 'Nội quy phòng học tiếng Nhật (Bài 15–17)',
-    genre: 'Nội quy · Minna I',
+    genre: 'Nội quy',
     paragraphs: [
       {
         segments: [
@@ -834,7 +834,7 @@ export const MINNA_N5_READING_PASSAGES: JLPTReadingPassage[] = [
     moduleId: 'reading-short',
     level: 'N5',
     title: 'Kỳ nghỉ cuối tuần của anh Minh (Bài 16–19)',
-    genre: 'Nhật ký ngắn · Minna I',
+    genre: 'Nhật ký ngắn',
     paragraphs: [
       {
         segments: [
@@ -899,7 +899,7 @@ export const MINNA_N5_READING_PASSAGES: JLPTReadingPassage[] = [
     moduleId: 'reading-short',
     level: 'N5',
     title: 'Đường đi tới bưu điện (Bài 23)',
-    genre: 'Chỉ đường · Minna I',
+    genre: 'Chỉ đường',
     paragraphs: [
       {
         segments: [
@@ -965,7 +965,7 @@ export const MINNA_N5_READING_PASSAGES: JLPTReadingPassage[] = [
     moduleId: 'reading-medium',
     level: 'N5',
     title: 'Một ngày ở Nhật Bản của du học sinh Lan (Bài 1–20)',
-    genre: 'Bài luận Trung văn N5 · Minna I',
+    genre: 'Bài luận Trung văn N5',
     paragraphs: [
       {
         segments: [
@@ -1091,7 +1091,7 @@ export const MINNA_N5_READING_PASSAGES: JLPTReadingPassage[] = [
     moduleId: 'reading-medium',
     level: 'N5',
     title: 'Kế hoạch du lịch mùa xuân & món quà của bố (Bài 21–25)',
-    genre: 'Bài đọc Trung văn N5 · Minna I',
+    genre: 'Bài đọc Trung văn N5',
     paragraphs: [
       {
         segments: [
@@ -1201,7 +1201,7 @@ export const MINNA_N5_LISTENING_ITEMS: JLPTListeningItem[] = [
   {
     id: 'mnn5-list-1',
     level: 'N5',
-    mondaiLabel: 'Mondai 1 · Minna Bài 3–4 · Thời gian & Mua sắm',
+    mondaiLabel: 'Mondai 1 · Bài 3–4 · Thời gian & Mua sắm',
     situation: 'Tại cửa hàng bách hóa, khách hỏi giờ mở cửa và giá áo.',
     questionPrompt: 'この 店は 何時まで 開いて いますか。',
     dialogue: [
@@ -1251,7 +1251,7 @@ export const MINNA_N5_LISTENING_ITEMS: JLPTListeningItem[] = [
   {
     id: 'mnn5-list-2',
     level: 'N5',
-    mondaiLabel: 'Mondai 1 · Minna Bài 5–6 · Lên kế hoạch đi chơi',
+    mondaiLabel: 'Mondai 1 · Bài 5–6 · Lên kế hoạch đi chơi',
     situation: 'Hai người bạn bàn nhau cách đi công viên cuối tuần.',
     questionPrompt: '二人は 何で 公園へ 行きますか。',
     dialogue: [
@@ -1299,7 +1299,7 @@ export const MINNA_N5_LISTENING_ITEMS: JLPTListeningItem[] = [
   {
     id: 'mnn5-list-3',
     level: 'N5',
-    mondaiLabel: 'Mondai 1 · Minna Bài 7 · Quà sinh nhật',
+    mondaiLabel: 'Mondai 1 · Bài 7 · Quà sinh nhật',
     situation: 'Nữ hỏi Nam về món quà sinh nhật nhận được.',
     questionPrompt: '男の人は お姉さんから 何を もらいましたか。',
     dialogue: [
@@ -1337,7 +1337,7 @@ export const MINNA_N5_LISTENING_ITEMS: JLPTListeningItem[] = [
   {
     id: 'mnn5-list-4',
     level: 'N5',
-    mondaiLabel: 'Mondai 1 · Minna Bài 10 · Tìm đồ vật',
+    mondaiLabel: 'Mondai 1 · Bài 10 · Tìm đồ vật',
     situation: 'Tại văn phòng, Nam hỏi Nữ chiếc chìa khóa phòng họp ở đâu.',
     questionPrompt: '会議室の かぎは どこに ありますか。',
     dialogue: [
@@ -1374,7 +1374,7 @@ export const MINNA_N5_LISTENING_ITEMS: JLPTListeningItem[] = [
   {
     id: 'mnn5-list-5',
     level: 'N5',
-    mondaiLabel: 'Mondai 2 · Minna Bài 11 · Đặt món ở quán ăn',
+    mondaiLabel: 'Mondai 2 · Bài 11 · Đặt món ở quán ăn',
     situation: 'Hai người gọi món ở nhà hàng.',
     questionPrompt: '二人は ぜんぶで いくら 払いますか。',
     dialogue: [
@@ -1412,7 +1412,7 @@ export const MINNA_N5_LISTENING_ITEMS: JLPTListeningItem[] = [
   {
     id: 'mnn5-list-6',
     level: 'N5',
-    mondaiLabel: 'Mondai 2 · Minna Bài 14–15 · Nhờ vả trong lớp học',
+    mondaiLabel: 'Mondai 2 · Bài 14–15 · Nhờ vả trong lớp học',
     situation: 'Giáo viên nhờ học sinh làm việc trước khi bắt đầu giờ học.',
     questionPrompt: '学生は これから 何を しますか。',
     dialogue: [
@@ -1451,7 +1451,7 @@ export const MINNA_N5_LISTENING_ITEMS: JLPTListeningItem[] = [
   {
     id: 'mnn5-list-7',
     level: 'N5',
-    mondaiLabel: 'Mondai 2 · Minna Bài 17 · Hạn nộp bài',
+    mondaiLabel: 'Mondai 2 · Bài 17 · Hạn nộp bài',
     situation: 'Nhân viên hỏi sếp thời hạn nộp báo cáo.',
     questionPrompt: 'レポートは いつまでに 出さなければ なりませんか。',
     dialogue: [
@@ -1490,7 +1490,7 @@ export const MINNA_N5_LISTENING_ITEMS: JLPTListeningItem[] = [
   {
     id: 'mnn5-list-8',
     level: 'N5',
-    mondaiLabel: 'Mondai 2 · Minna Bài 23–25 · Điều kiện & Nhờ giúp',
+    mondaiLabel: 'Mondai 2 · Bài 23–25 · Điều kiện & Nhờ giúp',
     situation: 'Hai bạn chuẩn bị đi dã ngoại ngày mai.',
     questionPrompt: '明日 雨が 降ったら、二人は どう しますか。',
     dialogue: [

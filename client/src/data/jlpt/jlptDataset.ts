@@ -53,9 +53,13 @@ import { SITUATION_LESSON_LISTENING_N5 } from './situationPackN5Lessons';
 import { LONG_READING_N5 } from './readingPackLongN5';
 import { LONG_READING_N4 } from './readingPackLongN4';
 import { LONG_READING_N3 } from './readingPackLongN3';
+import { SKZ_READING_N3_A } from './readingPackN3ShinkanzenA';
+import { SKZ_READING_N3_B } from './readingPackN3ShinkanzenB';
+import { SKZ_READING_N3 } from './skzReading';
+import { SKZ_LISTENING_N3 } from './skzListening';
 import { LISTENING_N5_EXTRA } from './listeningPackN5Extra';
 import { LESSON_LISTENING_N4 } from './listeningPackN4Lessons';
-import { LESSON_LISTENING_N3 } from './listeningPackN3Lessons';
+import { LISTENING_N3_SHINKANZEN } from './listeningPackN3Shinkanzen';
 
 export type JLPTLevelFilter = 'ALL' | 'N5' | 'N4' | 'N3';
 export type JLPTExamLevel = 'N5' | 'N4' | 'N3';
@@ -2095,7 +2099,7 @@ function buildBankStarItems(): JLPTStarItem[] {
       items.push({
         id: `jlpt-star-${q.id}`,
         level: 'N3',
-        mondaiLabel: 'Mondai ★ · Shin Kanzen N3',
+        mondaiLabel: 'Mondai ★ · JLPT N3',
         prefix: q.sentenceParts?.prefix || '',
         suffix: q.sentenceParts?.suffix || '',
         chunks: q.chunks,
@@ -2148,8 +2152,11 @@ const ALL_READING_PASSAGES: JLPTReadingPassage[] = [
   ...LONG_READING_N5,
   ...LONG_READING_N4,
   ...LONG_READING_N3,
+  ...SKZ_READING_N3_A,
+  ...SKZ_READING_N3_B,
+  ...SKZ_READING_N3,
 ];
-const ALL_LISTENING_ITEMS: JLPTListeningItem[] = [
+const RAW_LISTENING_ITEMS: JLPTListeningItem[] = [
   ...MINNA_N5_LISTENING_ITEMS,
   ...CURATED_LISTENING_ITEMS,
   ...PACK_LISTENING_ITEMS,
@@ -2160,8 +2167,14 @@ const ALL_LISTENING_ITEMS: JLPTListeningItem[] = [
   ...SITUATION_LESSON_LISTENING_N5,
   ...LISTENING_N5_EXTRA,
   ...LESSON_LISTENING_N4,
-  ...LESSON_LISTENING_N3,
+  ...LISTENING_N3_SHINKANZEN,
+  ...SKZ_LISTENING_N3,
 ];
+// Listening is browsed by topic, so lesson numbers are dropped from the visible labels
+const ALL_LISTENING_ITEMS: JLPTListeningItem[] = RAW_LISTENING_ITEMS.map((item) => ({
+  ...item,
+  mondaiLabel: item.mondaiLabel.replace(/ · Bài\s*\d+(\s*[–-]\s*\d+)?/, ''),
+}));
 
 function filterByLevel<T extends { level: JLPTExamLevel }>(items: T[], level: JLPTLevelFilter): T[] {
   if (level === 'ALL') return items;

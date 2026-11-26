@@ -13,7 +13,7 @@ const N3_PRACTICE_TYPES: PracticeType[] = [
   'mixed',
 ];
 
-type CompactN3Rule = [
+export type CompactN3Rule = [
   code: string,
   name: string,
   hiragana: string,
@@ -27,7 +27,7 @@ type CompactN3Rule = [
   examples: Array<[japanese: string, hiragana: string, vietnamese: string, target: string]>,
 ];
 
-interface CompactN3Chapter {
+export interface CompactN3Chapter {
   id: string;
   number: number;
   title: string;
@@ -35,7 +35,7 @@ interface CompactN3Chapter {
   rules: CompactN3Rule[];
 }
 
-function buildN3FromCompact(
+export function buildN3FromCompact(
   bookId: string,
   idPrefix: string,
   chaptersSpec: CompactN3Chapter[],

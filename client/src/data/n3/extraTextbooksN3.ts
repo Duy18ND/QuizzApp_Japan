@@ -1,6 +1,9 @@
-import type { ExtraTextbookUnitDef } from '../n5/extraTextbooksN5';
+import { splitGroupedUnit, type ExtraTextbookUnitDef } from '../n5/extraTextbooksN5';
+import { MIMI_N3_MORE_UNITS } from './mimiN3MoreUnits';
+import { SKZ_N3_MORE_WORDS } from './shinkanzenN3MoreWords';
+import { MINNA_N3_EXTRA, MINNA_N3_LESSON_TOPICS } from './minnaChukyuLessonWords';
 
-export const N3_EXTRA_TEXTBOOK_UNITS: ExtraTextbookUnitDef[] = [
+const N3_BASE_UNITS: ExtraTextbookUnitDef[] = [
   // ==================== MIMI KARA OBOERU N3 (UNITS 2 - 6) ====================
   {
     unitId: 2,
@@ -652,4 +655,29 @@ export const N3_EXTRA_TEXTBOOK_UNITS: ExtraTextbookUnitDef[] = [
       ['ぐったり', 'ぐったり', null, 'mệt lả, kiệt sức', 'Trạng từ', '一日中引越し作業をしてぐったり疲れた。', 'Chuyển nhà cả ngày xong mệt rã rời.'],
     ],
   },
+];
+
+/** Minna Chūkyū I: units 201–206 each grouped two lessons → one unit per lesson (201–212). */
+const MINNA_N3_GROUPS: Record<number, number[]> = {
+  201: [1, 2], 202: [3, 4], 203: [5, 6], 204: [7, 8], 205: [9, 10], 206: [11, 12],
+};
+
+export const N3_EXTRA_TEXTBOOK_UNITS: ExtraTextbookUnitDef[] = [
+  ...N3_BASE_UNITS.flatMap((def) => {
+    if (def.textbookId === 'shinkanzen-n3' && SKZ_N3_MORE_WORDS[def.unitId]) {
+      return [{ ...def, extra: { startId: 330000 + (def.unitId - 100) * 100 + 1, words: SKZ_N3_MORE_WORDS[def.unitId] } }];
+    }
+    const lessons = def.textbookId === 'minna-n3' ? MINNA_N3_GROUPS[def.unitId] : undefined;
+    if (!lessons) return [def];
+    return splitGroupedUnit(
+      def,
+      lessons,
+      (lesson) => 200 + lesson,
+      (lesson) => `Bài ${lesson} (Minna Trung cấp I — ${MINNA_N3_LESSON_TOPICS[lesson]})`,
+      Object.fromEntries(
+        lessons.map((lesson) => [lesson, { startId: 320000 + lesson * 100 + 1, words: MINNA_N3_EXTRA[lesson] ?? [] }]),
+      ),
+    );
+  }),
+  ...MIMI_N3_MORE_UNITS,
 ];
