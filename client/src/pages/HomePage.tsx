@@ -15,6 +15,10 @@ import {
 } from 'lucide-react';
 import { CommunityReviewsSection } from '../components/home/CommunityReviewsSection';
 import { StudyScheduleModal } from '../components/settings/StudyScheduleCard';
+import {
+  ensureUnifiedStudySchedule,
+  formatUnifiedReminderButtonLabel,
+} from '../services/unifiedScheduleService';
 import { GrammarQuizPickerModal } from '../components/home/GrammarQuizPickerModal';
 import {
   Badge,
@@ -165,9 +169,18 @@ export const HomePage: React.FC = () => {
     };
   }, []);
 
+  useEffect(() => {
+    void ensureUnifiedStudySchedule(user?.id).then(() => {
+      setSyncVersion((v) => v + 1);
+    });
+  }, [user?.id]);
+
   const schedule: StudyScheduleConfig = useMemo(
-    () => (syncVersion >= 0 ? loadStudySchedule() : loadStudySchedule()),
-    [syncVersion],
+    () =>
+      syncVersion >= 0
+        ? loadStudySchedule(undefined, user?.id)
+        : loadStudySchedule(undefined, user?.id),
+    [syncVersion, user?.id],
   );
   const todayOnlineSeconds = useMemo(
     () =>
@@ -767,7 +780,9 @@ export const HomePage: React.FC = () => {
             className="inline-flex items-center gap-1 font-medium text-primary-fg hover:underline"
           >
             <AlarmClock className="size-4" aria-hidden />
-            Lịch nhắc học
+            {user && schedule.timeSlots.length > 0
+              ? formatUnifiedReminderButtonLabel(schedule, true)
+              : 'Lịch nhắc học'}
           </button>
           {!user && (
             <span className="text-xs text-muted">Chế độ khách · chưa lưu tiến độ</span>

@@ -57,6 +57,11 @@ import {
 import { buttonStyles } from '../components/ui/styles';
 import { StudyScheduleModal } from '../components/settings/StudyScheduleCard';
 import {
+  ensureUnifiedStudySchedule,
+  formatUnifiedReminderButtonLabel,
+  syncRoadmapConfigSlotToSchedule,
+} from '../services/unifiedScheduleService';
+import {
   AiRoadmapJsonModal,
   type AiJsonModalTab,
 } from '../components/roadmap/AiRoadmapJsonModal';
@@ -91,13 +96,13 @@ import {
   formatVietnameseDateWithWeekday,
   getLocalDateKey,
   getTodayOnlineSeconds,
+  loadStudySchedule,
   ONLINE_TIME_SYNC_EVENT,
+  STUDY_SCHEDULE_SYNC_EVENT,
+  type StudyScheduleConfig,
 } from '../services/notificationService';
 import {
   getBrowserNotificationPermission,
-  isWebPushConfigured,
-  requestBrowserNotificationPermission,
-  subscribeAndSyncWebPush,
   type BrowserNotificationState,
 } from '../services/pwaReminderService';
 import {
@@ -193,6 +198,9 @@ export const StageRoadmapPage: React.FC = () => {
   const [notifPermission, setNotifPermission] = useState<BrowserNotificationState>(() =>
     getBrowserNotificationPermission(),
   );
+  const [unifiedSchedule, setUnifiedSchedule] = useState<StudyScheduleConfig>(() =>
+    loadStudySchedule(getLocalDateKey(), user?.id),
+  );
   const [selectedStageId, setSelectedStageId] = useState<string | null>(
     () => searchParams.get('stage') || null,
   );
@@ -200,11 +208,6 @@ export const StageRoadmapPage: React.FC = () => {
   const [builderIsNew] = useState(() => searchParams.get('create') === '1');
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
-  const [roadmapNotifModalOpen, setRoadmapNotifModalOpen] = useState(false);
-  const [notifDraftEnabled, setNotifDraftEnabled] = useState(true);
-  const [notifDraftTime, setNotifDraftTime] = useState('20:00');
-  const [notifDraftRepeat, setNotifDraftRepeat] = useState<RepeatMinutesOption>(10);
-  const [notifDraftWeekdays, setNotifDraftWeekdays] = useState<number[]>([1, 2, 3, 4, 5, 6, 0]);
   const [importModalOpen, setImportModalOpen] = useState(() =>
     Boolean(searchParams.get('import')),
   );
@@ -588,6 +591,18 @@ export const StageRoadmapPage: React.FC = () => {
       customRoadmaps: nextRoadmaps,
       activeCustomRoadmapId: config.id,
     });
+    if (config.notificationsEnabled && config.reminderTime) {
+      void syncRoadmapConfigSlotToSchedule(
+        {
+          time: config.reminderTime,
+          label: config.name,
+          weekdays: config.studyWeekdays,
+          repeatMinutes: config.repeatIntervalMinutes,
+          enabled: true,
+        },
+        user?.id,
+      ).then((updated) => setUnifiedSchedule(updated));
+    }
     setViewTab('custom');
     setWizardEditingConfig(null);
     toast({
@@ -648,6 +663,18 @@ export const StageRoadmapPage: React.FC = () => {
       customRoadmaps: nextRoadmaps,
       activeCustomRoadmapId: cleanConfig.id,
     });
+    if (cleanConfig.notificationsEnabled && cleanConfig.reminderTime) {
+      void syncRoadmapConfigSlotToSchedule(
+        {
+          time: cleanConfig.reminderTime,
+          label: cleanConfig.name,
+          weekdays: cleanConfig.studyWeekdays,
+          repeatMinutes: cleanConfig.repeatIntervalMinutes,
+          enabled: true,
+        },
+        user?.id,
+      ).then((updated) => setUnifiedSchedule(updated));
+    }
     setViewTab('custom');
     setBuilderOpen(false);
     toast({
@@ -828,73 +855,22 @@ export const StageRoadmapPage: React.FC = () => {
     });
   };
 
-  const handleOpenRoadmapNotifModal = () => {
-    setNotifDraftEnabled(effectiveSettings.enabled);
-    setNotifDraftTime(effectiveSettings.reminderTime);
-    setNotifDraftRepeat(effectiveSettings.repeatIntervalMinutes);
-    setNotifDraftWeekdays(
-      effectiveSettings.studyWeekdays.length > 0
-        ? [...effectiveSettings.studyWeekdays]
-        : [1, 2, 3, 4, 5, 6, 0],
-    );
-    setRoadmapNotifModalOpen(true);
-  };
-
-  const handleSaveRoadmapNotif = async () => {
-    const safeDays =
-      notifDraftWeekdays.length > 0 ? [...notifDraftWeekdays] : [1, 2, 3, 4, 5, 6, 0];
-    const safeTime = notifDraftTime || '20:00';
-
-    if (roadmapState.activeMode === 'custom' && roadmapState.customConfig) {
-      updateActiveCustomConfig((cfg) => ({
-        ...cfg,
-        notificationsEnabled: notifDraftEnabled,
-        reminderTime: safeTime,
-        repeatIntervalMinutes: notifDraftRepeat,
-        studyWeekdays: safeDays,
-      }));
-    } else {
-      updateState({
-        ...roadmapState,
-        fixedNotificationsEnabled: notifDraftEnabled,
-        fixedReminderTime: safeTime,
-        fixedRepeatIntervalMinutes: notifDraftRepeat,
-        fixedStudyWeekdays: safeDays,
-      });
-    }
-
-    let pushSynced = false;
-    let perm = notifPermission;
-    if (notifDraftEnabled) {
-      if (perm !== 'granted') {
-        perm = await requestBrowserNotificationPermission();
-        setNotifPermission(perm);
-      }
-      if (perm === 'granted' && user?.id && isWebPushConfigured()) {
-        const res = await subscribeAndSyncWebPush({
-          userId: user.id,
-          notificationsEnabled: true,
-          reminderTime: safeTime,
-          repeatIntervalMinutes: notifDraftRepeat,
-          studyWeekdays: safeDays,
-          dailyMinutesTarget: effectiveSettings.dailyMinutesTarget,
-          lastCompletedDate: enforcement.isCompletedToday ? todayKey : null,
-          activeStageLabel: effectiveSettings.roadmapLabel,
-        });
-        pushSynced = res.ok;
-      }
-    }
-
-    setRoadmapNotifModalOpen(false);
-    toast({
-      title: !notifDraftEnabled
-        ? `Đã tắt thông báo riêng cho "${effectiveSettings.roadmapLabel}" (các lộ trình khác giữ nguyên).`
-        : pushSynced
-          ? `Đã lưu thông báo riêng cho "${effectiveSettings.roadmapLabel}" lúc ${safeTime} (nhắc kể cả khi thoát app)!`
-          : `Đã lưu thông báo riêng cho "${effectiveSettings.roadmapLabel}" lúc ${safeTime} (lặp ${notifDraftRepeat}p)!`,
-      tone: notifDraftEnabled && perm === 'denied' ? 'warning' : 'success',
+  useEffect(() => {
+    let cancelled = false;
+    void ensureUnifiedStudySchedule(user?.id).then((synced) => {
+      if (!cancelled) setUnifiedSchedule(synced);
     });
-  };
+    const onScheduleSync = (event: Event) => {
+      const custom = event as CustomEvent<StudyScheduleConfig>;
+      setUnifiedSchedule(custom.detail ?? loadStudySchedule(getLocalDateKey(), user?.id));
+      setNotifPermission(getBrowserNotificationPermission());
+    };
+    window.addEventListener(STUDY_SCHEDULE_SYNC_EVENT, onScheduleSync);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(STUDY_SCHEDULE_SYNC_EVENT, onScheduleSync);
+    };
+  }, [user?.id]);
 
   const handleToggleTask = (taskId: string) => {
     const latest = loadStageRoadmapState(user?.id);
@@ -953,23 +929,23 @@ export const StageRoadmapPage: React.FC = () => {
             <Button
               type="button"
               variant={
-                effectiveSettings.enabled && notifPermission === 'granted'
+                unifiedSchedule.enabled &&
+                unifiedSchedule.timeSlots.length > 0 &&
+                notifPermission === 'granted'
                   ? 'soft'
                   : 'secondary'
               }
               size="sm"
               leftIcon={
-                effectiveSettings.enabled ? (
+                unifiedSchedule.enabled && unifiedSchedule.timeSlots.length > 0 ? (
                   <Bell className="size-4" aria-hidden />
                 ) : (
                   <BellOff className="size-4" aria-hidden />
                 )
               }
-              onClick={handleOpenRoadmapNotifModal}
+              onClick={() => setScheduleModalOpen(true)}
             >
-              {!effectiveSettings.enabled
-                ? 'Thông báo: Đang tắt'
-                : `Thông báo: ${effectiveSettings.reminderTime}`}
+              {formatUnifiedReminderButtonLabel(unifiedSchedule, Boolean(user))}
             </Button>
           </div>
         }
@@ -1573,170 +1549,14 @@ export const StageRoadmapPage: React.FC = () => {
                 }}
               />
 
-              <div className="divide-y divide-line rounded-xl border border-line bg-surface-2/50 text-sm">
-                <div className="flex items-center justify-between gap-2 px-3 py-2.5">
-                  <span className="text-muted">
-                    {stages.length} buổi · xong {roadmapForecast.estimatedCompletionLabel}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-2 px-3 py-2">
-                  <span className="text-muted">
-                    Nhắc học: {effectiveSettings.enabled ? effectiveSettings.reminderTime : 'đang tắt'}
-                  </span>
-                  <Button
-                    type="button"
-                    variant="soft"
-                    size="sm"
-                    leftIcon={<Bell className="size-4" aria-hidden />}
-                    onClick={() => {
-                      setSettingsModalOpen(false);
-                      handleOpenRoadmapNotifModal();
-                    }}
-                  >
-                    Sửa
-                  </Button>
-                </div>
+              <div className="rounded-xl border border-line bg-surface-2/50 px-3 py-2.5 text-sm text-muted">
+                {stages.length} buổi · xong {roadmapForecast.estimatedCompletionLabel}
               </div>
             </div>
           );
         })()}
       </Modal>
       <StudyScheduleModal open={scheduleModalOpen} onClose={() => setScheduleModalOpen(false)} />
-
-      {/* Per-Roadmap Independent Notification Settings Modal (Cách 1) */}
-      <Modal
-        open={roadmapNotifModalOpen}
-        onClose={() => setRoadmapNotifModalOpen(false)}
-        size="md"
-        title="Nhắc học"
-        footer={
-          <>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setRoadmapNotifModalOpen(false)}
-            >
-              Hủy
-            </Button>
-            <Button
-              type="button"
-              variant="primary"
-              leftIcon={
-                notifDraftEnabled ? (
-                  <Bell className="size-4" aria-hidden />
-                ) : (
-                  <BellOff className="size-4" aria-hidden />
-                )
-              }
-              onClick={() => void handleSaveRoadmapNotif()}
-            >
-              Lưu
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-surface-2/60 p-3">
-            <p className="text-sm font-bold text-fg">{effectiveSettings.roadmapLabel}</p>
-            <div className="flex gap-1.5">
-              <Chip
-                selected={notifDraftEnabled}
-                onClick={() => setNotifDraftEnabled(true)}
-              >
-                Bật
-              </Chip>
-              <Chip
-                selected={!notifDraftEnabled}
-                onClick={() => setNotifDraftEnabled(false)}
-              >
-                Tắt
-              </Chip>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="Giờ nhắc" htmlFor="roadmap-notif-time">
-              <Input
-                id="roadmap-notif-time"
-                type="time"
-                disabled={!notifDraftEnabled}
-                value={notifDraftTime}
-                onChange={(e) => setNotifDraftTime(e.target.value || '20:00')}
-              />
-            </Field>
-            <Field label="Nhắc lại nếu chưa học" htmlFor="roadmap-notif-repeat">
-              <Select
-                id="roadmap-notif-repeat"
-                disabled={!notifDraftEnabled}
-                value={notifDraftRepeat}
-                onChange={(e) =>
-                  setNotifDraftRepeat(Number(e.target.value) as RepeatMinutesOption)
-                }
-              >
-                {REPEAT_OPTIONS.map((m) => (
-                  <option key={m} value={m}>
-                    Mỗi {m} phút
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-sm font-medium text-fg">Ngày nhắc</span>
-              <div className="flex flex-wrap gap-1.5">
-                {[
-                  { label: 'Cả tuần', days: [1, 2, 3, 4, 5, 6, 0] },
-                  { label: 'T2–T6', days: [1, 2, 3, 4, 5] },
-                  { label: 'T2, T4, T6', days: [1, 3, 5] },
-                ].map((quick) => (
-                  <button
-                    key={quick.label}
-                    type="button"
-                    disabled={!notifDraftEnabled}
-                    onClick={() => setNotifDraftWeekdays([...quick.days])}
-                    className="cursor-pointer rounded-md border border-line bg-surface px-2 py-0.5 text-[11px] font-medium text-muted hover:border-primary hover:text-primary-fg disabled:opacity-50"
-                  >
-                    {quick.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {ALL_DAYS_ORDERED.map((d) => {
-                const active = notifDraftWeekdays.includes(d.day);
-                return (
-                  <Chip
-                    key={d.day}
-                    selected={active}
-                    onClick={() => {
-                      if (!notifDraftEnabled) return;
-                      const next = active
-                        ? notifDraftWeekdays.filter((x) => x !== d.day)
-                        : [...notifDraftWeekdays, d.day];
-                      if (next.length > 0) setNotifDraftWeekdays(next);
-                    }}
-                  >
-                    {d.shortLabel}
-                  </Chip>
-                );
-              })}
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              setRoadmapNotifModalOpen(false);
-              setScheduleModalOpen(true);
-            }}
-            className="cursor-pointer text-xs font-semibold text-primary-fg hover:underline"
-          >
-            Lịch nhắc nâng cao →
-          </button>
-        </div>
-      </Modal>
 
       {/* Stage Detail & Unlock Modal */}
       <Modal
