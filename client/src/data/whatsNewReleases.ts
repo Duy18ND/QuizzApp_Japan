@@ -60,17 +60,6 @@ export const WHATS_NEW_RELEASES: WhatsNewRelease[] = [
         ctaLabel: 'Thử Chia sẻ / Nhập mã',
       },
       {
-        id: 'v250-studio-preset',
-        tag: 'Creator Studio',
-        tone: 'success',
-        glyph: '創',
-        title: 'Sinh nhanh Bản đồ tự vẽ Chuẩn 5 Kỹ năng chỉ với 1 chạm',
-        description:
-          'Trong Studio Vẽ Bản Đồ Lộ Trình, bấm "+ Sinh nhanh Mẫu 5 Kỹ năng" để tạo ngay sơ đồ 7 chặng: Từ vựng → Kanji → Ngữ pháp → Nghe → Đọc → Dojo → Full Test.',
-        to: '/studio?tab=canvas',
-        ctaLabel: 'Vào Bảng vẽ Studio',
-      },
-      {
         id: 'v250-full-n5n4n3',
         tag: 'Kho dữ liệu N5–N3',
         tone: 'warning',
@@ -87,7 +76,7 @@ export const WHATS_NEW_RELEASES: WhatsNewRelease[] = [
     version: 'v2.4.0',
     date: '22/11/2026',
     badge: 'Creator Studio',
-    title: 'Ra mắt Studio Tự Tạo Bài & Bảng Tự Vẽ Lộ Trình Kéo-Thả (Giai đoạn 1 & 2)',
+    title: 'Ra mắt Studio Tự Tạo Bài',
     summary:
       'Cho phép mọi người học tự soạn bài Từ vựng (nhập tay hoặc dán nhanh từ Excel), Ngữ pháp, Kanji như Admin và chơi ngay trên Flashcard, Quiz & 6 Mini-game.',
     highlights: [
@@ -101,17 +90,6 @@ export const WHATS_NEW_RELEASES: WhatsNewRelease[] = [
           'Tự tạo bộ từ vựng riêng, mở thẻ lật Flashcard, làm Quiz trắc nghiệm và đưa thẳng bài tự tạo vào 6 trò chơi trong Phòng Mini-game Dojo.',
         to: '/studio',
         ctaLabel: 'Tự tạo bài ngay',
-      },
-      {
-        id: 'v240-visual-canvas',
-        tag: 'Visual Canvas',
-        tone: 'sakura',
-        glyph: '図',
-        title: 'Bảng vẽ kéo-thả Node (x, y), nối dây mở khóa & tự căn đường chữ S',
-        description:
-          'Tự thiết kế sơ đồ nhánh học tập theo ý thích, bấm "Tự căn đường uốn lượn" và chuyển sang chế độ Chơi để mở khóa từng chặng.',
-        to: '/studio?tab=canvas',
-        ctaLabel: 'Mở Bảng vẽ',
       },
     ],
   },

@@ -17,7 +17,6 @@ import {
   FastForward,
   FileJson,
   Lock,
-  Map as MapIcon,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -1254,35 +1253,6 @@ export const StageRoadmapPage: React.FC = () => {
           </div>
         )}
 
-        {/* User's Visual Canvas Roadmaps Quick Strip */}
-        {studioState.visualRoadmaps.length > 0 && (
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="flex items-center gap-1.5 text-xs font-medium text-muted">
-                <MapIcon className="size-3.5 text-primary-fg" aria-hidden />
-                Bản đồ tự vẽ (Canvas):
-              </span>
-              {studioState.visualRoadmaps.map((vm) => (
-                <Link
-                  key={vm.id}
-                  to={`/studio?tab=canvas&map=${encodeURIComponent(vm.id)}`}
-                  className={buttonStyles({ variant: 'soft', size: 'sm', className: 'h-7 px-2.5 text-xs' })}
-                >
-                  <span>{vm.name}</span>
-                  <Badge tone="neutral" className="px-1.5 py-0 text-[10px]">
-                    {vm.completedNodeIds.length}/{vm.nodes.length} node
-                  </Badge>
-                </Link>
-              ))}
-            </div>
-            <Link
-              to="/studio?tab=canvas"
-              className="text-xs font-semibold text-primary-fg hover:underline"
-            >
-              Mở Studio vẽ bản đồ →
-            </Link>
-          </div>
-        )}
 
       </Card>
 
