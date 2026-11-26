@@ -41,6 +41,7 @@ import {
   type SlotRepeatMinutes,
   type StudyScheduleConfig,
   type StudyTimeSlot,
+  didScheduleUploadFail,
 } from '../../services/notificationService';
 import {
   getBrowserNotificationPermission,
@@ -381,6 +382,15 @@ export const StudyScheduleCard: React.FC<{ embedded?: boolean }> = ({ embedded =
     setSchedule(res.schedule);
     syncToStageRoadmap(res.schedule);
     await syncPushForSchedule(res.schedule, true);
+
+    if (didScheduleUploadFail()) {
+      toast({
+        title: 'Lịch mới chỉ lưu trên máy này, chưa lên tài khoản. Kiểm tra mạng rồi lưu lại.',
+        tone: 'warning',
+      });
+      resetForm();
+      return;
+    }
 
     toast({
       title: editingSlotId

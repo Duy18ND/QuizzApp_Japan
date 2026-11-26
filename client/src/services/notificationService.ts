@@ -766,6 +766,67 @@ export function loadStudySchedule(
   return clean;
 }
 
+let scheduleUploadFailed = false;
+
+/** True when the last attempt to save reminder times to the account did not succeed. */
+export function didScheduleUploadFail(): boolean {
+  return scheduleUploadFailed;
+}
+
+/** PostgREST / Postgres codes for "this column does not exist". */
+const MISSING_COLUMN_CODES = new Set(['PGRST204', '42703']);
+
+async function uploadStudySchedule(userId: string, schedule: StudyScheduleConfig): Promise<void> {
+  if (!supabase || !isSupabaseAccountUuid(userId)) return;
+  // the columns every version of the table has — enough for reminder times and push
+  const core = {
+    user_id: userId,
+    enabled: schedule.enabled,
+    time_slots: schedule.timeSlots,
+    is_continuous_daily: schedule.isContinuousDaily,
+    days_of_week: schedule.daysOfWeek,
+    continuous_repeat_minutes: schedule.continuousRepeatEnabled
+      ? schedule.continuousRepeatMinutes
+      : 0,
+    timezone: schedule.timezone,
+    updated_at: schedule.updatedAt,
+  };
+  try {
+    let { error } = await supabase.from('user_reminders').upsert(
+      {
+        ...core,
+        streak_mode: schedule.streakMode,
+        streak_days_of_week: schedule.streakDaysOfWeek,
+        completed_dates: schedule.completedDates,
+        target_exam_level: schedule.targetExamLevel,
+        target_exam_date: schedule.targetExamDate,
+      },
+      { onConflict: 'user_id' },
+    );
+    if (error && MISSING_COLUMN_CODES.has(error.code)) {
+      ({ error } = await supabase.from('user_reminders').upsert(core, { onConflict: 'user_id' }));
+    }
+    scheduleUploadFailed = Boolean(error);
+    if (error) console.warn('Could not save study schedule:', error.message);
+  } catch (err) {
+    scheduleUploadFailed = true;
+    console.warn('Could not save study schedule:', err);
+  }
+}
+
+/** Study history only: never touches the reminder times saved by another device. */
+async function uploadCompletedDates(userId: string, completedDates: string[]): Promise<void> {
+  if (!supabase || !isSupabaseAccountUuid(userId)) return;
+  try {
+    await supabase
+      .from('user_reminders')
+      .update({ completed_dates: completedDates })
+      .eq('user_id', userId);
+  } catch {
+    // Offline: uploaded with the next study session
+  }
+}
+
 export async function saveStudySchedule(
   next: Partial<StudyScheduleConfig>,
   userId?: string | null,
@@ -782,6 +843,11 @@ export async function saveStudySchedule(
 
   const current = loadStudySchedule(currentDateKey, effectiveUid);
   const nextPatch = { ...next };
+  // Recording a study day is not a settings change: it must not look "newer" than
+  // reminder times edited on another device.
+  const historyOnly = Object.keys(next).every(
+    (key) => key === 'completedDates' || key === 'lastStudiedDate',
+  );
 
   if (nextPatch.streakMode !== undefined) {
     nextPatch.isContinuousDaily = nextPatch.streakMode === 'every_day';
@@ -807,7 +873,7 @@ export async function saveStudySchedule(
       ...current,
       ...nextPatch,
       completedDates: nextCompletedDates,
-      updatedAt: new Date().toISOString(),
+      updatedAt: historyOnly ? current.updatedAt : new Date().toISOString(),
     },
     currentDateKey,
   );
@@ -824,31 +890,10 @@ export async function saveStudySchedule(
     }
   }
 
-  if (supabase && effectiveUid && isSupabaseAccountUuid(effectiveUid)) {
-    try {
-      await supabase.from('user_reminders').upsert(
-        {
-          user_id: effectiveUid,
-          enabled: merged.enabled,
-          time_slots: merged.timeSlots,
-          is_continuous_daily: merged.isContinuousDaily,
-          days_of_week: merged.daysOfWeek,
-          streak_mode: merged.streakMode,
-          streak_days_of_week: merged.streakDaysOfWeek,
-          completed_dates: merged.completedDates,
-          target_exam_level: merged.targetExamLevel,
-          target_exam_date: merged.targetExamDate,
-          continuous_repeat_minutes: merged.continuousRepeatEnabled
-            ? merged.continuousRepeatMinutes
-            : 0,
-          timezone: merged.timezone,
-          updated_at: merged.updatedAt,
-        },
-        { onConflict: 'user_id' },
-      );
-    } catch {
-      // Offline / RLS fallback — in-memory state remains authoritative locally
-    }
+  if (historyOnly) {
+    await uploadCompletedDates(effectiveUid, merged.completedDates);
+  } else {
+    await uploadStudySchedule(effectiveUid, merged);
   }
 
   return merged;
@@ -1181,6 +1226,8 @@ export async function upsertScheduleSlot(
   userId?: string | null,
   currentDateKey = getLocalDateKey(),
 ): Promise<{ ok: boolean; error?: string; schedule: StudyScheduleConfig; slot?: StudyTimeSlot }> {
+  // another device may have changed the list since this one loaded it
+  await syncStudyScheduleFromCloud(userId);
   const current = loadStudySchedule(currentDateKey, userId);
   const time = sanitizeTime(input.time, '');
   if (!time) {
@@ -1292,6 +1339,8 @@ export async function deleteScheduleSlot(
   userId?: string | null,
   currentDateKey = getLocalDateKey(),
 ): Promise<StudyScheduleConfig> {
+  // another device may have changed the list since this one loaded it
+  await syncStudyScheduleFromCloud(userId);
   const current = loadStudySchedule(currentDateKey, userId);
   const nextSlots = current.timeSlots.filter((s) => s.id !== slotId);
   return saveStudySchedule(
@@ -1328,6 +1377,24 @@ export async function cleanupExpiredOneTimeSchedules(
   };
 }
 
+const SCHEDULE_MERGED_PREFIX = 'nihonmaster_schedule_merged_v1:';
+
+function isScheduleMerged(userId: string): boolean {
+  try {
+    return window.localStorage.getItem(`${SCHEDULE_MERGED_PREFIX}${userId}`) === '1';
+  } catch {
+    return true;
+  }
+}
+
+function markScheduleMerged(userId: string): void {
+  try {
+    window.localStorage.setItem(`${SCHEDULE_MERGED_PREFIX}${userId}`, '1');
+  } catch {
+    // Storage blocked
+  }
+}
+
 export async function syncStudyScheduleFromCloud(
   userId?: string | null,
 ): Promise<StudyScheduleConfig> {
@@ -1343,7 +1410,35 @@ export async function syncStudyScheduleFromCloud(
       .eq('user_id', userId)
       .maybeSingle();
 
-    if (error || !data) return local;
+    if (error) return local;
+    const hasOwnSettings = (Date.parse(local.updatedAt) || 0) > 0 || local.timeSlots.length > 0;
+    if (!data) {
+      if (hasOwnSettings) await uploadStudySchedule(userId, local);
+      markScheduleMerged(userId);
+      return local;
+    }
+
+    // Once per device: keep reminder times that never reached the account while saving was broken
+    if (!isScheduleMerged(userId)) {
+      const remoteSlots = Array.isArray(data.time_slots) ? (data.time_slots as StudyTimeSlot[]) : [];
+      const known = new Set(remoteSlots.map((slot) => slot.id));
+      const onlyHere = local.timeSlots.filter((slot) => !known.has(slot.id));
+      markScheduleMerged(userId);
+      if (onlyHere.length > 0) {
+        const combined = sanitizeStudySchedule({
+          ...local,
+          timeSlots: [...remoteSlots, ...onlyHere],
+          updatedAt: new Date().toISOString(),
+        });
+        setInMemoryStudySchedule(userId, combined as unknown as Record<string, unknown>);
+        writePersistedStudySchedule(userId, combined);
+        window.dispatchEvent(
+          new CustomEvent<StudyScheduleConfig>(STUDY_SCHEDULE_SYNC_EVENT, { detail: combined }),
+        );
+        await uploadStudySchedule(userId, combined);
+        return combined;
+      }
+    }
 
     const remoteUpdatedAt = typeof data.updated_at === 'string' ? Date.parse(data.updated_at) : 0;
     const localUpdatedAt = Date.parse(local.updatedAt) || 0;
@@ -1354,10 +1449,12 @@ export async function syncStudyScheduleFromCloud(
     ]);
 
     if (localUpdatedAt > remoteUpdatedAt) {
-      if (mergedCompleted.length > local.completedDates.length) {
-        return saveStudySchedule({ completedDates: mergedCompleted }, userId);
-      }
-      return local;
+      // changed while offline: send it now
+      const latest = sanitizeStudySchedule({ ...local, completedDates: mergedCompleted });
+      setInMemoryStudySchedule(userId, latest as unknown as Record<string, unknown>);
+      writePersistedStudySchedule(userId, latest);
+      await uploadStudySchedule(userId, latest);
+      return latest;
     }
 
     const repeatMin = Number(data.continuous_repeat_minutes) || 0;
