@@ -159,8 +159,12 @@ export const AppLayout: React.FC = () => {
           aria-hidden
           className="seigaiha-mask pointer-events-none absolute inset-0 overflow-hidden bg-wave opacity-[0.035]"
         />
-        <div className="relative mx-auto flex min-h-13 max-w-6xl flex-nowrap items-center justify-between gap-2 px-3 py-1.5 sm:min-h-15 sm:gap-3 sm:px-5 sm:py-2 lg:px-8">
-          <Link to="/" className="group flex shrink-0 items-center gap-1.5 rounded-lg sm:gap-2.5" aria-label="Nihongo 問 — Trang chủ">
+        <div className="relative mx-auto flex min-h-13 max-w-6xl flex-nowrap items-center justify-between gap-2 px-3 py-1.5 sm:min-h-15 sm:gap-3 sm:px-5 sm:py-2 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:px-8">
+          <Link
+            to="/"
+            className="group flex w-fit shrink-0 items-center gap-1.5 justify-self-start rounded-lg sm:gap-2.5"
+            aria-label="Nihongo 問 — Trang chủ"
+          >
             <span
               lang="ja"
               aria-hidden
@@ -173,8 +177,11 @@ export const AppLayout: React.FC = () => {
             </span>
           </Link>
 
-          <nav aria-label="Điều hướng chính" className="hidden items-center gap-1 md:flex">
-            {NAV_ITEMS.filter((item) => item.to !== '/').map((item) => {
+          <nav
+            aria-label="Điều hướng chính"
+            className="hidden items-center gap-1 justify-self-center rounded-xl border border-line bg-glass-soft p-1 md:flex"
+          >
+            {NAV_ITEMS.map((item) => {
               const active = item.match(pathname);
               const Icon = item.icon;
               return (
@@ -184,18 +191,20 @@ export const AppLayout: React.FC = () => {
                   aria-current={active ? 'page' : undefined}
                   title={item.label}
                   className={cn(
-                    'inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium whitespace-nowrap transition-colors',
-                    active ? 'bg-primary-soft text-primary-fg' : 'text-muted hover:bg-glass-hover hover:text-fg',
+                    'inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium whitespace-nowrap transition-colors lg:px-3',
+                    active
+                      ? 'bg-primary-soft text-primary-fg'
+                      : 'text-muted hover:bg-glass-hover hover:text-fg',
                   )}
                 >
                   <Icon className="size-4 shrink-0" aria-hidden />
-                  <span className="hidden lg:inline">{item.label}</span>
+                  <span>{item.label}</span>
                 </Link>
               );
             })}
           </nav>
 
-          <div className="ml-auto flex min-w-0 flex-nowrap items-center justify-end gap-1.5 sm:gap-2">
+          <div className="ml-auto flex min-w-0 flex-nowrap items-center justify-end gap-1.5 justify-self-end sm:gap-2 md:ml-0">
             {isAuthOrAdminRoute && (
               <Link
                 to="/"
@@ -255,7 +264,7 @@ export const AppLayout: React.FC = () => {
                   className={buttonStyles({ variant: 'secondary', size: 'sm', className: 'hidden h-8 gap-1.5 px-2 sm:px-2.5 md:inline-flex' })}
                 >
                   <LogOut className="size-3.5 shrink-0" aria-hidden />
-                  <span className="hidden md:inline text-xs">Đăng xuất</span>
+                  <span className="hidden text-xs lg:inline">Đăng xuất</span>
                 </button>
               </>
             ) : (
