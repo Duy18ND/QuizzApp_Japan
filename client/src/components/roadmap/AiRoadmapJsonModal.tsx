@@ -280,7 +280,6 @@ export const AiRoadmapJsonModal: React.FC<AiRoadmapJsonModalProps> = ({
       onClose={onClose}
       size="lg"
       title="Lộ trình riêng bằng AI & JSON (Input / Output)"
-      description="Lấy Prompt chuẩn đưa cho ChatGPT / Gemini / Claude tạo nội dung + Quiz 4 đáp án, dán JSON vào để biến thành Lộ trình học ngay, trộn thêm bài từ Kho App hoặc xuất JSON chia sẻ."
       footer={
         tab === 'prompt' ? (
           <>

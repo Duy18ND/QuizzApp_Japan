@@ -12,6 +12,7 @@ import {
   Star,
   Volume2,
   XCircle,
+  ChevronDown,
 } from 'lucide-react';
 import {
   Badge,
@@ -168,7 +169,7 @@ async function saveExamResult(
   return next;
 }
 
-/** Deterministic seeded Fisher-Yates subset so each preset (07/2025..12/2022) has a distinct, stable question set. */
+/** Deterministic seeded Fisher-Yates subset so each preset has a distinct, stable question set. */
 function pickSeededSubset<T>(items: T[], count: number, seedNum: number): T[] {
   if (items.length === 0 || count <= 0) return [];
   const copy = [...items];
@@ -224,22 +225,23 @@ export const JlptFullTestView: React.FC<JlptFullTestViewProps> = ({
   const [examFormat, setExamFormat] = useState<ExamFormat>('jlpt');
   const presetsOfLevel = useMemo(
     () =>
-      levelFilter === 'ALL'
-        ? REAL_JLPT_EXAM_PRESETS
-        : REAL_JLPT_EXAM_PRESETS.filter((p) => p.level === levelFilter),
-    [levelFilter],
+      REAL_JLPT_EXAM_PRESETS,
+    [],
   );
   const availablePresets = useMemo(
     () => presetsOfLevel.filter((p) => (p.format ?? 'jlpt') === examFormat),
     [presetsOfLevel, examFormat],
   );
   const [selectedPresetId, setSelectedPresetId] = useState<string>('auto');
+  // undefined = first group open, null = all closed
+  const [openLevel, setOpenLevel] = useState<JLPTLevelFilter | null | undefined>(undefined);
   const examCounts: ExamCounts = EXAM_FORMAT_COUNTS[examFormat];
   const activePreset: RealJlptExamPreset | null = useMemo(() => {
     if (selectedPresetId === 'random') return null;
     const explicit = availablePresets.find((p) => p.id === selectedPresetId);
-    return explicit ?? availablePresets[0] ?? null;
-  }, [availablePresets, selectedPresetId]);
+    // default paper: first one of the level the page was opened with
+    return explicit ?? availablePresets.find((p) => p.level === levelFilter) ?? availablePresets[0] ?? null;
+  }, [availablePresets, levelFilter, selectedPresetId]);
 
   const effectiveLevel: JLPTLevelFilter = activePreset ? activePreset.level : levelFilter;
   const isFull4Sections = selectedSections.length === 4;
@@ -292,10 +294,10 @@ export const JlptFullTestView: React.FC<JlptFullTestViewProps> = ({
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-xs font-bold tracking-wide text-primary-fg uppercase">
-                Bước 1 · Chọn đề thi JLPT ({levelFilter === 'ALL' ? 'N5 · N4 · N3' : levelFilter})
+                Bước 1 · Chọn đề
               </p>
               <h2 className="mt-1 text-lg font-bold text-fg">
-                {EXAM_FORMAT_META[examFormat].label}: {availablePresets.length} đề có sẵn + đề trộn ngẫu nhiên
+                {EXAM_FORMAT_META[examFormat].label}: {availablePresets.length} đề
               </h2>
               <p className="mt-0.5 text-xs text-muted">{EXAM_FORMAT_META[examFormat].hint}</p>
             </div>
@@ -322,8 +324,33 @@ export const JlptFullTestView: React.FC<JlptFullTestViewProps> = ({
             ))}
           </div>
 
-          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-            {availablePresets.map((preset) => {
+          <div className="space-y-2">
+          {(['N5', 'N4', 'N3'] as const)
+            .map((lvl) => ({ lvl, list: availablePresets.filter((p) => p.level === lvl) }))
+            .filter((group) => group.list.length > 0)
+            .map(({ lvl, list }) => {
+              const defaultOpen = levelFilter === 'ALL' ? availablePresets[0]?.level : levelFilter;
+              const isOpen = openLevel === undefined ? lvl === defaultOpen : openLevel === lvl;
+              const done = list.filter((p) => savedResults[p.id]).length;
+              return (
+                <div key={lvl} className="rounded-xl border border-line">
+                  <button
+                    type="button"
+                    aria-expanded={isOpen}
+                    onClick={() => setOpenLevel(isOpen ? null : lvl)}
+                    className="flex w-full cursor-pointer items-center justify-between gap-2 px-3.5 py-2.5 text-left"
+                  >
+                    <span className="text-sm font-bold text-fg">
+                      {lvl} · {list.length} đề
+                    </span>
+                    <span className="flex items-center gap-2 text-xs text-muted">
+                      {done > 0 ? `đã thi ${done}` : null}
+                      <ChevronDown className={cn('size-4 transition-transform', isOpen && 'rotate-180')} aria-hidden />
+                    </span>
+                  </button>
+                  {isOpen && (
+          <div className="grid grid-cols-1 gap-2.5 border-t border-line p-2.5 sm:grid-cols-2 lg:grid-cols-3">
+            {list.map((preset) => {
               const isSelected = activePreset?.id === preset.id;
               const record = savedResults[preset.id];
               return (
@@ -352,7 +379,6 @@ export const JlptFullTestView: React.FC<JlptFullTestViewProps> = ({
                       )}
                     </div>
                     <p className="text-sm font-bold text-fg">{preset.title}</p>
-                    <p className="line-clamp-2 text-xs text-muted">{preset.description}</p>
                   </div>
                   <div className="flex items-center justify-between border-t border-line/60 pt-2 text-[11px] text-muted">
                     <span>⏱ {preset.durationMinutes} phút</span>
@@ -361,36 +387,13 @@ export const JlptFullTestView: React.FC<JlptFullTestViewProps> = ({
                 </button>
               );
             })}
-
-            {/* Random Generated Exam Card */}
-            <button
-              type="button"
-              onClick={() => setSelectedPresetId('random')}
-              className={cn(
-                'flex cursor-pointer flex-col justify-between gap-2 rounded-xl border-2 border-dashed p-3.5 text-left transition-colors',
-                activePreset === null
-                  ? 'border-primary bg-primary-soft/35 ring-2 ring-primary/20'
-                  : 'border-line bg-surface-2/40 hover:border-primary/60 hover:bg-surface',
-              )}
-            >
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between gap-1.5">
-                  <Badge tone="sakura">🔀 Ngẫu nhiên</Badge>
-                  <span className="text-[11px] text-muted">Mỗi lần 1 đề mới</span>
-                </div>
-                <p className="text-sm font-bold text-fg">
-                  {EXAM_FORMAT_META[examFormat].label} trộn ngẫu nhiên ({levelFilter})
-                </p>
-                <p className="text-xs text-muted">
-                  Tự động bốc mới câu hỏi từ toàn bộ ngân hàng Chữ Hán, Từ vựng, Ngữ pháp, Đọc hiểu &amp; Nghe hiểu.
-                </p>
-              </div>
-              <div className="flex items-center justify-between border-t border-line/60 pt-2 text-[11px] text-muted">
-                <span>⏱ {computedDurationMinutes} phút</span>
-                <span>Chấm thang 180đ</span>
-              </div>
-            </button>
           </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
         </Card>
 
         {/* Step 2: Choose Sections & Official JLPT Pass Rules */}
@@ -401,7 +404,7 @@ export const JlptFullTestView: React.FC<JlptFullTestViewProps> = ({
                 Bước 2 · Chọn phần thi &amp; Xem chuẩn chấm điểm JLPT
               </p>
               <p className="mt-0.5 text-xs text-muted">
-                Làm đủ cả 4 phần để nhận phiếu báo điểm Đỗ (合格) / Trượt (不合格) chuẩn JLPT thật, hoặc chọn lẻ từng phần để ôn nhanh.
+                Làm đủ cả 4 phần để nhận phiếu báo điểm Đỗ (合格) / Trượt (不合格) theo cách chấm JLPT, hoặc chọn lẻ từng phần để ôn nhanh.
               </p>
             </div>
             {!isFull4Sections && (
@@ -953,6 +956,39 @@ const JlptFullTestSession: React.FC<JlptFullTestSessionProps> = ({
           level: item.level,
           options: [...item.options],
         });
+      }
+    });
+
+    // correct answers, so "Xem lại" can show the whole paper
+    const addCorrect = (id: string, prompt: string, answer: string, explanation?: string, options?: string[]) =>
+      sessionMistakeSummary.push({
+        id: `ok_${id}`,
+        questionId: id,
+        prompt,
+        userAnswer: answer,
+        correctAnswer: answer,
+        explanation,
+        options,
+        isCorrect: true,
+      });
+    [...examSet.s1, ...examSet.grammarMcqs].forEach((q) => {
+      if (mcqAnswers[q.id] === q.correctIndex) {
+        addCorrect(q.id, q.prompt, q.options[q.correctIndex], q.explanation, [...q.options]);
+      }
+    });
+    examSet.starItems.forEach((item) => {
+      if (starAnswers[item.id]?.isCorrect) {
+        addCorrect(item.id, item.fullSentence, item.correctAnswer, item.explanation);
+      }
+    });
+    readingQuestions.forEach(({ passage, question }) => {
+      if (mcqAnswers[question.id] === question.correctIndex) {
+        addCorrect(question.id, `[${passage.title}] ${question.prompt}`, question.options[question.correctIndex], question.explanation, [...question.options]);
+      }
+    });
+    examSet.listeningItems.forEach((item) => {
+      if (mcqAnswers[item.id] === item.correctIndex) {
+        addCorrect(item.id, `${item.situation} — ${item.questionPrompt}`, item.options[item.correctIndex], item.explanation, [...item.options]);
       }
     });
 

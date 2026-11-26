@@ -558,7 +558,7 @@ create table if not exists public.app_reviews (
   author_name text not null,
   study_level text not null default 'N5',
   rating smallint not null check (rating between 1 and 5),
-  comment text not null check (char_length(trim(comment)) between 15 and 500),
+  comment text not null check (char_length(trim(comment)) between 1 and 500),
   favorite_features text[] not null default '{}',
   verified_attempts integer not null default 0,
   helpful_count integer not null default 0,
@@ -591,10 +591,6 @@ begin
   select count(*)::integer into v_attempts
   from public.quiz_attempts
   where user_id = new.user_id;
-
-  if tg_op = 'INSERT' and coalesce(v_attempts, 0) < 1 and not public.is_admin_or_super() then
-    raise exception 'EXPERIENCE_REQUIRED: Bạn cần hoàn thành ít nhất 1 bài luyện tập trước khi gửi đánh giá.';
-  end if;
 
   if tg_op = 'INSERT' then
     new.verified_attempts := coalesce(v_attempts, 0);
@@ -709,6 +705,7 @@ declare
   v_attempts integer := 0;
   v_reviews integer := 0;
   v_avg numeric := 0;
+  v_level_counts jsonb := '{}'::jsonb;
 begin
   select count(*)::integer into v_users from public.profiles;
   select count(*)::integer into v_attempts from public.quiz_attempts;
@@ -717,11 +714,21 @@ begin
   from public.app_reviews
   where is_hidden = false;
 
+  select coalesce(jsonb_object_agg(study_level, cnt), '{}'::jsonb)
+    into v_level_counts
+  from (
+    select study_level, count(*)::integer as cnt
+    from public.profiles
+    where study_level is not null
+    group by study_level
+  ) level_stats;
+
   return jsonb_build_object(
     'totalUsers', coalesce(v_users, 0),
     'totalAttempts', coalesce(v_attempts, 0),
     'totalReviews', coalesce(v_reviews, 0),
-    'avgRating', coalesce(v_avg, 0)
+    'avgRating', coalesce(v_avg, 0),
+    'levelCounts', coalesce(v_level_counts, '{}'::jsonb)
   );
 end;
 $$;

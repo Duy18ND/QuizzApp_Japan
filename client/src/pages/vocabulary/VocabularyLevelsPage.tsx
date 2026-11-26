@@ -4,7 +4,6 @@ import { Navigate } from 'react-router-dom';
 import {
   getDefaultVocabTextbook,
   getPreferredVocabLevel,
-  getVocabTextbooksForLevel,
   resolveActiveVocabTextbook,
   savePreferredVocabLevel,
   savePreferredVocabTextbookId,
@@ -14,11 +13,11 @@ import { CardLink, PageContainer, PageHeader } from '../../components/ui';
 import { useAuth } from '../../context/auth-context';
 
 const LEVELS: { id: JLPTLevel; title: string; desc: string }[] = [
-  { id: 'N5', title: 'Trình độ N5', desc: 'Nhập môn tiếng Nhật · Minna, Shin Kanzen, Mimi...' },
-  { id: 'N4', title: 'Trình độ N4', desc: 'Sơ cấp tiếng Nhật · Minna II, Shin Kanzen, Mimi...' },
-  { id: 'N3', title: 'Trình độ N3', desc: 'Trung cấp · Mimi kara Oboeru, Shin Kanzen, Minna...' },
-  { id: 'N2', title: 'Trình độ N2', desc: 'Thượng cấp · Shin Kanzen, Mimi, Sou Matome...' },
-  { id: 'N1', title: 'Trình độ N1', desc: 'Cao cấp · Shin Kanzen, Mimi, Sou Matome...' },
+  { id: 'N5', title: 'Trình độ N5', desc: 'Nhập môn tiếng Nhật' },
+  { id: 'N4', title: 'Trình độ N4', desc: 'Sơ cấp' },
+  { id: 'N3', title: 'Trình độ N3', desc: 'Trung cấp' },
+  { id: 'N2', title: 'Trình độ N2', desc: 'Thượng cấp' },
+  { id: 'N1', title: 'Trình độ N1', desc: 'Cao cấp' },
 ];
 
 interface Props {
@@ -57,16 +56,10 @@ export const VocabularyLevelsPage: React.FC<Props> = ({
           { label: hideTabs ? title : 'Từ vựng' },
         ]}
         title={hideTabs ? `Chọn trình độ (${title})` : 'Chọn trình độ (JLPT)'}
-        description={
-          hideTabs
-            ? 'Chọn trình độ bạn muốn học để mở thẳng danh sách bài học Flashcard.'
-            : 'Chọn trình độ JLPT để mở thẳng danh sách bài học theo giáo trình chính (có thể đổi giáo trình bất cứ lúc nào).'
-        }
       />
 
       <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {LEVELS.map((level) => {
-          const bookCount = getVocabTextbooksForLevel(level.id).length;
           const defaultBook = getDefaultVocabTextbook(level.id);
 
           return (
@@ -88,9 +81,7 @@ export const VocabularyLevelsPage: React.FC<Props> = ({
                     {level.title}
                   </span>
                   <span className="mt-0.5 block text-xs text-muted">
-                    {hideTabs
-                      ? `Mặc định: ${defaultBook.shortTitle}`
-                      : `${bookCount} giáo trình · Mặc định: ${defaultBook.shortTitle}`}
+                    {defaultBook.shortTitle}
                   </span>
                 </span>
                 <ArrowRight

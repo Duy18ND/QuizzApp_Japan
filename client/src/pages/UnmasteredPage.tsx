@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Check, Pencil, Play, Volume2 } from 'lucide-react';
+import { Check, Play, Volume2 } from 'lucide-react';
 import { LoginRequiredState } from '../components/auth/LoginRequiredState';
 import { useAuth } from '../context/auth-context';
 import {
@@ -184,10 +184,6 @@ export const UnmasteredPage: React.FC = () => {
               <Play className="size-4" aria-hidden />
               Làm Quiz
             </Link>
-            <Link to={`/vocabulary/writing${toolQuery}`} className={buttonStyles({ variant: 'primary', size: 'sm' })}>
-              <Pencil className="size-4" aria-hidden />
-              Luyện gõ từ
-            </Link>
           </div>
         }
       />
@@ -266,11 +262,6 @@ export const UnmasteredPage: React.FC = () => {
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-sky-legible text-lg font-semibold text-fg">Từ vựng từng trả lời sai</h2>
-            {missedVocab.length > 0 && (
-              <Link to="/vocabulary/review" className={buttonStyles({ variant: 'secondary', size: 'sm' })}>
-                Vào phiên ôn tập →
-              </Link>
-            )}
           </div>
 
           {missedVocab.length === 0 ? (

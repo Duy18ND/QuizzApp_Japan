@@ -141,13 +141,14 @@ export const JlptReadingView: React.FC<JlptReadingViewProps> = ({
       const passageMistakes = passage.questions
         .map((item, idx) => {
           const picked = nextAnswers[item.id];
-          if (picked === undefined || picked === item.correctIndex) return null;
+          if (picked === undefined) return null;
           return {
             id: `${moduleMeta.mistakeGrammarId}_${item.id}_${idx}`,
             grammarId: moduleMeta.mistakeGrammarId,
             questionId: item.id,
             prompt: `[${passage.title}] ${item.prompt}`,
             userAnswer: item.options[picked],
+            isCorrect: picked === item.correctIndex,
             correctAnswer: item.options[item.correctIndex],
             explanation: item.explanation,
             options: [...item.options],

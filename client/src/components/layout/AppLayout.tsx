@@ -1,13 +1,11 @@
 import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import {
-  BookOpen,
   Gamepad2,
   Home,
   LogIn,
   LogOut,
   Map,
-  RotateCcw,
   Settings,
   ShieldCheck,
   UserRound,
@@ -54,18 +52,6 @@ const NAV_ITEMS = [
   { to: '/', label: 'Trang chủ', icon: Home, match: (p: string) => p === '/' },
   { to: '/roadmap', label: 'Lộ trình', icon: Map, match: (p: string) => p.startsWith('/roadmap') },
   { to: '/games', label: 'Mini-game', icon: Gamepad2, match: (p: string) => p.startsWith('/games') },
-  {
-    to: '/vocabulary',
-    label: 'Từ vựng',
-    icon: BookOpen,
-    match: (p: string) => p.startsWith('/vocabulary') && !p.startsWith('/vocabulary/review'),
-  },
-  {
-    to: '/vocabulary/review',
-    label: 'Ôn tập',
-    icon: RotateCcw,
-    match: (p: string) => p.startsWith('/vocabulary/review') || p.startsWith('/jlpt'),
-  },
 ] as const;
 
 export const AppLayout: React.FC = () => {
@@ -188,7 +174,7 @@ export const AppLayout: React.FC = () => {
           </Link>
 
           <nav aria-label="Điều hướng chính" className="hidden items-center gap-1 md:flex">
-            {NAV_ITEMS.map((item) => {
+            {NAV_ITEMS.filter((item) => item.to !== '/').map((item) => {
               const active = item.match(pathname);
               const Icon = item.icon;
               return (
@@ -330,7 +316,7 @@ export const AppLayout: React.FC = () => {
           aria-label="Điều hướng nhanh di động"
           className="relative z-40 flex-none border-t border-line bg-glass-header pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden print:hidden"
         >
-          <div className="mx-auto grid max-w-lg grid-cols-5">
+          <div className="mx-auto grid max-w-lg grid-cols-3">
             {NAV_ITEMS.map((item) => {
               const active = item.match(pathname);
               const Icon = item.icon;

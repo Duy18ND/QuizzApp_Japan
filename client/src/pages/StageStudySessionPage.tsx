@@ -434,7 +434,21 @@ const StageBriefingAndMasteryRunner: React.FC<StageBriefingAndMasteryRunnerProps
           score: activeQuestions.length,
           totalQuestions: activeQuestions.length,
           durationSeconds,
-          mistakesJson: wrongMistakes,
+          mistakesJson: [
+            ...wrongMistakes,
+            ...activeQuestions
+              .filter((q) => !wrongMistakes.some((m) => m.questionId === q.id))
+              .map((q) => ({
+                id: `ok_${q.id}`,
+                questionId: q.id,
+                prompt: q.prompt,
+                userAnswer: q.options[q.correctIndex],
+                correctAnswer: q.options[q.correctIndex],
+                explanation: q.explanation,
+                options: [...q.options],
+                isCorrect: true,
+              })),
+          ],
         },
         userId,
       );
@@ -451,7 +465,7 @@ const StageBriefingAndMasteryRunner: React.FC<StageBriefingAndMasteryRunnerProps
       );
     }
     setPhase('done');
-  }, [activeQuestions.length, isJumpMode, resolvedSession, sessionMode, userId, wrongMistakes]);
+  }, [activeQuestions, isJumpMode, resolvedSession, sessionMode, userId, wrongMistakes]);
 
   const handleMarkGrammarUnderstood = () => {
     if (!currentGrammar) return;

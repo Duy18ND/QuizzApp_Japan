@@ -15,7 +15,6 @@ import {
 import {
   Badge,
   Button,
-  Chip,
   Field,
   Input,
   Modal,
@@ -40,6 +39,8 @@ interface CreateQuizModalProps {
   onClose: () => void;
   defaultLevel: StudyLevel;
   onSaveQuiz: (lesson: CustomLesson, openRoadmapAfter: boolean) => void;
+  /** When set, the dialog edits this quiz in place (same id) */
+  editingLesson?: CustomLesson | null;
 }
 
 const LEVELS: StudyLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1'];
@@ -281,6 +282,7 @@ export const CreateQuizModal: React.FC<CreateQuizModalProps> = ({
   onClose,
   defaultLevel,
   onSaveQuiz,
+  editingLesson = null,
 }) => {
   const { toast } = useToast();
   const [wasOpen, setWasOpen] = useState(false);
@@ -298,11 +300,19 @@ export const CreateQuizModal: React.FC<CreateQuizModalProps> = ({
 
   if (open && !wasOpen) {
     setWasOpen(true);
-    setLevel(defaultLevel);
-    setRole('vocab');
-    setTitle('');
+    setLevel(editingLesson ? (editingLesson.level as StudyLevel) : defaultLevel);
+    setRole(editingLesson?.role ?? 'vocab');
+    setTitle(editingLesson?.title ?? '');
     setInputTab('manual');
-    setQuestions([makeEmptyQuestion()]);
+    setQuestions(
+      editingLesson?.quizItems?.length
+        ? editingLesson.quizItems.map((q) => ({
+            ...q,
+            // the form always shows four answer boxes
+            options: [0, 1, 2, 3].map((i) => q.options[i] ?? ''),
+          }))
+        : [makeEmptyQuestion()],
+    );
     setAiTopic('');
     setAiReplyText('');
   } else if (!open && wasOpen) {
@@ -408,14 +418,14 @@ export const CreateQuizModal: React.FC<CreateQuizModalProps> = ({
     quizRowSeq += 1;
 
     const lesson: CustomLesson = {
-      id: `cl-quiz-${Date.now().toString(36)}-${quizRowSeq}`,
+      id: editingLesson?.id ?? `cl-quiz-${Date.now().toString(36)}-${quizRowSeq}`,
       kind: 'quiz',
       role,
       title: cleanTitle,
       level,
       description: `Bộ Quiz ${roleMeta.label} (${cleanItems.length} câu)`,
       quizItems: cleanItems,
-      createdAt: nowIso,
+      createdAt: editingLesson?.createdAt ?? nowIso,
       updatedAt: nowIso,
     };
 
@@ -428,8 +438,7 @@ export const CreateQuizModal: React.FC<CreateQuizModalProps> = ({
       open={open}
       onClose={onClose}
       size="lg"
-      title="Tạo bộ Quiz riêng (Gắn Role kỹ năng)"
-      description="Tạo bộ câu hỏi trắc nghiệm gắn đúng vai trò (Từ vựng, Chữ Hán, Ngữ pháp, Đọc hiểu...) để lưu vào Kho của bạn, rồi gắn vào bất kỳ Buổi nào khi vẽ Lộ trình."
+      title={editingLesson ? 'Sửa quiz' : 'Tạo quiz'}
       footer={
         <>
           <Button type="button" variant="secondary" onClick={onClose}>
@@ -442,8 +451,9 @@ export const CreateQuizModal: React.FC<CreateQuizModalProps> = ({
             leftIcon={<Check className="size-4" aria-hidden />}
             onClick={() => handleCommit(false)}
           >
-            Lưu vào Kho ({validQuestionCount} câu)
+            Lưu ({validQuestionCount} câu)
           </Button>
+          {!editingLesson && (
           <Button
             type="button"
             variant="primary"
@@ -451,45 +461,41 @@ export const CreateQuizModal: React.FC<CreateQuizModalProps> = ({
             rightIcon={<ArrowRight className="size-4" aria-hidden />}
             onClick={() => handleCommit(true)}
           >
-            Lưu &amp; Vẽ lộ trình ngay
+            Lưu &amp; thêm vào lộ trình
           </Button>
+          )}
         </>
       }
     >
       <div className="space-y-4">
-        {/* 1. Attach Role (Từ vựng, Chữ Hán, Ngữ pháp, Đọc hiểu, Nghe hiểu, Tổng hợp) */}
-        <div className="space-y-2 rounded-xl border border-line bg-surface-2/50 p-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-xs font-bold text-fg">
-              1. Gắn Role (nhãn kỹ năng) cho bộ Quiz này:
-            </span>
-            <Badge tone={CUSTOM_ROLE_META[role].tone}>
-              Quiz · {CUSTOM_ROLE_META[role].label}
-            </Badge>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {ROLES.map((r) => (
-              <Chip key={r} selected={role === r} onClick={() => setRole(r)}>
-                {CUSTOM_ROLE_META[r].label}
-              </Chip>
-            ))}
-          </div>
-        </div>
-
-        {/* 2. Title + Level */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-12">
-          <div className="sm:col-span-8">
-            <Field label="Tên bộ Quiz" htmlFor="create-quiz-title">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-12">
+          <div className="col-span-2 sm:col-span-6">
+            <Field label="Tên quiz" htmlFor="create-quiz-title">
               <Input
                 id="create-quiz-title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder={`VD: Quiz ${CUSTOM_ROLE_META[role].label} ${level} · Chủ đề quán ăn`}
+                placeholder="VD: Từ vựng quán ăn"
               />
             </Field>
           </div>
-          <div className="sm:col-span-4">
-            <Field label="Trình độ JLPT" htmlFor="create-quiz-level">
+          <div className="sm:col-span-3">
+            <Field label="Kỹ năng" htmlFor="create-quiz-role">
+              <Select
+                id="create-quiz-role"
+                value={role}
+                onChange={(e) => setRole(e.target.value as CustomLessonRole)}
+              >
+                {ROLES.map((r) => (
+                  <option key={r} value={r}>
+                    {CUSTOM_ROLE_META[r].label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+          <div className="sm:col-span-3">
+            <Field label="Trình độ" htmlFor="create-quiz-level">
               <Select
                 id="create-quiz-level"
                 value={level}
@@ -497,7 +503,7 @@ export const CreateQuizModal: React.FC<CreateQuizModalProps> = ({
               >
                 {LEVELS.map((lv) => (
                   <option key={lv} value={lv}>
-                    JLPT {lv}
+                    {lv}
                   </option>
                 ))}
               </Select>
@@ -514,7 +520,7 @@ export const CreateQuizModal: React.FC<CreateQuizModalProps> = ({
             leftIcon={<PenLine className="size-3.5" aria-hidden />}
             onClick={() => setInputTab('manual')}
           >
-            Tự nhập câu hỏi ({questions.length})
+            Tự nhập ({questions.length})
           </Button>
           <Button
             type="button"
@@ -523,7 +529,7 @@ export const CreateQuizModal: React.FC<CreateQuizModalProps> = ({
             leftIcon={<Wand2 className="size-3.5" aria-hidden />}
             onClick={() => setInputTab('ai')}
           >
-            Nhờ ChatGPT / Gemini sinh câu hỏi hộ
+            Nhờ AI tạo
           </Button>
         </div>
 
@@ -540,7 +546,7 @@ export const CreateQuizModal: React.FC<CreateQuizModalProps> = ({
             )}
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs text-muted">
-                Bấm chữ <strong className="text-fg">A / B / C / D</strong> để chọn đáp án đúng cho mỗi câu.
+                Bấm A / B / C / D để chọn đáp án đúng.
               </span>
               <Button
                 type="button"
@@ -722,7 +728,7 @@ export const CreateQuizModal: React.FC<CreateQuizModalProps> = ({
           <div className="space-y-3 rounded-xl border border-line bg-surface-2/45 p-3.5">
             <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-12">
               <div className="sm:col-span-8">
-                <Field label="Chủ đề muốn AI tạo câu hỏi" htmlFor="quiz-ai-topic">
+                <Field label="Chủ đề" htmlFor="quiz-ai-topic">
                   <Input
                     id="quiz-ai-topic"
                     value={aiTopic}
@@ -756,7 +762,7 @@ export const CreateQuizModal: React.FC<CreateQuizModalProps> = ({
                 leftIcon={<ClipboardCopy className="size-3.5" aria-hidden />}
                 onClick={() => void handleCopyPrompt()}
               >
-                1. Copy yêu cầu gửi AI
+                Copy yêu cầu
               </Button>
               <a
                 href="https://chatgpt.com/"
@@ -781,7 +787,7 @@ export const CreateQuizModal: React.FC<CreateQuizModalProps> = ({
             <div className="space-y-2 border-t border-line pt-2.5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-xs font-semibold text-fg">
-                  2. Dán câu trả lời của AI vào đây:
+                  Dán câu trả lời
                 </span>
                 <Button
                   type="button"
@@ -799,14 +805,14 @@ export const CreateQuizModal: React.FC<CreateQuizModalProps> = ({
                 >
                   {role === 'listening'
                     ? 'Nạp thử 5 câu Nghe hiểu mẫu'
-                    : 'Nạp thử 5 câu Chữ Hán mẫu'}
+                    : 'Dùng thử mẫu'}
                 </Button>
               </div>
               <Textarea
                 rows={4}
                 value={aiReplyText}
                 onChange={(e) => setAiReplyText(e.target.value)}
-                placeholder="Dán nguyên kết quả AI trả về vào đây rồi bấm Nạp vào danh sách câu hỏi..."
+                placeholder="Dán câu trả lời của AI vào đây"
                 className="text-xs"
               />
               <div className="flex justify-end">
@@ -818,16 +824,11 @@ export const CreateQuizModal: React.FC<CreateQuizModalProps> = ({
                   leftIcon={<CheckCircle2 className="size-3.5" aria-hidden />}
                   onClick={() => handleApplyAiQuestions(aiReplyText)}
                 >
-                  Nạp vào danh sách câu hỏi
+                  Nạp câu hỏi
                 </Button>
               </div>
             </div>
 
-            <Notice tone="info">
-              <p className="text-xs">
-                Sau khi nạp, câu hỏi sẽ hiện ngay ở tab <strong className="text-fg">Tự nhập câu hỏi</strong> để bạn sửa chữ hoặc đổi đáp án trước khi lưu.
-              </p>
-            </Notice>
           </div>
         )}
       </div>

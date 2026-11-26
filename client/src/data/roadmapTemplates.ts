@@ -85,7 +85,6 @@ export interface CommunityRoadmapEntry {
   authorName: string;
   tag: string;
   description: string;
-  learnersCount: number;
   level: StudyLevel;
   textbookId: string;
   dailyMinutesTarget: DailyMinutesTarget;
@@ -104,8 +103,7 @@ export const COMMUNITY_ROADMAP_GALLERY: CommunityRoadmapEntry[] = [
     authorName: 'Sensei Minh · JLPT N1',
     tag: 'Phổ biến nhất',
     description:
-      'Gom gọn 25 bài Minna I thành 30 buổi học 30p/ngày (nghỉ T7–CN), ưu tiên hội thoại mua sắm, nhà hàng và đi lại.',
-    learnersCount: 428,
+      'Gom gọn 25 bài N5 thành 30 buổi học 30p/ngày (nghỉ T7–CN), ưu tiên hội thoại mua sắm, nhà hàng và đi lại.',
     level: 'N5',
     textbookId: 'minna-n5',
     dailyMinutesTarget: 30,
@@ -141,7 +139,6 @@ export const COMMUNITY_ROADMAP_GALLERY: CommunityRoadmapEntry[] = [
     tag: 'Cho người mới',
     description:
       'Bật sẵn Chặng 0 Hiragana & Katakana (5 màn), mỗi ngày học nhẹ 10 phút không áp lực cho người mới bắt đầu.',
-    learnersCount: 312,
     level: 'N5',
     textbookId: 'minna-n5',
     dailyMinutesTarget: 10,
@@ -152,12 +149,11 @@ export const COMMUNITY_ROADMAP_GALLERY: CommunityRoadmapEntry[] = [
   },
   {
     id: 'comm-n4-minna-30',
-    name: 'Chinh phục N4 Minna II trong 30 Buổi',
+    name: 'Chinh phục N4 trong 30 Buổi',
     authorName: 'CLB Nihongo Hà Nội',
-    tag: 'Chuẩn Minna II',
+    tag: 'Chuẩn N4',
     description:
       'Luyện đều 5 kỹ năng trọng tâm N4 (Thể khả năng, Kính ngữ sơ cấp, Đọc đoạn văn trung bình & Nghe Mondai 4).',
-    learnersCount: 256,
     level: 'N4',
     textbookId: 'minna-n4',
     dailyMinutesTarget: 30,
@@ -177,7 +173,6 @@ export const COMMUNITY_ROADMAP_GALLERY: CommunityRoadmapEntry[] = [
     tag: 'Nghe – Đọc',
     description:
       'Dành cho bạn đã học qua ngữ pháp N4 nhưng hay liệt điểm Nghe/Đọc — luyện tập trung tình huống thực tế mỗi ngày 20p.',
-    learnersCount: 184,
     level: 'N4',
     textbookId: 'minna-n4',
     dailyMinutesTarget: 20,
@@ -187,12 +182,11 @@ export const COMMUNITY_ROADMAP_GALLERY: CommunityRoadmapEntry[] = [
   },
   {
     id: 'comm-n3-sprint-30',
-    name: 'N3 Về Đích 30 Buổi (Shin Kanzen + Đọc/Nghe)',
+    name: 'N3 Về Đích 30 Buổi (Ngữ pháp + Đọc/Nghe)',
     authorName: 'Nhóm Ôn Thi JLPT Tháng 12',
     tag: 'Ôn thi N3',
     description:
       'Lộ trình 30 buổi chuyên sâu 30p/ngày bám sát đề JLPT N3: từ vựng Hán tự, ngữ pháp dễ nhầm và bài nghe 2 câu hỏi.',
-    learnersCount: 295,
     level: 'N3',
     textbookId: 'shin-kanzen-n3',
     dailyMinutesTarget: 30,
@@ -207,7 +201,6 @@ export const COMMUNITY_ROADMAP_GALLERY: CommunityRoadmapEntry[] = [
     tag: 'N3 Đi làm',
     description:
       'Chia nhỏ kiến thức N3 thành 45 buổi ngắn 15p vào buổi tối T2–T6 để vừa đi làm vừa ôn thi bền bỉ.',
-    learnersCount: 169,
     level: 'N3',
     textbookId: 'mimi-kara-n3',
     dailyMinutesTarget: 15,

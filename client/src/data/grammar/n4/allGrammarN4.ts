@@ -13,7 +13,7 @@ const N4_PRACTICE_TYPES: PracticeType[] = [
   'mixed',
 ];
 
-type CompactN4Rule = [
+export type CompactN4Rule = [
   code: string,
   name: string,
   hiragana: string,
@@ -35,7 +35,7 @@ interface CompactN4Chapter {
   rules: CompactN4Rule[];
 }
 
-function buildBookFromCompact(
+export function buildBookFromCompact(
   bookId: string,
   title: string,
   idPrefix: string,

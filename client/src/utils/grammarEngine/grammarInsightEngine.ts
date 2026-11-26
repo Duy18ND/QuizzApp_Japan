@@ -372,7 +372,7 @@ const CURATED_GRAMMAR_FAMILIES: CuratedFamilySpec[] = [
     triggerWords: ['説明書どおりに (đúng như hướng dẫn)', '国によって (tùy từng quốc gia)', '会うたびに (cứ mỗi lần gặp)'],
     nuanceTags: [
       { label: 'Quy luật & Tương quan', tone: 'primary' },
-      { label: 'Trọng tâm Shin Kanzen N3', tone: 'sakura' },
+      { label: 'Trọng tâm N3', tone: 'sakura' },
     ],
     items: [
       {

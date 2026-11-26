@@ -152,7 +152,7 @@ export const STUDY_ROADMAPS: Record<StudyLevel, LevelRoadmapSpec> = {
             description: 'Xử lý triệt để các câu sai đã lưu trong quá trình luyện tập.',
             skill: 'Luyện tập',
             durationLabel: '20 phút',
-            to: '/vocabulary/review',
+            to: '/vocabulary/unmastered',
           },
           {
             id: 'n5-p4-s2',
@@ -538,7 +538,7 @@ export const STUDY_ROADMAPS: Record<StudyLevel, LevelRoadmapSpec> = {
             description: 'Gom lại lỗi sai và xuất bảng từ/ngữ pháp trọng tâm để ôn nước rút.',
             skill: 'Luyện tập',
             durationLabel: '25 phút',
-            to: '/vocabulary/review',
+            to: '/vocabulary/unmastered',
           },
           {
             id: 'n2-p4-s2',

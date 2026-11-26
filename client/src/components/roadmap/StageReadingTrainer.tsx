@@ -128,12 +128,21 @@ export const StageReadingTrainer: React.FC<StageReadingTrainerProps> = ({
         score: Math.max(1, flatQuestions.length),
         totalQuestions: Math.max(1, flatQuestions.length),
         durationSeconds: durationSec,
-        mistakesJson: [],
+        mistakesJson: flatQuestions.map((q) => ({
+          id: `ok_${q.id}`,
+          questionId: q.id,
+          prompt: `[${q.passageTitle}] ${q.prompt}`,
+          userAnswer: q.options[q.correctIndex],
+          correctAnswer: q.options[q.correctIndex],
+          explanation: q.explanation,
+          options: [...q.options],
+          isCorrect: true,
+        })),
       },
       userId,
     );
     setStep('done');
-  }, [flatQuestions.length, level, passages, userId]);
+  }, [flatQuestions, level, passages, userId]);
 
   const handleUnderstoodPassage = () => {
     if (!currentPassage) return;

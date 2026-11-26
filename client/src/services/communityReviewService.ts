@@ -5,7 +5,7 @@ export const REVIEW_FEATURE_TAGS = [
   'Lộ trình 5 kỹ năng',
   'Nghe hiểu tách giọng',
   'Giải thích Ngữ pháp',
-  'Bộ đề JLPT thật',
+  'Bộ đề thi thử',
   '6 Mini-game Dojo',
   'Xuất tài liệu PDF',
   'Tự tạo bài Studio',
@@ -207,8 +207,8 @@ export async function submitOneTimeCommunityReview(params: {
   }
 
   const cleanComment = params.comment.trim().replace(/\s+/g, ' ');
-  if (cleanComment.length < 15) {
-    return { ok: false, error: 'Vui lòng viết cảm nhận ít nhất 15 ký tự để đánh giá có ích hơn.' };
+  if (cleanComment.length < 1) {
+    return { ok: false, error: 'Vui lòng nhập nhận xét.' };
   }
   if (cleanComment.length > 500) {
     return { ok: false, error: 'Nội dung đánh giá tối đa 500 ký tự.' };
@@ -241,6 +241,16 @@ export async function submitOneTimeCommunityReview(params: {
       };
     }
     const errMsg = error?.message || '';
+    if (errMsg.includes('app_reviews_comment_check')) {
+      // Databases that have not run allow_review_without_attempts.sql still require 15+ characters
+      return {
+        ok: false,
+        error:
+          cleanComment.length < 15
+            ? 'Nhận xét cần ít nhất 15 ký tự, bạn viết thêm một chút nhé.'
+            : 'Nhận xét chưa hợp lệ (tối đa 500 ký tự).',
+      };
+    }
     if (errMsg.includes('EXPERIENCE_REQUIRED')) {
       return {
         ok: false,

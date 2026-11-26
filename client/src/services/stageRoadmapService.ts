@@ -1,5 +1,12 @@
 import type { CmsSnapshot } from './adminCmsService';
-import { getLiveGrammarBooks, getLiveKanjis } from './curriculumStore';
+import {
+  getLiveGrammarBooks,
+  getLiveJlptListeningItems,
+  getLiveJlptMcqQuestions,
+  getLiveJlptReadingPassages,
+  getLiveKanjis,
+} from './curriculumStore';
+import { getListeningSituation, getReadingSituation, SITUATION_TAGS } from '../data/jlpt/situationPackUtils';
 import {
   addDaysToDateKey,
   DEFAULT_TIMEZONE,
@@ -1023,7 +1030,7 @@ export function generateStageMap(options: {
       unit: String(unitNum),
       autoStart: '1',
     });
-    const writingPath = `/vocabulary/writing?${writingParams.toString()}`;
+    const writingPath = `/games?game=shooter&${writingParams.toString()}`;
     const kanjiGroupPath = `/kanji?level=${level}&group=${lessonNum}&size=5`;
     const grammarRef = getGrammarAt(lessonIdx);
     const grammarPath = grammarRef
@@ -1273,7 +1280,7 @@ export function generateStageMap(options: {
           slot.lessonNum - 1,
         );
         title = `Nạp Từ vựng, Kanji & Nghe ngắn · ${unitLabel}`;
-        theme = `Minna I — Bài ${slot.lessonNum} (Ngày 1/2: Nạp từ → Chữ Hán → Phản xạ nghe)`;
+        theme = `Bài ${slot.lessonNum} (Ngày 1/2: Nạp từ → Chữ Hán → Phản xạ nghe)`;
         if (allowedSkills.has('vocab')) {
           candidateTasks.push({
             id: `${stageId}-t1`,
@@ -1309,7 +1316,7 @@ export function generateStageMap(options: {
           slot.lessonNum - 1,
         );
         title = `Quiz 24h & Ngữ pháp · Bài ${slot.lessonNum}`;
-        theme = `Minna I — Bài ${slot.lessonNum} (Ngày 2/2: Củng cố & Đặt câu)`;
+        theme = `Bài ${slot.lessonNum} (Ngày 2/2: Củng cố & Đặt câu)`;
         if (allowedSkills.has('quiz')) {
           candidateTasks.push({
             id: `${stageId}-t1`,
@@ -1345,7 +1352,7 @@ export function generateStageMap(options: {
           slot.lessonNum - 1,
         );
         title = `Trọn gói Bài ${slot.lessonNum} · Từ vựng & Ngữ pháp`;
-        theme = `Minna I — Bài ${slot.lessonNum} (Ý kiến & Trích dẫn)`;
+        theme = `Bài ${slot.lessonNum} (Ý kiến & Trích dẫn)`;
         if (allowedSkills.has('vocab')) {
           candidateTasks.push({
             id: `${stageId}-t1`,
@@ -1435,13 +1442,13 @@ export function generateStageMap(options: {
             subtitle: 'Rà lại toàn bộ từ khó bạn đã gắn sao trong chặng vừa qua.',
             skill: 'review',
             minutes: 4,
-            to: `/vocabulary/review${toolQuery}`,
+            to: `/vocabulary/unmastered${toolQuery}`,
           });
         }
         if (allowedSkills.has('quiz')) {
           candidateTasks.push({
             id: `${stageId}-t3`,
-            title: `Quiz tổng hợp Chặng ${slot.chunkNum} · Minna I`,
+            title: `Quiz tổng hợp Chặng ${slot.chunkNum}`,
             subtitle: 'Đánh giá 5 câu ngữ pháp trọng tâm của Chặng trước khi sang chặng mới.',
             skill: 'quiz',
             minutes: 6,
@@ -1450,7 +1457,7 @@ export function generateStageMap(options: {
         }
       } else {
         title = 'Thi thử Toàn bộ JLPT N5 (Full Test — Về đích)';
-        theme = 'Màn 60 · Hoàn tất trọn bộ 25 bài Minna no Nihongo I';
+        theme = 'Màn 60 · Hoàn tất 25 bài N5';
         candidateTasks.push(
           {
             id: `${stageId}-t1`,
@@ -1769,7 +1776,7 @@ export function generateStageMap(options: {
               subtitle: 'Rà soát kho từ khó bạn đã gắn sao để hạ tỷ lệ quên xuống 0%.',
               skill: 'review',
               minutes: 4,
-              to: `/vocabulary/review${toolQuery}`,
+              to: `/vocabulary/unmastered${toolQuery}`,
             });
           }
           if (allowedSkills.has('quiz')) {
@@ -1941,16 +1948,6 @@ export function buildCurriculumTaskCatalog(options: {
     },
   );
 
-  presets.push({
-    key: `vocab-writing-${book.id}`,
-    group: `Từ vựng · ${book.shortTitle}`,
-    title: `Luyện gõ từ vựng (${book.shortTitle})`,
-    subtitle: 'Gõ Hiragana/Kanji chuẩn chính tả từ nghĩa Việt.',
-    skill: 'vocab',
-    minutes: 5,
-    to: `/vocabulary/writing${toolQuery}`,
-  });
-
   const levelGrammarBooks = getLiveGrammarBooks(snapshot).filter((b) => b.level === level);
   const grammarList = levelGrammarBooks.length > 0 ? levelGrammarBooks : getLiveGrammarBooks(snapshot);
   for (const gBook of grammarList) {
@@ -1967,16 +1964,96 @@ export function buildCurriculumTaskCatalog(options: {
     }
   }
 
-  const levelKanjiCount = getLiveKanjis(snapshot).filter((k) => k.jlptLevel === level).length;
-  presets.push({
-    key: `kanji-${level}`,
-    group: 'Kanji',
-    title: `Luyện Kanji JLPT ${level}${levelKanjiCount > 0 ? ` (${levelKanjiCount} chữ)` : ''}`,
-    subtitle: 'Tra cứu Hán Việt, âm On-Kun và tập viết nét.',
-    skill: 'kanji',
-    minutes: 5,
-    to: '/kanji',
-  });
+  const levelKanjis = getLiveKanjis(snapshot).filter((k) => k.jlptLevel === level);
+  const KANJI_GROUP_SIZE = 10;
+  for (let start = 0; start < levelKanjis.length; start += KANJI_GROUP_SIZE) {
+    const group = start / KANJI_GROUP_SIZE + 1;
+    const chars = levelKanjis.slice(start, start + KANJI_GROUP_SIZE).map((k) => k.kanji);
+    presets.push({
+      key: `kanji-${level}-g${group}`,
+      group: `Chữ Hán · ${level}`,
+      title: `Chữ Hán nhóm ${group}: ${chars.join(' ')}`,
+      subtitle: `${chars.length} chữ Kanji ${level}.`,
+      skill: 'kanji',
+      minutes: 5,
+      to: `/kanji?level=${level}&group=${group}&size=${KANJI_GROUP_SIZE}`,
+    });
+  }
+
+  // JLPT practice: every module that has content at this level, plus one entry per topic
+  if (level === 'N5' || level === 'N4' || level === 'N3') {
+    const mcqModules = [
+      { id: 'kanji', label: 'Luyện đề Chữ Hán', skill: 'kanji' },
+      { id: 'vocab', label: 'Luyện đề Từ vựng', skill: 'quiz' },
+      { id: 'grammar', label: 'Luyện đề Ngữ pháp', skill: 'grammar' },
+    ] as const;
+    for (const mod of mcqModules) {
+      const count = getLiveJlptMcqQuestions(snapshot, mod.id, level).length;
+      if (count === 0) continue;
+      presets.push({
+        key: `jlpt-${mod.id}`,
+        group: 'Luyện đề JLPT',
+        title: `${mod.label} ${level} (${count} câu)`,
+        subtitle: 'Trắc nghiệm theo dạng đề JLPT.',
+        skill: mod.skill,
+        minutes: 6,
+        to: `/jlpt/${mod.id}${jlptQuery}`,
+      });
+    }
+
+    const topicEntries = (
+      key: string,
+      label: string,
+      path: string,
+      skill: StageSkill,
+      topics: Array<string | null>,
+    ) => {
+      for (const topic of SITUATION_TAGS) {
+        const count = topics.filter((t) => t === topic).length;
+        if (count === 0) continue;
+        presets.push({
+          key: `${key}-${topic}`,
+          group: `${label} · ${level}`,
+          title: `${label}: ${topic} (${count} bài)`,
+          subtitle: `${label} theo chủ đề ${topic}.`,
+          skill,
+          minutes: 6,
+          to: `${path}${jlptQuery}&topic=${encodeURIComponent(topic)}`,
+        });
+      }
+    };
+    const readingModules = [
+      { id: 'reading-short', label: 'Đọc đoạn ngắn' },
+      { id: 'reading-medium', label: 'Đọc đoạn vừa' },
+      { id: 'reading-long', label: 'Đọc đoạn dài' },
+    ] as const;
+    for (const mod of readingModules) {
+      topicEntries(
+        mod.id,
+        mod.label,
+        `/jlpt/${mod.id}`,
+        'reading',
+        getLiveJlptReadingPassages(snapshot, mod.id, level).map(getReadingSituation),
+      );
+    }
+    topicEntries(
+      'listening-topic',
+      'Nghe hiểu',
+      '/jlpt/listening',
+      'listening',
+      getLiveJlptListeningItems(snapshot, level).map(getListeningSituation),
+    );
+
+    presets.push({
+      key: 'jlpt-reading-long',
+      group: 'Luyện đề JLPT',
+      title: `Đọc hiểu Trường văn ${level}`,
+      subtitle: 'Bài đọc dài, nhiều câu hỏi.',
+      skill: 'reading',
+      minutes: 10,
+      to: `/jlpt/reading-long${jlptQuery}`,
+    });
+  }
 
   presets.push(
     {
@@ -2040,7 +2117,7 @@ export function buildCurriculumTaskCatalog(options: {
       subtitle: 'Ôn lại các từ khó đã gắn sao của giáo trình này.',
       skill: 'review',
       minutes: 4,
-      to: `/vocabulary/review${toolQuery}`,
+      to: `/vocabulary/unmastered${toolQuery}`,
     },
   );
 

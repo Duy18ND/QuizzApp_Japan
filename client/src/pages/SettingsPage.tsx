@@ -3,6 +3,7 @@ import {
   CheckCircle2,
   Download,
   GraduationCap,
+  LogOut,
   Moon,
   Sun,
   Upload,
@@ -58,7 +59,7 @@ function hasSavedBackupAccess(userId?: string | null): boolean {
 }
 
 export const SettingsPage: React.FC = () => {
-  const { user, studyLevel, studyTextbookId, updateStudyLevel } = useAuth();
+  const { user, studyLevel, studyTextbookId, updateStudyLevel, signOut } = useAuth();
   const dispatch = useAppDispatch();
   const kanjiState = useAppSelector((state) => state.kanji);
   const grammarRecords = useAppSelector((state) => state.grammarProgress.records);
@@ -179,7 +180,6 @@ export const SettingsPage: React.FC = () => {
       <PageHeader
         breadcrumbs={[{ label: 'Trang chủ', to: '/' }, { label: 'Cài đặt' }]}
         title="Cài đặt & Quản lý dữ liệu"
-        description="Tùy chỉnh trình độ tiếng Nhật, lịch nhắc học, chuỗi ngày học, giao diện và sao lưu tiến độ cá nhân."
       />
 
       {/* 0. JLPT Study Level Selector (Logged-in users only) */}
@@ -194,9 +194,6 @@ export const SettingsPage: React.FC = () => {
             </span>
             <div>
               <h2 className="text-base font-semibold text-fg">Trình độ tiếng Nhật (JLPT)</h2>
-              <p className="text-sm text-muted">
-                Chọn 1 trong 5 trình độ JLPT (N5 – N1) để hiển thị đúng lộ trình học tập ở Trang chủ.
-              </p>
             </div>
           </div>
           {user &&
@@ -377,6 +374,20 @@ export const SettingsPage: React.FC = () => {
         </>
         )}
       </Card>
+
+      {user && (
+        <Card padding="md" className="flex flex-wrap items-center justify-between gap-3">
+          <p className="min-w-0 truncate text-sm text-muted">{user.email}</p>
+          <Button
+            variant="secondary"
+            size="sm"
+            leftIcon={<LogOut className="size-4" aria-hidden />}
+            onClick={() => void signOut()}
+          >
+            Đăng xuất
+          </Button>
+        </Card>
+      )}
     </PageContainer>
   );
 };

@@ -90,7 +90,6 @@ export const KanjiDashboard: React.FC = () => {
     <PageContainer>
       <PageHeader
         title="Học Kanji"
-        description="Chạm 1 chữ để xem âm đọc & từ ghép. Viết đúng 3 lần để thuộc."
         actions={
           <div className="flex min-w-44 flex-col gap-1.5 rounded-xl border border-line bg-glass px-4 py-2.5 shadow-card">
             <div className="flex items-center justify-between gap-3 text-xs font-medium text-muted">

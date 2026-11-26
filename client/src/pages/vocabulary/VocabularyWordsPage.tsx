@@ -212,17 +212,8 @@ export const VocabularyWordsPage: React.FC = () => {
             >
               Quiz bài này
             </Link>
-            <Link
-              to={`/vocabulary/writing${toolQuery}&unit=${numericUnitId}&autoStart=1`}
-              className={buttonStyles({ variant: 'secondary', size: 'sm' })}
-            >
-              Luyện gõ bài này
-            </Link>
             <Link to="/roadmap" className={buttonStyles({ variant: 'secondary', size: 'sm' })}>
               ← Bản đồ Màn
-            </Link>
-            <Link to={`/vocabulary/review${toolQuery}`} className={buttonStyles({ variant: 'secondary', size: 'sm' })}>
-              Ôn tập ★ & sai
             </Link>
             <Link to={`/vocabulary/unmastered${toolQuery}`} className={buttonStyles({ variant: 'ghost', size: 'sm' })}>
               Chưa thuộc

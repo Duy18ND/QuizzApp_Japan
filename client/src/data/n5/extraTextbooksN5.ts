@@ -38,6 +38,41 @@ export interface ExtraTextbookUnitDef {
   title: string;
   startId: number;
   words: MultiBookVocabTuple[];
+  /** More words for the same unit, numbered from their own id range (keeps older ids stable) */
+  extra?: { startId: number; words: MultiBookVocabTuple[] };
+}
+
+/** All words of a unit def (base + extra), ids and word numbers continuous within the unit. */
+export function buildUnitDefVocab(level: 'N5' | 'N4' | 'N3', def: ExtraTextbookUnitDef): VocabularyItem[] {
+  const base = buildMultiUnitVocab(level, def.unitId, def.startId, def.words);
+  if (!def.extra) return base;
+  const extra = buildMultiUnitVocab(level, def.unitId, def.extra.startId, def.extra.words).map((w, idx) => ({
+    ...w,
+    wordNumber: base.length + idx + 1,
+  }));
+  return [...base, ...extra];
+}
+
+/**
+ * Split a unit that groups several textbook lessons into one unit per lesson. Old words keep
+ * their ids (a contiguous slice each), new words per lesson come from `extraByLesson`.
+ */
+export function splitGroupedUnit(
+  def: ExtraTextbookUnitDef,
+  lessons: number[],
+  toUnitId: (lesson: number) => number,
+  titleFor: (lesson: number) => string,
+  extraByLesson: Record<number, { startId: number; words: MultiBookVocabTuple[] }>,
+): ExtraTextbookUnitDef[] {
+  const per = Math.ceil(def.words.length / lessons.length);
+  return lessons.map((lesson, i) => ({
+    unitId: toUnitId(lesson),
+    textbookId: def.textbookId,
+    title: titleFor(lesson),
+    startId: def.startId + i * per,
+    words: def.words.slice(i * per, (i + 1) * per),
+    extra: extraByLesson[lesson],
+  }));
 }
 
 export const N5_EXTRA_TEXTBOOK_UNITS: ExtraTextbookUnitDef[] = [

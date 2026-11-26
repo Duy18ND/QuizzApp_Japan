@@ -232,7 +232,6 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
             )}
           </span>
         }
-        description="Tùy chỉnh trình độ, giáo trình, phạm vi từ vựng và cách hiển thị trước khi bắt đầu."
       />
 
       <Card padding="lg" className="space-y-6">
@@ -290,6 +289,7 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
                 </Select>
               </Field>
 
+              {levelTextbooks.length > 1 && (
               <Field label="Giáo trình" htmlFor="quiz-book">
                 <Select
                   id="quiz-book"
@@ -303,6 +303,7 @@ export const QuizSetup: React.FC<Props> = ({ onStart }) => {
                   ))}
                 </Select>
               </Field>
+              )}
 
               <Field label="Bài học (Unit)" htmlFor="quiz-unit">
                 <Select

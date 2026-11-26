@@ -32,7 +32,6 @@ export const PdfPage: React.FC = () => {
       <div className="print:hidden">
         <PageHeader
           title="Xuất tài liệu PDF"
-          description="Tạo tài liệu luyện tập Từ vựng, Ngữ pháp & Kanji chuẩn A4 để in và học trên giấy."
         />
 
         <div className="mb-6 rounded-xl border border-line bg-glass px-3 py-1.5 shadow-card backdrop-blur-md">

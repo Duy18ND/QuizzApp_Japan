@@ -421,9 +421,6 @@ export const StudyScheduleCard: React.FC<{ embedded?: boolean }> = ({ embedded =
               <AlarmClock className="size-5 shrink-0 text-primary-fg" aria-hidden />
               <h2 className="text-base font-semibold text-fg sm:text-lg">Lịch nhắc học</h2>
             </div>
-            <p className="text-sm text-muted">
-              Đặt các khung giờ nhắc phụ toàn app (hằng tuần hoặc hẹn 1 lần) — độc lập với giờ nhắc riêng của từng lộ trình ở trang Lộ trình.
-            </p>
           </div>
         )}
         <div className="shrink-0">

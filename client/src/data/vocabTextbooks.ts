@@ -17,7 +17,7 @@ export interface VocabTextbookSpec {
   matchKeywords: string[];
 }
 
-export const VOCAB_TEXTBOOKS: Record<JLPTLevel, VocabTextbookSpec[]> = {
+const ALL_VOCAB_TEXTBOOKS: Record<JLPTLevel, VocabTextbookSpec[]> = {
   N5: [
     {
       id: 'minna-n5',
@@ -67,8 +67,8 @@ export const VOCAB_TEXTBOOKS: Record<JLPTLevel, VocabTextbookSpec[]> = {
       title: 'Minna no Nihongo II',
       shortTitle: 'Minna II',
       japaneseTitle: 'みんなの日本語 初級II',
-      description: 'Trọn bộ Bài 26–50 sơ cấp II, mở rộng động từ và mẫu giao tiếp hằng ngày.',
-      unitIds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+      description: 'Trọn bộ 25 bài (Bài 26–50) sơ cấp II, mỗi bài ~20 từ theo đúng mẫu ngữ pháp của bài.',
+      unitIds: Array.from({ length: 25 }, (_, i) => 26 + i),
       matchKeywords: ['minna', 'mina'],
     },
     {
@@ -109,8 +109,8 @@ export const VOCAB_TEXTBOOKS: Record<JLPTLevel, VocabTextbookSpec[]> = {
       title: 'Mimi kara Oboeru N3',
       shortTitle: 'Mimi kara N3',
       japaneseTitle: '耳から覚える N3',
-      description: 'Giáo trình từ vựng N3 phổ biến nhất (6 Unit) kèm từ loại, Hán Việt và phát âm.',
-      unitIds: [1, 2, 3, 4, 5, 6],
+      description: 'Theo mục lục sách: 12 Unit chia theo từ loại (Danh từ, Động từ, Tính từ, Katakana, Phó từ) + Unit 13 bổ sung cụm từ.',
+      unitIds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
       matchKeywords: ['mimi'],
     },
     {
@@ -130,7 +130,7 @@ export const VOCAB_TEXTBOOKS: Record<JLPTLevel, VocabTextbookSpec[]> = {
       shortTitle: 'Minna Trung cấp I',
       japaneseTitle: 'みんなの日本語 中級I',
       description: 'Từ vựng trọn bộ Bài 1–12 giáo trình Minna Trung cấp I chuyển tiếp từ N4 lên N3.',
-      unitIds: [201, 202, 203, 204, 205, 206],
+      unitIds: Array.from({ length: 12 }, (_, k) => 201 + k),
       matchKeywords: ['minna', 'mina'],
     },
     {
@@ -219,6 +219,23 @@ export const VOCAB_TEXTBOOKS: Record<JLPTLevel, VocabTextbookSpec[]> = {
     },
   ],
 };
+
+/** One course per level is shown, under a neutral name. Ids are internal and unchanged. */
+const NEUTRAL_COURSES: Record<JLPTLevel, [id: string, title: string, description: string]> = {
+  N5: ['minna-n5', 'Từ vựng N5', '25 bài theo chủ đề đời sống cơ bản.'],
+  N4: ['minna-n4', 'Từ vựng N4', '25 bài (Bài 26–50), nối tiếp N5.'],
+  N3: ['mimi-n3', 'Từ vựng N3', '13 bài chia theo từ loại.'],
+  N2: ['shinkanzen-n2', 'Từ vựng N2', 'Từ vựng trọng tâm N2.'],
+  N1: ['shinkanzen-n1', 'Từ vựng N1', 'Từ vựng trọng tâm N1.'],
+};
+
+export const VOCAB_TEXTBOOKS = Object.fromEntries(
+  (Object.keys(NEUTRAL_COURSES) as JLPTLevel[]).map((level) => {
+    const [id, title, description] = NEUTRAL_COURSES[level];
+    const base = ALL_VOCAB_TEXTBOOKS[level].find((b) => b.id === id)!;
+    return [level, [{ ...base, title, shortTitle: title, japaneseTitle: `${level} 語彙`, description }]];
+  }),
+) as Record<JLPTLevel, VocabTextbookSpec[]>;
 
 const VALID_LEVELS = new Set<JLPTLevel>(['N5', 'N4', 'N3', 'N2', 'N1']);
 

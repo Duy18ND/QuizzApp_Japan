@@ -3,27 +3,26 @@ import {
   ArrowLeft,
   ArrowRight,
   BookOpen,
-  Calendar,
   Check,
   CheckCircle2,
   ClipboardCopy,
   ExternalLink,
-  FolderPlus,
   PenLine,
   Plus,
   Sparkles,
   Star,
   Trash2,
   Upload,
-  Users,
   Wand2,
   Zap,
+  Eye,
 } from 'lucide-react';
 import {
   Badge,
   Button,
   Chip,
   Field,
+  IconButton,
   Input,
   Modal,
   Notice,
@@ -35,12 +34,8 @@ import { cn } from '../../lib/cn';
 import type { CmsSnapshot } from '../../services/adminCmsService';
 import {
   CUSTOM_ROLE_META,
-  parseBulkVocabText,
   resolveLessonRole,
   type CustomLesson,
-  type CustomLessonKind,
-  type CustomLessonRole,
-  type CustomQuizEntry,
 } from '../../services/customStudioService';
 import {
   ALL_DAYS_ORDERED,
@@ -49,7 +44,6 @@ import {
   buildCurriculumTaskCatalog,
   calculateRoadmapForecast,
   createDefaultCustomConfig,
-  DAILY_PACE_PRESETS,
   getRecommendedFixedStageCount,
   getStageCountForDailyMinutes,
   STAGE_SKILL_META,
@@ -69,16 +63,19 @@ import {
   SAMPLE_AI_ROADMAP_JSON,
 } from '../../services/roadmapJsonService';
 import {
-  buildConfigFromCommunityEntry,
-  COMMUNITY_ROADMAP_GALLERY,
-  ROADMAP_QUICK_TEMPLATES,
-  type CommunityRoadmapEntry,
-  type RoadmapQuickTemplate,
 } from '../../data/roadmapTemplates';
 import {
   getVocabTextbooksForLevel,
   resolveActiveVocabTextbook,
 } from '../../data/vocabTextbooks';
+import { SchedulePicker } from './SchedulePicker';
+import { CreateQuizModal } from './CreateQuizModal';
+import { LessonDetailModal } from './LessonDetailModal';
+import {
+  describeCatalogLesson,
+  describeCustomLesson,
+  type LessonDetail,
+} from '../../utils/lessonDetails';
 import type { StudyLevel } from '../../services/userLevelService';
 
 export type WizardInitialMode = 'choose' | 'composer' | 'ai' | 'quick';
@@ -103,7 +100,7 @@ interface CreateRoadmapWizardModalProps {
   cmsSnapshot: CmsSnapshot;
   studioLessons: CustomLesson[];
   onSaveStudioLesson: (lesson: CustomLesson) => void;
-  onRequestCreateQuiz?: () => void;
+  onDeleteStudioLesson: (lessonId: string) => void;
   onCommitRoadmap: (payload: {
     config: CustomRoadmapConfig;
     lessons: CustomLesson[];
@@ -143,17 +140,7 @@ const APP_ACTIVITY_FILTERS: ReadonlyArray<{ value: AppActivityFilter; label: str
   { value: 'grammar', label: 'Ngữ pháp' },
 ];
 
-type MyLibraryRoleFilter = 'all' | CustomLessonRole;
 
-const MY_LIBRARY_ROLE_FILTERS: ReadonlyArray<{ value: MyLibraryRoleFilter; label: string }> = [
-  { value: 'all', label: 'Tất cả' },
-  { value: 'vocab', label: 'Từ vựng' },
-  { value: 'kanji', label: 'Chữ Hán' },
-  { value: 'grammar', label: 'Ngữ pháp' },
-  { value: 'reading', label: 'Đọc hiểu' },
-  { value: 'listening', label: 'Nghe hiểu' },
-  { value: 'mixed', label: 'Tổng hợp' },
-];
 
 function getLessonCategoryMeta(lesson: CustomLesson): {
   label: string;
@@ -216,15 +203,6 @@ function createInitialComposerStages(): ComposerStageDraft[] {
   ];
 }
 
-function createEmptyQuizRow(idx: number): CustomQuizEntry {
-  return {
-    id: `wiz-q-${Date.now()}-${idx}`,
-    prompt: '',
-    options: ['', '', '', ''],
-    correctIndex: 0,
-    explanation: '',
-  };
-}
 
 export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> = ({
   open,
@@ -239,11 +217,15 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
   cmsSnapshot,
   studioLessons,
   onSaveStudioLesson,
-  onRequestCreateQuiz,
+  onDeleteStudioLesson,
   onCommitRoadmap,
 }) => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // Dialogs stacked on top of the composer, so the plan being built is never lost
+  const [detail, setDetail] = useState<LessonDetail | null>(null);
+  const [quizEditor, setQuizEditor] = useState<{ lesson: CustomLesson | null } | null>(null);
+  const [lessonToDelete, setLessonToDelete] = useState<CustomLesson | null>(null);
   const isEditing = Boolean(editingConfig);
 
   const [mode, setMode] = useState<WizardInitialMode>(initialMode);
@@ -256,18 +238,6 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
   const [sourceTab, setSourceTab] = useState<'my-library' | 'app-library'>('my-library');
 
   // My Library filter & inline Quick Creator (creates reusable CustomLesson with Role)
-  const [myRoleFilter, setMyRoleFilter] = useState<MyLibraryRoleFilter>('all');
-  const [creatingInLibrary, setCreatingInLibrary] = useState(false);
-  const [newItemCategory, setNewItemCategory] = useState<CustomLessonKind>('quiz');
-  const [newItemTitle, setNewItemTitle] = useState('');
-  const [newItemLevel, setNewItemLevel] = useState<StudyLevel>(defaultLevel);
-  const [autoAttachToStage, setAutoAttachToStage] = useState(true);
-  const [newQuizRows, setNewQuizRows] = useState<CustomQuizEntry[]>(() => [createEmptyQuizRow(1)]);
-  const [newVocabBulkText, setNewVocabBulkText] = useState('');
-  const [newGrammarStructure, setNewGrammarStructure] = useState('');
-  const [newGrammarMeaning, setNewGrammarMeaning] = useState('');
-  const [newGrammarExample, setNewGrammarExample] = useState('');
-  const [newKanjiBulkText, setNewKanjiBulkText] = useState('');
 
   // App Library filters
   const [pickerLevel, setPickerLevel] = useState<StudyLevel>(defaultLevel);
@@ -297,19 +267,15 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
   const [aiPasteText, setAiPasteText] = useState('');
 
   // --- FLOW C: QUICK TEXTBOOK / COMMUNITY ---
-  const [quickSubTab, setQuickSubTab] = useState<'schedule' | 'community'>('schedule');
   const [quickConfig, setQuickConfig] = useState<CustomRoadmapConfig>(() =>
     createDefaultCustomConfig(defaultLevel, userId, defaultTextbookId, todayKey),
   );
-  const [communityFilter, setCommunityFilter] = useState<'ALL' | 'N5' | 'N4' | 'N3'>('ALL');
 
   // Reset modal view cleanly on open (and pre-fill if editing an existing roadmap)
   if (open && !wasOpen) {
     setWasOpen(true);
     setComposerStep('content');
     setSourceTab('my-library');
-    setMyRoleFilter('all');
-    setCreatingInLibrary(false);
     setActiveStageIdx(0);
 
     if (editingConfig) {
@@ -325,7 +291,6 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
       setCompReminderTime(editingConfig.reminderTime || '20:00');
       setCompRepeatMinutes(editingConfig.repeatIntervalMinutes || 10);
       setCompNotificationsEnabled(editingConfig.notificationsEnabled !== false);
-      setNewItemLevel(editingConfig.level);
       setPickerLevel(editingConfig.level);
       setPickerBookId(
         resolveActiveVocabTextbook(editingConfig.level, userId, editingConfig.textbookId).id,
@@ -358,7 +323,6 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
       setCompRepeatMinutes(10);
       setCompNotificationsEnabled(true);
       setCompStages(createInitialComposerStages());
-      setNewItemLevel(defaultLevel);
       setPickerLevel(defaultLevel);
       setPickerBookId(resolveActiveVocabTextbook(defaultLevel, userId, defaultTextbookId).id);
       setAiLevel(defaultLevel);
@@ -394,14 +358,6 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
       return true;
     });
   }, [pickerCatalog, pickerActivity, pickerSearch]);
-
-  const filteredMyLessons = useMemo(
-    () =>
-      studioLessons.filter(
-        (lesson) => myRoleFilter === 'all' || resolveLessonRole(lesson) === myRoleFilter,
-      ),
-    [studioLessons, myRoleFilter],
-  );
 
   const safeStageIdx = Math.min(activeStageIdx, Math.max(0, compStages.length - 1));
   const currentCompStage = compStages[safeStageIdx];
@@ -513,153 +469,6 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
   };
 
   // --- MY LIBRARY: CREATE NEW REUSABLE LESSON WITH CATEGORY ---
-  const handleCreateLessonInMyLibrary = () => {
-    const cleanTitle = newItemTitle.trim();
-    if (!cleanTitle) {
-      toast({ title: 'Vui lòng nhập tên bộ bài / bộ Quiz!', tone: 'warning' });
-      return;
-    }
-
-    const nowIso = new Date().toISOString();
-    const lessonId = `cl-my-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`;
-    let created: CustomLesson | null = null;
-
-    if (newItemCategory === 'quiz') {
-      const cleanQuiz: CustomQuizEntry[] = newQuizRows
-        .map((row) => {
-          const opts = row.options.map((o) => o.trim()).filter(Boolean);
-          return {
-            ...row,
-            prompt: row.prompt.trim(),
-            options: opts,
-            correctIndex: Math.max(0, Math.min(opts.length - 1, row.correctIndex)),
-            explanation: row.explanation?.trim() || undefined,
-          };
-        })
-        .filter((row) => row.prompt && row.options.length >= 2);
-
-      if (cleanQuiz.length === 0) {
-        toast({ title: 'Hãy nhập ít nhất 1 câu hỏi và tối thiểu 2 đáp án!', tone: 'warning' });
-        return;
-      }
-      created = {
-        id: lessonId,
-        kind: 'quiz',
-        title: cleanTitle,
-        level: newItemLevel,
-        description: `Bộ Quiz tự tạo (${cleanQuiz.length} câu)`,
-        quizItems: cleanQuiz,
-        createdAt: nowIso,
-        updatedAt: nowIso,
-      };
-    } else if (newItemCategory === 'vocab') {
-      const parsedVocab = parseBulkVocabText(newVocabBulkText);
-      if (parsedVocab.length === 0) {
-        toast({
-          title: 'Hãy nhập ít nhất 1 dòng theo dạng: Kanji | Hiragana | Nghĩa (VD: 食べる | たべる | Ăn)',
-          tone: 'warning',
-        });
-        return;
-      }
-      created = {
-        id: lessonId,
-        kind: 'vocab',
-        title: cleanTitle,
-        level: newItemLevel,
-        description: `Bộ Từ vựng tự tạo (${parsedVocab.length} từ)`,
-        vocabItems: parsedVocab,
-        createdAt: nowIso,
-        updatedAt: nowIso,
-      };
-    } else if (newItemCategory === 'grammar') {
-      if (!newGrammarStructure.trim() || !newGrammarMeaning.trim()) {
-        toast({ title: 'Hãy nhập cấu trúc ngữ pháp và nghĩa tiếng Việt!', tone: 'warning' });
-        return;
-      }
-      created = {
-        id: lessonId,
-        kind: 'grammar',
-        title: cleanTitle,
-        level: newItemLevel,
-        description: 'Mẫu ngữ pháp tự tạo',
-        grammarItems: [
-          {
-            id: `g-${Date.now()}`,
-            structure: newGrammarStructure.trim(),
-            meaning: newGrammarMeaning.trim(),
-            exampleJp: newGrammarExample.trim() || undefined,
-          },
-        ],
-        createdAt: nowIso,
-        updatedAt: nowIso,
-      };
-    } else {
-      const lines = newKanjiBulkText
-        .split(/\r?\n/)
-        .map((l) => l.trim())
-        .filter(Boolean);
-      const parsedKanji = lines
-        .map((line, idx) => {
-          const parts = line.split(/\t|\s*\|\s*|\s*;\s*/).map((p) => p.trim());
-          if (parts.length < 2 || !parts[0]) return null;
-          return {
-            id: `k-${Date.now()}-${idx}`,
-            kanji: parts[0],
-            hanViet: parts.length >= 3 ? parts[1].toUpperCase() : '',
-            meaning: parts.length >= 3 ? parts[2] : parts[1],
-            reading: parts[3] || undefined,
-          };
-        })
-        .filter((x): x is NonNullable<typeof x> => x !== null);
-      if (parsedKanji.length === 0) {
-        toast({
-          title: 'Hãy nhập ít nhất 1 dòng theo dạng: Chữ Hán | Hán Việt | Nghĩa (VD: 食 | THỰC | Ăn)',
-          tone: 'warning',
-        });
-        return;
-      }
-      created = {
-        id: lessonId,
-        kind: 'kanji',
-        title: cleanTitle,
-        level: newItemLevel,
-        description: `Bộ Chữ Hán tự tạo (${parsedKanji.length} chữ)`,
-        kanjiItems: parsedKanji,
-        createdAt: nowIso,
-        updatedAt: nowIso,
-      };
-    }
-
-    onSaveStudioLesson(created);
-
-    if (autoAttachToStage && currentCompStage) {
-      const task = buildStageTaskFromStudioLesson(created);
-      setCompStages((prev) =>
-        prev.map((st, idx) =>
-          idx === safeStageIdx ? { ...st, tasks: [...st.tasks, task] } : st,
-        ),
-      );
-    }
-
-    // Reset quick form & show it in My Library list
-    setNewItemTitle('');
-    setNewQuizRows([createEmptyQuizRow(1)]);
-    setNewVocabBulkText('');
-    setNewGrammarStructure('');
-    setNewGrammarMeaning('');
-    setNewGrammarExample('');
-    setNewKanjiBulkText('');
-    setCreatingInLibrary(false);
-    setMyRoleFilter('all');
-    toast({
-      title: autoAttachToStage && currentCompStage
-        ? `Đã lưu "${created.title}" vào Kho bài của tôi & thêm vào ${currentCompStage.title}!`
-        : `Đã lưu "${created.title}" vào Kho bài của tôi!`,
-      tone: 'success',
-    });
-  };
-
-  // --- APP LIBRARY: TOGGLE PRESET INTO ACTIVE STAGE ---
   const handleToggleAppPresetInStage = (preset: CurriculumTaskPreset) => {
     if (!currentCompStage) return;
     setCompStages((prev) =>
@@ -758,31 +567,6 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
     onClose();
   };
 
-  const handleApplyQuickTemplate = (tpl: RoadmapQuickTemplate) => {
-    const nextBook = resolveActiveVocabTextbook(quickConfig.level, userId, quickConfig.textbookId);
-    setQuickConfig({
-      ...quickConfig,
-      name: `${quickConfig.level} · ${tpl.nameSuffix}`,
-      textbookId: nextBook.id,
-      dailyMinutesTarget: tpl.dailyMinutesTarget,
-      totalStages: tpl.totalStages,
-      studyWeekdays: [...tpl.studyWeekdays],
-      skills: [...tpl.skills],
-      includeKanaStarter: quickConfig.level === 'N5' ? Boolean(tpl.includeKanaStarter) : false,
-      chunkTitles: tpl.chunkTitles ? { ...tpl.chunkTitles } : {},
-    });
-    toast({
-      title: `Đã chọn mẫu "${tpl.title}" (${tpl.dailyMinutesTarget}p/ngày · ${tpl.totalStages} buổi)`,
-      tone: 'info',
-    });
-  };
-
-  const handlePickCommunity = (entry: CommunityRoadmapEntry) => {
-    const config = buildConfigFromCommunityEntry(entry, todayKey);
-    onCommitRoadmap({ config, lessons: [] });
-    onClose();
-  };
-
   const handleReadFile = (ev: React.ChangeEvent<HTMLInputElement>) => {
     const file = ev.target.files?.[0];
     if (!file) return;
@@ -797,37 +581,22 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
 
   const modalTitle =
     mode === 'choose'
-      ? 'Tạo lộ trình riêng — Chọn cách dễ nhất với bạn'
+      ? 'Tạo lộ trình'
       : mode === 'composer'
         ? isEditing
-          ? composerStep === 'content'
-            ? `Sửa lộ trình · Bước 1/2: Sửa & Thêm Buổi / Bài`
-            : `Sửa lộ trình · Bước 2/2: Sửa tên & Ngày giờ học`
-          : composerStep === 'content'
-            ? 'Bước 1/2 · Tạo & Chọn bài vào từng Buổi'
-            : 'Bước 2/2 · Đặt tên lộ trình & Ngày giờ học'
+          ? 'Sửa lộ trình'
+          : 'Tự ghép bài'
         : mode === 'ai'
-          ? 'Nhờ ChatGPT / Gemini soạn bài & Quiz hộ'
-          : 'Tạo nhanh theo Giáo trình chuẩn & Mẫu sẵn';
-
-  const modalDesc =
-    mode === 'choose'
-      ? 'Lộ trình riêng chạy tách biệt hoàn toàn, không làm mất tiến độ ở Giáo trình chuẩn.'
-      : mode === 'composer'
-        ? composerStep === 'content'
-          ? 'Tạo bài / Quiz riêng theo danh mục (Category) trong Kho bài của tôi hoặc chọn bài sẵn từ Kho App để gắn vào từng Buổi.'
-          : 'Chọn ngày bắt đầu, số phút mỗi ngày, ngày học trong tuần và giờ nhắc học cho lộ trình vừa ghép.'
-        : mode === 'ai'
-          ? 'Làm đúng 2 bước đơn giản: Copy yêu cầu gửi AI → Dán câu trả lời về là học được ngay.'
-          : 'Chọn tốc độ mỗi ngày (10p → 60 buổi · 30p → 30 buổi) hoặc lưu 1 chạm từ Kho Cộng đồng.';
+          ? 'Nhờ AI soạn'
+          : 'Theo bài có sẵn';
 
   return (
+    <>
     <Modal
       open={open}
       onClose={onClose}
       size="lg"
       title={modalTitle}
-      description={modalDesc}
       footer={
         mode === 'choose' ? (
           <Button type="button" variant="secondary" onClick={onClose}>
@@ -846,7 +615,7 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
                 rightIcon={<ArrowRight className="size-4" aria-hidden />}
                 onClick={() => setComposerStep('schedule')}
               >
-                Tiếp tục: Chọn ngày giờ ({totalCompTasks} bài)
+                Tiếp tục ({totalCompTasks} bài)
               </Button>
             </>
           ) : (
@@ -857,7 +626,7 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
                 leftIcon={<ArrowLeft className="size-4" aria-hidden />}
                 onClick={() => setComposerStep('content')}
               >
-                Quay lại chọn bài
+                Quay lại
               </Button>
               <Button
                 type="button"
@@ -865,7 +634,7 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
                 leftIcon={<Sparkles className="size-4" aria-hidden />}
                 onClick={handleSaveComposerRoadmap}
               >
-                {isEditing ? 'Lưu thay đổi lộ trình' : 'Tạo lộ trình & Học ngay'}
+                {isEditing ? 'Lưu' : 'Tạo lộ trình'}
               </Button>
             </>
           )
@@ -875,9 +644,9 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
               type="button"
               variant="secondary"
               leftIcon={<ArrowLeft className="size-4" aria-hidden />}
-              onClick={() => setMode('composer')}
+              onClick={() => setMode('choose')}
             >
-              Về Vẽ lộ trình
+              Quay lại
             </Button>
             {mode === 'ai' && (
               <Button
@@ -887,92 +656,70 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
                 leftIcon={<Sparkles className="size-4" aria-hidden />}
                 onClick={handleSaveAiRoadmap}
               >
-                Tạo &amp; Học ngay
+                Tạo lộ trình
               </Button>
             )}
-            {mode === 'quick' && quickSubTab === 'schedule' && (
+            {mode === 'quick' && (
               <Button
                 type="button"
                 variant="primary"
                 leftIcon={<Sparkles className="size-4" aria-hidden />}
                 onClick={handleSaveQuickRoadmap}
               >
-                Tạo &amp; Học ngay
+                Tạo lộ trình
               </Button>
             )}
           </>
         )
       }
     >
-      {/* STEP 0: 3 BIG FRIENDLY CARDS */}
+      {/* STEP 0: pick a way */}
       {mode === 'choose' && (
-        <div className="space-y-3">
-          <button
-            type="button"
-            onClick={() => {
-              setComposerStep('content');
-              setMode('composer');
-            }}
-            className="flex w-full cursor-pointer items-start gap-3.5 rounded-2xl border-2 border-primary/50 bg-primary-soft/25 p-4 text-left transition-colors hover:border-primary hover:bg-primary-soft/45"
-          >
-            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-on-primary">
-              <PenLine className="size-5" aria-hidden />
-            </span>
-            <div className="min-w-0 flex-1 space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-bold text-fg sm:text-base">
-                  1. Tạo bài / Chọn bài trước → Đặt ngày giờ sau
-                </span>
-                <Badge tone="primary">Khuyên dùng</Badge>
-              </div>
-              <p className="text-xs leading-relaxed text-muted sm:text-sm">
-                Tạo trước <strong className="text-fg">Quiz riêng / Từ vựng / Chữ Hán / Ngữ pháp</strong> theo từng Category trong <strong className="text-fg">Kho bài của tôi</strong>, kết hợp với bài có sẵn của App (Flashcard, Mini-game, Đọc hiểu...), rồi mới xếp lịch ngày giờ học.
-              </p>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setMode('ai')}
-            className="flex w-full cursor-pointer items-start gap-3.5 rounded-2xl border border-line bg-surface-2/60 p-4 text-left transition-colors hover:border-primary hover:bg-primary-soft/25"
-          >
-            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-sakura-soft text-sakura">
-              <Wand2 className="size-5" aria-hidden />
-            </span>
-            <div className="min-w-0 flex-1 space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-bold text-fg sm:text-base">
-                  2. Nhờ ChatGPT / Gemini soạn bài &amp; Quiz hộ
-                </span>
-                <Badge tone="sakura">Mọi chủ đề</Badge>
-              </div>
-              <p className="text-xs leading-relaxed text-muted sm:text-sm">
-                Muốn học tiếng Nhật quán ăn, IT, du lịch hoặc ôn đề riêng? Chỉ cần bấm{' '}
-                <strong className="text-fg">Copy yêu cầu</strong> → gửi ChatGPT/Gemini → dán kết quả về là thành lộ trình học luôn.
-              </p>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setMode('quick')}
-            className="flex w-full cursor-pointer items-start gap-3.5 rounded-2xl border border-line bg-surface-2/60 p-4 text-left transition-colors hover:border-primary hover:bg-primary-soft/25"
-          >
-            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-success-soft text-success-fg">
-              <Zap className="size-5" aria-hidden />
-            </span>
-            <div className="min-w-0 flex-1 space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-bold text-fg sm:text-base">
-                  3. Tạo nhanh theo Giáo trình chuẩn / Kho Cộng đồng
-                </span>
-                <Badge tone="success">10 giây</Badge>
-              </div>
-              <p className="text-xs leading-relaxed text-muted sm:text-sm">
-                Giữ nguyên bài học theo sách Minna / Soumatome nhưng tùy chỉnh thời lượng mỗi ngày (10p → 60 buổi · 30p → 30 buổi), hoặc chọn 1 chạm từ Kho Cộng đồng.
-              </p>
-            </div>
-          </button>
+        <div className="grid gap-2">
+          {(
+            [
+              {
+                key: 'quick',
+                icon: <Zap className="size-5" aria-hidden />,
+                title: 'Theo bài có sẵn',
+                hint: 'Chọn trình độ và thời gian học mỗi ngày.',
+                go: () => setMode('quick'),
+              },
+              {
+                key: 'composer',
+                icon: <PenLine className="size-5" aria-hidden />,
+                title: 'Tự ghép bài',
+                hint: 'Chọn bài cho từng buổi.',
+                go: () => {
+                  setComposerStep('content');
+                  setMode('composer');
+                },
+              },
+              {
+                key: 'ai',
+                icon: <Wand2 className="size-5" aria-hidden />,
+                title: 'Nhờ AI soạn',
+                hint: 'Dùng ChatGPT hoặc Gemini.',
+                go: () => setMode('ai'),
+              },
+            ] as const
+          ).map((opt) => (
+            <button
+              key={opt.key}
+              type="button"
+              onClick={opt.go}
+              className="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-line bg-surface-2/60 p-3 text-left transition-colors hover:border-primary hover:bg-primary-soft/30"
+            >
+              <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary-fg">
+                {opt.icon}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-bold text-fg">{opt.title}</span>
+                <span className="block text-xs text-muted">{opt.hint}</span>
+              </span>
+              <ArrowRight className="size-4 shrink-0 text-muted" aria-hidden />
+            </button>
+          ))}
         </div>
       )}
 
@@ -994,7 +741,7 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
               <span className="grid size-5 shrink-0 place-items-center rounded-full bg-primary text-[11px] font-bold text-on-primary">
                 1
               </span>
-              <span className="truncate">Tạo &amp; Chọn bài vào Buổi</span>
+              <span className="truncate">Chọn bài</span>
             </button>
             <button
               type="button"
@@ -1019,38 +766,13 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
               >
                 2
               </span>
-              <span className="truncate">Đặt tên &amp; Ngày giờ học</span>
+              <span className="truncate">Đặt lịch</span>
             </button>
           </div>
 
           {/* STEP 1: CONTENT FIRST (VISUAL STAGE CHAIN + MY QUIZZES BY ROLE + APP LIBRARY) */}
           {composerStep === 'content' ? (
             <div className="space-y-3">
-              {/* Compact alternative shortcuts (Quick Book/Community or Full AI Roadmap) */}
-              {!isEditing && (
-                <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-surface-2/40 px-3 py-2 text-xs">
-                  <span className="text-muted">
-                    Vẽ từng Buổi &amp; thêm Quiz vừa tạo bên dưới, hoặc:
-                  </span>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setMode('quick')}
-                      className="cursor-pointer rounded-lg border border-line bg-surface px-2.5 py-1 text-[11px] font-semibold text-fg hover:border-primary hover:text-primary-fg"
-                    >
-                      ⚡ Tạo nhanh theo Sách / Cộng đồng
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setMode('ai')}
-                      className="cursor-pointer rounded-lg border border-line bg-surface px-2.5 py-1 text-[11px] font-semibold text-fg hover:border-primary hover:text-primary-fg"
-                    >
-                      ✨ Nhờ AI tạo cả lộ trình
-                    </button>
-                  </div>
-                </div>
-              )}
-
               {/* Visual Connected Stage Chain */}
               <div className="flex flex-wrap items-center gap-1.5">
                 {compStages.map((st, idx) => {
@@ -1130,17 +852,15 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
                         setActiveStageIdx((i) => Math.max(0, i - 1));
                       }}
                     >
-                      Xóa buổi này
+                      Xóa buổi
                     </Button>
                   )}
                 </div>
 
                 {/* Selected Tasks inside this Buổi */}
                 {currentCompStage.tasks.length === 0 ? (
-                  <p className="rounded-lg border border-dashed border-line bg-surface-2/40 px-3 py-2.5 text-xs text-muted">
-                    <strong className="text-fg">{currentCompStage.title}</strong> chưa có bài nào. Hãy bấm{' '}
-                    <strong className="text-fg">+ Thêm</strong> từ <strong className="text-fg">Kho bài của tôi</strong> hoặc{' '}
-                    <strong className="text-fg">Kho bài của App</strong> bên dưới.
+                  <p className="rounded-lg border border-dashed border-line px-3 py-2 text-xs text-muted">
+                    Chưa có bài. Chọn bài ở danh sách bên dưới.
                   </p>
                 ) : (
                   <ul className="space-y-1.5">
@@ -1185,7 +905,7 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
                     leftIcon={<Star className="size-3.5" aria-hidden />}
                     onClick={() => setSourceTab('my-library')}
                   >
-                    Kho bài của tôi ({studioLessons.length})
+                    Bài của tôi ({studioLessons.length})
                   </Button>
                   <Button
                     type="button"
@@ -1194,319 +914,33 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
                     leftIcon={<BookOpen className="size-3.5" aria-hidden />}
                     onClick={() => setSourceTab('app-library')}
                   >
-                    Kho bài của App
+                    Bài có sẵn
                   </Button>
                 </div>
 
                 {/* SOURCE 1: MY LIBRARY (FILTERED BY ROLE: Từ vựng, Chữ Hán, Ngữ pháp, Đọc hiểu, Nghe hiểu, Tổng hợp) */}
                 {sourceTab === 'my-library' ? (
                   <div className="space-y-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="space-y-1">
-                        <span className="block text-[11px] font-semibold text-muted">
-                          Lọc Quiz &amp; Bài đã tạo theo Role:
-                        </span>
-                        <div className="flex flex-wrap gap-1.5">
-                          {MY_LIBRARY_ROLE_FILTERS.map((cat) => (
-                            <Chip
-                              key={cat.value}
-                              selected={myRoleFilter === cat.value}
-                              onClick={() => setMyRoleFilter(cat.value)}
-                            >
-                              {cat.label}
-                            </Chip>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        {onRequestCreateQuiz && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="primary"
-                            leftIcon={<Plus className="size-3.5" aria-hidden />}
-                            onClick={() => {
-                              onClose();
-                              onRequestCreateQuiz();
-                            }}
-                          >
-                            Mở Modal tạo Quiz
-                          </Button>
-                        )}
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={creatingInLibrary ? 'secondary' : 'soft'}
-                          leftIcon={<FolderPlus className="size-3.5" aria-hidden />}
-                          onClick={() => setCreatingInLibrary((v) => !v)}
-                        >
-                          {creatingInLibrary ? 'Đóng form nhanh' : '+ Tạo nhanh'}
-                        </Button>
-                      </div>
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="soft"
+                        leftIcon={<Plus className="size-3.5" aria-hidden />}
+                        onClick={() => setQuizEditor({ lesson: null })}
+                      >
+                        Tạo quiz mới
+                      </Button>
                     </div>
 
-                    {/* Inline Reusable Lesson Creator (Saves directly to Kho bài của tôi with Category) */}
-                    {creatingInLibrary && (
-                      <div className="space-y-3 rounded-xl border border-primary/40 bg-primary-soft/15 p-3">
-                        <div className="space-y-1.5">
-                          <span className="block text-xs font-bold text-fg">
-                            1. Chọn danh mục (Category) cho bài mới:
-                          </span>
-                          <div className="flex flex-wrap gap-1.5">
-                            {(
-                              [
-                                { value: 'quiz', label: 'Quiz 4 đáp án' },
-                                { value: 'vocab', label: 'Từ vựng' },
-                                { value: 'grammar', label: 'Ngữ pháp' },
-                                { value: 'kanji', label: 'Chữ Hán' },
-                              ] as const
-                            ).map((c) => (
-                              <Chip
-                                key={c.value}
-                                selected={newItemCategory === c.value}
-                                onClick={() => setNewItemCategory(c.value)}
-                              >
-                                {c.label}
-                              </Chip>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-12">
-                          <div className="sm:col-span-8">
-                            <Input
-                              aria-label="Tên bộ bài mới"
-                              value={newItemTitle}
-                              onChange={(e) => setNewItemTitle(e.target.value)}
-                              placeholder={
-                                newItemCategory === 'quiz'
-                                  ? 'Tên bộ Quiz (VD: Quiz Quán ăn N5 · Gọi món)'
-                                  : newItemCategory === 'vocab'
-                                    ? 'Tên bộ Từ vựng (VD: Từ vựng đi làm IT)'
-                                    : newItemCategory === 'grammar'
-                                      ? 'Tên bài Ngữ pháp (VD: Mẫu câu xin phép)'
-                                      : 'Tên bộ Chữ Hán (VD: 10 chữ Hán siêu thị)'
-                              }
-                            />
-                          </div>
-                          <div className="sm:col-span-4">
-                            <Select
-                              aria-label="Trình độ bài mới"
-                              value={newItemLevel}
-                              onChange={(e) => setNewItemLevel(e.target.value as StudyLevel)}
-                            >
-                              {LEVELS.map((lv) => (
-                                <option key={lv} value={lv}>
-                                  JLPT {lv}
-                                </option>
-                              ))}
-                            </Select>
-                          </div>
-                        </div>
-
-                        {newItemCategory === 'quiz' && (
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-xs font-semibold text-fg">
-                                Danh sách câu hỏi ({newQuizRows.length} câu · bấm A/B/C/D chọn đáp án đúng)
-                              </span>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="secondary"
-                                leftIcon={<Plus className="size-3.5" aria-hidden />}
-                                onClick={() =>
-                                  setNewQuizRows((prev) => [
-                                    ...prev,
-                                    createEmptyQuizRow(prev.length + 1),
-                                  ])
-                                }
-                              >
-                                Thêm câu
-                              </Button>
-                            </div>
-                            <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
-                              {newQuizRows.map((row, rIdx) => (
-                                <div
-                                  key={row.id}
-                                  className="space-y-2 rounded-lg border border-line bg-surface p-2.5"
-                                >
-                                  <div className="flex items-center justify-between gap-2">
-                                    <span className="text-xs font-bold text-primary-fg">
-                                      Câu {rIdx + 1}
-                                    </span>
-                                    {newQuizRows.length > 1 && (
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          setNewQuizRows((prev) =>
-                                            prev.filter((_, i) => i !== rIdx),
-                                          )
-                                        }
-                                        className="cursor-pointer text-muted hover:text-danger-fg"
-                                        aria-label={`Xóa câu ${rIdx + 1}`}
-                                      >
-                                        <Trash2 className="size-3.5" aria-hidden />
-                                      </button>
-                                    )}
-                                  </div>
-                                  <Input
-                                    value={row.prompt}
-                                    onChange={(e) =>
-                                      setNewQuizRows((prev) =>
-                                        prev.map((it, i) =>
-                                          i === rIdx ? { ...it, prompt: e.target.value } : it,
-                                        ),
-                                      )
-                                    }
-                                    placeholder="Nhập câu hỏi..."
-                                  />
-                                  <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                                    {[0, 1, 2, 3].map((optIdx) => (
-                                      <div key={optIdx} className="flex items-center gap-1.5">
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            setNewQuizRows((prev) =>
-                                              prev.map((it, i) =>
-                                                i === rIdx ? { ...it, correctIndex: optIdx } : it,
-                                              ),
-                                            )
-                                          }
-                                          className={cn(
-                                            'grid size-7 shrink-0 cursor-pointer place-items-center rounded-lg text-xs font-bold transition-colors',
-                                            row.correctIndex === optIdx
-                                              ? 'bg-success text-on-primary'
-                                              : 'border border-line bg-surface-2 text-muted hover:border-primary',
-                                          )}
-                                        >
-                                          {String.fromCharCode(65 + optIdx)}
-                                        </button>
-                                        <Input
-                                          value={row.options[optIdx] ?? ''}
-                                          onChange={(e) =>
-                                            setNewQuizRows((prev) =>
-                                              prev.map((it, i) => {
-                                                if (i !== rIdx) return it;
-                                                const opts = [...it.options];
-                                                while (opts.length <= optIdx) opts.push('');
-                                                opts[optIdx] = e.target.value;
-                                                return { ...it, options: opts };
-                                              }),
-                                            )
-                                          }
-                                          placeholder={`Đáp án ${String.fromCharCode(65 + optIdx)}${optIdx < 2 ? ' *' : ''}`}
-                                          className="flex-1"
-                                        />
-                                      </div>
-                                    ))}
-                                  </div>
-                                  <Input
-                                    value={row.explanation ?? ''}
-                                    onChange={(e) =>
-                                      setNewQuizRows((prev) =>
-                                        prev.map((it, i) =>
-                                          i === rIdx
-                                            ? { ...it, explanation: e.target.value }
-                                            : it,
-                                        ),
-                                      )
-                                    }
-                                    placeholder="Giải thích đáp án (tùy chọn)..."
-                                  />
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {newItemCategory === 'vocab' && (
-                          <Field
-                            label="Nhập danh sách từ vựng (mỗi dòng 1 từ: Kanji | Hiragana | Nghĩa)"
-                            htmlFor="wiz-my-vocab-bulk"
-                          >
-                            <Textarea
-                              id="wiz-my-vocab-bulk"
-                              rows={4}
-                              value={newVocabBulkText}
-                              onChange={(e) => setNewVocabBulkText(e.target.value)}
-                              placeholder={'食べる | たべる | Ăn\n飲む | のむ | Uống\nお会計 | おかいけい | Tính tiền'}
-                              className="text-xs"
-                            />
-                          </Field>
-                        )}
-
-                        {newItemCategory === 'grammar' && (
-                          <div className="space-y-2">
-                            <Input
-                              value={newGrammarStructure}
-                              onChange={(e) => setNewGrammarStructure(e.target.value)}
-                              placeholder="Cấu trúc ngữ pháp (VD: V-てもいいですか)"
-                            />
-                            <Input
-                              value={newGrammarMeaning}
-                              onChange={(e) => setNewGrammarMeaning(e.target.value)}
-                              placeholder="Nghĩa tiếng Việt (VD: Tôi làm V có được không?)"
-                            />
-                            <Input
-                              value={newGrammarExample}
-                              onChange={(e) => setNewGrammarExample(e.target.value)}
-                              placeholder="Ví dụ tiếng Nhật (tùy chọn)"
-                            />
-                          </div>
-                        )}
-
-                        {newItemCategory === 'kanji' && (
-                          <Field
-                            label="Nhập danh sách chữ Hán (mỗi dòng: Chữ Hán | Hán Việt | Nghĩa)"
-                            htmlFor="wiz-my-kanji-bulk"
-                          >
-                            <Textarea
-                              id="wiz-my-kanji-bulk"
-                              rows={4}
-                              value={newKanjiBulkText}
-                              onChange={(e) => setNewKanjiBulkText(e.target.value)}
-                              placeholder={'食 | THỰC | Ăn\n飲 | ẨM | Uống\n駅 | DỊCH | Nhà ga'}
-                              className="text-xs"
-                            />
-                          </Field>
-                        )}
-
-                        <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                          <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-fg">
-                            <input
-                              type="checkbox"
-                              checked={autoAttachToStage}
-                              onChange={(e) => setAutoAttachToStage(e.target.checked)}
-                              className="size-4 accent-primary"
-                            />
-                            <span>Tự động gắn luôn vào {currentCompStage.title}</span>
-                          </label>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="primary"
-                            leftIcon={<Check className="size-3.5" aria-hidden />}
-                            onClick={handleCreateLessonInMyLibrary}
-                          >
-                            Lưu vào Kho bài của tôi
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-
                     {/* Reusable My Library Cards (Same clean card style as App Library!) */}
-                    {filteredMyLessons.length === 0 ? (
+                    {studioLessons.length === 0 ? (
                       <div className="space-y-2 rounded-xl border border-dashed border-line bg-surface-2/35 p-4 text-center">
-                        <p className="text-xs text-muted">
-                          {studioLessons.length === 0
-                            ? 'Kho bài của tôi đang trống. Hãy bấm "+ Tạo bài / Quiz mới" ở trên để tạo bài theo Category (Quiz, Từ vựng, Ngữ pháp, Chữ Hán), hoặc chuyển sang tab "Kho bài của App" để chọn bài có sẵn.'
-                            : 'Chưa có bài tự tạo nào thuộc danh mục này.'}
-                        </p>
+                        <p className="text-xs text-muted">Bạn chưa có bài tự tạo.</p>
                       </div>
                     ) : (
                       <div className="max-h-52 space-y-1.5 overflow-y-auto pr-1">
-                        {filteredMyLessons.map((lesson) => {
+                        {studioLessons.map((lesson) => {
                           const meta = getLessonCategoryMeta(lesson);
                           const count = getLessonItemCount(lesson);
                           const lessonUrl = `/studio?lesson=${encodeURIComponent(lesson.id)}`;
@@ -1529,9 +963,47 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
                                   </span>
                                 </div>
                                 <p className="truncate text-[11px] text-muted">
-                                  Kho bài của tôi · JLPT {lesson.level}
+                                  JLPT {lesson.level}
                                 </p>
                               </div>
+                              <div className="flex shrink-0 items-center gap-0.5">
+                                <IconButton
+                                  size="sm"
+                                  aria-label={`Xem chi tiết ${lesson.title}`}
+                                  title="Xem chi tiết"
+                                  onClick={() => setDetail(describeCustomLesson(lesson))}
+                                >
+                                  <Eye className="size-4" aria-hidden />
+                                </IconButton>
+                                {lesson.kind === 'quiz' ? (
+                                  <IconButton
+                                    size="sm"
+                                    aria-label={`Sửa ${lesson.title}`}
+                                    title="Sửa"
+                                    onClick={() => setQuizEditor({ lesson })}
+                                  >
+                                    <PenLine className="size-4" aria-hidden />
+                                  </IconButton>
+                                ) : (
+                                  <a
+                                    href={`#/studio?lesson=${encodeURIComponent(lesson.id)}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    aria-label={`Sửa ${lesson.title} (mở tab mới)`}
+                                    title="Sửa ở trang Tự tạo bài (tab mới)"
+                                    className="grid size-8 place-items-center rounded-lg text-muted hover:bg-primary-soft hover:text-primary-fg"
+                                  >
+                                    <PenLine className="size-4" aria-hidden />
+                                  </a>
+                                )}
+                                <IconButton
+                                  size="sm"
+                                  aria-label={`Xóa ${lesson.title}`}
+                                  title="Xóa"
+                                  onClick={() => setLessonToDelete(lesson)}
+                                >
+                                  <Trash2 className="size-4 text-danger-fg" aria-hidden />
+                                </IconButton>
                               <Button
                                 type="button"
                                 size="sm"
@@ -1547,6 +1019,7 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
                               >
                                 {added ? 'Đã thêm' : 'Thêm'}
                               </Button>
+                              </div>
                             </div>
                           );
                         })}
@@ -1574,53 +1047,36 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
                           ))}
                         </Select>
                       </div>
-                      <div className="sm:col-span-5">
+                      <div className="sm:col-span-4">
                         <Select
-                          aria-label="Chọn sách giáo trình"
-                          value={effectivePickerBookId}
-                          onChange={(e) => setPickerBookId(e.target.value)}
+                          aria-label="Loại bài tập"
+                          value={pickerActivity}
+                          onChange={(e) => setPickerActivity(e.target.value as AppActivityFilter)}
                         >
-                          {pickerBooks.map((book) => (
-                            <option key={book.id} value={book.id}>
-                              {book.title}
+                          {APP_ACTIVITY_FILTERS.map((f) => (
+                            <option key={f.value} value={f.value}>
+                              {f.value === 'all' ? 'Mọi loại bài' : f.label}
                             </option>
                           ))}
                         </Select>
                       </div>
-                      <div className="sm:col-span-4">
+                      <div className="sm:col-span-5">
                         <Input
                           aria-label="Tìm bài học"
                           value={pickerSearch}
                           onChange={(e) => setPickerSearch(e.target.value)}
-                          placeholder="Tìm bài (VD: Bài 3, Đọc)..."
+                          placeholder="Tìm bài..."
                         />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <span className="block text-[11px] font-semibold text-muted">
-                        Lọc theo loại bài tập trong sách đang chọn:
-                      </span>
-                      <div className="flex flex-wrap gap-1.5">
-                        {APP_ACTIVITY_FILTERS.map((f) => (
-                          <Chip
-                            key={f.value}
-                            selected={pickerActivity === f.value}
-                            onClick={() => setPickerActivity(f.value)}
-                          >
-                            {f.label}
-                          </Chip>
-                        ))}
                       </div>
                     </div>
 
                     <div className="max-h-52 space-y-1.5 overflow-y-auto pr-1">
                       {filteredCatalog.length === 0 ? (
                         <p className="py-4 text-center text-xs text-muted">
-                          Không tìm thấy bài phù hợp. Hãy thử đổi bộ lọc loại bài tập hoặc từ khóa.
+                          Không có bài phù hợp.
                         </p>
                       ) : (
-                        filteredCatalog.slice(0, 60).map((preset) => {
+                        filteredCatalog.map((preset) => {
                           const added = currentCompStage.tasks.some(
                             (t) => t.to === preset.to && t.title === preset.title,
                           );
@@ -1642,6 +1098,15 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
                                 </div>
                                 <p className="truncate text-[11px] text-muted">{preset.group}</p>
                               </div>
+                              <div className="flex shrink-0 items-center gap-0.5">
+                                <IconButton
+                                  size="sm"
+                                  aria-label={`Xem chi tiết ${preset.title}`}
+                                  title="Xem chi tiết"
+                                  onClick={() => setDetail(describeCatalogLesson(preset, pickerLevel, cmsSnapshot))}
+                                >
+                                  <Eye className="size-4" aria-hidden />
+                                </IconButton>
                               <Button
                                 type="button"
                                 size="sm"
@@ -1657,6 +1122,7 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
                               >
                                 {added ? 'Đã thêm' : 'Thêm'}
                               </Button>
+                              </div>
                             </div>
                           );
                         })
@@ -1669,28 +1135,6 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
           ) : (
             /* STEP 2: SCHEDULE (NAME, START DATE, TIME, WEEKDAYS) */
             <div className="space-y-4">
-              <div className="rounded-xl border border-success-line bg-success-soft/25 p-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 text-xs font-bold text-fg">
-                    <Calendar className="size-4 text-primary-fg" aria-hidden />
-                    <span>
-                      Đã chuẩn bị xong {nonEmptyCompStages.length} buổi học ({totalCompTasks} bài tập)
-                    </span>
-                  </div>
-                  <Badge tone="success">Sẵn sàng xếp lịch</Badge>
-                </div>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {nonEmptyCompStages.map((st, idx) => (
-                    <span
-                      key={st.id}
-                      className="rounded-lg bg-surface px-2 py-0.5 text-[11px] font-medium text-fg ring-1 ring-line"
-                    >
-                      Buổi {idx + 1}: {st.title} ({st.tasks.length} bài)
-                    </span>
-                  ))}
-                </div>
-              </div>
-
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Field label="Tên lộ trình" htmlFor="comp-step2-name">
                   <Input
@@ -1708,7 +1152,7 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
                     onChange={(e) => setCompStartDate(e.target.value || todayKey)}
                   />
                 </Field>
-                <Field label="Thời lượng mục tiêu mỗi ngày" htmlFor="comp-step2-minutes">
+                <Field label="Phút mỗi ngày" htmlFor="comp-step2-minutes">
                   <Select
                     id="comp-step2-minutes"
                     value={compMinutes}
@@ -1721,7 +1165,7 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
                     ))}
                   </Select>
                 </Field>
-                <Field label="Giờ nhắc học & Nhắc lặp" htmlFor="comp-step2-time">
+                <Field label="Giờ nhắc" htmlFor="comp-step2-time">
                   <div className="flex gap-2">
                     <Input
                       id="comp-step2-time"
@@ -1751,7 +1195,7 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
 
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-sm font-medium text-fg">Các ngày học trong tuần</span>
+                  <span className="text-sm font-medium text-fg">Ngày học</span>
                   <div className="flex flex-wrap gap-1.5">
                     {WEEKDAY_PRESETS.map((p) => (
                       <button
@@ -1787,20 +1231,13 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
               </div>
 
               <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-surface-2/50 px-3 py-2.5">
-                <div className="space-y-0.5">
-                  <p className="text-xs font-bold text-fg">
-                    Thông báo nhắc học riêng cho lộ trình này
-                  </p>
-                  <p className="text-[11px] text-muted">
-                    Lưu tách biệt với các lộ trình khác — chỉ nhắc khi bạn đang chọn học lộ trình này.
-                  </p>
-                </div>
+                <p className="text-sm font-medium text-fg">Nhắc học</p>
                 <div className="flex gap-1.5">
                   <Chip
                     selected={compNotificationsEnabled}
                     onClick={() => setCompNotificationsEnabled(true)}
                   >
-                    Bật nhắc học
+                    Bật
                   </Chip>
                   <Chip
                     selected={!compNotificationsEnabled}
@@ -1837,13 +1274,13 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
                 1
               </span>
               <h3 className="text-sm font-bold text-fg">
-                Chọn chủ đề &amp; Gửi yêu cầu cho ChatGPT / Gemini
+                Gửi yêu cầu cho AI
               </h3>
             </div>
 
             <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-12">
               <div className="sm:col-span-6">
-                <Field label="Bạn muốn học chủ đề gì?" htmlFor="wiz-ai-topic">
+                <Field label="Chủ đề" htmlFor="wiz-ai-topic">
                   <Input
                     id="wiz-ai-topic"
                     value={aiTopic}
@@ -1898,7 +1335,7 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
               <Chip selected={aiIncludeQuizzes} onClick={() => setAiIncludeQuizzes((v) => !v)}>
                 Quiz 4 đáp án
               </Chip>
-              <div className="ml-auto w-28">
+              <div className="ml-auto w-36">
                 <Select
                   aria-label="Thời lượng mỗi ngày"
                   value={aiMinutes}
@@ -1927,7 +1364,7 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
                   )
                 }
               >
-                Copy yêu cầu gửi AI
+                Copy yêu cầu
               </Button>
               <a
                 href="https://chatgpt.com/"
@@ -1952,7 +1389,7 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
                 onClick={() => setShowRawPrompt((v) => !v)}
                 className="ml-auto cursor-pointer text-xs font-medium text-muted underline-offset-2 hover:text-fg hover:underline"
               >
-                {showRawPrompt ? 'Ẩn câu lệnh mẫu' : 'Xem câu lệnh đã copy'}
+                {showRawPrompt ? 'Ẩn câu lệnh mẫu' : 'Xem yêu cầu'}
               </button>
             </div>
 
@@ -1973,7 +1410,7 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
                   2
                 </span>
                 <h3 className="text-sm font-bold text-fg">
-                  Dán câu trả lời từ AI vào đây
+                  Dán câu trả lời
                 </h3>
               </div>
               <div className="flex flex-wrap items-center gap-1.5">
@@ -1990,7 +1427,7 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
                     });
                   }}
                 >
-                  Thử mẫu 3 buổi có sẵn
+                  Dùng thử mẫu
                 </Button>
                 <Button
                   type="button"
@@ -1999,7 +1436,7 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
                   leftIcon={<Upload className="size-3.5" aria-hidden />}
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  Mở file đã lưu
+                  Mở file
                 </Button>
                 <input
                   ref={fileInputRef}
@@ -2016,7 +1453,7 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
               rows={4}
               value={aiPasteText}
               onChange={(e) => setAiPasteText(e.target.value)}
-              placeholder="Nhấn Ctrl+V dán nguyên câu trả lời của ChatGPT / Gemini vào đây — App sẽ tự đọc và biến thành các Buổi học + Quiz..."
+              placeholder="Dán câu trả lời của AI vào đây"
               className="text-xs leading-relaxed"
             />
 
@@ -2096,49 +1533,8 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
       {/* FLOW C: QUICK TEXTBOOK SCHEDULE OR COMMUNITY GALLERY */}
       {mode === 'quick' && (
         <div className="space-y-4">
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant={quickSubTab === 'schedule' ? 'primary' : 'secondary'}
-              leftIcon={<Zap className="size-3.5" aria-hidden />}
-              onClick={() => setQuickSubTab('schedule')}
-            >
-              Tùy chỉnh lịch theo Sách
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant={quickSubTab === 'community' ? 'primary' : 'secondary'}
-              leftIcon={<Users className="size-3.5" aria-hidden />}
-              onClick={() => setQuickSubTab('community')}
-            >
-              Kho Cộng đồng (Lưu 1 chạm)
-            </Button>
-          </div>
-
-          {quickSubTab === 'schedule' ? (
-            <div className="space-y-3.5">
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {ROADMAP_QUICK_TEMPLATES.map((tpl) => (
-                  <button
-                    key={tpl.id}
-                    type="button"
-                    onClick={() => handleApplyQuickTemplate(tpl)}
-                    className="flex cursor-pointer flex-col gap-1 rounded-xl border border-line bg-surface-2/50 p-2.5 text-left transition-colors hover:border-primary hover:bg-primary-soft/35"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-bold text-fg">{tpl.title}</span>
-                      <Badge tone="primary" className="px-1.5 py-0 text-[10px]">
-                        {tpl.badge}
-                      </Badge>
-                    </div>
-                    <p className="text-[11px] leading-relaxed text-muted">{tpl.summary}</p>
-                  </button>
-                ))}
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="space-y-4">
+              <div className="grid grid-cols-[1fr_6.5rem] gap-2">
                 <Field label="Tên lộ trình" htmlFor="wiz-quick-name">
                   <Input
                     id="wiz-quick-name"
@@ -2146,169 +1542,111 @@ export const CreateRoadmapWizardModal: React.FC<CreateRoadmapWizardModalProps> =
                     onChange={(e) => setQuickConfig({ ...quickConfig, name: e.target.value })}
                   />
                 </Field>
-                <Field label="Trình độ & Giáo trình" htmlFor="wiz-quick-level">
-                  <div className="flex gap-2">
-                    <div className="w-28">
-                      <Select
-                        id="wiz-quick-level"
-                        value={quickConfig.level}
-                        onChange={(e) => {
-                          const nextLvl = e.target.value as StudyLevel;
-                          const nextBook = resolveActiveVocabTextbook(nextLvl, userId);
-                          setQuickConfig({
-                            ...quickConfig,
-                            level: nextLvl,
-                            textbookId: nextBook.id,
-                            totalStages: getRecommendedFixedStageCount(
-                              nextLvl,
-                              nextBook.id,
-                              quickConfig.dailyMinutesTarget,
-                            ),
-                            name: `Lộ trình ${nextLvl} · ${nextBook.shortTitle}`,
-                          });
-                        }}
-                      >
-                        {LEVELS.map((lvl) => (
-                          <option key={lvl} value={lvl}>
-                            {lvl}
-                          </option>
-                        ))}
-                      </Select>
-                    </div>
-                    <div className="flex-1">
-                      <Select
-                        aria-label="Giáo trình"
-                        value={quickConfig.textbookId}
-                        onChange={(e) =>
-                          setQuickConfig({ ...quickConfig, textbookId: e.target.value })
-                        }
-                      >
-                        {getVocabTextbooksForLevel(quickConfig.level).map((b) => (
-                          <option key={b.id} value={b.id}>
-                            {b.shortTitle}
-                          </option>
-                        ))}
-                      </Select>
-                    </div>
-                  </div>
+                <Field label="Trình độ" htmlFor="wiz-quick-level">
+                  <Select
+                    id="wiz-quick-level"
+                    value={quickConfig.level}
+                    onChange={(e) => {
+                      const nextLvl = e.target.value as StudyLevel;
+                      const nextBook = resolveActiveVocabTextbook(nextLvl, userId);
+                      setQuickConfig({
+                        ...quickConfig,
+                        level: nextLvl,
+                        textbookId: nextBook.id,
+                        totalStages: getRecommendedFixedStageCount(
+                          nextLvl,
+                          nextBook.id,
+                          quickConfig.dailyMinutesTarget,
+                        ),
+                        name: `Lộ trình ${nextLvl}`,
+                      });
+                    }}
+                  >
+                    {LEVELS.map((lvl) => (
+                      <option key={lvl} value={lvl}>
+                        {lvl}
+                      </option>
+                    ))}
+                  </Select>
                 </Field>
               </div>
 
-              <div className="space-y-1.5">
-                <span className="text-xs font-semibold text-fg">
-                  Thời lượng học mỗi ngày (tự tính số buổi Timeline):
-                </span>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-                  {DAILY_PACE_PRESETS.map((preset) => {
-                    const selected = quickConfig.dailyMinutesTarget === preset.minutes;
-                    return (
-                      <button
-                        key={preset.minutes}
-                        type="button"
-                        onClick={() =>
-                          setQuickConfig({
-                            ...quickConfig,
-                            dailyMinutesTarget: preset.minutes,
-                            totalStages: getStageCountForDailyMinutes(preset.minutes) as TotalStagesOption,
-                          })
-                        }
-                        className={cn(
-                          'flex cursor-pointer flex-col items-start gap-0.5 rounded-xl border p-2 text-left transition-colors',
-                          selected
-                            ? 'border-primary bg-primary-soft/70 text-primary-fg'
-                            : 'border-line bg-surface-2/60 text-fg hover:border-primary/60',
-                        )}
-                      >
-                        <span className="text-xs font-bold tabular">{preset.label}</span>
-                        <span className="text-[11px] font-semibold tabular">
-                          {preset.stages} buổi
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              <SchedulePicker
+                idPrefix="wiz-quick"
+                minutes={quickConfig.dailyMinutesTarget}
+                onMinutesChange={(minutes) =>
+                  setQuickConfig({
+                    ...quickConfig,
+                    dailyMinutesTarget: minutes,
+                    totalStages: getStageCountForDailyMinutes(minutes) as TotalStagesOption,
+                  })
+                }
+                startDate={quickConfig.startDate}
+                onStartDateChange={(date) => setQuickConfig({ ...quickConfig, startDate: date })}
+                weekdays={quickConfig.studyWeekdays}
+                onWeekdaysChange={(days) => setQuickConfig({ ...quickConfig, studyWeekdays: days })}
+              />
 
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-xs font-semibold text-fg">Ngày học:</span>
-                {WEEKDAY_PRESETS.map((p) => {
-                  const selected =
-                    p.days.length === quickConfig.studyWeekdays.length &&
-                    p.days.every((d) => quickConfig.studyWeekdays.includes(d));
-                  return (
-                    <Chip
-                      key={p.label}
-                      selected={selected}
-                      onClick={() => setQuickConfig({ ...quickConfig, studyWeekdays: [...p.days] })}
-                    >
-                      {p.label}
-                    </Chip>
-                  );
-                })}
-              </div>
-
-              <Notice tone="info">
-                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                  <span>
-                    Dự kiến xong:{' '}
-                    <strong className="text-fg">{quickForecast.estimatedCompletionLabel}</strong>
-                  </span>
-                  <span className="text-muted tabular">
-                    {quickConfig.totalStages} buổi · {quickConfig.studyWeekdays.length} ngày/tuần
-                  </span>
-                </div>
-              </Notice>
+              <p className="rounded-lg bg-primary-soft px-3 py-2 text-sm text-primary-fg">
+                {quickConfig.totalStages} buổi · xong {quickForecast.estimatedCompletionLabel}
+              </p>
             </div>
-          ) : (
-            <div className="space-y-3">
-              <div className="flex flex-wrap items-center gap-1.5">
-                {(['ALL', 'N5', 'N4', 'N3'] as const).map((lvl) => (
-                  <Chip
-                    key={lvl}
-                    selected={communityFilter === lvl}
-                    onClick={() => setCommunityFilter(lvl)}
-                  >
-                    {lvl === 'ALL' ? 'Tất cả' : lvl}
-                  </Chip>
-                ))}
-              </div>
-              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                {COMMUNITY_ROADMAP_GALLERY.filter(
-                  (e) => communityFilter === 'ALL' || e.level === communityFilter,
-                ).map((entry) => (
-                  <div
-                    key={entry.id}
-                    className="flex flex-col justify-between gap-2.5 rounded-xl border border-line bg-surface-2/55 p-3"
-                  >
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between gap-1.5">
-                        <div className="flex items-center gap-1.5">
-                          <Badge tone="primary">{entry.level}</Badge>
-                          <Badge tone="sakura">{entry.tag}</Badge>
-                        </div>
-                        <span className="text-[11px] text-muted tabular">
-                          {entry.learnersCount} người học
-                        </span>
-                      </div>
-                      <h4 className="text-sm font-bold text-fg">{entry.name}</h4>
-                      <p className="text-xs text-muted">{entry.description}</p>
-                    </div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="primary"
-                      fullWidth
-                      onClick={() => handlePickCommunity(entry)}
-                    >
-                      Chọn &amp; Học ngay ({entry.totalStages} buổi)
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       )}
     </Modal>
+
+    <LessonDetailModal detail={detail} onClose={() => setDetail(null)} />
+
+    <CreateQuizModal
+      open={open && Boolean(quizEditor)}
+      editingLesson={quizEditor?.lesson ?? null}
+      defaultLevel={pickerLevel}
+      onClose={() => setQuizEditor(null)}
+      onSaveQuiz={(lesson) => {
+        onSaveStudioLesson(lesson);
+        // keep sessions that already contain this quiz in step with its new name
+        const url = `/studio?lesson=${encodeURIComponent(lesson.id)}`;
+        setCompStages((prev) =>
+          prev.map((st) => ({
+            ...st,
+            tasks: st.tasks.map((t) => (t.to === url ? { ...t, title: lesson.title } : t)),
+          })),
+        );
+        toast({ title: `Đã lưu "${lesson.title}"`, tone: 'success' });
+      }}
+    />
+
+    <Modal
+      open={open && Boolean(lessonToDelete)}
+      onClose={() => setLessonToDelete(null)}
+      size="sm"
+      title="Xóa bài này?"
+      footer={
+        <>
+          <Button type="button" variant="secondary" onClick={() => setLessonToDelete(null)}>
+            Hủy
+          </Button>
+          <Button
+            type="button"
+            variant="danger"
+            onClick={() => {
+              if (!lessonToDelete) return;
+              const url = `/studio?lesson=${encodeURIComponent(lessonToDelete.id)}`;
+              setCompStages((prev) =>
+                prev.map((st) => ({ ...st, tasks: st.tasks.filter((t) => t.to !== url) })),
+              );
+              onDeleteStudioLesson(lessonToDelete.id);
+              setLessonToDelete(null);
+            }}
+          >
+            Xóa
+          </Button>
+        </>
+      }
+    >
+      <p className="text-sm text-fg">{lessonToDelete?.title}</p>
+      <p className="mt-1 text-xs text-muted">Bài sẽ bị gỡ khỏi các buổi đang dùng nó.</p>
+    </Modal>
+    </>
   );
 };

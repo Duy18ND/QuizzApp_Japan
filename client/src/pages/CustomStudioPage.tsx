@@ -1,10 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
-  BookOpen,
   Gamepad2,
   Languages,
-  Map as MapIcon,
   Pencil,
   Play,
   Plus,
@@ -13,12 +11,10 @@ import {
   Upload,
 } from 'lucide-react';
 import { CustomLessonPlayerModal } from '../components/studio/CustomLessonPlayerModal';
-import { VisualRoadmapCanvas } from '../components/studio/VisualRoadmapCanvas';
 import {
   Badge,
   Button,
   Card,
-  Chip,
   EmptyState,
   Field,
   Input,
@@ -27,15 +23,12 @@ import {
   PageContainer,
   PageHeader,
   Select,
-  Tabs,
   Textarea,
   useToast,
 } from '../components/ui';
 import { buttonStyles } from '../components/ui/styles';
 import { useAuth } from '../context/auth-context';
 import {
-  createFiveSkillPresetVisualRoadmap,
-  createStarterVisualRoadmap,
   CUSTOM_STUDIO_SYNC_EVENT,
   loadCustomStudioState,
   parseBulkVocabText,
@@ -47,7 +40,6 @@ import {
   type CustomQuizEntry,
   type CustomStudioState,
   type CustomVocabEntry,
-  type VisualRoadmap,
 } from '../services/customStudioService';
 import type { JLPTLevel } from '../types/quiz';
 
@@ -56,19 +48,9 @@ const LEVELS: JLPTLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1'];
 export const CustomStudioPage: React.FC = () => {
   const { user, studyLevel } = useAuth();
   const { toast } = useToast();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
 
-  const activeTab = searchParams.get('tab') === 'canvas' ? 'canvas' : 'lessons';
   const [studio, setStudio] = useState<CustomStudioState>(() => loadCustomStudioState(user?.id));
-  const [selectedRoadmapId, setActiveRoadmapId] = useState<string | null>(
-    () => searchParams.get('map') || loadCustomStudioState(user?.id).visualRoadmaps[0]?.id || null,
-  );
-  const mapParam = searchParams.get('map');
-  const activeRoadmapId =
-    mapParam && studio.visualRoadmaps.some((m) => m.id === mapParam)
-      ? mapParam
-      : selectedRoadmapId;
-
   // Lesson Editor Modal State (Phase 1 — Mini-CMS like Admin!)
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
@@ -83,21 +65,11 @@ export const CustomStudioPage: React.FC = () => {
   const [bulkPasteText, setBulkPasteText] = useState('');
   const [showBulkPaste, setShowBulkPaste] = useState(false);
 
-  // New Visual Roadmap Modal
-  const [newMapModalOpen, setNewMapModalOpen] = useState(false);
-  const [newMapName, setNewMapName] = useState('');
-  const [newMapLevel, setNewMapLevel] = useState<JLPTLevel>(studyLevel ?? 'N5');
-  const [newMapTemplate, setNewMapTemplate] = useState<'five-skill' | 'starter'>('five-skill');
-
   // Instant Lesson Player Modal (auto-opens when ?lesson=<id> deep link is present)
-  const [playingLesson, setPlayingLesson] = useState<{
-    lesson: CustomLesson;
-    sourceNodeId?: string;
-  } | null>(() => {
+  const [playingLesson, setPlayingLesson] = useState<CustomLesson | null>(() => {
     const lessonParam = searchParams.get('lesson');
     if (!lessonParam) return null;
-    const found = loadCustomStudioState(user?.id).lessons.find((l) => l.id === lessonParam);
-    return found ? { lesson: found } : null;
+    return loadCustomStudioState(user?.id).lessons.find((l) => l.id === lessonParam) ?? null;
   });
 
   useEffect(() => {
@@ -109,12 +81,6 @@ export const CustomStudioPage: React.FC = () => {
   const commitStudio = (next: CustomStudioState) => {
     const saved = saveCustomStudioState(next, user?.id);
     setStudio(saved);
-  };
-
-  const setTab = (tab: 'lessons' | 'canvas') => {
-    const next = new URLSearchParams(searchParams);
-    next.set('tab', tab);
-    setSearchParams(next, { replace: true });
   };
 
   const openNewLessonModal = (kind: CustomLessonKind) => {
@@ -299,72 +265,15 @@ export const CustomStudioPage: React.FC = () => {
     toast({ title: 'Đã xóa bài tự tạo', tone: 'info' });
   };
 
-  const activeRoadmap = useMemo(
-    () =>
-      studio.visualRoadmaps.find((r) => r.id === activeRoadmapId) ??
-      studio.visualRoadmaps[0] ??
-      null,
-    [activeRoadmapId, studio.visualRoadmaps],
-  );
-
-  const handleCreateVisualRoadmap = () => {
-    const created =
-      newMapTemplate === 'five-skill'
-        ? createFiveSkillPresetVisualRoadmap(newMapName, newMapLevel)
-        : createStarterVisualRoadmap(newMapName, newMapLevel);
-    commitStudio({
-      ...studio,
-      visualRoadmaps: [created, ...studio.visualRoadmaps],
-    });
-    setActiveRoadmapId(created.id);
-    setNewMapName('');
-    setNewMapModalOpen(false);
-    toast({ title: `Đã tạo bản đồ "${created.name}"!`, tone: 'success' });
-  };
-
-  const handleQuickCreateFiveSkillMap = () => {
-    const targetLevel = (studyLevel ?? 'N5') as JLPTLevel;
-    const created = createFiveSkillPresetVisualRoadmap('', targetLevel);
-    commitStudio({
-      ...studio,
-      visualRoadmaps: [created, ...studio.visualRoadmaps],
-    });
-    setActiveRoadmapId(created.id);
-    toast({
-      title: `Đã sinh nhanh Lộ trình Chuẩn 5 Kỹ năng (${targetLevel}) · 7 ngày!`,
-      tone: 'success',
-    });
-  };
-
-  const handleUpdateVisualRoadmap = (updated: VisualRoadmap) => {
-    commitStudio({
-      ...studio,
-      visualRoadmaps: studio.visualRoadmaps.map((r) => (r.id === updated.id ? updated : r)),
-    });
-  };
-
-  const handleDeleteVisualRoadmap = (mapId: string) => {
-    const remaining = studio.visualRoadmaps.filter((r) => r.id !== mapId);
-    commitStudio({ ...studio, visualRoadmaps: remaining });
-    setActiveRoadmapId(remaining[0]?.id ?? null);
-    toast({ title: 'Đã xóa bản đồ tự vẽ', tone: 'info' });
-  };
-
   return (
     <PageContainer size="lg" className="max-w-5xl space-y-4">
       <PageHeader
         breadcrumbs={[
           { label: 'Trang chủ', to: '/' },
           { label: 'Bản đồ Màn', to: '/roadmap' },
-          { label: 'Studio Tự tạo Bài & Lộ trình' },
+          { label: 'Bài tự tạo' },
         ]}
-        title={
-          <span className="flex flex-wrap items-center gap-2">
-            <span>Studio Tự tạo Bài &amp; Vẽ Lộ trình</span>
-            <Badge tone="sakura">Creator Studio</Badge>
-          </span>
-        }
-        description="Tạo bài (từ vựng, ngữ pháp, Kanji, quiz) rồi ghép thành lộ trình — học ngay bằng Flashcard, Quiz và Mini-game."
+        title="Bài tự tạo"
         actions={
           <div className="flex flex-wrap gap-2">
             <Link to="/roadmap?new=quiz" className={buttonStyles({ variant: 'primary', size: 'sm' })}>
@@ -386,38 +295,14 @@ export const CustomStudioPage: React.FC = () => {
 
       {!user && (
         <Notice tone="info">
-          Bạn đang ở chế độ Khách — bài tự tạo được lưu trên trình duyệt này. Đăng nhập để tự động sao lưu lên đám mây Supabase!
+          Chế độ khách: bài tự tạo chỉ lưu trên trình duyệt này.
         </Notice>
       )}
 
-      <div className="rounded-xl border border-line bg-glass px-3 py-1.5 shadow-card backdrop-blur-md">
-        <Tabs
-          aria-label="Chế độ Studio"
-          variant="pill"
-          value={activeTab}
-          onChange={setTab}
-          className="gap-1.5"
-          items={[
-            {
-              value: 'lessons',
-              label: `1. Kho Bài Tự Tạo (${studio.lessons.length})`,
-              icon: <BookOpen className="size-4" aria-hidden />,
-            },
-            {
-              value: 'canvas',
-              label: `2. Tự Vẽ Bản Đồ Lộ Trình (${studio.visualRoadmaps.length})`,
-              icon: <MapIcon className="size-4" aria-hidden />,
-            },
-          ]}
-        />
-      </div>
-
-      {/* PHASE 1: CUSTOM LESSONS MINI-CMS */}
-      {activeTab === 'lessons' ? (
         <div className="space-y-4">
           <Card padding="sm" className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-xs font-semibold text-muted">
-              Tạo bài học mới theo phong cách Admin (tự dùng Flashcard, Quiz &amp; 6 Mini-game):
+              Tạo bài mới:
             </span>
             <div className="flex flex-wrap gap-1.5">
               <Button
@@ -427,7 +312,7 @@ export const CustomStudioPage: React.FC = () => {
                 leftIcon={<Plus className="size-4" aria-hidden />}
                 onClick={() => openNewLessonModal('vocab')}
               >
-                + Bài Từ vựng
+                Bài Từ vựng
               </Button>
               <Button
                 type="button"
@@ -436,7 +321,7 @@ export const CustomStudioPage: React.FC = () => {
                 leftIcon={<Languages className="size-4" aria-hidden />}
                 onClick={() => openNewLessonModal('grammar')}
               >
-                + Bài Ngữ pháp
+                Bài Ngữ pháp
               </Button>
               <Button
                 type="button"
@@ -445,7 +330,7 @@ export const CustomStudioPage: React.FC = () => {
                 leftIcon={<Sparkles className="size-4" aria-hidden />}
                 onClick={() => openNewLessonModal('kanji')}
               >
-                + Bài Kanji
+                Bài Kanji
               </Button>
               <Button
                 type="button"
@@ -454,7 +339,7 @@ export const CustomStudioPage: React.FC = () => {
                 leftIcon={<Plus className="size-4" aria-hidden />}
                 onClick={() => openNewLessonModal('quiz')}
               >
-                + Bộ Quiz 4 đáp án
+                Bộ Quiz 4 đáp án
               </Button>
             </div>
           </Card>
@@ -462,7 +347,7 @@ export const CustomStudioPage: React.FC = () => {
           {studio.lessons.length === 0 ? (
             <EmptyState
               title="Bạn chưa tự tạo bài học nào"
-              description="Bấm “+ Bài Từ vựng” (có hỗ trợ dán nhanh nhiều dòng từ Excel/Sheets) để tạo bộ từ riêng và chơi ngay trên Bắn Từ Vựng, Chém Hoa Quả, Flashcard & Quiz!"
+              description="Có thể dán nhiều dòng từ Excel / Sheets."
               action={
                 <Button
                   type="button"
@@ -548,7 +433,7 @@ export const CustomStudioPage: React.FC = () => {
                         variant="primary"
                         size="sm"
                         leftIcon={<Play className="size-3.5" aria-hidden />}
-                        onClick={() => setPlayingLesson({ lesson })}
+                        onClick={() => setPlayingLesson(lesson)}
                       >
                         Flashcard &amp; Quiz
                       </Button>
@@ -568,79 +453,6 @@ export const CustomStudioPage: React.FC = () => {
             </div>
           )}
         </div>
-      ) : (
-        /* PHASE 2: VISUAL ROADMAP CANVAS BUILDER */
-        <div className="space-y-3">
-          <Card padding="sm" className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-1.5">
-              {studio.visualRoadmaps.map((rm) => (
-                <Chip
-                  key={rm.id}
-                  selected={activeRoadmap?.id === rm.id}
-                  onClick={() => setActiveRoadmapId(rm.id)}
-                >
-                  {rm.name} ({rm.nodes.length})
-                </Chip>
-              ))}
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
-                leftIcon={<Plus className="size-3.5" aria-hidden />}
-                onClick={() => setNewMapModalOpen(true)}
-              >
-                Vẽ Bản đồ mới
-              </Button>
-              <Button
-                type="button"
-                variant="soft"
-                size="sm"
-                leftIcon={<Sparkles className="size-3.5" aria-hidden />}
-                onClick={handleQuickCreateFiveSkillMap}
-              >
-                + Sinh nhanh Mẫu 5 Kỹ năng
-              </Button>
-            </div>
-            {activeRoadmap && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => handleDeleteVisualRoadmap(activeRoadmap.id)}
-                leftIcon={<Trash2 className="size-3.5 text-danger-fg" aria-hidden />}
-              >
-                Xóa bản đồ này
-              </Button>
-            )}
-          </Card>
-
-          {activeRoadmap ? (
-            <VisualRoadmapCanvas
-              roadmap={activeRoadmap}
-              customLessons={studio.lessons}
-              onChangeRoadmap={handleUpdateVisualRoadmap}
-              onOpenCustomLesson={(lesson, sourceNodeId) =>
-                setPlayingLesson({ lesson, sourceNodeId })
-              }
-            />
-          ) : (
-            <EmptyState
-              title="Chưa có Bản đồ Lộ trình tự vẽ"
-              description="Bấm “Vẽ Bản đồ mới” để tự kéo-thả các điểm bài học, nối dây mở khóa / rẽ nhánh và gắn bài tự tạo vào từng chặng."
-              action={
-                <Button
-                  type="button"
-                  variant="primary"
-                  leftIcon={<Plus className="size-4" aria-hidden />}
-                  onClick={() => setNewMapModalOpen(true)}
-                >
-                  Tạo Bản đồ tự vẽ đầu tiên
-                </Button>
-              }
-            />
-          )}
-        </div>
-      )}
 
       {/* Create / Edit Custom Lesson Modal (Mini-Admin CMS) */}
       <Modal
@@ -652,7 +464,6 @@ export const CustomStudioPage: React.FC = () => {
             ? `Sửa bài ${lessonKind === 'vocab' ? 'Từ vựng' : lessonKind === 'grammar' ? 'Ngữ pháp' : 'Kanji'}`
             : `Tạo bài ${lessonKind === 'vocab' ? 'Từ vựng' : lessonKind === 'grammar' ? 'Ngữ pháp' : 'Kanji'} mới`
         }
-        description="Nội dung bạn tạo được lưu riêng cho tài khoản của bạn và có thể gắn ngay vào Bản đồ Lộ trình hoặc chơi Mini-game."
         footer={
           <>
             <Button type="button" variant="secondary" onClick={() => setEditorOpen(false)}>
@@ -1069,82 +880,10 @@ export const CustomStudioPage: React.FC = () => {
         </div>
       </Modal>
 
-      {/* New Visual Roadmap Modal */}
-      <Modal
-        open={newMapModalOpen}
-        onClose={() => setNewMapModalOpen(false)}
-        size="sm"
-        title="Tạo Bản đồ Lộ trình tự vẽ"
-        footer={
-          <>
-            <Button type="button" variant="secondary" onClick={() => setNewMapModalOpen(false)}>
-              Hủy
-            </Button>
-            <Button type="button" variant="primary" onClick={handleCreateVisualRoadmap}>
-              Tạo bản đồ
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-3">
-          <Field label="Tên lộ trình" htmlFor="new-vmap-name">
-            <Input
-              id="new-vmap-name"
-              placeholder="VD: Lộ trình N5 cấp tốc 30 ngày..."
-              value={newMapName}
-              onChange={(e) => setNewMapName(e.target.value)}
-            />
-          </Field>
-          <Field label="Trình độ mục tiêu" htmlFor="new-vmap-level">
-            <Select
-              id="new-vmap-level"
-              value={newMapLevel}
-              onChange={(e) => setNewMapLevel(e.target.value as JLPTLevel)}
-            >
-              {LEVELS.map((lv) => (
-                <option key={lv} value={lv}>
-                  JLPT {lv}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Mẫu khởi tạo" htmlFor="new-vmap-template">
-            <Select
-              id="new-vmap-template"
-              value={newMapTemplate}
-              onChange={(e) => setNewMapTemplate(e.target.value as 'five-skill' | 'starter')}
-            >
-              <option value="five-skill">
-                Chuẩn 5 Kỹ năng (7 chặng: Từ · Kanji · Ngữ · Nghe · Đọc · Dojo · Boss)
-              </option>
-              <option value="starter">Khung cơ bản (4 chặng gọn nhẹ để tự vẽ thêm)</option>
-            </Select>
-          </Field>
-        </div>
-      </Modal>
-
       {/* Instant Flashcard & Quiz Player Modal */}
       <CustomLessonPlayerModal
-        lesson={playingLesson?.lesson ?? null}
+        lesson={playingLesson}
         onClose={() => setPlayingLesson(null)}
-        onMarkStudied={
-          playingLesson?.sourceNodeId && activeRoadmap
-            ? () => {
-                const nodeId = playingLesson.sourceNodeId;
-                if (!nodeId) return;
-                if (!activeRoadmap.completedNodeIds.includes(nodeId)) {
-                  handleUpdateVisualRoadmap({
-                    ...activeRoadmap,
-                    completedNodeIds: [...activeRoadmap.completedNodeIds, nodeId],
-                  });
-                }
-                toast({
-                  title: 'Đã đánh dấu hoàn thành Node & mở khóa nhánh tiếp theo!',
-                  tone: 'success',
-                });
-              }
-            : undefined
-        }
       />
     </PageContainer>
   );
