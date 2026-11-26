@@ -1,28 +1,16 @@
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import {
   CheckCircle2,
-  Download,
   GraduationCap,
   LogOut,
   Moon,
   Sun,
-  Upload,
 } from 'lucide-react';
-import { useAppSettings, type AppSettings } from '../hooks/useAppSettings';
 import { useTheme } from '../hooks/useTheme';
-import { useUserProgress } from '../hooks/useUserProgress';
-import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { hydrateGrammarProgress } from '../store/slices/grammarProgressSlice';
-import { hydrateKanjiState } from '../store/slices/kanjiSlice';
-import { hydrateMistakes } from '../store/slices/mistakeSlice';
-import type { UserProgress } from '../types/quiz';
 import { LoginRequiredState } from '../components/auth/LoginRequiredState';
 import { StudyScheduleCard } from '../components/settings/StudyScheduleCard';
 import { useAuth } from '../context/auth-context';
-import { commitUserProgress, loadUserProgress } from '../hooks/useUserProgress';
 import { cn } from '../lib/cn';
-import { loadStudySchedule } from '../services/notificationService';
-import { pushRestoredProgressToCloud } from '../services/progressSyncService';
 import {
   getVocabTextbooksForLevel,
   resolveActiveVocabTextbook,
@@ -42,39 +30,12 @@ import {
   useToast,
 } from '../components/ui';
 
-interface ProgressBackupPayload {
-  version: number;
-  exportedAt: string;
-  theme?: 'light' | 'dark';
-  settings?: Partial<AppSettings>;
-  userProgress?: Partial<UserProgress>;
-  kanjiProgress?: unknown;
-  grammarProgress?: unknown;
-  grammarMistakes?: unknown;
-  studySchedule?: unknown;
-}
-
-function hasSavedBackupAccess(userId?: string | null): boolean {
-  return Boolean(userId);
-}
-
 export const SettingsPage: React.FC = () => {
   const { user, studyLevel, studyTextbookId, updateStudyLevel, signOut } = useAuth();
-  const dispatch = useAppDispatch();
-  const kanjiState = useAppSelector((state) => state.kanji);
-  const grammarRecords = useAppSelector((state) => state.grammarProgress.records);
-  const mistakeItems = useAppSelector((state) => state.mistake.mistakes);
   const { theme, setTheme } = useTheme();
-  const { settings, updateSettings } = useAppSettings();
-  const { progress } = useUserProgress();
   const { toast } = useToast();
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [savingLevel, setSavingLevel] = useState<StudyLevel | null>(null);
-  const [importStatus, setImportStatus] = useState<{
-    tone: 'success' | 'danger';
-    message: string;
-  } | null>(null);
 
   const handleSelectStudyLevel = async (level: StudyLevel, textbookId?: string) => {
     setSavingLevel(level);
@@ -87,99 +48,11 @@ export const SettingsPage: React.FC = () => {
     });
   };
 
-  const handleExportBackup = () => {
-    if (!hasSavedBackupAccess(user?.id)) return;
-    const payload: ProgressBackupPayload = {
-      version: 1,
-      exportedAt: new Date().toISOString(),
-      theme,
-      settings,
-      userProgress: progress ?? loadUserProgress(user?.id),
-      kanjiProgress: kanjiState,
-      grammarProgress: grammarRecords,
-      grammarMistakes: mistakeItems,
-      studySchedule: loadStudySchedule(undefined, user?.id),
-    };
-
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `nihongo-progress-${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-
-    toast({ title: 'Đã xuất sao lưu (.json)', tone: 'success' });
-  };
-
-  const handleImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
-
-    try {
-      const text = await file.text();
-      const parsed: unknown = JSON.parse(text);
-      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-        throw new Error('File không đúng cấu trúc JSON đối tượng.');
-      }
-
-      const data = parsed as Record<string, unknown>;
-      const hasKnownField =
-        'userProgress' in data ||
-        'kanjiProgress' in data ||
-        'grammarProgress' in data ||
-        'grammarMistakes' in data ||
-        'settings' in data;
-
-      if (!hasKnownField) {
-        throw new Error('File JSON không chứa dữ liệu tiến độ Nihongo hợp lệ.');
-      }
-
-      if (data.theme === 'light' || data.theme === 'dark') {
-        setTheme(data.theme);
-      }
-      if (data.settings && typeof data.settings === 'object' && !Array.isArray(data.settings)) {
-        updateSettings(data.settings as Partial<AppSettings>);
-      }
-      if (
-        data.userProgress &&
-        typeof data.userProgress === 'object' &&
-        !Array.isArray(data.userProgress)
-      ) {
-        commitUserProgress(data.userProgress as Partial<UserProgress> as UserProgress, user?.id);
-      }
-      if (data.kanjiProgress) {
-        dispatch(hydrateKanjiState(data.kanjiProgress));
-      }
-      if (data.grammarProgress) {
-        dispatch(hydrateGrammarProgress(data.grammarProgress));
-      }
-      if (data.grammarMistakes) {
-        dispatch(hydrateMistakes(data.grammarMistakes));
-      }
-      if (user?.id) {
-        void pushRestoredProgressToCloud(user.id);
-      }
-
-      setImportStatus({
-        tone: 'success',
-        message: 'Khôi phục dữ liệu học tập thành công! Tiến độ đã được cập nhật.',
-      });
-      toast({ title: 'Đã khôi phục tiến độ từ file JSON', tone: 'success' });
-    } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : 'Không thể đọc file sao lưu JSON.';
-      setImportStatus({ tone: 'danger', message: msg });
-    }
-  };
-
   return (
     <PageContainer size="lg" className="max-w-5xl space-y-4 sm:space-y-6">
       <PageHeader
         breadcrumbs={[{ label: 'Trang chủ', to: '/' }, { label: 'Cài đặt' }]}
-        title="Cài đặt & Quản lý dữ liệu"
+        title="Cài đặt"
       />
 
       {/* 0. JLPT Study Level Selector (Logged-in users only) */}
@@ -320,59 +193,6 @@ export const SettingsPage: React.FC = () => {
             Chế độ Tối (Đêm)
           </Chip>
         </div>
-      </Card>
-
-      {/* 3. Backup Export / Restore */}
-      <Card padding="lg" className="space-y-4">
-        <div>
-          <h2 className="text-base font-semibold text-fg">Sao lưu &amp; Khôi phục tiến độ (.json)</h2>
-          <p className="text-sm text-muted">
-            Tải về toàn bộ tiến độ Kanji, Ngữ pháp, Từ đánh dấu sao và Lỗi sai theo tài khoản đã đăng nhập.
-          </p>
-        </div>
-
-        {!user ? (
-          <LoginRequiredState
-            compact
-            title="Đăng nhập để sao lưu & khôi phục tiến độ"
-            description="Chức năng sao lưu chỉ áp dụng cho tài khoản đã đăng nhập."
-          />
-        ) : (
-        <>
-        <div className="flex flex-wrap gap-3">
-          <Button
-            variant="primary"
-            leftIcon={<Download className="size-4" aria-hidden />}
-            onClick={handleExportBackup}
-          >
-            Xuất file sao lưu (.json)
-          </Button>
-
-          <Button
-            variant="secondary"
-            leftIcon={<Upload className="size-4" aria-hidden />}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            Nhập / Khôi phục (.json)
-          </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".json,application/json"
-            onChange={handleImportFile}
-            className="hidden"
-            aria-label="Chọn file sao lưu JSON"
-          />
-        </div>
-
-        {importStatus && (
-          <Notice tone={importStatus.tone} className="flex items-center gap-2">
-            {importStatus.tone === 'success' && <CheckCircle2 className="size-4 shrink-0" aria-hidden />}
-            <span>{importStatus.message}</span>
-          </Notice>
-        )}
-        </>
-        )}
       </Card>
 
       {user && (

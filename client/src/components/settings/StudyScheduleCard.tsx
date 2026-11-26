@@ -34,7 +34,6 @@ import {
   saveStudySchedule,
   SLOT_REPEAT_OPTIONS,
   STUDY_SCHEDULE_SYNC_EVENT,
-  syncStudyScheduleFromCloud,
   upsertScheduleSlot,
   type JLPTExamLevelGoal,
   type OnlineTimeSyncDetail,
@@ -58,6 +57,7 @@ import {
   saveStageRoadmapState,
   type RepeatMinutesOption,
 } from '../../services/stageRoadmapService';
+import { ensureUnifiedStudySchedule } from '../../services/unifiedScheduleService';
 import {
   Badge,
   Button,
@@ -170,10 +170,13 @@ export const StudyScheduleCard: React.FC<{ embedded?: boolean }> = ({ embedded =
   }
 
   useEffect(() => {
-    if (!user?.id) return;
-    void syncStudyScheduleFromCloud(user.id).then((synced) => {
-      setSchedule(synced);
+    let cancelled = false;
+    void ensureUnifiedStudySchedule(user?.id).then((synced) => {
+      if (!cancelled) setSchedule(synced);
     });
+    return () => {
+      cancelled = true;
+    };
   }, [user?.id]);
 
   // Session / sync / online-time events + midnight rollover
