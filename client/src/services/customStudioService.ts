@@ -1,9 +1,13 @@
+import { stableJson } from './deviceSyncMerge';
+import { isSupabaseAccountUuid } from './sessionScope';
+import { supabase } from './supabaseClient';
 import type { JLPTLevel } from '../types/quiz';
 import type { VocabularyItem } from '../types/vocabulary';
 import {
   setInMemoryCustomStudio,
   getInMemoryCustomStudio,
   writeCustomStudioDirectToSupabase,
+  USER_CUSTOM_STUDIO_ITEM_ID,
 } from './cloudProgressWriter';
 import { getActiveAuthenticatedUserId } from './sessionScope';
 
@@ -134,6 +138,8 @@ export interface CustomStudioState {
   lessons: CustomLesson[];
   visualRoadmaps: VisualRoadmap[];
   updatedAt: string;
+  /** id → time it was deleted, so another device's old copy does not bring it back */
+  deleted?: Record<string, number>;
 }
 
 export const CUSTOM_STUDIO_SYNC_EVENT = 'nihonmaster:custom-studio-sync';
@@ -185,8 +191,111 @@ function sanitizeStudioState(raw: unknown): CustomStudioState {
   return {
     lessons,
     visualRoadmaps,
+    deleted: sanitizeDeleted(obj.deleted),
     updatedAt: typeof obj.updatedAt === 'string' ? obj.updatedAt : new Date().toISOString(),
   };
+}
+
+function sanitizeDeleted(raw: unknown): Record<string, number> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  return Object.fromEntries(
+    Object.entries(raw).filter((e): e is [string, number] => typeof e[1] === 'number'),
+  );
+}
+
+/** Both copies' items, newest version of each, minus those deleted after their last edit. */
+function mergeItems<T extends { id: string; updatedAt: string }>(
+  first: T[],
+  second: T[],
+  deleted: Record<string, number>,
+): T[] {
+  const byId = new Map(first.map((item) => [item.id, item]));
+  for (const item of second) {
+    const existing = byId.get(item.id);
+    if (!existing || (Date.parse(item.updatedAt) || 0) > (Date.parse(existing.updatedAt) || 0)) {
+      byId.set(item.id, item);
+    }
+  }
+  return Array.from(byId.values()).filter(
+    (item) => !deleted[item.id] || (Date.parse(item.updatedAt) || 0) > deleted[item.id],
+  );
+}
+
+export function mergeStudioStates(a: CustomStudioState, b: CustomStudioState): CustomStudioState {
+  const [newer, older] = (Date.parse(b.updatedAt) || 0) > (Date.parse(a.updatedAt) || 0) ? [b, a] : [a, b];
+  const deleted: Record<string, number> = { ...older.deleted };
+  for (const [id, at] of Object.entries(newer.deleted ?? {})) {
+    deleted[id] = Math.max(at, deleted[id] ?? 0);
+  }
+  return {
+    lessons: mergeItems(newer.lessons, older.lessons, deleted),
+    visualRoadmaps: mergeItems(newer.visualRoadmaps, older.visualRoadmaps, deleted),
+    deleted,
+    updatedAt: newer.updatedAt,
+  };
+}
+
+/** Records what this save removes; an item added again counts as edited now. */
+function withDeletions(previous: CustomStudioState, next: CustomStudioState): CustomStudioState {
+  const now = Date.now();
+  const deleted: Record<string, number> = { ...previous.deleted, ...next.deleted };
+  const apply = <T extends { id: string; updatedAt: string }>(before: T[], after: T[]): T[] => {
+    const kept = new Set(after.map((i) => i.id));
+    for (const item of before) if (!kept.has(item.id)) deleted[item.id] = now;
+    const had = new Set(before.map((i) => i.id));
+    return after.map((item) =>
+      !had.has(item.id) && deleted[item.id]
+        ? { ...item, updatedAt: new Date(Math.max(now, deleted[item.id] + 1)).toISOString() }
+        : item,
+    );
+  };
+  return {
+    ...next,
+    lessons: apply(previous.lessons, next.lessons),
+    visualRoadmaps: apply(previous.visualRoadmaps, next.visualRoadmaps),
+    deleted,
+  };
+}
+
+let studioUploadQueue: Promise<void> = Promise.resolve();
+
+/** Reads the account copy first, so one device never overwrites another's lessons. */
+function uploadCustomStudio(userId: string): void {
+  const client = supabase;
+  if (!client || !isSupabaseAccountUuid(userId)) return;
+  studioUploadQueue = studioUploadQueue
+    .then(async () => {
+      const { data, error } = await client
+        .from('user_progress')
+        .select('metadata_json')
+        .eq('user_id', userId)
+        .eq('item_type', 'mistake')
+        .eq('item_id', USER_CUSTOM_STUDIO_ITEM_ID)
+        .maybeSingle();
+      if (error) return;
+      const meta = (data?.metadata_json ?? null) as { studio?: unknown } | null;
+      const remote = meta?.studio ? sanitizeStudioState(meta.studio) : null;
+      const local = loadCustomStudioState(userId);
+      const merged = remote ? mergeStudioStates(local, remote) : local;
+      if (stableJson(merged) !== stableJson(local)) cacheCustomStudio(userId, merged);
+      if (!remote || stableJson(merged) !== stableJson(remote)) {
+        await writeCustomStudioDirectToSupabase(userId, merged as unknown as Record<string, unknown>);
+      }
+    })
+    .catch((err: unknown) => {
+      console.warn('Could not upload custom lessons:', err);
+    });
+}
+
+function cacheCustomStudio(key: string, state: CustomStudioState): void {
+  setInMemoryCustomStudio(key, state as unknown as Record<string, unknown>);
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(`${STUDIO_STORAGE_PREFIX}${key}`, JSON.stringify(state));
+  } catch {
+    // ignore storage quota errors
+  }
+  window.dispatchEvent(new CustomEvent<CustomStudioState>(CUSTOM_STUDIO_SYNC_EVENT, { detail: state }));
 }
 
 export function loadCustomStudioState(userId?: string | null): CustomStudioState {
@@ -214,23 +323,12 @@ export function saveCustomStudioState(
   const effectiveUid = userId === undefined ? getActiveAuthenticatedUserId() : userId;
   const key = effectiveUid || 'guest';
   const stamped: CustomStudioState = {
-    ...next,
+    ...withDeletions(loadCustomStudioState(effectiveUid), next),
     updatedAt: new Date().toISOString(),
   };
 
-  setInMemoryCustomStudio(key, stamped as unknown as Record<string, unknown>);
-  if (typeof window !== 'undefined') {
-    try {
-      window.localStorage.setItem(`${STUDIO_STORAGE_PREFIX}${key}`, JSON.stringify(stamped));
-    } catch {
-      // ignore storage quota errors
-    }
-    window.dispatchEvent(new CustomEvent<CustomStudioState>(CUSTOM_STUDIO_SYNC_EVENT, { detail: stamped }));
-  }
-
-  if (effectiveUid) {
-    void writeCustomStudioDirectToSupabase(effectiveUid, stamped as unknown as Record<string, unknown>);
-  }
+  cacheCustomStudio(key, stamped);
+  if (effectiveUid) uploadCustomStudio(effectiveUid);
 
   return stamped;
 }
@@ -240,46 +338,17 @@ export function hydrateCustomStudioFromCloud(
   userId?: string | null,
 ): CustomStudioState {
   const local = loadCustomStudioState(userId);
-  if (!remoteRaw) return local;
-  const remote = sanitizeStudioState(remoteRaw);
-  const localTs = Date.parse(local.updatedAt) || 0;
-  const remoteTs = Date.parse(remote.updatedAt) || 0;
-
-  // Merge lessons & roadmaps by ID so neither local nor cloud creations are lost
-  const lessonMap = new Map<string, CustomLesson>();
-  for (const item of remote.lessons) lessonMap.set(item.id, item);
-  for (const item of local.lessons) {
-    const existing = lessonMap.get(item.id);
-    if (!existing || (Date.parse(item.updatedAt) || 0) >= (Date.parse(existing.updatedAt) || 0)) {
-      lessonMap.set(item.id, item);
-    }
-  }
-
-  const roadmapMap = new Map<string, VisualRoadmap>();
-  for (const r of remote.visualRoadmaps) roadmapMap.set(r.id, r);
-  for (const r of local.visualRoadmaps) {
-    const existing = roadmapMap.get(r.id);
-    if (!existing || (Date.parse(r.updatedAt) || 0) >= (Date.parse(existing.updatedAt) || 0)) {
-      roadmapMap.set(r.id, r);
-    }
-  }
-
-  const merged: CustomStudioState = {
-    lessons: Array.from(lessonMap.values()),
-    visualRoadmaps: Array.from(roadmapMap.values()),
-    updatedAt: remoteTs >= localTs ? remote.updatedAt : local.updatedAt,
-  };
-
   const key = scopeKey(userId);
-  setInMemoryCustomStudio(key, merged as unknown as Record<string, unknown>);
-  if (typeof window !== 'undefined') {
-    try {
-      window.localStorage.setItem(`${STUDIO_STORAGE_PREFIX}${key}`, JSON.stringify(merged));
-    } catch {
-      // ignore
+  if (!remoteRaw) {
+    if (userId && (local.lessons.length > 0 || local.visualRoadmaps.length > 0)) {
+      uploadCustomStudio(userId);
     }
-    window.dispatchEvent(new CustomEvent<CustomStudioState>(CUSTOM_STUDIO_SYNC_EVENT, { detail: merged }));
+    return local;
   }
+  const remote = sanitizeStudioState(remoteRaw);
+  const merged = mergeStudioStates(local, remote);
+  cacheCustomStudio(key, merged);
+  if (userId && stableJson(merged) !== stableJson(remote)) uploadCustomStudio(userId);
   return merged;
 }
 

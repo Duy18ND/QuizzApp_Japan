@@ -67,6 +67,11 @@ import {
   type MiniGameProfile,
 } from '../services/miniGameProfileService';
 import { getLocalDateKey } from '../services/notificationService';
+import {
+  HIGH_SCORE_KEY,
+  HIGH_SCORE_SYNC_EVENT,
+  notifyDeviceDataChanged,
+} from '../services/deviceSyncEvents';
 import { recordQuizAttempt } from '../services/quizHistoryService';
 import {
   recordDailyStageSkillActivity,
@@ -138,7 +143,6 @@ interface PracticeSet {
 /** Practice sets smaller than this are padded with other words so every game has enough choices. */
 const MIN_PRACTICE_WORDS = 8;
 
-const HIGH_SCORE_KEY = 'nihonmaster_minigame_highscores_v1';
 const SOUND_PREF_KEY = 'nihonmaster_minigame_sound_v1';
 const BASE_MINI_GAME_LEVELS: StudyLevel[] = ['N5', 'N4', 'N3'];
 
@@ -157,10 +161,12 @@ function formatUnitTopicLabel(name: string, idx: number): string {
   return topic ? `${short} (${topic})` : short;
 }
 
-function loadHighScores(): Record<string, number> {
+function loadHighScores(userId?: string | null): Record<string, number> {
   if (typeof window === 'undefined') return {};
   try {
-    const raw = window.localStorage.getItem(HIGH_SCORE_KEY);
+    const raw =
+      (userId ? window.localStorage.getItem(`${HIGH_SCORE_KEY}:${userId}`) : null) ??
+      window.localStorage.getItem(HIGH_SCORE_KEY);
     return raw ? (JSON.parse(raw) as Record<string, number>) : {};
   } catch {
     return {};
@@ -261,7 +267,15 @@ export const MiniGamesPage: React.FC = () => {
   });
   const [showLessonPicker, setShowLessonPicker] = useState(false);
   const [onlyStarred, setOnlyStarred] = useState(false);
-  const [highScores, setHighScores] = useState<Record<string, number>>(() => loadHighScores());
+  const [highScores, setHighScores] = useState<Record<string, number>>(() =>
+    loadHighScores(user?.id),
+  );
+  useEffect(() => {
+    const reload = () => setHighScores(loadHighScores(user?.id));
+    reload();
+    window.addEventListener(HIGH_SCORE_SYNC_EVENT, reload);
+    return () => window.removeEventListener(HIGH_SCORE_SYNC_EVENT, reload);
+  }, [user?.id]);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(() => loadSoundPref());
   const [practiceSet, setPracticeSet] = useState<PracticeSet | null>(null);
   const [lastMissedIds, setLastMissedIds] = useState<number[]>([]);
@@ -572,7 +586,11 @@ export const MiniGamesPage: React.FC = () => {
       if (score <= (prev[gameId] ?? 0)) return prev;
       const next = { ...prev, [gameId]: score };
       try {
-        window.localStorage.setItem(HIGH_SCORE_KEY, JSON.stringify(next));
+        window.localStorage.setItem(
+          user?.id ? `${HIGH_SCORE_KEY}:${user.id}` : HIGH_SCORE_KEY,
+          JSON.stringify(next),
+        );
+        notifyDeviceDataChanged();
       } catch {
         // ignore
       }

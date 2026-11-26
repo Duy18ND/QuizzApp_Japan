@@ -1,4 +1,5 @@
 import type { CmsSnapshot } from '../services/adminCmsService';
+import { notifyDeviceDataChanged } from '../services/deviceSyncEvents';
 import {
   getLiveGrammarBooks,
   getLiveJlptListeningItems,
@@ -198,6 +199,7 @@ function addIdToList(prefix: string, stageId: string, userId?: string | null): s
     const owner = userId || 'guest';
     try {
       window.localStorage.setItem(`${prefix}${owner}`, JSON.stringify(next));
+      notifyDeviceDataChanged();
     } catch {
       // Ignore storage errors
     }
@@ -249,6 +251,7 @@ export function saveStageBossPassed(
     const owner = userId || 'guest';
     try {
       window.localStorage.setItem(`${STAGE_BOSS_PASSED_KEY_PREFIX}${owner}`, JSON.stringify(next));
+      notifyDeviceDataChanged();
     } catch {
       // Ignore storage errors
     }

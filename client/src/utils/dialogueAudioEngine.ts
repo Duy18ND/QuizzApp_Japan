@@ -1,3 +1,4 @@
+import { markUiChoice } from '../services/deviceSyncEvents';
 import type { JLPTListeningLine } from '../data/jlpt/jlptDataset';
 
 export type CharacterArchetype =
@@ -113,7 +114,7 @@ export interface DialogueVoicePrefs {
   archetypeVoiceUriOverrides: Partial<Record<CharacterArchetype, string>>;
 }
 
-const VOICE_PREFS_STORAGE_KEY = 'nihongo_choukai_voice_prefs_v1';
+export const VOICE_PREFS_STORAGE_KEY = 'nihongo_choukai_voice_prefs_v1';
 
 export const DEFAULT_DIALOGUE_VOICE_PREFS: DialogueVoicePrefs = {
   pacing: 'natural',
@@ -153,6 +154,7 @@ export function saveDialogueVoicePrefs(prefs: DialogueVoicePrefs): void {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.setItem(VOICE_PREFS_STORAGE_KEY, JSON.stringify(prefs));
+    markUiChoice('voice');
   } catch {
     // ignore storage quota errors
   }
