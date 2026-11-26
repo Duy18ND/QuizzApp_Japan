@@ -18,6 +18,8 @@ import {
   saveStudySchedule,
 } from './notificationService';
 import { isSupabaseAccountUuid } from './sessionScope';
+import { notifyDeviceDataChanged } from './deviceSyncEvents';
+import { stableJson } from './deviceSyncMerge';
 import { supabase } from './supabaseClient';
 import { syncWebPushScheduleToCloud } from './pwaReminderService';
 import type { KanjiProgressEntry, QuizHistoryAttemptEntry } from './cloudProgressWriter';
@@ -146,6 +148,10 @@ export interface UserStageRoadmapState {
   activeCustomRoadmapId: string | null;
   completedTaskIds: string[];
   completedStages: Record<string, StageCompletionRecord>;
+  /** Latest tick / untick of a task, so devices can be merged without reviving unticked ones */
+  taskMarks?: Record<string, { on: boolean; at: number }>;
+  /** Custom roadmaps the user deleted (so another device does not bring them back) */
+  deletedPlanIds?: string[];
   updatedAt: string;
 }
 
@@ -483,8 +489,137 @@ export function sanitizeStageRoadmapState(
     activeCustomRoadmapId: activeCustom?.id ?? null,
     completedTaskIds,
     completedStages,
+    taskMarks: sanitizeTaskMarks(obj.taskMarks),
+    deletedPlanIds: Array.isArray(obj.deletedPlanIds)
+      ? obj.deletedPlanIds.filter((id): id is string => typeof id === 'string')
+      : [],
     updatedAt: typeof obj.updatedAt === 'string' ? obj.updatedAt : new Date().toISOString(),
   };
+}
+
+function sanitizeTaskMarks(raw: unknown): Record<string, { on: boolean; at: number }> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  return Object.fromEntries(
+    Object.entries(raw as Record<string, { on?: unknown; at?: unknown }>)
+      .filter(([, m]) => typeof m?.on === 'boolean' && typeof m?.at === 'number')
+      .map(([id, m]) => [id, { on: m.on as boolean, at: m.at as number }]),
+  );
+}
+
+function hasStoredStageRoadmap(userId: string): boolean {
+  try {
+    return window.localStorage.getItem(`${STORAGE_KEY_PREFIX}${userId}`) !== null;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Combines two copies of a roadmap. Settings come from `newer`; finished stages, ticked
+ * tasks and custom roadmaps from both are kept unless they were explicitly removed.
+ */
+export function mergeStageRoadmapStates(
+  older: UserStageRoadmapState,
+  newer: UserStageRoadmapState,
+): UserStageRoadmapState {
+  const taskMarks = { ...(older.taskMarks ?? {}) };
+  for (const [id, mark] of Object.entries(newer.taskMarks ?? {})) {
+    if (!taskMarks[id] || mark.at >= taskMarks[id].at) taskMarks[id] = mark;
+  }
+  const completedTaskIds = Array.from(
+    new Set([
+      ...older.completedTaskIds,
+      ...newer.completedTaskIds,
+      ...Object.keys(taskMarks).filter((id) => taskMarks[id].on),
+    ]),
+  ).filter((id) => taskMarks[id]?.on !== false);
+
+  // a stage finished on both devices keeps its first completion
+  const completedStages = { ...older.completedStages };
+  for (const [id, record] of Object.entries(newer.completedStages)) {
+    const existing = completedStages[id];
+    if (!existing || record.completedAt < existing.completedAt) completedStages[id] = record;
+  }
+
+  const deletedPlanIds = Array.from(
+    new Set([...(older.deletedPlanIds ?? []), ...(newer.deletedPlanIds ?? [])]),
+  );
+  const plans = new Map(older.customRoadmaps.map((c) => [c.id, c]));
+  for (const plan of newer.customRoadmaps) plans.set(plan.id, plan);
+  for (const id of deletedPlanIds) plans.delete(id);
+  const customRoadmaps = Array.from(plans.values());
+  const activeId = newer.activeCustomRoadmapId ?? older.activeCustomRoadmapId;
+  const active = customRoadmaps.find((c) => c.id === activeId) ?? customRoadmaps[0] ?? null;
+
+  return sanitizeStageRoadmapState({
+    ...newer,
+    customRoadmaps,
+    customConfig: active,
+    activeCustomRoadmapId: active?.id ?? null,
+    completedTaskIds,
+    completedStages,
+    taskMarks,
+    deletedPlanIds,
+    updatedAt: newer.updatedAt > older.updatedAt ? newer.updatedAt : older.updatedAt,
+  });
+}
+
+/** Records what this save ticked, unticked or deleted compared with the stored copy. */
+function withChangeMarks(
+  previous: UserStageRoadmapState,
+  next: UserStageRoadmapState,
+): UserStageRoadmapState {
+  const at = Date.now();
+  const before = new Set(previous.completedTaskIds);
+  const after = new Set(next.completedTaskIds);
+  const taskMarks = { ...(previous.taskMarks ?? {}), ...(next.taskMarks ?? {}) };
+  for (const id of before) if (!after.has(id)) taskMarks[id] = { on: false, at };
+  for (const id of after) if (!before.has(id)) taskMarks[id] = { on: true, at };
+
+  const kept = new Set(next.customRoadmaps.map((c) => c.id));
+  const deletedPlanIds = new Set([
+    ...(previous.deletedPlanIds ?? []),
+    ...(next.deletedPlanIds ?? []),
+    ...previous.customRoadmaps.map((c) => c.id).filter((id) => !kept.has(id)),
+  ]);
+  // adding a plan again (same id) undoes its deletion
+  for (const id of kept) deletedPlanIds.delete(id);
+
+  return { ...next, taskMarks, deletedPlanIds: Array.from(deletedPlanIds) };
+}
+
+function writeStageRoadmapCache(state: UserStageRoadmapState, userId: string): void {
+  try {
+    window.localStorage.setItem(`${STORAGE_KEY_PREFIX}${userId}`, JSON.stringify(state));
+    window.dispatchEvent(
+      new CustomEvent(STAGE_ROADMAP_SYNC_EVENT, { detail: { state, userId } }),
+    );
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+let roadmapUploadQueue: Promise<void> = Promise.resolve();
+
+/** Reads the account copy first, so this device never overwrites another one's progress. */
+function uploadStageRoadmap(userId: string): void {
+  const client = supabase;
+  if (!client || !isSupabaseAccountUuid(userId)) return;
+  roadmapUploadQueue = roadmapUploadQueue
+    .then(async () => {
+      const { data, error } = await client.auth.getUser();
+      if (error || data.user?.id !== userId) return;
+      const raw = data.user.user_metadata?.stage_roadmap_v1;
+      const local = loadStageRoadmapState(userId);
+      const merged = raw ? mergeStageRoadmapStates(sanitizeStageRoadmapState(raw), local) : local;
+      if (stableJson(merged) !== stableJson(local)) writeStageRoadmapCache(merged, userId);
+      if (!raw || stableJson(merged) !== stableJson(sanitizeStageRoadmapState(raw))) {
+        await client.auth.updateUser({ data: { stage_roadmap_v1: merged } });
+      }
+    })
+    .catch(() => {
+      // Offline: the next save or app resume uploads it
+    });
 }
 
 export function loadStageRoadmapState(userId?: string | null): UserStageRoadmapState {
@@ -504,8 +639,11 @@ export function saveStageRoadmapState(
   userId?: string | null,
 ): UserStageRoadmapState {
   const owner = userId || 'guest';
+  const sanitized = sanitizeStageRoadmapState(next);
   const stamped: UserStageRoadmapState = {
-    ...sanitizeStageRoadmapState(next),
+    ...(typeof window !== 'undefined' && hasStoredStageRoadmap(owner)
+      ? withChangeMarks(loadStageRoadmapState(userId), sanitized)
+      : sanitized),
     updatedAt: new Date().toISOString(),
   };
 
@@ -542,15 +680,7 @@ export function saveStageRoadmapState(
   }
 
   if (supabase && userId && isSupabaseAccountUuid(userId)) {
-    void supabase.auth
-      .updateUser({
-        data: {
-          stage_roadmap_v1: stamped,
-        },
-      })
-      .catch(() => {
-        // Non-blocking cloud backup
-      });
+    uploadStageRoadmap(userId);
 
     const effective = getEffectiveReminderSettings(stamped);
     const completedDates = Object.values(stamped.completedStages)
@@ -591,6 +721,7 @@ export function recordDailyStageSkillActivity(
     if (existing.includes(skill)) return;
     const next = [...existing, skill];
     window.localStorage.setItem(key, JSON.stringify(next));
+    notifyDeviceDataChanged();
     window.dispatchEvent(
       new CustomEvent(DAILY_STAGE_ACTIVITY_SYNC_EVENT, {
         detail: { skill, userId: owner, dateKey },
@@ -642,6 +773,7 @@ function saveDailyStageMetrics(
       `${DAILY_METRICS_KEY_PREFIX}${owner}:${dateKey}`,
       JSON.stringify(metrics),
     );
+    notifyDeviceDataChanged();
     window.dispatchEvent(
       new CustomEvent(DAILY_STAGE_ACTIVITY_SYNC_EVENT, {
         detail: { metrics, userId: owner, dateKey },
@@ -774,21 +906,27 @@ export function hydrateStageRoadmapFromMetadata(
   meta: Record<string, unknown> | undefined | null,
   userId: string,
 ): void {
-  if (!meta || !meta.stage_roadmap_v1 || typeof window === 'undefined') return;
-  const remote = sanitizeStageRoadmapState(meta.stage_roadmap_v1);
-  const local = loadStageRoadmapState(userId);
-  const remoteTs = Date.parse(remote.updatedAt) || 0;
-  const localTs = Date.parse(local.updatedAt) || 0;
-  if (remoteTs > localTs) {
-    try {
-      window.localStorage.setItem(`${STORAGE_KEY_PREFIX}${userId}`, JSON.stringify(remote));
-      window.dispatchEvent(
-        new CustomEvent(STAGE_ROADMAP_SYNC_EVENT, { detail: { state: remote, userId } }),
-      );
-    } catch {
-      // Ignore
-    }
+  if (typeof window === 'undefined') return;
+  const remote = meta?.stage_roadmap_v1
+    ? sanitizeStageRoadmapState(meta.stage_roadmap_v1)
+    : null;
+  // A device without its own copy must not compare timestamps: an empty default is
+  // always "newer" and would hide the account's roadmap.
+  if (!hasStoredStageRoadmap(userId)) {
+    if (remote) writeStageRoadmapCache(remote, userId);
+    return;
   }
+  const local = loadStageRoadmapState(userId);
+  if (!remote) {
+    uploadStageRoadmap(userId);
+    return;
+  }
+  const merged =
+    remote.updatedAt > local.updatedAt
+      ? mergeStageRoadmapStates(local, remote)
+      : mergeStageRoadmapStates(remote, local);
+  if (stableJson(merged) !== stableJson(local)) writeStageRoadmapCache(merged, userId);
+  if (stableJson(merged) !== stableJson(remote)) uploadStageRoadmap(userId);
 }
 
 function generateScheduledDates(

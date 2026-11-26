@@ -1,3 +1,4 @@
+import { notifyDeviceDataChanged } from '../services/deviceSyncEvents';
 import type { CmsSnapshot } from '../services/adminCmsService';
 import { getLiveUnitsForLevel } from '../services/curriculumStore';
 import type { JLPTLevel } from '../types/quiz';
@@ -313,7 +314,7 @@ export function resolveActiveVocabTextbook(
   return getDefaultVocabTextbook(level);
 }
 
-const VOCAB_TEXTBOOK_PREFERENCES_KEY = 'nihonmaster_vocab_textbook_preferences_v1';
+export const VOCAB_TEXTBOOK_PREFERENCES_KEY = 'nihonmaster_vocab_textbook_preferences_v1';
 
 function readVocabTextbookPreferences(): Record<string, string> {
   if (typeof window === 'undefined') return {};
@@ -343,6 +344,15 @@ export function getPreferredVocabTextbookId(
     : null;
 }
 
+/** When each choice was made, so the latest one wins between devices. */
+function markVocabPreference(owner: string, name: string): void {
+  const key = `nihonmaster_vocab_pref_marks_v1:${owner}`;
+  const marks = JSON.parse(window.localStorage.getItem(key) ?? '{}') as Record<string, number>;
+  marks[name] = Date.now();
+  window.localStorage.setItem(key, JSON.stringify(marks));
+  notifyDeviceDataChanged();
+}
+
 export function savePreferredVocabTextbookId(
   level: JLPTLevel,
   bookId: string,
@@ -357,6 +367,7 @@ export function savePreferredVocabTextbookId(
     const preferences = readVocabTextbookPreferences();
     preferences[`${owner}:${level}`] = bookId;
     window.localStorage.setItem(VOCAB_TEXTBOOK_PREFERENCES_KEY, JSON.stringify(preferences));
+    markVocabPreference(owner, level);
   } catch {
     // Keep the current selection usable if browser storage is unavailable.
   }
@@ -385,6 +396,7 @@ export function savePreferredVocabLevel(level: JLPTLevel, userId?: string | null
     const preferences = readVocabTextbookPreferences();
     preferences[`${owner}:level`] = level;
     window.localStorage.setItem(VOCAB_TEXTBOOK_PREFERENCES_KEY, JSON.stringify(preferences));
+    markVocabPreference(owner, 'level');
   } catch {
     // Keep the current selection usable if browser storage is unavailable.
   }

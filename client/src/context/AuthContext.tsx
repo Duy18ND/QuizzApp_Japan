@@ -9,6 +9,8 @@ import {
   PASSWORD_HASH_SCHEME,
 } from '../services/passwordHash';
 import { syncLocalProgressWithCloud } from '../services/progressSyncService';
+import { DEVICE_DATA_CHANGED_EVENT } from '../services/deviceSyncEvents';
+import { syncDeviceData } from '../services/deviceSyncService';
 import {
   isSupabaseAccountUuid,
   purgeAllLocalLearningData,
@@ -146,6 +148,8 @@ async function signInWithHashedOrLegacyPassword(
   return legacyAttempt;
 }
 
+const RESUME_REFRESH_MIN_GAP_MS = 20_000;
+
 async function fetchProfileForUser(
   userId: string,
   fallbackEmail: string,
@@ -260,6 +264,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       syncInFlightUserRef.current = userId;
       dispatch(setSyncStatus({ status: 'syncing' }));
       try {
+        await syncDeviceData(userId);
         const res = await syncLocalProgressWithCloud(userId, dispatch);
         if (res.ok) {
           dispatch(
@@ -337,7 +342,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         saveOAuthProviderToken(data.session?.provider_token);
         pendingOAuthErrRef.current = null;
-        const meta = sessionUser.user_metadata as Record<string, unknown> | undefined;
+        // the stored session can be an hour old: ask the server for the current metadata
+        const fresh = await sbClient.auth.getUser().catch(() => null);
+        if (cancelled) return;
+        const meta = (fresh?.data.user ?? sessionUser).user_metadata as
+          | Record<string, unknown>
+          | undefined;
         if (meta && Array.isArray(meta.roadmap_completed_steps)) {
           cacheRoadmapCompletedSteps(sanitizeCompletedRoadmapSteps(meta.roadmap_completed_steps), sessionUser.id);
         }
@@ -395,6 +405,75 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       sub.subscription.unsubscribe();
     };
   }, [applyAuthenticatedSession, applyGuestSession, dispatch, runCloudSync]);
+
+  // An installed app stays in memory for days: reload the account's data when the user
+  // comes back to it, and upload device-cached data shortly after it changes.
+  const signedInUserId = auth.user?.id ?? null;
+  useEffect(() => {
+    const client = supabase;
+    if (!client || !signedInUserId || !isSupabaseAccountUuid(signedInUserId)) return;
+    let cancelled = false;
+    let lastRefresh = Date.now();
+    let uploadTimer: number | undefined;
+
+    const refresh = async () => {
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - lastRefresh < RESUME_REFRESH_MIN_GAP_MS) return;
+      lastRefresh = Date.now();
+      const { data, error } = await client.auth.getUser();
+      if (cancelled || error || data.user?.id !== signedInUserId) return;
+      const meta = data.user.user_metadata as Record<string, unknown> | undefined;
+      if (meta && Array.isArray(meta.roadmap_completed_steps)) {
+        cacheRoadmapCompletedSteps(
+          sanitizeCompletedRoadmapSteps(meta.roadmap_completed_steps),
+          signedInUserId,
+        );
+      }
+      hydrateStageRoadmapFromMetadata(meta, signedInUserId);
+      const profile = await fetchProfileForUser(
+        signedInUserId,
+        data.user.email || '',
+        extractMetadataDisplayName(meta),
+        extractMetadataStudyLevel(meta),
+        extractMetadataStudyTextbook(meta),
+      );
+      if (cancelled) return;
+      if (profile) applyAuthenticatedSession(profile, 'supabase');
+      await runCloudSync(signedInUserId);
+    };
+    const onResume = () => {
+      void refresh().catch(() => {
+        // Offline: the next resume tries again
+      });
+    };
+    const onDeviceData = () => {
+      window.clearTimeout(uploadTimer);
+      uploadTimer = window.setTimeout(() => void syncDeviceData(signedInUserId), 1500);
+    };
+    const onHidden = () => {
+      // leaving the app: send pending changes now, the timer may never run
+      if (document.visibilityState === 'hidden' && uploadTimer !== undefined) {
+        window.clearTimeout(uploadTimer);
+        uploadTimer = undefined;
+        void syncDeviceData(signedInUserId);
+      }
+    };
+
+    document.addEventListener('visibilitychange', onResume);
+    document.addEventListener('visibilitychange', onHidden);
+    window.addEventListener('focus', onResume);
+    window.addEventListener('online', onResume);
+    window.addEventListener(DEVICE_DATA_CHANGED_EVENT, onDeviceData);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(uploadTimer);
+      document.removeEventListener('visibilitychange', onResume);
+      document.removeEventListener('visibilitychange', onHidden);
+      window.removeEventListener('focus', onResume);
+      window.removeEventListener('online', onResume);
+      window.removeEventListener(DEVICE_DATA_CHANGED_EVENT, onDeviceData);
+    };
+  }, [signedInUserId, applyAuthenticatedSession, runCloudSync]);
 
   const signInWithEmail = useCallback(
     async (email: string, password: string): Promise<AuthActionResult> => {
