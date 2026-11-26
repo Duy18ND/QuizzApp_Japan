@@ -290,7 +290,7 @@ export async function dispatchStudyReminderNotification(payload: {
         await reg.showNotification(payload.title, {
           body: payload.body,
           icon: './icons/icon-192.png',
-          badge: './icons/icon-192.png',
+          badge: './icons/badge-96.png',
           tag: payload.tag || 'nihongo-daily-stage-reminder',
           data: { url: targetUrl },
         });

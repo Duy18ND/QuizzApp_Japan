@@ -10,8 +10,8 @@ self.addEventListener('activate', (event) => {
 // Background Web Push handler — wakes up on iOS 16.4+ PWA & Android even when swiped closed
 self.addEventListener('push', (event) => {
   let payload = {
-    title: 'Nihongo 問 · Đến giờ học tiếng Nhật!',
-    body: 'Vào mở Màn hôm nay (tối thiểu 10–15 phút) để giữ chuỗi Streak và tắt nhắc.',
+    title: '⏰ Đến giờ học tiếng Nhật',
+    body: 'Chạm để vào bài hôm nay.',
     url: './#/roadmap/stages',
     tag: 'nihongo-daily-stage-reminder',
   };
@@ -37,7 +37,7 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification(payload.title, {
       body: payload.body,
       icon: './icons/icon-192.png',
-      badge: './icons/icon-192.png',
+      badge: './icons/badge-96.png',
       tag: payload.tag,
       renotify: true,
       requireInteraction: true,
