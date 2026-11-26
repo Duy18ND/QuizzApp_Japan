@@ -251,6 +251,23 @@ export const GrammarPractice: React.FC = () => {
 
     dispatch(submitAnswer({ questionId: currentQ.id, answer, isCorrect }));
 
+    if (isCorrect) {
+      // kept for the history review; not a mistake
+      sessionMistakesRef.current.push({
+        id: `ok_${currentQ.id}_${sessionMistakesRef.current.length}`,
+        questionId: currentQ.id.replace(/-\d{10,}$/, ''),
+        prompt: currentQ.question || currentQ.instruction || currentQ.grammarId,
+        userAnswer: answer,
+        correctAnswer: answer,
+        explanation: currentQ.explanation,
+        options:
+          'answers' in currentQ && Array.isArray(currentQ.answers) && currentQ.answers.length >= 2
+            ? currentQ.answers
+            : undefined,
+        isCorrect: true,
+      });
+    }
+
     if (!isCorrect) {
       const matchedRule = rulesToPractice.find((r) => r.id === currentQ.grammarId) ?? rulesToPractice[0];
       const practicePath = `/grammar/${bookId}/${chapterId}/practice/${currentQ.grammarId}?mode=${mode}`;

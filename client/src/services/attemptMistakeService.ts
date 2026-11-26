@@ -27,6 +27,8 @@ export interface AttemptMistakeRecord {
   grammarId?: string;
   categoryLabel?: string;
   practicePath?: string;
+  /** Saved for the history review only; never listed as a mistake */
+  isCorrect?: boolean;
 }
 
 export interface AttemptMistakeGroup {
@@ -218,6 +220,7 @@ function normalizeRawMistakeItem(
       correctAnswer: raw.correctAnswer.trim(),
       explanation: typeof raw.explanation === 'string' ? raw.explanation : undefined,
       options,
+      isCorrect: raw.isCorrect === true,
       level: typeof raw.level === 'string' ? raw.level : attempt.level,
       wordId,
       grammarId,
@@ -288,7 +291,7 @@ function normalizeRawMistakeItem(
   return null;
 }
 
-export function getAttemptReviewMistakes(
+export function getAttemptReviewItems(
   attempt: QuizAttemptRecord,
   allVocab: VocabularyItem[],
   liveGrammarBooks: GrammarBook[],
@@ -367,7 +370,7 @@ export function buildAttemptMistakeGroups(
         vocabById,
         grammarNameById,
       );
-      if (!parsed) continue;
+      if (!parsed || parsed.isCorrect) continue;
       if (resolvedKeySet.has(`${attempt.id}::${parsed.id}`)) continue;
       normalizedItems.push(parsed);
     }

@@ -1,18 +1,20 @@
 import { useMemo, useState } from 'react';
-import { CheckCircle2, Clock, Eye, History } from 'lucide-react';
+import { CheckCircle2, Clock, Eye, History, X, XCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/auth-context';
 import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
-import { getAttemptReviewMistakes } from '../../services/attemptMistakeService';
+import { getAttemptReviewItems } from '../../services/attemptMistakeService';
 import { getLiveAllVocabulary, getLiveGrammarBooks } from '../../services/curriculumStore';
 import {
   MAX_HISTORY_ITEMS,
   useQuizHistory,
   type QuizAttemptRecord,
 } from '../../services/quizHistoryService';
+import { cn } from '../../lib/cn';
 import { LoginRequiredState } from '../auth/LoginRequiredState';
-import { Button } from './Button';
+import { Button, IconButton } from './Button';
 import { Badge, Card } from './Layout';
+import { Chip } from './Fields';
 import { Modal } from './Overlays';
 import { buttonStyles } from './styles';
 
@@ -31,6 +33,16 @@ const QUIZ_TYPE_LABELS: Record<string, string> = {
   'jlpt-reading-short': 'JLPT Đọc hiểu ngắn',
   'jlpt-reading-medium': 'JLPT Đọc hiểu trung',
   'jlpt-reading-long': 'JLPT Đọc hiểu dài',
+  kanji: 'Quiz Chữ Hán',
+  'minigame-shooter': 'Mini-game · Ninja chém từ',
+};
+
+const quizTypeLabel = (type: string): string => {
+  if (QUIZ_TYPE_LABELS[type]) return QUIZ_TYPE_LABELS[type];
+  const stage = type.match(/^roadmap-stage-(\d+)$/);
+  if (stage) return `Lộ trình · Màn ${stage[1]}`;
+  if (type.startsWith('minigame-')) return 'Mini-game';
+  return type;
 };
 
 const formatDuration = (seconds: number): string => {
@@ -56,9 +68,11 @@ interface QuizHistoryCardProps {
   limit?: number;
   showProfileLink?: boolean;
   className?: string;
+  /** Shows a close button in the card header */
+  onClose?: () => void;
 }
 
-export function QuizHistoryCard({ limit, showProfileLink = false, className }: QuizHistoryCardProps) {
+export function QuizHistoryCard({ limit, showProfileLink = false, className, onClose }: QuizHistoryCardProps) {
   const { user } = useAuth();
   const rawHistory = useQuizHistory();
   const cmsSnapshot = useCurriculumSnapshot();
@@ -69,16 +83,22 @@ export function QuizHistoryCard({ limit, showProfileLink = false, className }: Q
     typeof limit === 'number' ? Math.min(limit, MAX_HISTORY_ITEMS) : MAX_HISTORY_ITEMS;
   const visibleItems = user ? history.slice(0, effectiveLimit) : [];
 
+  const [onlyWrong, setOnlyWrong] = useState(false);
+
   const allVocab = useMemo(() => getLiveAllVocabulary(cmsSnapshot), [cmsSnapshot]);
   const liveGrammarBooks = useMemo(() => getLiveGrammarBooks(cmsSnapshot), [cmsSnapshot]);
 
-  const reviewMistakes = useMemo(
+  const reviewItems = useMemo(
     () =>
       reviewAttempt
-        ? getAttemptReviewMistakes(reviewAttempt, allVocab, liveGrammarBooks)
+        ? getAttemptReviewItems(reviewAttempt, allVocab, liveGrammarBooks)
         : [],
     [reviewAttempt, allVocab, liveGrammarBooks],
   );
+  const wrongItems = reviewItems.filter((i) => !i.isCorrect);
+  const shownItems = onlyWrong ? wrongItems : reviewItems;
+  // attempts saved before correct answers were stored have nothing (or only mistakes) to show
+  const isPartial = reviewAttempt !== null && !reviewItems.some((i) => i.isCorrect) && reviewAttempt.score > 0;
 
   const reviewTotal = reviewAttempt ? Math.max(1, reviewAttempt.totalQuestions) : 1;
   const reviewWrongCount = reviewAttempt
@@ -88,7 +108,7 @@ export function QuizHistoryCard({ limit, showProfileLink = false, className }: Q
     ? Math.round((reviewAttempt.score / reviewTotal) * 100)
     : 0;
   const reviewTitle = reviewAttempt
-    ? `${QUIZ_TYPE_LABELS[reviewAttempt.quizType] ?? reviewAttempt.quizType}${
+    ? `${quizTypeLabel(reviewAttempt.quizType)}${
         reviewAttempt.level && reviewAttempt.level !== 'ALL' ? ` · ${reviewAttempt.level}` : ''
       }`
     : '';
@@ -115,6 +135,11 @@ export function QuizHistoryCard({ limit, showProfileLink = false, className }: Q
               </p>
             </div>
           </div>
+          {onClose && (
+            <IconButton aria-label="Đóng lịch sử" title="Đóng" onClick={onClose}>
+              <X className="size-4" aria-hidden />
+            </IconButton>
+          )}
           {user && showProfileLink && (
             <Link to="/history" className={buttonStyles({ variant: 'secondary', size: 'sm' })}>
               Xem tất cả ({history.length}/{MAX_HISTORY_ITEMS})
@@ -138,7 +163,7 @@ export function QuizHistoryCard({ limit, showProfileLink = false, className }: Q
               const total = Math.max(1, item.totalQuestions);
               const percent = Math.round((item.score / total) * 100);
               const scoreTone = percent >= 80 ? 'success' : percent >= 50 ? 'warning' : 'danger';
-              const label = QUIZ_TYPE_LABELS[item.quizType] ?? item.quizType;
+              const label = quizTypeLabel(item.quizType);
 
               return (
                 <li
@@ -168,7 +193,10 @@ export function QuizHistoryCard({ limit, showProfileLink = false, className }: Q
                       variant="secondary"
                       size="sm"
                       leftIcon={<Eye className="size-3.5" aria-hidden />}
-                      onClick={() => setReviewAttempt(item)}
+                      onClick={() => {
+                        setOnlyWrong(false);
+                        setReviewAttempt(item);
+                      }}
                     >
                       Xem lại
                     </Button>
@@ -213,61 +241,97 @@ export function QuizHistoryCard({ limit, showProfileLink = false, className }: Q
               </div>
             </div>
 
-            {reviewWrongCount === 0 ? (
-              <div className="flex items-center gap-3 rounded-xl border border-success-line bg-success-soft p-4 text-sm text-success-fg">
-                <CheckCircle2 className="size-5 shrink-0" aria-hidden />
-                <p className="font-medium">
-                  Tuyệt vời! Bạn đã trả lời đúng toàn bộ {reviewTotal} câu trong lượt làm bài này.
-                </p>
+            {reviewWrongCount === 0 && (
+              <div className="flex items-center gap-2.5 rounded-xl border border-success-line bg-success-soft px-3 py-2 text-sm text-success-fg">
+                <CheckCircle2 className="size-4 shrink-0" aria-hidden />
+                <p className="font-medium">Đúng toàn bộ {reviewTotal} câu.</p>
               </div>
-            ) : reviewMistakes.length === 0 ? (
-              <div className="rounded-xl border border-line bg-surface-2 p-4 text-sm text-muted">
-                Lượt làm bài này có {reviewWrongCount} câu sai nhưng không có chi tiết câu hỏi được lưu.
+            )}
+
+            {wrongItems.length > 0 && wrongItems.length < reviewItems.length && (
+              <div className="flex gap-1.5" role="group" aria-label="Lọc câu hỏi">
+                <Chip selected={!onlyWrong} onClick={() => setOnlyWrong(false)}>
+                  Tất cả ({reviewItems.length})
+                </Chip>
+                <Chip selected={onlyWrong} onClick={() => setOnlyWrong(true)}>
+                  Câu sai ({wrongItems.length})
+                </Chip>
               </div>
-            ) : (
-              <div className="space-y-3">
-                <p className="text-xs font-semibold tracking-wide text-muted uppercase">
-                  Các câu trả lời sai ({reviewMistakes.length})
-                </p>
-                <div className="divide-y divide-line rounded-xl border border-line bg-surface">
-                  {reviewMistakes.map((mistake, idx) => (
-                    <div key={`${mistake.id}-${idx}`} className="space-y-2.5 p-3.5 sm:p-4">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge tone="neutral" className="tabular">
-                          #{idx + 1}
-                        </Badge>
-                        {mistake.level && <Badge tone="primary">{mistake.level}</Badge>}
-                      </div>
-                      <p lang="ja" className="text-sm font-medium leading-relaxed text-fg">
-                        {mistake.prompt}
-                      </p>
-                      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                        <div className="rounded-lg border border-danger-line bg-danger-soft p-2.5">
-                          <p className="text-[11px] font-semibold text-danger-fg uppercase">
-                            Bạn trả lời
-                          </p>
-                          <p lang="ja" className="mt-0.5 text-sm font-medium text-fg line-through">
-                            {mistake.userAnswer}
-                          </p>
-                        </div>
-                        <div className="rounded-lg border border-success-line bg-success-soft p-2.5">
-                          <p className="text-[11px] font-semibold text-success-fg uppercase">
-                            Đáp án đúng
-                          </p>
-                          <p lang="ja" className="mt-0.5 text-sm font-semibold text-fg">
-                            {mistake.correctAnswer}
-                          </p>
-                        </div>
-                      </div>
-                      {mistake.explanation && (
-                        <p className="rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs leading-relaxed text-muted sm:text-sm">
-                          {mistake.explanation}
+            )}
+
+            {isPartial && (
+              <p className="rounded-xl border border-line bg-surface-2 px-3 py-2 text-xs text-muted sm:text-sm">
+                Lượt này không lưu chi tiết các câu trả lời đúng (mini-game hoặc lượt làm trước bản cập nhật).
+              </p>
+            )}
+
+            {shownItems.length > 0 && (
+              <ol className="divide-y divide-line rounded-xl border border-line bg-surface">
+                {shownItems.map((entry, idx) => {
+                  const options = entry.options ?? [];
+                  // pick-an-option questions mark the options; typed or ordering answers show text
+                  const listed = options.includes(entry.correctAnswer);
+                  return (
+                    <li key={`${entry.id}-${idx}`} className="space-y-2 p-3 sm:p-4">
+                      <div className="flex items-start gap-2">
+                        {entry.isCorrect ? (
+                          <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success-fg" aria-label="Đúng" />
+                        ) : (
+                          <XCircle className="mt-0.5 size-4 shrink-0 text-danger-fg" aria-label="Sai" />
+                        )}
+                        <p lang="ja" className="min-w-0 flex-1 text-sm font-medium leading-relaxed text-fg">
+                          <span className="tabular mr-1 text-xs text-muted">{idx + 1}.</span>
+                          {entry.prompt}
                         </p>
+                      </div>
+
+                      {listed ? (
+                        <ul className="grid gap-1.5 sm:grid-cols-2">
+                          {options.map((option, i) => {
+                            const isAnswer = option === entry.correctAnswer;
+                            const isWrongPick = !entry.isCorrect && option === entry.userAnswer;
+                            return (
+                              <li
+                                key={`${i}-${option}`}
+                                className={cn(
+                                  'flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-sm',
+                                  isAnswer
+                                    ? 'border-success-line bg-success-soft text-success-fg'
+                                    : isWrongPick
+                                      ? 'border-danger-line bg-danger-soft text-danger-fg'
+                                      : 'border-line text-fg',
+                                )}
+                              >
+                                <span lang="ja" className="min-w-0">{option}</span>
+                                {(isAnswer || isWrongPick) && (
+                                  <span className="shrink-0 text-[11px] font-semibold">
+                                    {isAnswer ? (entry.isCorrect ? '✓ Bạn chọn' : '✓ Đáp án') : '✕ Bạn chọn'}
+                                  </span>
+                                )}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      ) : (
+                        <div className="space-y-1 text-sm">
+                          {!entry.isCorrect && (
+                            <p className="rounded-lg border border-danger-line bg-danger-soft px-2.5 py-1.5 text-danger-fg">
+                              Bạn trả lời: <span lang="ja">{entry.userAnswer}</span>
+                            </p>
+                          )}
+                          <p className="rounded-lg border border-success-line bg-success-soft px-2.5 py-1.5 text-success-fg">
+                            Đáp án: <span lang="ja">{entry.correctAnswer}</span>
+                          </p>
+                        </div>
                       )}
-                    </div>
-                  ))}
-                </div>
-              </div>
+
+                      {entry.explanation && (
+                        <p className="text-xs leading-relaxed text-muted">{entry.explanation}</p>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
             )}
           </div>
         )}

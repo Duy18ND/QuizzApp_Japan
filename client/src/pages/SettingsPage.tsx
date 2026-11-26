@@ -3,6 +3,7 @@ import {
   CheckCircle2,
   Download,
   GraduationCap,
+  LogOut,
   Moon,
   Sun,
   Upload,
@@ -58,7 +59,7 @@ function hasSavedBackupAccess(userId?: string | null): boolean {
 }
 
 export const SettingsPage: React.FC = () => {
-  const { user, studyLevel, studyTextbookId, updateStudyLevel } = useAuth();
+  const { user, studyLevel, studyTextbookId, updateStudyLevel, signOut } = useAuth();
   const dispatch = useAppDispatch();
   const kanjiState = useAppSelector((state) => state.kanji);
   const grammarRecords = useAppSelector((state) => state.grammarProgress.records);
@@ -373,6 +374,20 @@ export const SettingsPage: React.FC = () => {
         </>
         )}
       </Card>
+
+      {user && (
+        <Card padding="md" className="flex flex-wrap items-center justify-between gap-3">
+          <p className="min-w-0 truncate text-sm text-muted">{user.email}</p>
+          <Button
+            variant="secondary"
+            size="sm"
+            leftIcon={<LogOut className="size-4" aria-hidden />}
+            onClick={() => void signOut()}
+          >
+            Đăng xuất
+          </Button>
+        </Card>
+      )}
     </PageContainer>
   );
 };

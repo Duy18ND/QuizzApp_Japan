@@ -109,7 +109,21 @@ export const StageMasteryTestCard: React.FC<StageMasteryTestCardProps> = ({
         score: correctCount,
         totalQuestions: questions.length,
         durationSeconds: durationSec,
-        mistakesJson: wrongMistakes,
+        mistakesJson: [
+          ...wrongMistakes,
+          ...questions
+            .filter((q) => picks[q.id] === q.correctIndex)
+            .map((q) => ({
+              id: `ok_${stageId}_${q.id}`,
+              questionId: q.id,
+              prompt: q.prompt,
+              userAnswer: q.options[q.correctIndex],
+              correctAnswer: q.options[q.correctIndex],
+              explanation: q.explanation,
+              options: [...q.options],
+              isCorrect: true,
+            })),
+        ],
       },
       userId,
     );

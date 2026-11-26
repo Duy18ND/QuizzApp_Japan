@@ -93,7 +93,16 @@ export const StageListeningTrainer: React.FC<StageListeningTrainerProps> = ({
         score: items.length,
         totalQuestions: items.length,
         durationSeconds: durationSec,
-        mistakesJson: [],
+        mistakesJson: items.map((q) => ({
+          id: `ok_${q.id}`,
+          questionId: q.id,
+          prompt: `${q.situation} — ${q.questionPrompt}`,
+          userAnswer: q.options[q.correctIndex],
+          correctAnswer: q.options[q.correctIndex],
+          explanation: q.explanation,
+          options: [...q.options],
+          isCorrect: true,
+        })),
       },
       userId,
     );

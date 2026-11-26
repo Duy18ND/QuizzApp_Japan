@@ -307,7 +307,7 @@ export const QuizPlay: React.FC<Props> = ({ config, retryAttemptId, onExit }) =>
     const mistakes = quizQuestions
       .map((q, idx) => {
         const chosen = state.userAnswers[idx];
-        if (!chosen || chosen === q.answerData.correctAnswerId) return null;
+        if (!chosen) return null;
         const chosenText = q.answers.find((a) => a.id === chosen)?.text || chosen;
         const correctText =
           q.answers.find((a) => a.id === q.answerData.correctAnswerId)?.text ||
@@ -333,6 +333,7 @@ export const QuizPlay: React.FC<Props> = ({ config, retryAttemptId, onExit }) =>
           wordId: q.wordId,
           prompt: `[${typeLabel}] ${q.question}`,
           userAnswer: chosenText,
+          isCorrect: chosen === q.answerData.correctAnswerId,
           correctAnswer: correctText,
           explanation: explanationText || q.answerData.explanation,
           options: q.answers.map((a) => a.text),

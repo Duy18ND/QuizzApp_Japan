@@ -217,6 +217,26 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
     [dispatch],
   );
 
+  /** Kept for the history review; not a mistake */
+  const logCorrectAnswer = (
+    questionId: string,
+    prompt: string,
+    answer: string,
+    explanation?: string,
+    options?: string[],
+  ) => {
+    sessionMistakesRef.current.push({
+      id: `ok_${questionId}_${sessionMistakesRef.current.length}`,
+      questionId,
+      prompt,
+      userAnswer: answer,
+      correctAnswer: answer,
+      explanation,
+      options,
+      isCorrect: true,
+    });
+  };
+
   const cmsSnapshot = useCurriculumSnapshot();
 
   const sliceForDailyLesson = useCallback(<T,>(items: T[], lessonNum: number, count: number): T[] => {
@@ -852,6 +872,7 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
                         setSelectedMcqIdx(optIdx);
                         if (optIdx === q.correctIndex) {
                           setCorrectCount((c) => c + 1);
+                          logCorrectAnswer(q.id, q.prompt, q.options[optIdx], q.explanation, [...q.options]);
                         } else {
                           setWrongCount((w) => w + 1);
                           recordJlptMistake({
@@ -897,6 +918,7 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
                             setStarResult({ answer, isCorrect, feedbackMsg });
                             if (isCorrect) {
                               setCorrectCount((c) => c + 1);
+                              logCorrectAnswer(item.id, item.fullSentence, item.correctAnswer, item.explanation);
                             } else {
                               setWrongCount((w) => w + 1);
                               recordJlptMistake({
@@ -1023,6 +1045,7 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
                           markJlptItemDone(user?.id, 'listening', item.id);
                           if (optIdx === item.correctIndex) {
                             setCorrectCount((c) => c + 1);
+                            logCorrectAnswer(item.id, `${item.situation} — ${item.questionPrompt}`, item.options[optIdx], item.explanation, [...item.options]);
                           } else {
                             setWrongCount((w) => w + 1);
                             recordJlptMistake({

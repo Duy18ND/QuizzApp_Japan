@@ -111,12 +111,21 @@ export const StageFlipcardTrainer: React.FC<StageFlipcardTrainerProps> = ({
         score: Math.max(1, quizQuestions.length),
         totalQuestions: Math.max(1, quizQuestions.length),
         durationSeconds: durationSec,
-        mistakesJson: [],
+        mistakesJson: quizQuestions.map((q) => ({
+          id: `ok_${q.id}`,
+          questionId: q.id,
+          prompt: q.prompt,
+          userAnswer: q.options[q.correctIndex],
+          correctAnswer: q.options[q.correctIndex],
+          explanation: q.explanation,
+          options: [...q.options],
+          isCorrect: true,
+        })),
       },
       userId,
     );
     setStep('done');
-  }, [kind, level, quizQuestions.length, userId]);
+  }, [kind, level, quizQuestions, userId]);
 
   const handleMarkRemembered = useCallback(() => {
     if (!currentCardId) return;
