@@ -168,6 +168,12 @@ function isMainReminderDue(
   return !(lastNotifiedMs > 0 && now.getTime() - lastNotifiedMs < repeatMs - 30_000);
 }
 
+/** Lock screens show about two short lines: cut long user-written labels. */
+function shortText(value: unknown, max = 60): string {
+  const text = typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : '';
+  return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
+}
+
 interface PushMessage {
   title: string;
   body: string;
@@ -307,11 +313,6 @@ async function handleRequest(req: Request): Promise<Response> {
     }
 
     const delaySeconds = Math.max(0, Math.min(25, Math.round(Number(body.delaySeconds) || 0)));
-    const stageLabel =
-      typeof body.stageLabel === 'string' && body.stageLabel.trim()
-        ? body.stageLabel.trim()
-        : 'Màn hôm nay';
-
     const { data: userSubs, error: subsErr } = await supabase
       .from('user_push_subscriptions')
       .select('*')
@@ -332,14 +333,9 @@ async function handleRequest(req: Request): Promise<Response> {
     }
 
     const nowTag = Date.now();
-    const title =
-      delaySeconds > 0
-        ? `Nihongo 問 · Nảy chuông sau ${delaySeconds}s (App đã đóng)!`
-        : 'Nihongo 問 · Test Server Web Push thành công!';
+    const title = '✅ Thông báo hoạt động';
     const notifBody =
-      delaySeconds > 0
-        ? `Thông báo đẩy từ Server Cloud vẫn hoạt động dù bạn đã thoát màn hình chính & xóa app khỏi đa nhiệm (${stageLabel}).`
-        : `Đường truyền Server Push → điện thoại hoạt động bình thường (${stageLabel}).`;
+      delaySeconds > 0 ? 'Đã nhận được dù app đang đóng.' : 'Điện thoại đã nhận được nhắc học.';
 
     const sendToAllSubs = async () => {
       let sentCount = 0;
@@ -512,16 +508,10 @@ async function handleRequest(req: Request): Promise<Response> {
         continue;
       }
 
-      const label = typeof slot.label === 'string' && slot.label.trim() ? slot.label.trim() : '';
-      const repeatMinutes = sanitizeRepeatMinutes(slot.repeatMinutes);
       const result = await sendPush(webpush, row, {
-        title:
-          decision === 'repeat'
-            ? `Nihongo 問 · Bạn chưa vào học (${slot.time})`
-            : `Nihongo 問 · Đến giờ học ${slot.time}!`,
-        body:
-          (label || 'Mở app để vào bài học hôm nay nhé.') +
-          (repeatMinutes > 0 ? ` Mình sẽ nhắc lại mỗi ${repeatMinutes} phút đến khi bạn mở app.` : ''),
+        // No app name in the title: the phone already shows it above the notification.
+        title: decision === 'repeat' ? `⏰ ${slot.time} · Bạn chưa vào học` : `⏰ ${slot.time} · Đến giờ học`,
+        body: shortText(slot.label) || 'Chạm để vào bài hôm nay.',
         url: `${baseUrl}/#/roadmap`,
         tag: `nihongo-slot-${local.dateKey}-${slot.id ?? slot.time}`,
       });
@@ -547,11 +537,13 @@ async function handleRequest(req: Request): Promise<Response> {
       !completedToday &&
       isMainReminderDue(row, local, now, lastAppOpenMs)
     ) {
-      const stageLabel = row.active_stage_label || 'Màn hôm nay';
+      // active_stage_label holds the roadmap's name, not a stage
+      const roadmapName = shortText(row.active_stage_label, 30);
       const targetMins = row.daily_minutes_target || 10;
+      const task = `Học ${targetMins} phút để xong bài hôm nay.`;
       const result = await sendPush(webpush, row, {
-        title: `Nihongo 問 · ${stageLabel} đang chờ bạn!`,
-        body: `Học ít nhất ${targetMins} phút và hoàn thành ${stageLabel} để mở Màn tiếp theo.`,
+        title: '⏰ Đến giờ học tiếng Nhật',
+        body: roadmapName && roadmapName !== 'Giáo trình chuẩn' ? `${roadmapName}\n${task}` : task,
         url: `${baseUrl}/#/roadmap`,
         tag: `nihongo-stage-${local.dateKey}`,
       });
