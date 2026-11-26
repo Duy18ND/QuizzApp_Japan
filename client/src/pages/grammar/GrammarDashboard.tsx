@@ -70,7 +70,6 @@ export const GrammarDashboard: React.FC = () => {
     <PageContainer>
       <PageHeader
         title="Ngữ pháp"
-        description="Mở bài để xem lý thuyết & mẹo nhớ, bấm Quiz để luyện tập."
         actions={
           <>
             <Link

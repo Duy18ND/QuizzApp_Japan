@@ -430,7 +430,6 @@ export const MistakesReview: React.FC = () => {
           { label: 'Ôn tập lỗi sai' },
         ]}
         title="Ôn tập lỗi sai"
-        description="Ôn lại những câu bạn từng làm sai. Trả lời đúng thì câu đó tự được gỡ khỏi danh sách."
       />
 
       {!user ? (

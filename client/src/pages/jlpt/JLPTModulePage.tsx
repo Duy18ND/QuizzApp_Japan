@@ -1,4 +1,5 @@
-import { N3_GRAMMAR_UNITS } from '../../data/jlpt/listeningPackN3Lessons';
+import { getSkzListeningSection, SKZ_LISTENING_SECTION_TITLES } from '../../data/jlpt/skzListening';
+import { getSkzReadingPart, SKZ_READING_PART_TITLES } from '../../data/jlpt/skzReading';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
@@ -53,11 +54,12 @@ import { useAppDispatch } from '../../store/hooks';
 import { addMistake } from '../../store/slices/mistakeSlice';
 import { shuffleArray } from '../../utils/shuffle';
 import {
-  getItemLessons,
   getListeningSituation,
   getReadingSituation,
   SITUATION_TAGS,
 } from '../../data/jlpt/situationPackUtils';
+
+const OTHER_TOPIC = 'Chủ đề khác';
 
 const LEVEL_OPTIONS: Array<{ value: JLPTLevelFilter; label: string }> = [
   { value: 'ALL', label: 'Tất cả' },
@@ -250,7 +252,8 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
     return questionLimit > 0 ? pool.slice(0, questionLimit) : pool;
   }, [activeLesson, cmsSnapshot, levelFilter, meta.id, questionLimit, sessionSeed, sliceForDailyLesson]);
 
-  const [situationFilter, setSituationFilter] = useState<string>('all');
+  // ?topic=… preselects a topic (links from roadmap sessions)
+  const [situationFilter, setSituationFilter] = useState<string>(() => searchParams.get('topic') ?? 'all');
   const [doneFilter, setDoneFilter] = useState<'all' | 'todo' | 'done'>('all');
   // Snapshot of done IDs taken when switching filter / reshuffling so answering an item in
   // "Chưa làm" mode adds the ✓ badge without yanking the active item away mid-review.
@@ -272,9 +275,29 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
     } else if (meta.id === 'listening') {
       tags = getLiveJlptListeningItems(cmsSnapshot, levelFilter).map(getListeningSituation);
     }
-    return SITUATION_TAGS.filter((tag) => tags.includes(tag));
+    const topics: string[] = SITUATION_TAGS.filter((tag) => tags.includes(tag));
+    // Listening items without a topic tag stay reachable under "Chủ đề khác"
+    if (meta.id === 'listening' && topics.length > 0 && tags.includes(null)) topics.push(OTHER_TOPIC);
+    return topics;
   }, [cmsSnapshot, levelFilter, meta.id]);
   const activeSituation = availableSituations.some((t) => t === situationFilter) ? situationFilter : 'all';
+
+  // Shin Kanzen N3 読解 parts available in this module
+  const [readingLessonFilter, setReadingLessonFilter] = useState<number | 'all'>('all');
+  const availableReadingLessons = useMemo(() => {
+    if (levelFilter !== 'N3') return [];
+    if (meta.id !== 'reading-short' && meta.id !== 'reading-medium' && meta.id !== 'reading-long') return [];
+    const set = new Set<number>();
+    for (const p of getLiveJlptReadingPassages(cmsSnapshot, meta.id, levelFilter)) {
+      const n = getSkzReadingPart(p);
+      if (n) set.add(n);
+    }
+    return Array.from(set).sort((a, b) => a - b);
+  }, [cmsSnapshot, levelFilter, meta.id]);
+  const activeReadingLesson =
+    readingLessonFilter !== 'all' && availableReadingLessons.includes(readingLessonFilter)
+      ? readingLessonFilter
+      : 'all';
 
   const allScopedReading = useMemo(() => {
     if (
@@ -285,10 +308,12 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
       return [];
     }
     const all = getLiveJlptReadingPassages(cmsSnapshot, meta.id, levelFilter);
-    return activeSituation === 'all'
-      ? all
-      : all.filter((p) => getReadingSituation(p) === activeSituation);
-  }, [activeSituation, cmsSnapshot, levelFilter, meta.id]);
+    return all.filter(
+      (p) =>
+        (activeSituation === 'all' || getReadingSituation(p) === activeSituation) &&
+        (activeReadingLesson === 'all' || getSkzReadingPart(p) === activeReadingLesson),
+    );
+  }, [activeReadingLesson, activeSituation, cmsSnapshot, levelFilter, meta.id]);
 
   const readingPassages = useMemo(() => {
     if (allScopedReading.length === 0) return [];
@@ -304,29 +329,28 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
     return allScopedReading;
   }, [activeLesson, allScopedReading, doneFilter, filterSnapshot.reading]);
 
-  // Textbook lessons (Minna "Bài N") available for listening at this level
-  const [lessonFilter, setLessonFilter] = useState<number | 'all'>('all');
-  const availableListeningLessons = useMemo(() => {
-    // Lesson numbers only mean something inside one level (N5 Bài 1 ≠ N3 Bài 1)
-    if (meta.id !== 'listening' || levelFilter === 'ALL') return [];
-    const set = new Set<number>();
+  // Shin Kanzen N3 聴解 sections
+  const [sectionFilter, setSectionFilter] = useState<string>('all');
+  const availableSections = useMemo(() => {
+    if (meta.id !== 'listening' || levelFilter !== 'N3') return [];
+    const set = new Set<string>();
     for (const item of getLiveJlptListeningItems(cmsSnapshot, levelFilter)) {
-      for (const n of getItemLessons(item)) set.add(n);
+      const sec = getSkzListeningSection(item);
+      if (sec) set.add(sec);
     }
-    return Array.from(set).sort((a, b) => a - b);
+    return Array.from(set).sort();
   }, [cmsSnapshot, levelFilter, meta.id]);
-  const activeListeningLesson =
-    lessonFilter !== 'all' && availableListeningLessons.includes(lessonFilter) ? lessonFilter : 'all';
+  const activeSection = availableSections.includes(sectionFilter) ? sectionFilter : 'all';
 
   const allScopedListening = useMemo(() => {
     if (meta.id !== 'listening') return [];
     const all = getLiveJlptListeningItems(cmsSnapshot, levelFilter);
     return all.filter(
       (i) =>
-        (activeSituation === 'all' || getListeningSituation(i) === activeSituation) &&
-        (activeListeningLesson === 'all' || getItemLessons(i).includes(activeListeningLesson)),
+        (activeSituation === 'all' || (getListeningSituation(i) ?? OTHER_TOPIC) === activeSituation) &&
+        (activeSection === 'all' || getSkzListeningSection(i) === activeSection),
     );
-  }, [activeListeningLesson, activeSituation, cmsSnapshot, levelFilter, meta.id]);
+  }, [activeSection, activeSituation, cmsSnapshot, levelFilter, meta.id]);
 
   const listeningItems = useMemo(() => {
     if (allScopedListening.length === 0) return [];
@@ -445,7 +469,6 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
             <span>{meta.title}</span>
           </span>
         }
-        description={meta.subtitle}
       />
 
       {activeLesson > 0 && (
@@ -481,6 +504,8 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
         </Card>
       )}
 
+      {/* the full test groups its papers by level itself */}
+      {!isFullTestMode && (
       <Card tone="muted" padding="sm" className="mb-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-2">
@@ -523,34 +548,53 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
           )}
         </div>
       </Card>
+      )}
 
-      {(availableListeningLessons.length > 0 || availableSituations.length > 0) && (
+      {(availableSections.length > 0 ||
+        availableReadingLessons.length > 0 ||
+        availableSituations.length > 0) && (
         <div className="mb-4 grid gap-2 sm:grid-cols-2">
-          {availableListeningLessons.length > 0 && (
+          {availableReadingLessons.length > 0 && (
             <Select
-              aria-label="Lọc theo bài Minna"
-              value={String(activeListeningLesson)}
+              aria-label="Lọc theo dạng bài đọc"
+              value={String(activeReadingLesson)}
               wrapperClassName="w-full"
               className="w-full"
               onChange={(e) => {
-                setLessonFilter(e.target.value === 'all' ? 'all' : Number(e.target.value));
+                setReadingLessonFilter(e.target.value === 'all' ? 'all' : Number(e.target.value));
                 resetSequentialSession();
               }}
             >
-              <option value="all">
-                {levelFilter === 'N3' ? 'Bài ngữ pháp N3: tất cả' : 'Bài Minna: tất cả'}
-              </option>
-              {availableListeningLessons.map((n) => (
+              <option value="all">Dạng bài đọc: tất cả</option>
+              {availableReadingLessons.map((n) => (
                 <option key={n} value={n}>
-                  Bài {n}
-                  {levelFilter === 'N3' && N3_GRAMMAR_UNITS[n] ? ` · ${N3_GRAMMAR_UNITS[n]}` : ''}
+                  {SKZ_READING_PART_TITLES[n]}
+                </option>
+              ))}
+            </Select>
+          )}
+          {availableSections.length > 0 && (
+            <Select
+              aria-label="Lọc theo dạng bài nghe"
+              value={activeSection}
+              wrapperClassName="w-full"
+              className="w-full"
+              onChange={(e) => {
+                setSectionFilter(e.target.value);
+                resetSequentialSession();
+              }}
+            >
+              <option value="all">Dạng bài nghe: tất cả</option>
+              {availableSections.map((sec) => (
+                <option key={sec} value={sec}>
+                  {SKZ_LISTENING_SECTION_TITLES[sec] ?? sec}
                 </option>
               ))}
             </Select>
           )}
           {availableSituations.length > 0 && (
             <Select
-              aria-label="Lọc theo tình huống"
+              aria-label="Lọc theo chủ đề"
               value={activeSituation}
               wrapperClassName="w-full"
               className="w-full"
@@ -559,7 +603,7 @@ const JLPTModuleContent: React.FC<{ meta: JLPTModuleMeta }> = ({ meta }) => {
                 resetSequentialSession();
               }}
             >
-              <option value="all">Tình huống: tất cả</option>
+              <option value="all">Chủ đề: tất cả</option>
               {availableSituations.map((tag) => (
                 <option key={tag} value={tag}>
                   {tag}

@@ -163,7 +163,7 @@ export const RoadmapPage: React.FC = () => {
     if (
       rawTo === '/vocabulary/quiz' ||
       rawTo === '/vocabulary/writing' ||
-      rawTo === '/vocabulary/review' ||
+      rawTo === '/vocabulary/unmastered' ||
       rawTo === '/vocabulary/unmastered'
     ) {
       return `${rawTo}${toolQuery}`;

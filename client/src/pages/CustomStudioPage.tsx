@@ -361,10 +361,8 @@ export const CustomStudioPage: React.FC = () => {
         title={
           <span className="flex flex-wrap items-center gap-2">
             <span>Studio Tự tạo Bài &amp; Vẽ Lộ trình</span>
-            <Badge tone="sakura">Creator Studio</Badge>
           </span>
         }
-        description="Tạo bài (từ vựng, ngữ pháp, Kanji, quiz) rồi ghép thành lộ trình — học ngay bằng Flashcard, Quiz và Mini-game."
         actions={
           <div className="flex flex-wrap gap-2">
             <Link to="/roadmap?new=quiz" className={buttonStyles({ variant: 'primary', size: 'sm' })}>
@@ -386,7 +384,7 @@ export const CustomStudioPage: React.FC = () => {
 
       {!user && (
         <Notice tone="info">
-          Bạn đang ở chế độ Khách — bài tự tạo được lưu trên trình duyệt này. Đăng nhập để tự động sao lưu lên đám mây Supabase!
+          Chế độ khách: bài tự tạo chỉ lưu trên trình duyệt này.
         </Notice>
       )}
 
@@ -417,7 +415,7 @@ export const CustomStudioPage: React.FC = () => {
         <div className="space-y-4">
           <Card padding="sm" className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-xs font-semibold text-muted">
-              Tạo bài học mới theo phong cách Admin (tự dùng Flashcard, Quiz &amp; 6 Mini-game):
+              Tạo bài mới:
             </span>
             <div className="flex flex-wrap gap-1.5">
               <Button
@@ -462,7 +460,7 @@ export const CustomStudioPage: React.FC = () => {
           {studio.lessons.length === 0 ? (
             <EmptyState
               title="Bạn chưa tự tạo bài học nào"
-              description="Bấm “+ Bài Từ vựng” (có hỗ trợ dán nhanh nhiều dòng từ Excel/Sheets) để tạo bộ từ riêng và chơi ngay trên Bắn Từ Vựng, Chém Hoa Quả, Flashcard & Quiz!"
+              description="Có thể dán nhiều dòng từ Excel / Sheets."
               action={
                 <Button
                   type="button"
@@ -626,7 +624,7 @@ export const CustomStudioPage: React.FC = () => {
           ) : (
             <EmptyState
               title="Chưa có Bản đồ Lộ trình tự vẽ"
-              description="Bấm “Vẽ Bản đồ mới” để tự kéo-thả các điểm bài học, nối dây mở khóa / rẽ nhánh và gắn bài tự tạo vào từng chặng."
+              description="Kéo thả các điểm bài học và nối chúng thành lộ trình."
               action={
                 <Button
                   type="button"
@@ -652,7 +650,6 @@ export const CustomStudioPage: React.FC = () => {
             ? `Sửa bài ${lessonKind === 'vocab' ? 'Từ vựng' : lessonKind === 'grammar' ? 'Ngữ pháp' : 'Kanji'}`
             : `Tạo bài ${lessonKind === 'vocab' ? 'Từ vựng' : lessonKind === 'grammar' ? 'Ngữ pháp' : 'Kanji'} mới`
         }
-        description="Nội dung bạn tạo được lưu riêng cho tài khoản của bạn và có thể gắn ngay vào Bản đồ Lộ trình hoặc chơi Mini-game."
         footer={
           <>
             <Button type="button" variant="secondary" onClick={() => setEditorOpen(false)}>

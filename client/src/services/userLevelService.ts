@@ -251,3 +251,41 @@ export async function persistStudyLevel(
 
   return level;
 }
+
+export type RoadmapLevelCounts = Record<StudyLevel, number>;
+
+const EMPTY_LEVEL_COUNTS: RoadmapLevelCounts = {
+  N5: 0,
+  N4: 0,
+  N3: 0,
+  N2: 0,
+  N1: 0,
+};
+
+let cachedLevelCounts: { value: RoadmapLevelCounts; fetchedAt: number } | null = null;
+const LEVEL_COUNTS_TTL_MS = 60_000;
+
+export async function fetchRoadmapLevelCounts(): Promise<RoadmapLevelCounts> {
+  if (cachedLevelCounts && Date.now() - cachedLevelCounts.fetchedAt < LEVEL_COUNTS_TTL_MS) {
+    return cachedLevelCounts.value;
+  }
+  if (!supabase) return { ...EMPTY_LEVEL_COUNTS };
+  try {
+    const { data, error } = await supabase.rpc('get_public_community_stats');
+    if (error || !data || typeof data !== 'object') {
+      return { ...EMPTY_LEVEL_COUNTS };
+    }
+    const raw = (data as { levelCounts?: Record<string, unknown> }).levelCounts;
+    const result: RoadmapLevelCounts = {
+      N5: Math.max(0, Number(raw?.N5) || 0),
+      N4: Math.max(0, Number(raw?.N4) || 0),
+      N3: Math.max(0, Number(raw?.N3) || 0),
+      N2: Math.max(0, Number(raw?.N2) || 0),
+      N1: Math.max(0, Number(raw?.N1) || 0),
+    };
+    cachedLevelCounts = { value: result, fetchedAt: Date.now() };
+    return result;
+  } catch {
+    return { ...EMPTY_LEVEL_COUNTS };
+  }
+}

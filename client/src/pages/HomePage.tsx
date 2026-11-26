@@ -6,16 +6,16 @@ import {
   Compass,
   FileText,
   Flame,
-  Keyboard,
   Layers,
   ListChecks,
   LogIn,
   MessagesSquare,
-  Sparkles,
   Trophy,
+  Users,
 } from 'lucide-react';
 import { CommunityReviewsSection } from '../components/home/CommunityReviewsSection';
 import { StudyScheduleModal } from '../components/settings/StudyScheduleCard';
+import { GrammarQuizPickerModal } from '../components/home/GrammarQuizPickerModal';
 import {
   Badge,
   Button,
@@ -70,8 +70,10 @@ import {
   STAGE_ROADMAP_SYNC_EVENT,
 } from '../services/stageRoadmapService';
 import {
+  fetchRoadmapLevelCounts,
   requestOpenLevelModal,
   STUDY_LEVEL_OPTIONS,
+  type RoadmapLevelCounts,
   type StudyLevel,
 } from '../services/userLevelService';
 import { useAppSelector } from '../store/hooks';
@@ -363,7 +365,6 @@ export const HomePage: React.FC = () => {
             { label: `Mở ${activeTextbookStats.unitCount || 25} bài →`, to: bookPath, primary: true },
             { label: 'Flashcard', to: `/flashcard/${lvlLower}/book/${activeTextbook.id}` },
             { label: 'Quiz nhanh', to: `/vocabulary/quiz${toolQuery}` },
-            { label: 'Luyện gõ', to: `/vocabulary/writing${toolQuery}` },
           ],
         },
         {
@@ -414,7 +415,6 @@ export const HomePage: React.FC = () => {
           { label: 'Mở giáo trình →', to: '/vocabulary', primary: true },
           { label: 'Flashcard', to: '/flashcard' },
           { label: 'Quiz nhanh', to: '/vocabulary/quiz' },
-          { label: 'Luyện gõ', to: '/vocabulary/writing' },
         ],
       },
       {
@@ -541,7 +541,7 @@ export const HomePage: React.FC = () => {
   const kanjiArea = coreBookAreas[2];
   const readingArea = skillBookAreas[0];
   const listeningArea = skillBookAreas[1];
-  const [gamesArea, studioArea, fullTestArea, pdfArea] = practiceAndStudioAreas;
+  const [gamesArea, , fullTestArea, pdfArea] = practiceAndStudioAreas;
 
   const skillTiles: SkillTileProps[] = [
     {
@@ -582,13 +582,25 @@ export const HomePage: React.FC = () => {
     { label: 'Thi thử JLPT', to: fullTestArea.to, icon: Trophy },
     { label: 'Flashcard', to: vocabArea.quickActions?.[1]?.to ?? '/flashcard', icon: Layers },
     { label: 'Quiz từ vựng', to: vocabArea.quickActions?.[2]?.to ?? '/vocabulary/quiz', icon: ListChecks },
-    { label: 'Quiz tình huống', to: grammarArea.quickActions?.[1]?.to ?? '/grammar', icon: MessagesSquare },
-    { label: 'Luyện gõ', to: vocabArea.quickActions?.[3]?.to ?? '/vocabulary/writing', icon: Keyboard },
-    { label: 'Tự tạo bài', to: studioArea.to, icon: Sparkles },
+    // no link: opens the level → lesson → grammar picker
+    { label: 'Quiz ngữ pháp', to: '', icon: MessagesSquare },
     { label: 'Xuất PDF', to: pdfArea.to, icon: FileText },
   ];
 
   const activeStage = stageMapSummary?.activeStage ?? null;
+  const [grammarQuizOpen, setGrammarQuizOpen] = useState(false);
+  const [roadmapLevelCounts, setRoadmapLevelCounts] = useState<RoadmapLevelCounts | null>(null);
+
+  useEffect(() => {
+    if (activeLevel) return;
+    let cancelled = false;
+    void fetchRoadmapLevelCounts().then((counts) => {
+      if (!cancelled) setRoadmapLevelCounts(counts);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeLevel]);
 
   return (
     <PageContainer className="space-y-5">
@@ -616,6 +628,11 @@ export const HomePage: React.FC = () => {
           </Link>
         )}
       </section>
+      <GrammarQuizPickerModal
+        open={grammarQuizOpen}
+        defaultLevel={activeLevel}
+        onClose={() => setGrammarQuizOpen(false)}
+      />
       <StudyScheduleModal open={scheduleModalOpen} onClose={() => setScheduleModalOpen(false)} />
 
       {/* Today */}
@@ -635,21 +652,29 @@ export const HomePage: React.FC = () => {
               </span>
               <div className="min-w-0">
                 <p className="font-semibold text-fg">Bạn đang học trình độ nào?</p>
-                <p className="text-sm text-muted">
-                  Chọn 1 lần để app gợi ý bài học và lộ trình mỗi ngày.
-                </p>
               </div>
             </div>
             <div className="grid grid-cols-5 gap-2">
-              {STUDY_LEVEL_OPTIONS.map((opt) => (
-                <Button
-                  key={opt.level}
-                  variant="secondary"
-                  onClick={() => void handleQuickSelectLevel(opt.level)}
-                >
-                  {opt.level}
-                </Button>
-              ))}
+              {STUDY_LEVEL_OPTIONS.map((opt) => {
+                const learnerCount = roadmapLevelCounts?.[opt.level] ?? 0;
+                return (
+                  <Button
+                    key={opt.level}
+                    variant="secondary"
+                    className={learnerCount > 0 ? 'h-auto flex-col gap-0.5 py-2' : undefined}
+                    onClick={() => void handleQuickSelectLevel(opt.level)}
+                  >
+                    <span>{opt.level}</span>
+                    {learnerCount > 0 && (
+                      <span className="inline-flex items-center gap-0.5 text-[11px] font-normal text-muted tabular-nums">
+                        <Users className="size-3 shrink-0" aria-hidden />
+                        <span>{learnerCount.toLocaleString('vi-VN')}</span>
+                        <span className="hidden sm:inline">người học</span>
+                      </span>
+                    )}
+                  </Button>
+                );
+              })}
             </div>
           </div>
         ) : (
@@ -733,13 +758,8 @@ export const HomePage: React.FC = () => {
               onClick={requestOpenLevelModal}
               className="font-medium text-primary-fg hover:underline"
             >
-              Đổi trình độ / sách
+              Đổi trình độ
             </button>
-          )}
-          {user && (
-            <Link to="/roadmap?create=1" className="font-medium text-primary-fg hover:underline">
-              Tự tạo lộ trình
-            </Link>
           )}
           <button
             type="button"
@@ -797,20 +817,32 @@ export const HomePage: React.FC = () => {
           <h2 id="tools-heading" className="px-1 text-base font-bold text-fg">
             Công cụ khác
           </h2>
-          <ul className="grid grid-cols-4 gap-1.5 sm:grid-cols-7">
-            {toolLinks.map(({ label, to, icon: Icon }) => (
-              <li key={label}>
-                <Link
-                  to={to}
-                  className="flex h-full flex-col items-center gap-1.5 rounded-xl px-1 py-2.5 text-center transition-colors hover:bg-primary-soft focus-visible:outline-2 focus-visible:outline-primary"
-                >
+          <ul className="grid grid-cols-3 gap-1.5 sm:grid-cols-5">
+            {toolLinks.map(({ label, to, icon: Icon }) => {
+              const tileClass =
+                'flex h-full w-full cursor-pointer flex-col items-center gap-1.5 rounded-xl px-1 py-2.5 text-center transition-colors hover:bg-primary-soft focus-visible:outline-2 focus-visible:outline-primary';
+              const content = (
+                <>
                   <span className="grid size-10 place-items-center rounded-xl bg-primary-soft text-primary-fg">
                     <Icon className="size-5" aria-hidden />
                   </span>
                   <span className="text-xs font-semibold leading-tight text-fg sm:text-sm">{label}</span>
-                </Link>
-              </li>
-            ))}
+                </>
+              );
+              return (
+                <li key={label}>
+                  {to ? (
+                    <Link to={to} className={tileClass}>
+                      {content}
+                    </Link>
+                  ) : (
+                    <button type="button" onClick={() => setGrammarQuizOpen(true)} className={tileClass}>
+                      {content}
+                    </button>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </Card>
       </section>

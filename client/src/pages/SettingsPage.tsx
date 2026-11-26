@@ -179,7 +179,6 @@ export const SettingsPage: React.FC = () => {
       <PageHeader
         breadcrumbs={[{ label: 'Trang chủ', to: '/' }, { label: 'Cài đặt' }]}
         title="Cài đặt & Quản lý dữ liệu"
-        description="Tùy chỉnh trình độ tiếng Nhật, lịch nhắc học, chuỗi ngày học, giao diện và sao lưu tiến độ cá nhân."
       />
 
       {/* 0. JLPT Study Level Selector (Logged-in users only) */}
@@ -194,9 +193,6 @@ export const SettingsPage: React.FC = () => {
             </span>
             <div>
               <h2 className="text-base font-semibold text-fg">Trình độ tiếng Nhật (JLPT)</h2>
-              <p className="text-sm text-muted">
-                Chọn 1 trong 5 trình độ JLPT (N5 – N1) để hiển thị đúng lộ trình học tập ở Trang chủ.
-              </p>
             </div>
           </div>
           {user &&

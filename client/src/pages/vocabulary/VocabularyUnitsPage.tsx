@@ -5,8 +5,6 @@ import {
   BookMarked,
   BookOpen,
   ChevronRight,
-  Keyboard,
-  ListChecks,
   Play,
   PlayCircle,
 } from 'lucide-react';
@@ -88,18 +86,6 @@ export const VocabularyUnitsPage: React.FC<Props> = ({
   const textbookTools = useMemo(() => {
     const scopeLabel = textbook ? `${textbook.title} (${levelKey})` : `JLPT ${levelKey}`;
     return [
-      {
-        to: `/vocabulary/writing${toolQuery}`,
-        title: 'Luyện gõ & nhớ từ',
-        desc: `Gõ Hiragana/Kanji từ nghĩa Việt theo ${scopeLabel}.`,
-        icon: Keyboard,
-      },
-      {
-        to: `/vocabulary/review${toolQuery}`,
-        title: 'Ôn tập tổng hợp',
-        desc: `Ôn từ ★, từ làm sai và lỗi liên quan của ${scopeLabel}.`,
-        icon: ListChecks,
-      },
       {
         to: `/vocabulary/unmastered${toolQuery}`,
         title: 'Từ & Kanji chưa thuộc',
@@ -194,6 +180,7 @@ export const VocabularyUnitsPage: React.FC<Props> = ({
             ))}
           </Select>
         </Field>
+        {levelTextbooks.length > 1 && (
         <Field label="Giáo trình đang học" htmlFor={`${title}-book-switcher`}>
           <Select
             id={`${title}-book-switcher`}
@@ -214,6 +201,7 @@ export const VocabularyUnitsPage: React.FC<Props> = ({
             })}
           </Select>
         </Field>
+        )}
       </section>
 
       <section className="space-y-3" aria-label="Danh sách bài học">

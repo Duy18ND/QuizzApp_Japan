@@ -1,12 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import {
   BookOpen,
   CheckCircle2,
-  ChevronDown,
   ChevronUp,
+  ListChecks,
   RotateCcw,
-  Sparkles,
   Target,
   Trophy,
   Volume2,
@@ -26,7 +25,6 @@ import {
   Select,
   useToast,
 } from '../components/ui';
-import { buttonStyles } from '../components/ui/styles';
 import {
   ListeningDojoGame,
   MemoryFlipGame,
@@ -39,9 +37,11 @@ import { useAuth } from '../context/auth-context';
 import {
   getPreferredVocabLevel,
   getUnitsForVocabTextbook,
+  getVocabTextbooksForLevel,
   getWordsForVocabTextbook,
   parseVocabLevelParam,
   resolveActiveVocabTextbook,
+  savePreferredVocabTextbookId,
 } from '../data/vocabTextbooks';
 import { useCurriculumSnapshot } from '../hooks/useCurriculumData';
 import { useUserProgress } from '../hooks/useUserProgress';
@@ -72,7 +72,7 @@ import {
   recordDailyStageSkillActivity,
   type StageSkill,
 } from '../services/stageRoadmapService';
-import { requestOpenLevelModal, type StudyLevel } from '../services/userLevelService';
+import { type StudyLevel } from '../services/userLevelService';
 import type { VocabularyItem } from '../types/vocabulary';
 import { shuffleArray } from '../utils/shuffle';
 import { stopJapaneseSpeech } from '../utils/tts';
@@ -92,39 +92,39 @@ const MINI_GAMES: MiniGameSpec[] = [
     id: 'shooter',
     glyph: '剣',
     title: 'Ninja chém từ',
-    subtitle: 'Gõ Hiragana hoặc chạm chọn — theo bài hoặc vô hạn.',
+    subtitle: 'Gõ Hiragana hoặc chạm chọn.',
     badge: 'Hot',
   },
   {
     id: 'slash',
     glyph: '斬',
     title: 'Chém hoa quả',
-    subtitle: 'Vuốt chém quả cầu đúng nghĩa — theo bài hoặc vô hạn.',
+    subtitle: 'Vuốt chém đúng nghĩa.',
     badge: 'Mới',
   },
   {
     id: 'match',
     glyph: '結',
     title: 'Nối cặp',
-    subtitle: 'Nối Kanji, từ vựng, ngữ pháp — theo bài hoặc vô hạn.',
+    subtitle: 'Nối Kanji, từ vựng, ngữ pháp.',
   },
   {
     id: 'memory',
     glyph: '札',
     title: 'Lật thẻ',
-    subtitle: 'Lật thẻ tìm cặp từ ↔ nghĩa — theo bài hoặc vô hạn.',
+    subtitle: 'Tìm cặp từ ↔ nghĩa.',
   },
   {
     id: 'truefalse',
     glyph: '速',
     title: 'Đúng hay sai',
-    subtitle: 'Phán đoán nhanh ○/× — theo bài, vô hạn hoặc 45s.',
+    subtitle: 'Đoán nhanh ○ / ×.',
   },
   {
     id: 'listening',
     glyph: '聴',
     title: 'Luyện nghe',
-    subtitle: 'Nghe giọng đọc bắt đúng từ — theo bài hoặc vô hạn.',
+    subtitle: 'Nghe và chọn đúng từ.',
   },
 ];
 
@@ -140,6 +140,22 @@ const MIN_PRACTICE_WORDS = 8;
 
 const HIGH_SCORE_KEY = 'nihonmaster_minigame_highscores_v1';
 const SOUND_PREF_KEY = 'nihonmaster_minigame_sound_v1';
+const BASE_MINI_GAME_LEVELS: StudyLevel[] = ['N5', 'N4', 'N3'];
+
+function formatUnitShortLabel(name: string, idx: number): string {
+  return name.split('(')[0].split('—')[0].trim() || `Bài ${idx + 1}`;
+}
+
+function formatUnitTopicLabel(name: string, idx: number): string {
+  const short = formatUnitShortLabel(name, idx);
+  const dashIdx = name.indexOf('—');
+  if (dashIdx === -1) return short;
+  const topic = name
+    .slice(dashIdx + 1)
+    .replace(/\)\s*$/, '')
+    .trim();
+  return topic ? `${short} (${topic})` : short;
+}
 
 function loadHighScores(): Record<string, number> {
   if (typeof window === 'undefined') return {};
@@ -174,21 +190,53 @@ export const MiniGamesPage: React.FC = () => {
     ? rawGameParam
     : 'shooter';
 
-  const activeLevel: StudyLevel =
+  const allVocab = useMemo(() => getLiveAllVocabulary(cmsSnapshot), [cmsSnapshot]);
+
+  const levelWordCountMap = useMemo(() => {
+    const counts: Record<StudyLevel, number> = { N5: 0, N4: 0, N3: 0, N2: 0, N1: 0 };
+    for (const w of allVocab) {
+      if (w.level && w.level in counts) {
+        counts[w.level as StudyLevel] += 1;
+      }
+    }
+    return counts;
+  }, [allVocab]);
+
+  const availableLevels = useMemo<StudyLevel[]>(() => {
+    const extras = (['N2', 'N1'] as const).filter((lvl) => levelWordCountMap[lvl] > 0);
+    return [...BASE_MINI_GAME_LEVELS, ...extras];
+  }, [levelWordCountMap]);
+
+  const rawLevel: StudyLevel =
     parseVocabLevelParam(searchParams.get('level')) ??
     studyLevel ??
     getPreferredVocabLevel(user?.id) ??
     'N5';
+  const activeLevel: StudyLevel = availableLevels.includes(rawLevel) ? rawLevel : 'N3';
 
-  const activeBook = useMemo(
+  const levelBooksWithStats = useMemo(
     () =>
-      resolveActiveVocabTextbook(
-        activeLevel,
-        user?.id,
-        searchParams.get('book') ?? (activeLevel === studyLevel ? studyTextbookId : null),
-      ),
-    [activeLevel, searchParams, studyLevel, studyTextbookId, user?.id],
+      getVocabTextbooksForLevel(activeLevel)
+        .map((book) => {
+          const units = getUnitsForVocabTextbook(cmsSnapshot, activeLevel, book);
+          const wordCount = units.reduce((sum, u) => sum + u.totalWords, 0);
+          return { book, unitCount: units.length, wordCount };
+        })
+        .filter((entry) => entry.wordCount > 0),
+    [activeLevel, cmsSnapshot],
   );
+
+  const activeBook = useMemo(() => {
+    const resolved = resolveActiveVocabTextbook(
+      activeLevel,
+      user?.id,
+      searchParams.get('book') ?? (activeLevel === studyLevel ? studyTextbookId : null),
+    );
+    if (levelBooksWithStats.some((entry) => entry.book.id === resolved.id)) {
+      return resolved;
+    }
+    return levelBooksWithStats[0]?.book ?? resolved;
+  }, [activeLevel, levelBooksWithStats, searchParams, studyLevel, studyTextbookId, user?.id]);
 
   const [studioVocabLessons, setStudioVocabLessons] = useState<CustomLesson[]>(() =>
     loadCustomStudioState(user?.id).lessons.filter(
@@ -201,6 +249,8 @@ export const MiniGamesPage: React.FC = () => {
   const [allCurriculumMode, setAllCurriculumMode] = useState<boolean>(
     () => searchParams.get('scope') === 'all-books',
   );
+  // One course per level, so "all books" equals that course; the lesson picker stays available.
+  const [allBooksInLevel, setAllBooksInLevel] = useState<boolean>(false);
   const [selectedUnitIds, setSelectedUnitIds] = useState<string[]>(() => {
     const param = searchParams.get('unit');
     if (!param || param === 'ALL') return [];
@@ -264,13 +314,80 @@ export const MiniGamesPage: React.FC = () => {
     );
   }, [bookUnits, selectedUnitIds]);
 
+  const handleSelectLevel = useCallback(
+    (nextLevel: StudyLevel) => {
+      const nextReadyBooks = getVocabTextbooksForLevel(nextLevel).filter(
+        (b) => getUnitsForVocabTextbook(cmsSnapshot, nextLevel, b).some((u) => u.totalWords > 0),
+      );
+      const preferred = resolveActiveVocabTextbook(nextLevel, user?.id);
+      const nextBook =
+        nextReadyBooks.find((b) => b.id === preferred.id) ?? nextReadyBooks[0] ?? preferred;
+
+      setSelectedCustomLessonId(null);
+      setAllCurriculumMode(false);
+      setAllBooksInLevel(false);
+      setSelectedUnitIds([]);
+      setShowLessonPicker(false);
+      setPracticeSet(null);
+
+      const next = new URLSearchParams(searchParams);
+      next.set('level', nextLevel);
+      next.set('book', nextBook.id);
+      next.delete('unit');
+      next.delete('scope');
+      next.delete('customLesson');
+      setSearchParams(next, { replace: true });
+    },
+    [cmsSnapshot, searchParams, setSearchParams, user?.id],
+  );
+
+  const handleSelectBook = useCallback(
+    (nextBookId: string) => {
+      savePreferredVocabTextbookId(activeLevel, nextBookId, user?.id);
+      setSelectedCustomLessonId(null);
+      setAllCurriculumMode(false);
+      setAllBooksInLevel(false);
+      setSelectedUnitIds([]);
+      setShowLessonPicker(false);
+      setPracticeSet(null);
+
+      const next = new URLSearchParams(searchParams);
+      next.set('level', activeLevel);
+      next.set('book', nextBookId);
+      next.delete('unit');
+      next.delete('scope');
+      next.delete('customLesson');
+      setSearchParams(next, { replace: true });
+    },
+    [activeLevel, searchParams, setSearchParams, user?.id],
+  );
+
+  const applyAllBooksInLevel = useCallback(() => {
+    setSelectedCustomLessonId(null);
+    setAllCurriculumMode(false);
+    setAllBooksInLevel(true);
+    setSelectedUnitIds([]);
+    setShowLessonPicker(false);
+    setPracticeSet(null);
+
+    const next = new URLSearchParams(searchParams);
+    next.set('level', activeLevel);
+    next.set('scope', 'all-level');
+    next.delete('unit');
+    next.delete('customLesson');
+    setSearchParams(next, { replace: true });
+  }, [activeLevel, searchParams, setSearchParams]);
+
   const applySelectedUnitIds = useCallback(
     (nextIds: string[]) => {
       setSelectedCustomLessonId(null);
       setAllCurriculumMode(false);
+      setAllBooksInLevel(false);
       setSelectedUnitIds(nextIds);
       setPracticeSet(null);
       const next = new URLSearchParams(searchParams);
+      next.set('level', activeLevel);
+      next.set('book', activeBook.id);
       next.delete('customLesson');
       next.delete('scope');
       if (nextIds.length === 0) {
@@ -280,13 +397,15 @@ export const MiniGamesPage: React.FC = () => {
       }
       setSearchParams(next, { replace: true });
     },
-    [searchParams, setSearchParams],
+    [activeBook.id, activeLevel, searchParams, setSearchParams],
   );
 
   const applyAllCurriculumMode = useCallback(() => {
     setSelectedCustomLessonId(null);
     setAllCurriculumMode(true);
+    setAllBooksInLevel(false);
     setSelectedUnitIds([]);
+    setShowLessonPicker(false);
     setPracticeSet(null);
     const next = new URLSearchParams(searchParams);
     next.delete('customLesson');
@@ -299,6 +418,7 @@ export const MiniGamesPage: React.FC = () => {
     (lessonId: string) => {
       setSelectedCustomLessonId(lessonId);
       setAllCurriculumMode(false);
+      setAllBooksInLevel(false);
       setSelectedUnitIds([]);
       setPracticeSet(null);
       setShowLessonPicker(false);
@@ -338,7 +458,10 @@ export const MiniGamesPage: React.FC = () => {
     });
   }, []);
 
-  const allVocab = useMemo(() => getLiveAllVocabulary(cmsSnapshot), [cmsSnapshot]);
+  const levelWords = useMemo(
+    () => allVocab.filter((w) => w.level === activeLevel),
+    [activeLevel, allVocab],
+  );
   const bookWords = useMemo(
     () => getWordsForVocabTextbook(cmsSnapshot, activeLevel, activeBook),
     [activeBook, activeLevel, cmsSnapshot],
@@ -348,8 +471,12 @@ export const MiniGamesPage: React.FC = () => {
     if (activeCustomLesson) {
       return customVocabToVocabularyItems(activeCustomLesson);
     }
-    let pool = allCurriculumMode ? allVocab : bookWords;
-    if (!allCurriculumMode && validSelectedUnits.length > 0) {
+    let pool = allCurriculumMode
+      ? allVocab
+      : allBooksInLevel
+        ? levelWords
+        : bookWords;
+    if (!allCurriculumMode && !allBooksInLevel && validSelectedUnits.length > 0) {
       const selectedSet = new Set(validSelectedUnits.map((u) => u.id));
       const unitScoped = bookWords.filter((w) => selectedSet.has(w.unitId));
       if (unitScoped.length > 0) pool = unitScoped;
@@ -359,11 +486,26 @@ export const MiniGamesPage: React.FC = () => {
       if (starred.length >= 4) return starred;
     }
     return pool.length > 0 ? pool : allVocab;
-  }, [activeCustomLesson, allCurriculumMode, allVocab, bookWords, onlyStarred, starredIds, validSelectedUnits]);
+  }, [
+    activeCustomLesson,
+    allBooksInLevel,
+    allCurriculumMode,
+    allVocab,
+    bookWords,
+    levelWords,
+    onlyStarred,
+    starredIds,
+    validSelectedUnits,
+  ]);
 
   const dailyChallengeIds = useMemo(
-    () => pickDailyChallengeIds(bookWords, todayKey, `${activeLevel}|${activeBook.id}`),
-    [activeBook.id, activeLevel, bookWords, todayKey],
+    () =>
+      pickDailyChallengeIds(
+        bookWords.length > 0 ? bookWords : levelWords,
+        todayKey,
+        `${activeLevel}|${activeBook.id}`,
+      ),
+    [activeBook.id, activeLevel, bookWords, levelWords, todayKey],
   );
   const dailyDoneToday = miniProfile.dailyChallengeDates.includes(todayKey);
   const beltInfo = getBeltInfo(miniProfile.xp);
@@ -489,33 +631,37 @@ export const MiniGamesPage: React.FC = () => {
     });
   };
 
+  const scopeMode: 'custom' | 'all-curriculum' | 'level' = activeCustomLesson
+    ? 'custom'
+    : allCurriculumMode
+      ? 'all-curriculum'
+      : 'level';
+
   const selectedUnitKey = activeCustomLesson
     ? `custom-${activeCustomLesson.id}`
     : allCurriculumMode
       ? 'ALL_BOOKS'
-      : validSelectedUnits.length === 0
-        ? 'ALL'
-        : validSelectedUnits.map((u) => String(u.id)).join(',');
+      : allBooksInLevel
+        ? `ALL_LEVEL_${activeLevel}`
+        : validSelectedUnits.length === 0
+          ? `${activeLevel}-${activeBook.id}-ALL`
+          : `${activeLevel}-${activeBook.id}-${validSelectedUnits.map((u) => String(u.id)).join(',')}`;
 
-  const selectedUnitLabel = activeCustomLesson
-    ? `Bài tự tạo: ${activeCustomLesson.title}`
+  const gameContextLabel = activeCustomLesson
+    ? `Bài tự tạo · ${activeCustomLesson.title}`
     : allCurriculumMode
-      ? `Tất cả giáo trình (${filteredWords.length} từ)`
-      : validSelectedUnits.length === 0
-        ? `Trọn bộ ${activeBook.shortTitle}`
-        : validSelectedUnits.length === 1
-          ? validSelectedUnits[0].name
-          : `${validSelectedUnits.length} bài đã chọn (${filteredWords.length} từ)`;
+      ? 'Tất cả giáo trình (N5–N3)'
+      : allBooksInLevel
+        ? `${activeLevel} · Tất cả sách (${levelBooksWithStats.length} sách)`
+        : validSelectedUnits.length === 0
+          ? `${activeLevel} · ${activeBook.shortTitle} · Trọn bộ`
+          : validSelectedUnits.length === 1
+            ? `${activeLevel} · ${activeBook.shortTitle} · ${formatUnitTopicLabel(validSelectedUnits[0].name, 0)}`
+            : `${activeLevel} · ${activeBook.shortTitle} · ${validSelectedUnits.length} bài`;
 
-  const selectValue = activeCustomLesson
-    ? `custom:${activeCustomLesson.id}`
-    : allCurriculumMode
-      ? 'ALL_BOOKS'
-      : validSelectedUnits.length === 0
-        ? 'ALL'
-        : validSelectedUnits.length === 1
-          ? String(validSelectedUnits[0].id)
-          : 'MULTI';
+  const levelRangeLabel = availableLevels.length > 1
+    ? `${availableLevels[0]}–${availableLevels[availableLevels.length - 1]}`
+    : availableLevels[0] ?? 'N5';
 
   return (
     <PageContainer size="lg" className="max-w-5xl space-y-3 py-1">
@@ -525,7 +671,6 @@ export const MiniGamesPage: React.FC = () => {
           { label: 'Mini-game' },
         ]}
         title="Mini-game"
-        description="Học từ vựng qua trò chơi — mỗi ván đều được tính vào mục tiêu hôm nay."
       />
 
       {/* Ninja belt + daily challenge */}
@@ -643,79 +788,18 @@ export const MiniGamesPage: React.FC = () => {
         })}
       </div>
 
-      {/* Lesson picker & sound — solid surface so it stays readable over the landscape */}
-      <Card padding="sm" className="space-y-2.5 bg-surface/90 backdrop-blur-md">
-        <div className="flex flex-wrap items-center gap-2">
-          <Select
-            aria-label="Chọn bài học cho Mini-game"
-            value={selectValue}
-            onChange={(e) => {
-              const val = e.target.value;
-              if (val.startsWith('custom:')) {
-                applyCustomLessonId(val.slice('custom:'.length));
-              } else if (val === 'ALL_BOOKS') {
-                applyAllCurriculumMode();
-              } else if (val === 'ALL') {
-                applySelectedUnitIds([]);
-              } else if (val !== 'MULTI') {
-                applySelectedUnitIds([val]);
-              }
-            }}
-            wrapperClassName="min-w-0 flex-1 basis-56 sm:max-w-xs"
-            className="w-full"
-          >
-            <optgroup label="Toàn bộ dữ liệu">
-              <option value="ALL_BOOKS">
-                🌐 Tất cả giáo trình ({allVocab.length} từ)
-              </option>
-            </optgroup>
-            {studioVocabLessons.length > 0 && (
-              <optgroup label="Bài tự tạo của bạn">
-                {studioVocabLessons.map((lesson) => (
-                  <option key={lesson.id} value={`custom:${lesson.id}`}>
-                    ★ {lesson.title} ({lesson.vocabItems?.length ?? 0} từ)
-                  </option>
-                ))}
-              </optgroup>
-            )}
-            <optgroup label={`Giáo trình ${activeBook.shortTitle}`}>
-              <option value="ALL">
-                Trọn bộ {activeBook.shortTitle} ({bookUnits.length} bài · {bookWords.length} từ)
-              </option>
-              {selectValue === 'MULTI' && (
-                <option value="MULTI">
-                  Đã chọn {validSelectedUnits.length} bài ({filteredWords.length} từ)
-                </option>
-              )}
-              {bookUnits.map((u) => (
-                <option key={u.id} value={String(u.id)}>
-                  {u.name} ({u.totalWords} từ)
-                </option>
-              ))}
-            </optgroup>
-          </Select>
-
-          <Chip selected={allCurriculumMode} onClick={applyAllCurriculumMode}>
-            Tất cả giáo trình
-          </Chip>
-
-          {bookUnits.length > 1 && (
-            <Chip selected={showLessonPicker} onClick={() => setShowLessonPicker((v) => !v)}>
-              <BookOpen className="size-3.5" aria-hidden />
-              {validSelectedUnits.length > 0 ? `Chọn bài (${validSelectedUnits.length})` : 'Chọn bài'}
-              {showLessonPicker ? (
-                <ChevronUp className="size-3.5" aria-hidden />
-              ) : (
-                <ChevronDown className="size-3.5" aria-hidden />
-              )}
+      {/* Bộ chọn nguồn từ vựng: phân rõ Trình độ (N5–N3) → Giáo trình / Sách → Bài học */}
+      <Card padding="sm" className="space-y-3 bg-surface/90 backdrop-blur-md">
+        {/* Thanh tiêu đề & công cụ phụ */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line/70 pb-2.5">
+          <p className="inline-flex items-center gap-1.5 text-sm font-bold text-fg">
+            <BookOpen className="size-4 text-primary-fg" aria-hidden />
+            Chọn nội dung luyện tập
+          </p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Chip selected={onlyStarred} onClick={() => setOnlyStarred((v) => !v)}>
+              ★ Từ sao ({starredIds.length})
             </Chip>
-          )}
-
-          <Chip selected={onlyStarred} onClick={() => setOnlyStarred((v) => !v)}>
-            ★ Từ sao ({starredIds.length})
-          </Chip>
-
-          <div className="ml-auto flex items-center gap-1.5">
             <IconButton
               variant="secondary"
               size="sm"
@@ -730,86 +814,168 @@ export const MiniGamesPage: React.FC = () => {
                 <VolumeX className="size-4 text-muted" aria-hidden />
               )}
             </IconButton>
-            <Link to="/studio" className={buttonStyles({ variant: 'soft', size: 'sm' })}>
-              <Sparkles className="size-3.5" aria-hidden />
-              <span>Tự tạo bài</span>
-            </Link>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
-          <span>
-            {activeCustomLesson
-              ? `Bài tự tạo · ${activeCustomLesson.level}`
-              : allCurriculumMode
-                ? 'Tất cả giáo trình (N5–N3)'
-                : `${activeLevel} · ${activeBook.shortTitle}`}
-          </span>
-          <span aria-hidden>·</span>
-          <span>
-            <strong className="text-fg">{filteredWords.length}</strong> từ sẵn sàng
-          </span>
-          <span aria-hidden>·</span>
-          <button
-            type="button"
-            onClick={requestOpenLevelModal}
-            className="font-medium text-primary-fg hover:underline"
+        {/* Trình độ → Giáo trình → Bài học: three compact selects on one row */}
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Select
+            aria-label="Chọn trình độ JLPT"
+            value={scopeMode === 'level' ? activeLevel : scopeMode === 'custom' ? 'custom' : 'all'}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v === 'all') applyAllCurriculumMode();
+              else if (v === 'custom') {
+                const targetId = activeCustomLesson?.id ?? studioVocabLessons[0]?.id;
+                if (targetId) applyCustomLessonId(targetId);
+              } else handleSelectLevel(v as (typeof availableLevels)[number]);
+            }}
           >
-            Đổi giáo trình
-          </button>
+            {availableLevels.map((lvl) => (
+              <option key={lvl} value={lvl}>
+                Trình độ {lvl} ({levelWordCountMap[lvl].toLocaleString('vi-VN')} từ)
+              </option>
+            ))}
+            <option value="all">
+              Tất cả {levelRangeLabel} ({allVocab.length.toLocaleString('vi-VN')} từ)
+            </option>
+            {studioVocabLessons.length > 0 && (
+              <option value="custom">★ Bài tự tạo ({studioVocabLessons.length})</option>
+            )}
+          </Select>
+
+          {scopeMode === 'level' && levelBooksWithStats.length > 1 && (
+            <Select
+              aria-label={`Chọn giáo trình ${activeLevel}`}
+              value={allBooksInLevel ? 'all' : activeBook.id}
+              onChange={(e) => {
+                if (e.target.value === 'all') applyAllBooksInLevel();
+                else handleSelectBook(e.target.value);
+              }}
+            >
+              <option value="all">
+                Mọi giáo trình {activeLevel} ({levelWords.length.toLocaleString('vi-VN')} từ)
+              </option>
+              {levelBooksWithStats.map(({ book, unitCount, wordCount }) => (
+                <option key={book.id} value={book.id}>
+                  {book.shortTitle} · {unitCount} bài · {wordCount} từ
+                </option>
+              ))}
+            </Select>
+          )}
+
+          {scopeMode === 'level' && !allBooksInLevel && bookUnits.length > 0 && (
+            <div className="flex gap-1.5">
+              <Select
+                aria-label={`Chọn bài học trong ${activeBook.shortTitle}`}
+                wrapperClassName="min-w-0 flex-1"
+                className="w-full"
+                value={
+                  validSelectedUnits.length === 0
+                    ? ''
+                    : validSelectedUnits.length === 1
+                      ? String(validSelectedUnits[0].id)
+                      : 'multi'
+                }
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === '') applySelectedUnitIds([]);
+                  else if (v.startsWith('range:')) {
+                    const [a, b] = v.slice(6).split('-').map(Number);
+                    applySelectedUnitIds(bookUnits.slice(a, b).map((u) => String(u.id)));
+                  } else if (v !== 'multi') applySelectedUnitIds([v]);
+                }}
+              >
+                <option value="">Trọn bộ ({bookUnits.length} bài)</option>
+                {validSelectedUnits.length > 1 && (
+                  <option value="multi">Đang chọn {validSelectedUnits.length} bài</option>
+                )}
+                {bookUnits.length > 10 &&
+                  Array.from({ length: Math.ceil(bookUnits.length / 5) }, (_, i) => (
+                    <option key={`r${i}`} value={`range:${i * 5}-${i * 5 + 5}`}>
+                      Bài {i * 5 + 1}–{Math.min(i * 5 + 5, bookUnits.length)}
+                    </option>
+                  ))}
+                {bookUnits.map((u, idx) => (
+                  <option key={u.id} value={String(u.id)}>
+                    {formatUnitShortLabel(u.name, idx)} ({u.totalWords} từ)
+                  </option>
+                ))}
+              </Select>
+              <IconButton
+                variant="secondary"
+                aria-label="Chọn gộp nhiều bài"
+                title="Chọn gộp nhiều bài"
+                aria-pressed={showLessonPicker}
+                onClick={() => setShowLessonPicker((v) => !v)}
+              >
+                {showLessonPicker ? (
+                  <ChevronUp className="size-4" aria-hidden />
+                ) : (
+                  <ListChecks className="size-4" aria-hidden />
+                )}
+              </IconButton>
+            </div>
+          )}
+
+          {scopeMode === 'custom' && studioVocabLessons.length > 0 && (
+            <Select
+              aria-label="Chọn bài tự tạo"
+              wrapperClassName="sm:col-span-2"
+              value={activeCustomLesson?.id ?? ''}
+              onChange={(e) => applyCustomLessonId(e.target.value)}
+            >
+              {studioVocabLessons.map((lesson) => (
+                <option key={lesson.id} value={lesson.id}>
+                  {lesson.title} ({lesson.vocabItems?.length ?? 0} từ)
+                </option>
+              ))}
+            </Select>
+          )}
         </div>
 
-        {/* Collapsible multi-lesson picker */}
-        {showLessonPicker && bookUnits.length > 0 && (
-          <div className="space-y-2 border-t border-line pt-2.5">
-            <div className="flex flex-wrap items-center gap-1">
-              <Chip
-                selected={validSelectedUnits.length === 0}
-                onClick={() => applySelectedUnitIds([])}
-              >
-                Tất cả
-              </Chip>
-              {bookUnits.length >= 10 &&
-                [
-                  [0, 5],
-                  [5, 10],
-                  [10, 15],
-                  [15, 20],
-                  [20, 25],
-                ]
-                  .filter(([start]) => start < bookUnits.length)
-                  .map(([start, end]) => {
-                    const sliceIds = bookUnits.slice(start, end).map((u) => String(u.id));
-                    const isRangeActive =
-                      sliceIds.length > 0 &&
-                      validSelectedUnits.length === sliceIds.length &&
-                      sliceIds.every((id) => validSelectedUnits.some((u) => String(u.id) === id));
-                    return (
-                      <Chip
-                        key={`${start}-${end}`}
-                        selected={isRangeActive}
-                        onClick={() => applySelectedUnitIds(sliceIds)}
-                      >
-                        Bài {start + 1}–{Math.min(end, bookUnits.length)}
-                      </Chip>
-                    );
-                  })}
-            </div>
-            <p className="text-xs text-muted">Chạm để bật/tắt từng bài — có thể gộp nhiều bài.</p>
+        {/* Optional multi-lesson picker */}
+        {scopeMode === 'level' && !allBooksInLevel && showLessonPicker && bookUnits.length > 0 && (
+          <div className="space-y-1.5 rounded-xl border border-line bg-surface-2/50 p-2.5">
+            <p className="text-xs text-muted">Chạm để bật/tắt từng bài — có thể gộp nhiều bài cùng lúc.</p>
             <div className="flex flex-wrap gap-1.5">
               {bookUnits.map((u, idx) => {
                 const uid = String(u.id);
                 const isSelected = validSelectedUnits.some((v) => String(v.id) === uid);
-                const shortLabel = u.name.split('(')[0].split('—')[0].trim() || `Bài ${idx + 1}`;
                 return (
                   <Chip key={u.id} selected={isSelected} onClick={() => toggleUnitSelection(uid)}>
-                    {shortLabel} ({u.totalWords})
+                    <span title={u.name}>{formatUnitShortLabel(u.name, idx)}</span>
+                    <span className="text-[11px] opacity-75 tabular-nums">({u.totalWords})</span>
                   </Chip>
                 );
               })}
             </div>
           </div>
         )}
+
+        {/* Tóm tắt phạm vi đang chơi */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line/70 pt-2 text-xs text-muted">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="font-semibold text-fg">{gameContextLabel}</span>
+            <span aria-hidden>·</span>
+            <span>
+              <strong className="text-fg tabular-nums">
+                {filteredWords.length.toLocaleString('vi-VN')}
+              </strong>{' '}
+              từ sẵn sàng
+              {onlyStarred && ' · lọc từ sao'}
+            </span>
+          </div>
+          {scopeMode === 'level' && !allBooksInLevel && validSelectedUnits.length > 0 && (
+            <button
+              type="button"
+              onClick={() => applySelectedUnitIds([])}
+              className="font-medium text-primary-fg hover:underline"
+            >
+              Chơi trọn bộ sách
+            </button>
+          )}
+        </div>
       </Card>
 
       {/* Practice mode banner, or the offer to review the words just missed */}
@@ -861,9 +1027,9 @@ export const MiniGamesPage: React.FC = () => {
         />
       ) : activeGame === 'shooter' ? (
         <NinjaBridgeShooterGame
-          key={`shooter-${activeBook.id}-${selectedUnitKey}-${onlyStarred}-${practiceKey}`}
+          key={`shooter-${selectedUnitKey}-${onlyStarred}-${practiceKey}`}
           words={gameWords}
-          contextLabel={practiceSet ? practiceSet.label : `${activeLevel} · ${selectedUnitLabel}`}
+          contextLabel={practiceSet ? practiceSet.label : gameContextLabel}
           starredIds={starredIds}
           onToggleStar={(id) => toggleStar(id)}
           soundEnabled={soundEnabled}
@@ -882,9 +1048,9 @@ export const MiniGamesPage: React.FC = () => {
         />
       ) : activeGame === 'slash' ? (
         <FruitSlashVocabGame
-          key={`slash-${activeBook.id}-${selectedUnitKey}-${onlyStarred}-${practiceKey}`}
+          key={`slash-${selectedUnitKey}-${onlyStarred}-${practiceKey}`}
           words={gameWords}
-          contextLabel={practiceSet ? practiceSet.label : `${activeLevel} · ${selectedUnitLabel}`}
+          contextLabel={practiceSet ? practiceSet.label : gameContextLabel}
           starredIds={starredIds}
           onToggleStar={(id) => toggleStar(id)}
           soundEnabled={soundEnabled}
@@ -903,11 +1069,11 @@ export const MiniGamesPage: React.FC = () => {
         />
       ) : activeGame === 'match' ? (
         <PairMatchGame
-          key={`match-${activeBook.id}-${selectedUnitKey}-${onlyStarred}-${practiceKey}`}
+          key={`match-${selectedUnitKey}-${onlyStarred}-${practiceKey}`}
           words={gameWords}
           kanjis={levelKanjis}
           grammars={levelGrammars}
-          levelLabel={allCurriculumMode ? 'Tất cả giáo trình' : `${activeLevel} · ${selectedUnitLabel}`}
+          levelLabel={gameContextLabel}
           soundEnabled={soundEnabled}
           onToggleSound={handleToggleSound}
           onCompleteRound={({ score, skill, seconds, matchedCount }) =>

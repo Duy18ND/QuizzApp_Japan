@@ -66,6 +66,7 @@ import {
   type WizardInitialMode,
 } from '../components/roadmap/CreateRoadmapWizardModal';
 import { CreateQuizModal } from '../components/roadmap/CreateQuizModal';
+import { SchedulePicker } from '../components/roadmap/SchedulePicker';
 import { CustomLessonPlayerModal } from '../components/studio/CustomLessonPlayerModal';
 import { useAuth } from '../context/auth-context';
 import {
@@ -96,7 +97,6 @@ import {
 import {
   getBrowserNotificationPermission,
   isWebPushConfigured,
-  isWebPushSubscribedOnDevice,
   requestBrowserNotificationPermission,
   subscribeAndSyncWebPush,
   type BrowserNotificationState,
@@ -194,7 +194,6 @@ export const StageRoadmapPage: React.FC = () => {
   const [notifPermission, setNotifPermission] = useState<BrowserNotificationState>(() =>
     getBrowserNotificationPermission(),
   );
-  const [webPushActive, setWebPushActive] = useState(false);
   const [selectedStageId, setSelectedStageId] = useState<string | null>(
     () => searchParams.get('stage') || null,
   );
@@ -250,7 +249,6 @@ export const StageRoadmapPage: React.FC = () => {
     window.addEventListener(ONLINE_TIME_SYNC_EVENT, bump);
     window.addEventListener(CUSTOM_STUDIO_SYNC_EVENT, bump);
     window.addEventListener(VOCAB_TEXTBOOK_SYNC_EVENT, bump);
-    void isWebPushSubscribedOnDevice().then(setWebPushActive);
     return () => {
       window.removeEventListener(STAGE_ROADMAP_SYNC_EVENT, bump);
       window.removeEventListener(DAILY_STAGE_ACTIVITY_SYNC_EVENT, bump);
@@ -512,6 +510,16 @@ export const StageRoadmapPage: React.FC = () => {
       user?.id,
     );
     setSyncVersion((v) => v + 1);
+  };
+
+  const handleDeleteStudioLesson = (lessonId: string) => {
+    const currentStudio = loadCustomStudioState(user?.id);
+    saveCustomStudioState(
+      { ...currentStudio, lessons: currentStudio.lessons.filter((l) => l.id !== lessonId) },
+      user?.id,
+    );
+    setSyncVersion((v) => v + 1);
+    toast({ title: 'Đã xóa bài.', tone: 'info' });
   };
 
   const handleOpenWizard = (initial: WizardInitialMode = 'composer') => {
@@ -875,7 +883,6 @@ export const StageRoadmapPage: React.FC = () => {
           activeStageLabel: effectiveSettings.roadmapLabel,
         });
         pushSynced = res.ok;
-        if (res.ok) setWebPushActive(true);
       }
     }
 
@@ -940,12 +947,8 @@ export const StageRoadmapPage: React.FC = () => {
             <Badge tone="primary">
               JLPT {activeLevel} · {activeBook.shortTitle}
             </Badge>
-            {webPushActive && effectiveSettings.enabled && (
-              <Badge tone="success">Đang nhắc ✓</Badge>
-            )}
           </span>
         }
-        description="Mỗi ngày 1 Màn, khoảng 20–30 phút: Từ vựng & Kanji → Mẹo đọc hiểu → Luyện tập → Kiểm tra."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -997,13 +1000,9 @@ export const StageRoadmapPage: React.FC = () => {
                 ? `Màn ${activeStage.stageNumber}: ${activeStage.title}`
                 : 'Bạn đã chinh phục toàn bộ bản đồ lộ trình!'}
             </h2>
-            <p className="text-xs text-muted sm:text-sm">
-              {enforcement.isCompletedToday
-                ? 'Hôm nay đã được ghi nhận, nhắc học trong ngày đã tắt.'
-                : onlineMet
-                  ? 'Đã đủ thời gian học! Mở Màn và bấm Hoàn thành để mở Màn tiếp theo.'
-                  : `Học thêm ${formatMmSs(remainingSeconds)} để mở Màn tiếp theo.`}
-            </p>
+            {!enforcement.isCompletedToday && !onlineMet && (
+              <p className="text-xs text-muted">Học thêm {formatMmSs(remainingSeconds)} để mở Màn tiếp theo.</p>
+            )}
           </div>
 
           <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -1063,25 +1062,9 @@ export const StageRoadmapPage: React.FC = () => {
         </div>
 
         {/* N5 Starting Point Switcher: Learn Kana First (5 Stages) vs Skip Straight to Lesson 1 */}
-        {activeLevel === 'N5' && (
-          <div className="flex flex-col gap-2 rounded-xl border border-line bg-surface/65 p-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-0.5">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <Badge tone="sakura">Bắt đầu N5</Badge>
-                <span className="text-xs font-bold text-fg">
-                  {(
-                    roadmapState.activeMode === 'custom' && roadmapState.customConfig
-                      ? Boolean(roadmapState.customConfig.includeKanaStarter)
-                      : Boolean(roadmapState.fixedIncludeKanaStarter)
-                  )
-                    ? 'Đang học bảng chữ cái Hiragana & Katakana trước (5 màn)'
-                    : 'Bắt đầu thẳng từ Bài 1'}
-                </span>
-              </div>
-              <p className="text-xs text-muted">
-                Mới bắt đầu? Nên học bảng chữ cái trước.
-              </p>
-            </div>
+        {activeLevel === 'N5' && viewTab === 'fixed' && (
+          <div className="flex flex-wrap items-center gap-2 border-t border-line pt-3">
+            <span className="text-xs font-semibold text-muted">Bắt đầu N5:</span>
             <div className="flex shrink-0 flex-wrap items-center gap-1.5">
               <Chip
                 selected={
@@ -1098,7 +1081,7 @@ export const StageRoadmapPage: React.FC = () => {
                   toast({ title: 'Đã chuyển sang: Bỏ qua Kana → Vào thẳng Bài 1 N5', tone: 'info' });
                 }}
               >
-                Đã thuộc Kana (Vào Bài 1)
+                Từ Bài 1
               </Chip>
               <Chip
                 selected={
@@ -1118,7 +1101,7 @@ export const StageRoadmapPage: React.FC = () => {
                   });
                 }}
               >
-                + Học Bảng chữ cái trước (5 màn)
+                Học Kana trước (+5 màn)
               </Chip>
             </div>
           </div>
@@ -1127,8 +1110,7 @@ export const StageRoadmapPage: React.FC = () => {
 
       {/* Mode Switcher + Inline Quick Settings */}
       <Card padding="md" className="space-y-4">
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-3">
             <Tabs
               aria-label="Chế độ lộ trình"
               variant="pill"
@@ -1143,23 +1125,13 @@ export const StageRoadmapPage: React.FC = () => {
                 },
               ]}
             />
-          </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant="soft"
-              size="sm"
-              leftIcon={<Sparkles className="size-4" aria-hidden />}
-              onClick={() => setCreateQuizOpen(true)}
-            >
-              Tạo Quiz riêng
-            </Button>
             <Button
               type="button"
               variant="primary"
               size="sm"
               leftIcon={<Plus className="size-4" aria-hidden />}
-              onClick={() => handleOpenWizard('composer')}
+              onClick={() => handleOpenWizard('choose')}
             >
               Tạo lộ trình
             </Button>
@@ -1227,6 +1199,22 @@ export const StageRoadmapPage: React.FC = () => {
                       },
                     ]
                   : []),
+                ...(roadmapState.customConfig && viewTab === 'custom'
+                  ? [
+                      {
+                        id: 'edit-plan',
+                        label: 'Sửa lộ trình',
+                        icon: <Pencil className="size-4" aria-hidden />,
+                        onSelect: handleEditActiveCustomRoadmap,
+                      },
+                      {
+                        id: 'delete-plan',
+                        label: 'Xóa lộ trình',
+                        icon: <Trash2 className="size-4 text-danger-fg" aria-hidden />,
+                        onSelect: () => setDeleteConfirmRoadmap(roadmapState.customConfig),
+                      },
+                    ]
+                  : []),
                 {
                   id: 'import',
                   label: 'Nhập mã lộ trình',
@@ -1263,54 +1251,6 @@ export const StageRoadmapPage: React.FC = () => {
                 </Chip>
               ))}
             </div>
-            {roadmapState.customConfig && (
-              <div className="flex flex-wrap items-center gap-1.5">
-                <Button
-                  type="button"
-                  variant={effectiveSettings.enabled ? 'soft' : 'secondary'}
-                  size="sm"
-                  leftIcon={
-                    effectiveSettings.enabled ? (
-                      <Bell className="size-3.5" aria-hidden />
-                    ) : (
-                      <BellOff className="size-3.5" aria-hidden />
-                    )
-                  }
-                  onClick={handleOpenRoadmapNotifModal}
-                >
-                  {effectiveSettings.enabled
-                    ? `Nhắc ${effectiveSettings.reminderTime}`
-                    : 'Tắt nhắc'}
-                </Button>
-                <Button
-                  type="button"
-                  variant="soft"
-                  size="sm"
-                  leftIcon={<Plus className="size-3.5" aria-hidden />}
-                  onClick={() => handleOpenWizard('composer')}
-                >
-                  Thêm lộ trình
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  leftIcon={<Pencil className="size-3.5" aria-hidden />}
-                  onClick={handleEditActiveCustomRoadmap}
-                >
-                  Sửa / Thêm buổi
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  leftIcon={<Trash2 className="size-3.5 text-danger-fg" aria-hidden />}
-                  onClick={() => setDeleteConfirmRoadmap(roadmapState.customConfig)}
-                >
-                  Xóa
-                </Button>
-              </div>
-            )}
           </div>
         )}
 
@@ -1349,34 +1289,17 @@ export const StageRoadmapPage: React.FC = () => {
       {/* Empty State when user opens "Lộ trình riêng (0)" */}
       {viewTab === 'custom' && !roadmapState.customConfig && (
         <Card padding="lg" className="space-y-4 border-primary/40 bg-glass-soft">
-          <div className="space-y-1.5">
-            <Badge tone="primary">Tách biệt hoàn toàn với Giáo trình chuẩn</Badge>
-            <h2 className="text-lg font-bold text-fg">
-              Chưa có Lộ trình riêng nào
-            </h2>
-            <p className="text-sm text-muted">
-              Bạn có thể tự ghép từng buổi từ <strong className="text-fg">Từ vựng, Quiz, Chữ Hán, Đọc hiểu, Nghe hiểu</strong> của các giáo trình có sẵn, tự tạo câu hỏi Quiz mới, hoặc nhờ <strong className="text-fg">ChatGPT / Gemini</strong> soạn hộ — không ảnh hưởng tiến độ ở tab Giáo trình chuẩn.
-            </p>
-          </div>
+          <h2 className="text-lg font-bold text-fg">Chưa có lộ trình riêng</h2>
 
           <div className="flex flex-wrap gap-2.5">
-            <Button
-              type="button"
-              variant="soft"
-              size="sm"
-              leftIcon={<Sparkles className="size-4 shrink-0" aria-hidden />}
-              onClick={() => setCreateQuizOpen(true)}
-            >
-              1. Tạo Quiz riêng (gắn Role)
-            </Button>
             <Button
               type="button"
               variant="primary"
               size="sm"
               leftIcon={<Plus className="size-4 shrink-0" aria-hidden />}
-              onClick={() => handleOpenWizard('composer')}
+              onClick={() => handleOpenWizard('choose')}
             >
-              2. Vẽ lộ trình mới
+              Tạo lộ trình
             </Button>
             <Button
               type="button"
@@ -1391,113 +1314,11 @@ export const StageRoadmapPage: React.FC = () => {
         </Card>
       )}
 
-      {/* 7-Stage Visual Study Timeline Strip */}
-      {!(viewTab === 'custom' && !roadmapState.customConfig) && stages.length > 0 && (() => {
-        const activeIdx = activeStage ? Math.max(0, stages.findIndex((s) => s.id === activeStage.id)) : 0;
-        const startIdx = Math.max(0, activeIdx - 1);
-        const timelineSlice = stages.slice(startIdx, startIdx + 7);
-        return (
-          <Card padding="md" className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <Calendar className="size-4 text-primary-fg" aria-hidden />
-                <h3 className="text-sm font-bold text-fg">
-                  Timeline Lịch Học Theo Ngày ({timelineSlice.length} màn gần nhất)
-                </h3>
-                <Badge tone="neutral">{activeBook.shortTitle}</Badge>
-              </div>
-              <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
-                <span>
-                  Nhắc lúc <strong className="text-fg">{effectiveSettings.reminderTime}</strong> (lặp{' '}
-                  {effectiveSettings.repeatIntervalMinutes}p)
-                </span>
-                {activeStage && activeStage.scheduledDate !== todayKey && (
-                  <button
-                    type="button"
-                    onClick={handleSyncScheduleToToday}
-                    className="cursor-pointer font-semibold text-primary-fg hover:underline"
-                  >
-                    Đồng bộ Màn {activeStage.stageNumber} về Hôm nay →
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-7">
-              {timelineSlice.map((st) => {
-                const completion = roadmapState.completedStages[st.id];
-                const unlocked = isStageUnlocked(st, stages, roadmapState.completedStages);
-                const isCurrent = activeStage?.id === st.id && !completion;
-                const isTodayDate = st.scheduledDate === todayKey;
-                const isLate = !completion && st.scheduledDate < todayKey;
-                return (
-                  <button
-                    key={st.id}
-                    type="button"
-                    disabled={!unlocked}
-                    onClick={() => unlocked && setSelectedStageId(st.id)}
-                    className={cn(
-                      'flex flex-col justify-between gap-2 rounded-xl border p-2.5 text-left transition-all duration-150',
-                      completion
-                        ? 'cursor-pointer border-success-line bg-success-soft/35 hover:border-success-fg'
-                        : isCurrent
-                          ? 'cursor-pointer border-primary bg-primary-soft/45 ring-2 ring-primary/20 shadow-card'
-                          : unlocked
-                            ? 'cursor-pointer border-line bg-surface-2/60 hover:border-primary/60'
-                            : 'cursor-not-allowed border-line bg-surface-2/35 opacity-75',
-                    )}
-                  >
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="tabular text-[11px] font-bold text-primary-fg">
-                          {formatShortDayMonth(st.scheduledDate)}
-                        </span>
-                        {completion ? (
-                          <Badge tone="success" className="px-1.5 py-0 text-[10px]">
-                            ✓ {completion.stars}★
-                          </Badge>
-                        ) : isCurrent ? (
-                          <Badge tone="primary" className="px-1.5 py-0 text-[10px]">
-                            {isTodayDate ? 'Hôm nay' : 'Đang học'}
-                          </Badge>
-                        ) : isLate ? (
-                          <Badge tone="warning" className="px-1.5 py-0 text-[10px]">
-                            Trễ lịch
-                          </Badge>
-                        ) : (
-                          <span className="text-[10px] text-muted">Màn {st.stageNumber}</span>
-                        )}
-                      </div>
-                      <p className="line-clamp-2 text-xs font-semibold text-fg">
-                        Màn {st.stageNumber}: {st.title}
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap gap-1 border-t border-line/60 pt-1.5">
-                      {st.tasks.slice(0, 3).map((t) => (
-                        <span
-                          key={t.id}
-                          className="rounded bg-surface px-1.5 py-0.5 text-[10px] font-medium text-muted ring-1 ring-line"
-                        >
-                          {STAGE_SKILL_META[t.skill].label}
-                        </span>
-                      ))}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </Card>
-        );
-      })()}
-
       {/* Stage Map (Fixed / Custom) */}
       {viewTab === 'custom' && !roadmapState.customConfig ? null : (
       <div className="space-y-4">
         {/* View Switcher: Game Map vs Clean 2-Column Day Cards (Mokumoku Style) */}
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-xs font-bold tracking-wide text-muted uppercase">
-            Các bài học ({stages.length} ngày · {completedCount} đã xong)
-          </p>
+        <div className="flex justify-end">
           <div className="inline-flex rounded-xl border border-line bg-surface/85 p-1 backdrop-blur-md">
             <button
               type="button"
@@ -1509,7 +1330,7 @@ export const StageRoadmapPage: React.FC = () => {
                   : 'text-muted hover:text-fg',
               )}
             >
-              🗺️ Bản đồ Màn
+              Bản đồ
             </button>
             <button
               type="button"
@@ -1521,7 +1342,7 @@ export const StageRoadmapPage: React.FC = () => {
                   : 'text-muted hover:text-fg',
               )}
             >
-              📅 Danh sách Ngày
+              Danh sách
             </button>
           </div>
         </div>
@@ -1690,20 +1511,12 @@ export const StageRoadmapPage: React.FC = () => {
             );
           };
 
-          const chunkSubtitle = chunk[0]?.chunkTitle;
           return (
             <Card key={chunkNum} padding="lg" className="space-y-5">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
-                <div>
-                  <p className="text-xs font-bold tracking-wider text-primary-fg uppercase">
-                    {chunkNum === 0
-                      ? `Chặng Khởi Động · Màn ${firstNum}–${lastNum}`
-                      : `Chặng ${chunkNum} · Màn ${firstNum}–${lastNum}`}
-                  </p>
-                  <h3 className="text-base font-bold text-fg sm:text-lg">
-                    {chunkSubtitle ?? `Màn ${firstNum}–${lastNum}`}
-                  </h3>
-                </div>
+                <h3 className="text-base font-bold text-fg">
+                  {chunkNum === 0 ? 'Khởi động' : `Chặng ${chunkNum}`} · Màn {firstNum}–{lastNum}
+                </h3>
                 <Badge
                   tone={doneInChunk === chunk.length ? 'success' : 'neutral'}
                   className="tabular"
@@ -1748,185 +1561,75 @@ export const StageRoadmapPage: React.FC = () => {
         open={settingsModalOpen}
         onClose={() => setSettingsModalOpen(false)}
         size="md"
-        title="Cài đặt lộ trình đang học"
-        description={
-          viewTab === 'custom' && roadmapState.customConfig
-            ? `Chỉnh lịch & tốc độ cho "${roadmapState.customConfig.name}" — không tạo lộ trình mới, giữ nguyên các Màn đã xong.`
-            : `Chỉnh lịch & tốc độ cho Lộ trình Cố định (${activeLevel} · ${activeBook.shortTitle}) — không tạo lộ trình mới, giữ nguyên tiến độ cũ.`
+        title="Cài đặt lộ trình"
+        footer={
+          <Button type="button" variant="primary" onClick={() => setSettingsModalOpen(false)}>
+            Xong
+          </Button>
         }
       >
-        <div className="space-y-4">
-          {/* Pace picker: daily minutes -> auto-scales Timeline session count */}
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <span className="text-sm font-semibold text-fg">
-                Thời lượng học mỗi ngày (tự chia số buổi Timeline)
-              </span>
-              <span className="text-xs text-muted">
-                VD: 10p → 60 buổi · 30p → 30 buổi
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-              {DAILY_PACE_PRESETS.map((preset) => {
-                const currentMinutes =
-                  viewTab === 'custom' && roadmapState.customConfig
-                    ? roadmapState.customConfig.dailyMinutesTarget
-                    : roadmapState.fixedDailyMinutesTarget;
-                const selected = currentMinutes === preset.minutes;
-                return (
-                  <button
-                    key={preset.minutes}
-                    type="button"
-                    aria-pressed={selected}
-                    onClick={() => {
-                      if (viewTab === 'custom' && roadmapState.customConfig) {
-                        updateActiveCustomConfig((cfg) => ({
-                          ...cfg,
-                          dailyMinutesTarget: preset.minutes,
-                          totalStages: preset.stages,
-                        }));
-                      } else {
-                        updateState({
-                          ...roadmapState,
-                          fixedDailyMinutesTarget: preset.minutes,
-                        });
-                      }
-                      toast({
-                        title: `Đã đổi tốc độ: ${preset.minutes}p/ngày → Timeline ${preset.stages} buổi`,
-                        tone: 'success',
-                      });
-                    }}
-                    className={cn(
-                      'flex cursor-pointer flex-col items-start gap-0.5 rounded-xl border p-2.5 text-left transition-colors',
-                      selected
-                        ? 'border-primary bg-primary-soft/70 text-primary-fg'
-                        : 'border-line bg-surface-2/60 text-fg hover:border-primary/60 hover:bg-surface-2',
-                    )}
-                  >
-                    <span className="text-xs font-bold tabular">{preset.label}</span>
-                    <span className="text-[11px] font-semibold tabular">
-                      {preset.stages} buổi
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+        {(() => {
+          const customPlan = viewTab === 'custom' ? roadmapState.customConfig : null;
+          // Hand-built plans keep their own sessions: pace must not generate or drop any
+          const builtSessions = customPlan
+            ? Object.values(customPlan.stageOverrides ?? {}).filter((o) => o?.replaceBaseTasks).length
+            : 0;
+          return (
+            <div className="space-y-4">
+              <SchedulePicker
+                idPrefix="plan-settings"
+                minutes={customPlan ? customPlan.dailyMinutesTarget : roadmapState.fixedDailyMinutesTarget}
+                showStageCount={builtSessions === 0}
+                onMinutesChange={(minutes, recommendedStages) => {
+                  if (customPlan) {
+                    updateActiveCustomConfig((cfg) => ({
+                      ...cfg,
+                      dailyMinutesTarget: minutes,
+                      totalStages: (builtSessions > 0 ? builtSessions : recommendedStages) as TotalStagesOption,
+                    }));
+                  } else {
+                    updateState({ ...roadmapState, fixedDailyMinutesTarget: minutes });
+                  }
+                }}
+                startDate={customPlan ? customPlan.startDate : roadmapState.fixedStartDate}
+                onStartDateChange={(date) => {
+                  if (customPlan) updateActiveCustomConfig((cfg) => ({ ...cfg, startDate: date }));
+                  else updateState({ ...roadmapState, fixedStartDate: date });
+                }}
+                weekdays={effectiveSettings.studyWeekdays}
+                onWeekdaysChange={(days) => {
+                  if (customPlan) updateActiveCustomConfig((cfg) => ({ ...cfg, studyWeekdays: days }));
+                  else updateState({ ...roadmapState, fixedStudyWeekdays: days });
+                }}
+              />
 
-          <Field label="Ngày bắt đầu lộ trình" htmlFor="active-start-date">
-            <Input
-              id="active-start-date"
-              type="date"
-              value={
-                viewTab === 'custom' && roadmapState.customConfig
-                  ? roadmapState.customConfig.startDate
-                  : roadmapState.fixedStartDate
-              }
-              onChange={(e) => {
-                const nextDate = e.target.value || todayKey;
-                if (viewTab === 'custom' && roadmapState.customConfig) {
-                  updateActiveCustomConfig((cfg) => ({ ...cfg, startDate: nextDate }));
-                } else {
-                  updateState({ ...roadmapState, fixedStartDate: nextDate });
-                }
-              }}
-            />
-          </Field>
-
-          <div className="space-y-2.5 rounded-xl border border-line bg-surface-2/50 p-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-xs font-semibold text-fg">Chọn các ngày học trong tuần:</span>
-              <div className="flex flex-wrap items-center gap-1.5">
-                {[
-                  { label: 'Cả tuần', days: [1, 2, 3, 4, 5, 6, 0] },
-                  { label: 'T2–T6', days: [1, 2, 3, 4, 5] },
-                  { label: 'T2, T4, T6', days: [1, 3, 5] },
-                ].map((quick) => (
-                  <button
-                    key={quick.label}
+              <div className="divide-y divide-line rounded-xl border border-line bg-surface-2/50 text-sm">
+                <div className="flex items-center justify-between gap-2 px-3 py-2.5">
+                  <span className="text-muted">
+                    {stages.length} buổi · xong {roadmapForecast.estimatedCompletionLabel}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-2 px-3 py-2">
+                  <span className="text-muted">
+                    Nhắc học: {effectiveSettings.enabled ? effectiveSettings.reminderTime : 'đang tắt'}
+                  </span>
+                  <Button
                     type="button"
+                    variant="soft"
+                    size="sm"
+                    leftIcon={<Bell className="size-4" aria-hidden />}
                     onClick={() => {
-                      if (viewTab === 'custom' && roadmapState.customConfig) {
-                        updateActiveCustomConfig((cfg) => ({ ...cfg, studyWeekdays: quick.days }));
-                      } else {
-                        updateState({ ...roadmapState, fixedStudyWeekdays: quick.days });
-                      }
+                      setSettingsModalOpen(false);
+                      handleOpenRoadmapNotifModal();
                     }}
-                    className="cursor-pointer rounded-md border border-line bg-surface px-2 py-0.5 text-[11px] font-medium text-muted hover:border-primary hover:text-primary-fg"
                   >
-                    {quick.label}
-                  </button>
-                ))}
+                    Sửa
+                  </Button>
+                </div>
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {ALL_DAYS_ORDERED.map((d) => {
-                const activeDays = effectiveSettings.studyWeekdays;
-                const isDaySelected = activeDays.includes(d.day);
-                return (
-                  <Chip
-                    key={d.day}
-                    selected={isDaySelected}
-                    onClick={() => {
-                      const nextDays = isDaySelected
-                        ? activeDays.filter((x) => x !== d.day)
-                        : [...activeDays, d.day];
-                      if (nextDays.length === 0) {
-                        toast({
-                          title: 'Cần chọn ít nhất 1 ngày học trong tuần.',
-                          tone: 'warning',
-                        });
-                        return;
-                      }
-                      if (viewTab === 'custom' && roadmapState.customConfig) {
-                        updateActiveCustomConfig((cfg) => ({ ...cfg, studyWeekdays: nextDays }));
-                      } else {
-                        updateState({ ...roadmapState, fixedStudyWeekdays: nextDays });
-                      }
-                    }}
-                  >
-                    {d.shortLabel}
-                  </Chip>
-                );
-              })}
-            </div>
-          </div>
-
-          <Notice tone="info">
-            <div className="flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm">
-              <span>
-                Timeline hiện tại:{' '}
-                <strong className="text-fg tabular">
-                  {stages.length} buổi ({effectiveSettings.dailyMinutesTarget}p/ngày)
-                </strong>
-              </span>
-              <span className="text-muted tabular">
-                {effectiveSettings.studyWeekdays.length} buổi/tuần · Xong dự kiến:{' '}
-                <strong className="text-fg">{roadmapForecast.estimatedCompletionLabel}</strong> (~{roadmapForecast.estimatedWeeks} tuần)
-              </span>
-            </div>
-          </Notice>
-        </div>
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-surface-2 px-3 py-2.5 text-sm">
-          <span className="text-xs text-muted sm:text-sm">
-            Thông báo riêng cho <strong className="text-fg">{effectiveSettings.roadmapLabel}</strong>:{' '}
-            {effectiveSettings.enabled
-              ? `${effectiveSettings.reminderTime} (lặp ${effectiveSettings.repeatIntervalMinutes}p)`
-              : 'Đang tắt'}
-          </span>
-          <Button
-            type="button"
-            variant="soft"
-            size="sm"
-            leftIcon={<Bell className="size-4" aria-hidden />}
-            onClick={() => {
-              setSettingsModalOpen(false);
-              handleOpenRoadmapNotifModal();
-            }}
-          >
-            Sửa thông báo lộ trình này
-          </Button>
-        </div>
+          );
+        })()}
       </Modal>
       <StudyScheduleModal open={scheduleModalOpen} onClose={() => setScheduleModalOpen(false)} />
 
@@ -1935,8 +1638,7 @@ export const StageRoadmapPage: React.FC = () => {
         open={roadmapNotifModalOpen}
         onClose={() => setRoadmapNotifModalOpen(false)}
         size="md"
-        title={`Thông báo riêng · ${effectiveSettings.roadmapLabel}`}
-        description="Cài đặt thông báo này chỉ lưu riêng cho lộ trình đang chọn — chuyển sang lộ trình khác sẽ tự dùng lịch riêng của lộ trình đó, không ghi đè lẫn nhau."
+        title="Nhắc học"
         footer={
           <>
             <Button
@@ -1958,21 +1660,14 @@ export const StageRoadmapPage: React.FC = () => {
               }
               onClick={() => void handleSaveRoadmapNotif()}
             >
-              Lưu thông báo lộ trình này
+              Lưu
             </Button>
           </>
         }
       >
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-surface-2/60 p-3">
-            <div className="space-y-0.5">
-              <p className="text-sm font-bold text-fg">Trạng thái nhắc học</p>
-              <p className="text-xs text-muted">
-                {notifDraftEnabled
-                  ? 'Sẽ nhắc đúng giờ mỗi ngày học cho tới khi hoàn thành Màn.'
-                  : 'Tắt hoàn toàn nhắc học khi đang chọn lộ trình này.'}
-              </p>
-            </div>
+            <p className="text-sm font-bold text-fg">{effectiveSettings.roadmapLabel}</p>
             <div className="flex gap-1.5">
               <Chip
                 selected={notifDraftEnabled}
@@ -1990,7 +1685,7 @@ export const StageRoadmapPage: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="Giờ bắt đầu nhắc" htmlFor="roadmap-notif-time">
+            <Field label="Giờ nhắc" htmlFor="roadmap-notif-time">
               <Input
                 id="roadmap-notif-time"
                 type="time"
@@ -1999,7 +1694,7 @@ export const StageRoadmapPage: React.FC = () => {
                 onChange={(e) => setNotifDraftTime(e.target.value || '20:00')}
               />
             </Field>
-            <Field label="Nhắc lặp lại nếu chưa vào học" htmlFor="roadmap-notif-repeat">
+            <Field label="Nhắc lại nếu chưa học" htmlFor="roadmap-notif-repeat">
               <Select
                 id="roadmap-notif-repeat"
                 disabled={!notifDraftEnabled}
@@ -2019,7 +1714,7 @@ export const StageRoadmapPage: React.FC = () => {
 
           <div className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-sm font-medium text-fg">Các ngày nhắc trong tuần</span>
+              <span className="text-sm font-medium text-fg">Ngày nhắc</span>
               <div className="flex flex-wrap gap-1.5">
                 {[
                   { label: 'Cả tuần', days: [1, 2, 3, 4, 5, 6, 0] },
@@ -2060,23 +1755,16 @@ export const StageRoadmapPage: React.FC = () => {
             </div>
           </div>
 
-          <Notice tone="info">
-            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-              <span>
-                Đang áp dụng cho: <strong className="text-fg">{effectiveSettings.roadmapLabel}</strong>
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setRoadmapNotifModalOpen(false);
-                  setScheduleModalOpen(true);
-                }}
-                className="cursor-pointer font-semibold text-primary-fg hover:underline"
-              >
-                Mở lịch nhắc nâng cao →
-              </button>
-            </div>
-          </Notice>
+          <button
+            type="button"
+            onClick={() => {
+              setRoadmapNotifModalOpen(false);
+              setScheduleModalOpen(true);
+            }}
+            className="cursor-pointer text-xs font-semibold text-primary-fg hover:underline"
+          >
+            Lịch nhắc nâng cao →
+          </button>
         </div>
       </Modal>
 
@@ -2244,7 +1932,7 @@ export const StageRoadmapPage: React.FC = () => {
                 const isNextStep = !done && !locked && firstPendingTask?.id === task.id;
                 const skillMeta = STAGE_SKILL_META[task.skill];
 
-                const isWritingTask = task.to.startsWith('/vocabulary/writing');
+                const isWritingTask = task.to.startsWith('/games?game=shooter') || task.to.startsWith('/vocabulary/writing');
                 const isKanaTask =
                   task.to.includes('/kana') ||
                   task.title.toLowerCase().includes('hiragana') ||
@@ -2831,7 +2519,6 @@ export const StageRoadmapPage: React.FC = () => {
         onClose={() => setBuilderOpen(false)}
         size="lg"
         title="Tạo lộ trình mới (Tự thiết kế riêng)"
-        description="Tạo thêm một lộ trình riêng với giáo trình, tốc độ học/ngày (10p → 60 buổi · 30p → 30 buổi), ngày học và kỹ năng tùy chọn — không ghi đè Lộ trình Cố định."
         footer={
           <>
             <Button type="button" variant="secondary" onClick={() => setBuilderOpen(false)}>
@@ -3172,7 +2859,6 @@ export const StageRoadmapPage: React.FC = () => {
         onClose={() => setGalleryOpen(false)}
         size="lg"
         title="Kho Lộ trình Cộng đồng (Lưu 1 chạm)"
-        description="Chọn sẵn lộ trình được biên soạn theo mục tiêu thực tế — bấm Lưu về học ngay, hoàn toàn miễn phí và không ảnh hưởng Giáo trình chuẩn."
         footer={
           <>
             <Button
@@ -3220,9 +2906,6 @@ export const StageRoadmapPage: React.FC = () => {
                       <Badge tone="primary">{entry.level}</Badge>
                       <Badge tone="sakura">{entry.tag}</Badge>
                     </div>
-                    <span className="text-[11px] font-medium text-muted tabular">
-                      {entry.learnersCount} người học
-                    </span>
                   </div>
                   <h3 className="text-sm font-bold text-fg">{entry.name}</h3>
                   <p className="text-xs leading-relaxed text-muted">{entry.description}</p>
@@ -3258,8 +2941,7 @@ export const StageRoadmapPage: React.FC = () => {
         open={importModalOpen}
         onClose={() => setImportModalOpen(false)}
         size="md"
-        title="Nhập mã lộ trình được chia sẻ"
-        description="Dán mã lộ trình (bắt đầu bằng NIHON-...) hoặc đường link chia sẻ từ giáo viên / bạn bè để thêm ngay vào danh sách lộ trình của bạn (Hoàn toàn miễn phí)."
+        title="Nhập mã lộ trình"
         footer={
           <>
             <Button
@@ -3276,13 +2958,13 @@ export const StageRoadmapPage: React.FC = () => {
               leftIcon={<Download className="size-4" aria-hidden />}
               onClick={handleImportSharedRoadmap}
             >
-              Nhập &amp; Bắt đầu học
+              Nhập
             </Button>
           </>
         }
       >
         <div className="space-y-3">
-          <Field label="Mã lộ trình hoặc Link chia sẻ" htmlFor="import-roadmap-code">
+          <Field label="Mã hoặc link chia sẻ" htmlFor="import-roadmap-code">
             <Input
               id="import-roadmap-code"
               value={importCodeInput}
@@ -3321,8 +3003,8 @@ export const StageRoadmapPage: React.FC = () => {
         open={proPaywallOpen}
         onClose={() => setProPaywallOpen(false)}
         size="md"
-        title="Mở khóa Chia sẻ Lộ trình — Gói PRO Creator"
-        description="Tự tạo lộ trình học cho cá nhân là miễn phí 100%. Để xuất mã & chia sẻ lộ trình cho học viên, bạn bè hoặc nhóm học tập, hãy nâng cấp gói PRO Creator."
+        title="Chia sẻ lộ trình (PRO)"
+        description="Tạo lộ trình miễn phí. Chia sẻ cho người khác cần gói PRO."
         footer={
           <>
             <Button
@@ -3401,7 +3083,6 @@ export const StageRoadmapPage: React.FC = () => {
         onClose={() => setShareModalOpen(false)}
         size="md"
         title={`Chia sẻ lộ trình: ${roadmapState.customConfig?.name ?? ''}`}
-        description="Gửi Mã lộ trình hoặc Link trực tiếp bên dưới cho bạn bè / học viên. Người nhận có thể nhập và học theo lộ trình này hoàn toàn miễn phí!"
         footer={
           <>
             {user?.role !== 'ADMIN' && user?.role !== 'SUPER_ADMIN' && (
@@ -3437,7 +3118,7 @@ export const StageRoadmapPage: React.FC = () => {
             </Badge>
           </div>
 
-          <Field label="1. Mã chia sẻ lộ trình (Dùng cho nút Nhập mã lộ trình)" htmlFor="share-code-box">
+          <Field label="Mã chia sẻ" htmlFor="share-code-box">
             <div className="flex gap-2">
               <Input
                 id="share-code-box"
@@ -3459,7 +3140,7 @@ export const StageRoadmapPage: React.FC = () => {
             </div>
           </Field>
 
-          <Field label="2. Link chia sẻ 1 chạm (Bấm vào là mở thẳng hộp thoại nhập)" htmlFor="share-url-box">
+          <Field label="Link chia sẻ" htmlFor="share-url-box">
             <div className="flex gap-2">
               <Input
                 id="share-url-box"
@@ -3508,7 +3189,7 @@ export const StageRoadmapPage: React.FC = () => {
         cmsSnapshot={cmsSnapshot}
         studioLessons={studioState.lessons}
         onSaveStudioLesson={handleSaveSingleStudioLesson}
-        onRequestCreateQuiz={() => setCreateQuizOpen(true)}
+        onDeleteStudioLesson={handleDeleteStudioLesson}
         onCommitRoadmap={handleCommitAiJsonRoadmap}
       />
 
@@ -3518,7 +3199,7 @@ export const StageRoadmapPage: React.FC = () => {
         onClose={() => setDeleteConfirmRoadmap(null)}
         size="sm"
         title="Xóa lộ trình riêng này?"
-        description="Hành động này chỉ xóa lộ trình riêng — không ảnh hưởng Giáo trình chuẩn hay các bài đã lưu trong Kho bài của tôi."
+        description="Bài tự tạo của bạn vẫn được giữ lại."
         footer={
           <>
             <Button

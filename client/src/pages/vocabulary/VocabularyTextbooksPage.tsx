@@ -80,7 +80,6 @@ export const VocabularyTextbooksPage: React.FC = () => {
           { label: `Trình độ ${levelKey}` },
         ]}
         title={`Từ vựng · ${levelKey}`}
-        description="Chọn giáo trình một lần, sau đó mở thẳng bài học hoặc bắt đầu Quiz từ bài đó."
         actions={
           textbook && totalWords > 0 ? (
             <Link
@@ -108,6 +107,7 @@ export const VocabularyTextbooksPage: React.FC = () => {
             ))}
           </Select>
         </Field>
+        {textbookStats.length > 1 && (
         <Field label="Giáo trình từ vựng" htmlFor="vocabulary-textbook">
           <Select
             id="vocabulary-textbook"
@@ -121,6 +121,7 @@ export const VocabularyTextbooksPage: React.FC = () => {
             ))}
           </Select>
         </Field>
+        )}
         {textbook && (
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 sm:col-span-2">
             <div className="flex flex-wrap items-center gap-2 text-sm text-muted">

@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect } from 'react';
-import { HashRouter, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Link, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { AppLayout } from './components/layout/AppLayout';
 import { EmptyState, LoadingState, PageContainer, buttonStyles } from './components/ui';
@@ -39,12 +39,12 @@ const FlashcardPage = lazy(() =>
 const FlashcardViewer = lazy(() =>
   import('./components/flashcard/FlashcardViewer').then((m) => ({ default: m.FlashcardViewer })),
 );
-const WritingPage = lazy(() =>
-  import('./pages/WritingPage').then((m) => ({ default: m.WritingPage })),
-);
-const ReviewPage = lazy(() =>
-  import('./pages/ReviewPage').then((m) => ({ default: m.ReviewPage })),
-);
+/** Redirect that carries ?level=…&unit=… over to the new page. */
+const RedirectKeepingQuery: React.FC<{ to: string }> = ({ to }) => {
+  const { search } = useLocation();
+  return <Navigate to={`${to}${search}`} replace />;
+};
+
 const UnmasteredPage = lazy(() =>
   import('./pages/UnmasteredPage').then((m) => ({ default: m.UnmasteredPage })),
 );
@@ -134,8 +134,10 @@ function App() {
               <Route path=":level/:unitId" element={<VocabularyWordsPage />} />
 
               <Route path="quiz" element={<QuizPage />} />
-              <Route path="writing" element={<WritingPage />} />
-              <Route path="review" element={<ReviewPage />} />
+              {/* typing practice removed: the mini-games cover it, old links keep their lesson params */}
+              <Route path="writing" element={<RedirectKeepingQuery to="/games" />} />
+              {/* old "Ôn tập" page removed: keep old links working */}
+              <Route path="review" element={<Navigate to="/vocabulary/unmastered" replace />} />
               <Route path="unmastered" element={<UnmasteredPage />} />
             </Route>
           

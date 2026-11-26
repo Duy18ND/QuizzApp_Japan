@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { BookOpen, CheckCircle2, Compass } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { BookOpen, CheckCircle2, Compass, Users } from 'lucide-react';
 import { useAuth } from '../../context/auth-context';
 import {
   getPreferredVocabLevel,
@@ -12,7 +12,9 @@ import {
 import { useCurriculumSnapshot } from '../../hooks/useCurriculumData';
 import { cn } from '../../lib/cn';
 import {
+  fetchRoadmapLevelCounts,
   STUDY_LEVEL_OPTIONS,
+  type RoadmapLevelCounts,
   type StudyLevel,
 } from '../../services/userLevelService';
 import { Badge, Button, Modal, useToast } from '../ui';
@@ -37,6 +39,18 @@ export const LevelSelectionModal: React.FC<LevelSelectionModalProps> = ({
     bookId: string;
   } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [levelCounts, setLevelCounts] = useState<RoadmapLevelCounts | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void fetchRoadmapLevelCounts().then((counts) => {
+      if (!cancelled) setLevelCounts(counts);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   const effectiveCurrentLevel = studyLevel ?? getPreferredVocabLevel(user?.id);
   const selectedLevel = draftLevel ?? effectiveCurrentLevel;
@@ -155,6 +169,7 @@ export const LevelSelectionModal: React.FC<LevelSelectionModalProps> = ({
             {STUDY_LEVEL_OPTIONS.map((opt) => {
               const isSelected = selectedLevel === opt.level;
               const defaultBook = getVocabTextbooksForLevel(opt.level)[0];
+              const learnerCount = levelCounts?.[opt.level] ?? 0;
               return (
                 <button
                   key={opt.level}
@@ -190,6 +205,12 @@ export const LevelSelectionModal: React.FC<LevelSelectionModalProps> = ({
                       >
                         {opt.japaneseLabel}
                       </span>
+                      {learnerCount > 0 && (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-surface px-1.5 py-0.5 text-[11px] font-medium text-muted ring-1 ring-line tabular-nums">
+                          <Users className="size-3 text-primary-fg" aria-hidden />
+                          {learnerCount.toLocaleString('vi-VN')} người đang học
+                        </span>
+                      )}
                       {defaultBook && (
                         <span className="text-[11px] font-medium text-primary-fg">
                           Gợi ý: {defaultBook.shortTitle}
@@ -215,7 +236,7 @@ export const LevelSelectionModal: React.FC<LevelSelectionModalProps> = ({
           </div>
         </div>
 
-        {selectedLevel && levelTextbooks.length > 0 && (
+        {selectedLevel && levelTextbooks.length > 1 && (
           <div className="space-y-2.5 border-t border-line pt-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-muted uppercase">

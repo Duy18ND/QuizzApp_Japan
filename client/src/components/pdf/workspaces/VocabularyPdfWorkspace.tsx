@@ -237,6 +237,7 @@ export const VocabularyPdfWorkspace: React.FC = () => {
                   </Select>
                 </Field>
 
+                {textbooksForLevel.length > 1 && (
                 <Field label="Giáo trình" htmlFor="pdf-vocab-book">
                   <Select
                     id="pdf-vocab-book"
@@ -250,6 +251,7 @@ export const VocabularyPdfWorkspace: React.FC = () => {
                     ))}
                   </Select>
                 </Field>
+                )}
               </div>
 
               <Field label="Bài học (Unit)" htmlFor="pdf-vocab-unit">

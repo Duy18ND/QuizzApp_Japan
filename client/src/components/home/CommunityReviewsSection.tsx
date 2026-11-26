@@ -5,11 +5,8 @@ import {
   CheckCircle2,
   Eye,
   EyeOff,
-  Lock,
   MessageSquarePlus,
   Pin,
-  ShieldCheck,
-  Sparkles,
   Star,
   ThumbsUp,
   Trash2,
@@ -28,8 +25,7 @@ import {
   type AppReviewRecord,
   type CommunityStats,
 } from '../../services/communityReviewService';
-import { useQuizHistory } from '../../services/quizHistoryService';
-import { STUDY_LEVEL_OPTIONS, type StudyLevel } from '../../services/userLevelService';
+import type { StudyLevel } from '../../services/userLevelService';
 import {
   Badge,
   Button,
@@ -39,18 +35,17 @@ import {
   Modal,
   Notice,
   ProgressBar,
-  Select,
   Textarea,
   useToast,
 } from '../ui';
 import { buttonStyles } from '../ui/styles';
 
 const RATING_LABELS: Record<number, string> = {
-  1: 'Cần cải thiện nhiều',
-  2: 'Tạm ổn, còn thiếu sót',
-  3: 'Khá hữu ích',
-  4: 'Rất tốt cho tự học',
-  5: 'Tuyệt vời · Rất đáng dùng!',
+  1: 'Rất tệ',
+  2: 'Chưa tốt',
+  3: 'Bình thường',
+  4: 'Tốt',
+  5: 'Rất tốt',
 };
 
 function formatDateVi(iso: string): string {
@@ -72,12 +67,10 @@ function getInitials(name: string): string {
 
 export const CommunityReviewsSection: React.FC = () => {
   const { user, studyLevel } = useAuth();
-  const quizHistory = useQuizHistory();
   const { toast } = useToast();
 
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
-  const myCompletedAttempts = user ? quizHistory.length : 0;
-  const hasExperiencedApp = Boolean(user && (myCompletedAttempts >= 1 || isAdmin));
+  const hasExperiencedApp = Boolean(user);
 
   const [reviews, setReviews] = useState<AppReviewRecord[]>([]);
   const [votedIds, setVotedIds] = useState<string[]>([]);
@@ -90,7 +83,7 @@ export const CommunityReviewsSection: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [tableNotReady, setTableNotReady] = useState(false);
 
-  const [filterMode, setFilterMode] = useState<'ALL' | '5STAR' | 'N5' | 'N4' | 'N3'>('ALL');
+  const [filterMode, setFilterMode] = useState<'ALL' | 1 | 2 | 3 | 4 | 5>('ALL');
   const [showAll, setShowAll] = useState(false);
 
   // One-time Write Review Modal state
@@ -129,11 +122,7 @@ export const CommunityReviewsSection: React.FC = () => {
   const filteredReviews = useMemo(() => {
     return reviews.filter((r) => {
       if (r.isHidden && !isAdmin && r.userId !== user?.id) return false;
-      if (filterMode === '5STAR') return r.rating === 5;
-      if (filterMode === 'N5' || filterMode === 'N4' || filterMode === 'N3') {
-        return r.studyLevel.toUpperCase() === filterMode;
-      }
-      return true;
+      return filterMode === 'ALL' || r.rating === filterMode;
     });
   }, [filterMode, isAdmin, reviews, user?.id]);
 
@@ -143,7 +132,7 @@ export const CommunityReviewsSection: React.FC = () => {
     if (!user || myReview) return;
     if (!hasExperiencedApp) {
       toast({
-        title: 'Hãy trải nghiệm hoàn thành ít nhất 1 bài Quiz / Mini-game rồi đánh giá nhé!',
+        title: 'Hoàn thành 1 bài luyện tập để gửi đánh giá.',
         tone: 'info',
       });
       return;
@@ -170,6 +159,10 @@ export const CommunityReviewsSection: React.FC = () => {
   const handleSaveReview = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || myReview) return;
+    if (draftComment.trim().length < 1) {
+      setFormError('Vui lòng nhập nhận xét.');
+      return;
+    }
     setSaving(true);
     setFormError(null);
 
@@ -190,7 +183,7 @@ export const CommunityReviewsSection: React.FC = () => {
 
     setModalOpen(false);
     toast({
-      title: 'Cảm ơn bạn đã gửi đánh giá trải nghiệm thật!',
+      title: 'Đã gửi đánh giá. Cảm ơn bạn!',
       tone: 'success',
     });
     await refreshReviews();
@@ -247,49 +240,39 @@ export const CommunityReviewsSection: React.FC = () => {
   };
 
   const renderReviewActionControl = () => {
-    // Guest: do NOT pressure guests to log in just to review; let them try first
     if (!user) {
       return (
         <Link
-          to="/vocabulary/quiz"
+          to="/login"
           className={buttonStyles({ variant: 'secondary', size: 'sm' })}
         >
-          <span>Trải nghiệm thử 1 bài Quiz</span>
+          <span>Viết đánh giá</span>
           <ArrowRight className="size-3.5" aria-hidden />
         </Link>
       );
     }
 
-    // Already submitted 1-time immutable review
     if (myReview) {
       return (
-        <Badge tone="success" className="px-3 py-1.5 text-xs">
+        <Badge tone="success" className="px-2.5 py-1 text-xs">
           <CheckCircle2 className="size-3.5" aria-hidden />
-          Đã gửi đánh giá (1/1 · cố định)
+          Đã đánh giá
         </Badge>
       );
     }
 
-    // Logged in, but has NOT completed at least 1 real practice/quiz yet
     if (!hasExperiencedApp) {
       return (
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge tone="neutral" className="px-2.5 py-1 text-xs">
-            <Lock className="size-3" aria-hidden />
-            Hoàn thành 1 bài luyện để mở đánh giá
-          </Badge>
-          <Link
-            to="/vocabulary/quiz"
-            className={buttonStyles({ variant: 'soft', size: 'sm' })}
-          >
-            Luyện thử ngay
-            <ArrowRight className="size-3.5" aria-hidden />
-          </Link>
-        </div>
+        <Link
+          to="/vocabulary/quiz"
+          className={buttonStyles({ variant: 'soft', size: 'sm' })}
+        >
+          <span>Làm 1 bài để đánh giá</span>
+          <ArrowRight className="size-3.5" aria-hidden />
+        </Link>
       );
     }
 
-    // Experienced user -> unlocked for 1-time honest review
     return (
       <Button
         type="button"
@@ -298,40 +281,28 @@ export const CommunityReviewsSection: React.FC = () => {
         leftIcon={<MessageSquarePlus className="size-3.5" aria-hidden />}
         onClick={openWriteModal}
       >
-        Gửi đánh giá trải nghiệm (1 lần)
+        Viết đánh giá
       </Button>
     );
   };
 
   return (
     <Card as="section" aria-labelledby="section-community-reviews" padding="md" className="space-y-4">
-      {/* Header + Live Public Community Stats */}
-      <div className="flex flex-col gap-3 border-b border-line pb-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2
-              id="section-community-reviews"
-              className="flex items-center gap-2 text-base font-bold text-fg md:text-lg"
-            >
-              <span aria-hidden className="h-4 w-1 rounded-full bg-sakura" />
-              Đánh giá thật từ Cộng đồng học viên
-            </h2>
-            <Badge tone="success">
-              <ShieldCheck className="size-3" aria-hidden />
-              Trải nghiệm thật · 1 lần duy nhất · Không chỉnh sửa
-            </Badge>
-          </div>
-          <p className="text-xs text-muted">
-            Chỉ mở cho học viên đã hoàn thành ít nhất 1 bài luyện tập. Mỗi tài khoản chỉ gửi duy nhất 1 lần để giữ 100% tính khách quan.
-          </p>
-        </div>
+      {/* Header */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
+        <h2
+          id="section-community-reviews"
+          className="flex items-center gap-2 text-base font-bold text-fg md:text-lg"
+        >
+          <span aria-hidden className="h-4 w-1 rounded-full bg-sakura" />
+          Đánh giá
+        </h2>
 
         <div className="flex flex-wrap items-center gap-2">{renderReviewActionControl()}</div>
       </div>
 
-      {/* Live Stats Strip + Rating Breakdown */}
+      {/* Rating Summary */}
       <div className="grid grid-cols-1 gap-4 rounded-xl border border-line bg-surface-2/55 p-4 md:grid-cols-[minmax(200px,auto)_1fr]">
-        {/* Left: Average Score + Real Counts */}
         <div className="flex flex-col justify-between gap-3 md:border-r md:border-line md:pr-5">
           <div className="flex items-baseline gap-2.5">
             <span className="tabular text-4xl font-extrabold tracking-tight text-fg">
@@ -357,8 +328,8 @@ export const CommunityReviewsSection: React.FC = () => {
               </div>
               <p className="mt-0.5 text-xs text-muted tabular">
                 {summary.visibleCount > 0
-                  ? `${summary.visibleCount} đánh giá đã trải nghiệm`
-                  : 'Chưa có đánh giá nào'}
+                  ? `${summary.visibleCount} đánh giá`
+                  : 'Chưa có đánh giá'}
               </p>
             </div>
           </div>
@@ -384,7 +355,18 @@ export const CommunityReviewsSection: React.FC = () => {
           {([5, 4, 3, 2, 1] as const).map((star) => {
             const count = summary.distribution[star];
             return (
-              <div key={star} className="grid grid-cols-[36px_1fr_32px] items-center gap-2 text-xs">
+              <button
+                key={star}
+                type="button"
+                aria-pressed={filterMode === star}
+                aria-label={`Xem đánh giá ${star} sao (${count})`}
+                title={filterMode === star ? 'Bấm lần nữa để xem tất cả' : `Xem đánh giá ${star} sao`}
+                onClick={() => setFilterMode(filterMode === star ? 'ALL' : star)}
+                className={cn(
+                  'grid cursor-pointer grid-cols-[36px_1fr_32px] items-center gap-2 rounded-lg px-2 py-0.5 text-xs transition-colors hover:bg-primary-soft',
+                  filterMode === star && 'bg-primary-soft ring-1 ring-primary',
+                )}
+              >
                 <span className="flex items-center gap-1 font-semibold text-muted tabular">
                   {star}
                   <Star className="size-3 fill-current text-warning-fg" aria-hidden />
@@ -397,7 +379,7 @@ export const CommunityReviewsSection: React.FC = () => {
                   label={`${count} đánh giá ${star} sao`}
                 />
                 <span className="text-right font-medium text-muted tabular">{count}</span>
-              </div>
+              </button>
             );
           })}
         </div>
@@ -412,28 +394,20 @@ export const CommunityReviewsSection: React.FC = () => {
         </Notice>
       )}
 
-      {/* Filters (only when reviews exist) */}
-      {reviews.length > 0 && (
+      {/* Only shown while a star row is selected (or for admins) */}
+      {(filterMode !== 'ALL' || isAdmin) && reviews.length > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-1.5">
-            {(
-              [
-                { value: 'ALL', label: `Tất cả (${summary.visibleCount})` },
-                { value: '5STAR', label: '5 ★' },
-                { value: 'N5', label: 'JLPT N5' },
-                { value: 'N4', label: 'JLPT N4' },
-                { value: 'N3', label: 'JLPT N3' },
-              ] as const
-            ).map((opt) => (
-              <Chip
-                key={opt.value}
-                selected={filterMode === opt.value}
-                onClick={() => setFilterMode(opt.value)}
-              >
-                {opt.label}
-              </Chip>
-            ))}
-          </div>
+          {filterMode !== 'ALL' ? (
+            <button
+              type="button"
+              onClick={() => setFilterMode('ALL')}
+              className="cursor-pointer text-xs font-semibold text-primary-fg hover:underline"
+            >
+              Đang xem {filterMode} sao · Xem tất cả ✕
+            </button>
+          ) : (
+            <span />
+          )}
           {isAdmin && (
             <span className="text-[11px] font-medium text-muted">
               Chế độ Admin: có thể Ghim nổi bật / Ẩn / Xóa spam trực tiếp trên thẻ
@@ -453,44 +427,11 @@ export const CommunityReviewsSection: React.FC = () => {
           ))}
         </div>
       ) : displayedReviews.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2.5 rounded-xl border border-dashed border-line-strong bg-surface-2/35 px-4 py-8 text-center">
-          <span className="grid size-10 place-items-center rounded-xl bg-sakura-soft text-sakura">
-            <Sparkles className="size-5" aria-hidden />
-          </span>
-          <div className="max-w-md space-y-1">
-            <p className="text-sm font-semibold text-fg">
-              {reviews.length === 0
-                ? 'Chưa có đánh giá nào — 100% minh bạch, không dùng đánh giá ảo'
-                : 'Không có đánh giá nào khớp bộ lọc hiện tại'}
-            </p>
-            <p className="text-xs leading-relaxed text-muted">
-              {reviews.length === 0
-                ? 'Hãy học thử hoặc hoàn thành ít nhất 1 bài luyện tập (Quiz, Nghe hiểu, Đọc hiểu hoặc Mini-game) rồi quay lại chia sẻ cảm nhận thật — mỗi tài khoản gửi 1 lần duy nhất.'
-                : 'Thử chọn lại "Tất cả" để xem đầy đủ các nhận xét từ học viên.'}
-            </p>
-          </div>
-          {reviews.length === 0 && (
-            hasExperiencedApp && !myReview ? (
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
-                leftIcon={<MessageSquarePlus className="size-3.5" aria-hidden />}
-                onClick={openWriteModal}
-              >
-                Gửi đánh giá trải nghiệm đầu tiên
-              </Button>
-            ) : (
-              <Link
-                to="/vocabulary/quiz"
-                className={buttonStyles({ variant: 'primary', size: 'sm' })}
-              >
-                <span>Trải nghiệm thử 1 bài luyện ngay</span>
-                <ArrowRight className="size-3.5" aria-hidden />
-              </Link>
-            )
-          )}
-        </div>
+        <p className="py-3 text-center text-xs text-muted">
+          {reviews.length === 0
+            ? 'Chưa có đánh giá nào.'
+            : 'Không có đánh giá nào phù hợp bộ lọc.'}
+        </p>
       ) : (
         <>
           <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -525,7 +466,6 @@ export const CommunityReviewsSection: React.FC = () => {
                             <span className="truncate text-sm font-bold text-fg">
                               {review.authorName}
                             </span>
-                            <Badge tone="primary">{review.studyLevel}</Badge>
                             {isMine && <Badge tone="neutral">Của bạn</Badge>}
                             {review.isFeatured && <Badge tone="sakura">★ Nổi bật</Badge>}
                             {review.isHidden && <Badge tone="danger">Đang ẩn</Badge>}
@@ -672,13 +612,12 @@ export const CommunityReviewsSection: React.FC = () => {
         </>
       )}
 
-      {/* One-time Immutable Write Review Modal */}
+      {/* Write Review Modal */}
       <Modal
         open={modalOpen}
         onClose={() => !saving && setModalOpen(false)}
         size="md"
-        title="Gửi đánh giá trải nghiệm thực tế"
-        description="Cảm ơn bạn đã học thử trên Nihongo 問! Cảm nhận thật của bạn giúp dự án miễn phí ngày càng hoàn thiện hơn."
+        title="Viết đánh giá"
       >
         <form onSubmit={(e) => void handleSaveReview(e)} className="space-y-4">
           {formError && (
@@ -687,15 +626,9 @@ export const CommunityReviewsSection: React.FC = () => {
             </Notice>
           )}
 
-          <Notice tone="info" title="Đánh giá cố định 1 lần duy nhất">
-            Mỗi tài khoản chỉ được gửi <strong>duy nhất 1 lần</strong> sau khi đã trải nghiệm (hiện
-            bạn đã hoàn thành <strong>{myCompletedAttempts} bài luyện</strong>) và{' '}
-            <strong>không thể chỉnh sửa</strong> sau khi đăng để đảm bảo 100% khách quan.
-          </Notice>
-
           {/* Star Selector */}
           <div className="space-y-1.5">
-            <span className="text-xs font-semibold text-fg">Mức độ hài lòng của bạn *</span>
+            <span className="text-xs font-semibold text-fg">Đánh giá *</span>
             <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-surface-2 p-3">
               <div className="flex items-center gap-1">
                 {[1, 2, 3, 4, 5].map((star) => (
@@ -724,22 +657,9 @@ export const CommunityReviewsSection: React.FC = () => {
             </div>
           </div>
 
-          <Field label="Trình độ bạn đang học">
-            <Select
-              value={draftLevel}
-              onChange={(e) => setDraftLevel(e.target.value as StudyLevel)}
-            >
-              {STUDY_LEVEL_OPTIONS.map((opt) => (
-                <option key={opt.level} value={opt.level}>
-                  JLPT {opt.level} — {opt.title}
-                </option>
-              ))}
-            </Select>
-          </Field>
-
           <div className="space-y-1.5">
             <span className="text-xs font-semibold text-fg">
-              Tính năng bạn thấy hữu ích nhất (chọn tối đa 3)
+              Thích nhất
             </span>
             <div className="flex flex-wrap gap-1.5">
               {REVIEW_FEATURE_TAGS.map((tag) => (
@@ -755,16 +675,15 @@ export const CommunityReviewsSection: React.FC = () => {
           </div>
 
           <Field
-            label="Nhận xét chi tiết *"
-            hint={`${draftComment.trim().length}/500 ký tự (tối thiểu 15 ký tự)`}
+            label="Nhận xét *"
+            hint={`${draftComment.trim().length}/500`}
           >
             <Textarea
-              required
               rows={4}
               maxLength={500}
               value={draftComment}
               onChange={(e) => setDraftComment(e.target.value)}
-              placeholder="VD: Sau khi học thử phần lộ trình và làm bài nghe hiểu tách giọng Nam–Nữ, mình thấy rất dễ nhớ. Mong web thêm nhiều đề đọc hiểu N3 nữa..."
+              placeholder="Cảm nhận của bạn..."
             />
           </Field>
 
@@ -775,14 +694,14 @@ export const CommunityReviewsSection: React.FC = () => {
               disabled={saving}
               onClick={() => setModalOpen(false)}
             >
-              Để sau
+              Hủy
             </Button>
             <Button
               type="submit"
               variant="primary"
-              disabled={saving || draftComment.trim().length < 15}
+              disabled={saving}
             >
-              {saving ? 'Đang gửi...' : 'Gửi đánh giá (1 lần duy nhất)'}
+              {saving ? 'Đang gửi...' : 'Gửi đánh giá'}
             </Button>
           </div>
         </form>

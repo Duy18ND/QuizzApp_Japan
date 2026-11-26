@@ -97,7 +97,7 @@ export function resolveAttemptRedoTarget(
 
   if (attempt.quizType === 'writing') {
     return {
-      path: appendRetryAttemptParam('/vocabulary/writing', attempt.id),
+      path: appendRetryAttemptParam('/games?game=shooter', attempt.id),
       label,
       level: level || undefined,
       quizType: attempt.quizType,
