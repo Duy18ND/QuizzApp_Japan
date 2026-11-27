@@ -32,9 +32,48 @@ let cloudHydratedOnce = false;
 let cloudFetchInFlight: Promise<CmsSnapshot> | null = null;
 const listeners = new Set<Listener>();
 
+const CMS_CACHE_TS_KEY = 'nihonmaster_cms_hydrated_at_v1';
+const CMS_CACHE_SNAP_KEY = 'nihonmaster_cms_snapshot_v1';
+const CMS_CACHE_TTL_MS = 15 * 60 * 1000;
+
+function readSessionCachedSnapshot(): CmsSnapshot | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const rawTs = window.sessionStorage.getItem(CMS_CACHE_TS_KEY);
+    if (!rawTs || Date.now() - Number(rawTs) > CMS_CACHE_TTL_MS) return null;
+    const rawSnap = window.sessionStorage.getItem(CMS_CACHE_SNAP_KEY);
+    if (!rawSnap) return null;
+    const parsed = JSON.parse(rawSnap) as CmsSnapshot;
+    if (!parsed || !Array.isArray(parsed.units) || !Array.isArray(parsed.vocabularies)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeSessionCachedSnapshot(snap: CmsSnapshot): void {
+  if (typeof window === 'undefined' || snap.source !== 'supabase') return;
+  try {
+    window.sessionStorage.setItem(CMS_CACHE_TS_KEY, String(Date.now()));
+    window.sessionStorage.setItem(CMS_CACHE_SNAP_KEY, JSON.stringify(snap));
+  } catch {
+    // Ignore sessionStorage quota limits
+  }
+}
+
+function clearSessionCachedSnapshot(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.removeItem(CMS_CACHE_TS_KEY);
+    window.sessionStorage.removeItem(CMS_CACHE_SNAP_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 function ensureInitSnapshot(): CmsSnapshot {
   if (!currentSnapshot) {
-    currentSnapshot = getCmsSnapshotSync();
+    currentSnapshot = readSessionCachedSnapshot() ?? getCmsSnapshotSync();
   }
   return currentSnapshot;
 }
@@ -47,6 +86,7 @@ function emitChange(): void {
 
 if (typeof window !== 'undefined') {
   window.addEventListener(CMS_SYNC_EVENT, () => {
+    clearSessionCachedSnapshot();
     currentSnapshot = getCmsSnapshotSync();
     emitChange();
     if (supabase) {
@@ -72,6 +112,7 @@ export async function refreshCurriculumFromCloud(): Promise<CmsSnapshot> {
     .then((snap) => {
       currentSnapshot = snap;
       cloudHydratedOnce = true;
+      writeSessionCachedSnapshot(snap);
       emitChange();
       return snap;
     })
@@ -83,6 +124,10 @@ export async function refreshCurriculumFromCloud(): Promise<CmsSnapshot> {
 
 export function ensureCurriculumHydrated(): void {
   if (cloudHydratedOnce || cloudFetchInFlight || !supabase) return;
+  if (readSessionCachedSnapshot()) {
+    cloudHydratedOnce = true;
+    return;
+  }
   void refreshCurriculumFromCloud();
 }
 

@@ -161,9 +161,8 @@ export const JapaneseLandscapeBg: React.FC<{ subdued?: boolean }> = ({ subdued =
           key={layer.key}
           src={layer.src}
           alt=""
-          decoding="sync"
+          decoding="async"
           loading="eager"
-          fetchPriority="high"
           style={BG_IMAGE_STYLE}
           className={layer.className}
         />

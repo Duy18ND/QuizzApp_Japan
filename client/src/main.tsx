@@ -11,10 +11,9 @@ import App from './App.tsx'
 import { ErrorBoundary } from './components/common/ErrorBoundary.tsx'
 import { AuthProvider } from './context/AuthContext.tsx'
 import { initPwaInstallAndServiceWorker } from './services/pwaReminderService'
-import { FontManager } from './utils/fontManager'
 
-// Preload font & register lightweight PWA install/reminder service worker (non-blocking)
-FontManager.preloadFont();
+// Register lightweight PWA install/reminder service worker (non-blocking).
+// PDF font (MPLUS1p-Regular.ttf, ~1.7MB) loads on demand when entering /pdf.
 initPwaInstallAndServiceWorker();
 
 createRoot(document.getElementById('root')!).render(
