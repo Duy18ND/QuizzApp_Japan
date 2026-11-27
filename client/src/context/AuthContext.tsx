@@ -148,7 +148,7 @@ async function signInWithHashedOrLegacyPassword(
   return legacyAttempt;
 }
 
-const RESUME_REFRESH_MIN_GAP_MS = 20_000;
+const RESUME_REFRESH_MIN_GAP_MS = 120_000;
 
 async function fetchProfileForUser(
   userId: string,

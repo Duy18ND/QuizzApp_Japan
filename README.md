@@ -1,32 +1,44 @@
-# React + TypeScript + Vite
+# Nihongo 問 — Ứng dụng học tiếng Nhật JLPT (N5 – N3)
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Ứng dụng web học tiếng Nhật toàn diện, hỗ trợ học offline/PWA và đồng bộ tiến độ đám mây qua Supabase.
 
-Currently, two official plugins are available:
+- **Bản trực tuyến:** https://duy18nd.github.io/QuizzApp_Japan/
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Tính năng chính
 
-## React Compiler
+- **Lộ trình học thông minh (`/roadmap`):** Theo dõi tiến độ hằng ngày theo giáo trình chuẩn (N5 – N3) hoặc tự tạo lộ trình cá nhân, đặt mục tiêu phút/ngày và ngày hoàn thành dự kiến.
+- **6 kỹ năng & luyện tập:** Từ vựng (flashcard, quiz, phát âm), Ngữ pháp, Luyện viết Kanji (`hanzi-writer`), Đọc hiểu, Nghe hiểu (Mondai 1–4) và Mini-game.
+- **Thi thử & công cụ:** Thi thử JLPT tính giờ, ôn câu sai & từ đánh dấu sao, xuất tài liệu học PDF qua hộp thoại in trình duyệt.
+- **Đồng bộ & nhắc học:** Đăng nhập Google / Email (Supabase Auth), sao lưu/khôi phục tiến độ `.json`, nhắc học qua Web Push / PWA & tải lịch `.ics` trong **Cài đặt**.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Cài đặt & chạy local
 
-## Expanding the Oxlint configuration
+Yêu cầu **Node.js 22+**.
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+cd client
+npm install
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Tạo file `client/.env` từ mẫu `client/.env.example` (tùy chọn; app vẫn chạy được ở chế độ offline nếu chưa cấu hình Supabase):
+
+```env
+VITE_SUPABASE_URL=<URL_SUPABASE_PROJECT>
+VITE_SUPABASE_ANON_KEY=<SUPABASE_PUBLISHABLE_OR_ANON_KEY>
+VITE_VAPID_PUBLIC_KEY=<VAPID_PUBLIC_KEY_OPTIONAL>
+```
+
+> **Lưu ý bảo mật:** Frontend (`client/.env`) chỉ được phép dùng public/publishable key (`VITE_*`). Tuyệt đối không đưa `SUPABASE_SERVICE_ROLE_KEY` hay `VAPID_PRIVATE_KEY` vào mã nguồn client.
+
+Các lệnh thường dùng trong thư mục `client/`:
+
+```bash
+npm run dev      # Chạy server phát triển (Vite)
+npm run build    # Kiểm tra TypeScript & build production ra client/dist/
+npm run lint     # Kiểm tra code bằng Oxlint
+npm run preview  # Xem trước bản build production
+```
+
+## Triển khai (Deploy)
+
+Workflow `.github/workflows/deploy.yml` tự động build `client/` và deploy `client/dist/` lên **GitHub Pages** mỗi khi push code lên nhánh `main` (cần cấu hình `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_VAPID_PUBLIC_KEY` trong GitHub Actions Secrets).
