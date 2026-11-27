@@ -41,7 +41,6 @@ async function preloadFont(): Promise<boolean> {
       const loaded = document.fonts.check(`400 16px "${FONT_FAMILY}"`);
       if (loaded) {
         _isLoaded = true;
-        console.log('[FontManager] ✅ Font MPLUS1p loaded successfully');
         return true;
       }
       

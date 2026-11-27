@@ -17,14 +17,12 @@ import {
   setActiveAuthenticatedUserId,
 } from '../services/sessionScope';
 import {
-  clearSavedOAuthProviderToken,
   consumeOAuthLoginPending,
   consumePendingImplicitOAuthTokens,
   consumePendingOAuthCallbackError,
   isEmbeddedInAppBrowser,
   isSupabaseConfigured,
   markOAuthLoginPending,
-  saveOAuthProviderToken,
   supabase,
   supabasePublicAnonKey,
   supabasePublicUrl,
@@ -340,7 +338,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           restorePendingOAuthError();
           return;
         }
-        saveOAuthProviderToken(data.session?.provider_token);
         pendingOAuthErrRef.current = null;
         // the stored session can be an hour old: ask the server for the current metadata
         const fresh = await sbClient.auth.getUser().catch(() => null);
@@ -383,7 +380,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
       pendingOAuthErrRef.current = null;
-      saveOAuthProviderToken(session.provider_token);
       const meta = session.user.user_metadata as Record<string, unknown> | undefined;
       const profile = await fetchProfileForUser(
         session.user.id,
@@ -619,7 +615,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       options: {
         redirectTo,
         queryParams: {
-          access_type: 'offline',
           prompt: 'select_account',
         },
       },
@@ -639,7 +634,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     clearInMemoryAccountData();
     clearMiniGameProfileCache();
     clearJlptProgressCache();
-    clearSavedOAuthProviderToken();
     if (supabase) {
       try {
         await supabase.auth.signOut();
